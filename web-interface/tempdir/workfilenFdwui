@@ -1,0 +1,95 @@
+role iso1_Init ( A,B : agent,
+                 Pka, Pks : public_key,
+                 Snd, Rcv : channel(dy))
+played_by A
+def=
+
+ local  State: nat,
+        Na   : text
+
+ init  State := 0
+
+ transition
+
+   1. State = 0
+      / Rcv(start)
+      =|> 
+      State' := 1
+      / Na' := new()
+      / Snd(Pka.A.{Pka.A}_inv(Pks).Na'.B.ctext.{Na'.B.ctext}_inv(Pka))
+      / witness(A,B,na,Na')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role iso1_Resp (A, B: agent,
+                Pks : public_key,
+                Rec : channel(dy))
+played_by B
+def=
+
+  local  State     : nat, 
+         Pka       : public_key,
+         Na, Text  : text
+
+  init  State := 0
+
+  transition
+
+   1. State = 0 
+      / Rec(Pka'.A.{Pka'.A}_inv(Pks).Na'.B.Text'.{Na'.B.Text'}_inv(Pka'))
+      =|>  
+      State' := 1
+      / request(B,A,na,Na')
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role session (A, B : agent,
+	      Pka  : public_key,
+              Pks  : public_key) def=
+
+  local SA, RA, RB: channel (dy)
+
+  const na : protocol_id
+
+  composition
+
+          iso1_Init(A,B,Pka,Pks,SA,RA)
+       / iso1_Resp(A,B,Pks,RB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role environment() def=
+
+  const ctext    : text,
+	a, b     : agent,
+	pka, pks : public_key
+
+  intruder_knowledge={a,b,pks,pka}
+
+  composition
+
+	session(a,b,pka,pks)
+     /	session(a,b,pka,pks)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+goal
+
+   %ISO1_Resp authenticates ISO1_Init on na
+   authentication_on na % addressess G1 and G2
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+environment()
+ 

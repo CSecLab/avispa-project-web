@@ -1,0 +1,185 @@
+%% PROTOCOL: SoftGap Protocol
+%% VARIANT: version MILCOM paper
+%% PURPOSE: unidirectional flow control
+%% MODELER: Angelo Liguori, SIRA srl, April 2015
+%% ALICE_BOB:
+%%\begin{verbatim}
+%% 1. A  - {Na.A}_Kb ----> B
+%% 2. A  B
+%%\end{verbatim}
+%% PROBLEMS: 3
+%% CLASSIFICATION: G1, G3, G12
+%% ATTACKS: Man-in-the-middle attack,
+%% where in the first session Alice talks with the intruder as desired
+%% and in the second session Bob wants to talk with Alice but actually
+%% talks to the intruder. Therefore, also the nonce Nb gets leaked.
+%%\begin{verbatim}
+%% 1.1  A  - {Na.A}_Ki --> i   	
+%% 2.1                     i(A)  - {Na.A}_Kb  -> B   	
+%% 2.2                     i(A)  B 
+%%\end{verbatim}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+%%HLPSL:
+role subject_low (A,H,B: agent,             
+                  Kap: public_key,
+                  %Hash: hash_func,
+                  RCV_HA, SND_AH: channel (dy)) 
+played_by A def=
+
+  local 
+	State : nat,
+	M: message,
+	Hash: hash_func,
+ 	Digest: hash(message),
+	Network_card_ON : bool,
+ 	K: symmetric_key
+  
+  const
+	false : bool,
+	h_a_key, h_a_m_digest: protocol_id
+
+  init 
+	State := 0
+
+  transition  
+   
+    0.  State  = 0 /\ RCV_HA(start) =|>
+		State':= 2 /\ K' := new()
+				   /\ SND_AH({A.K'}_inv(Kap))
+				   /\ M' := new()
+				   /\ Digest' := Hash(M')
+				   /\ SND_AH({A.M'.Digest'}_K')
+				   /\ Network_card_ON' := false
+				   /\ secret(K',h_a_key,{A,B})
+				   /\ witness(A,B,h_a_key,K')
+				   /\ secret(M'.Digest',h_a_m_digest,{A,B})
+				   /\ witness(A,B,h_a_m_digest,M'.Digest')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role skh(A,H,B: agent,      
+         Kap: public_key,
+		 %Hash: hash_func,
+         RCV_AH, SND_HB: channel (dy)) 
+played_by H def=
+
+  local State : nat, 
+	M: message,
+	Hash: hash_func,
+	Digest: hash(message),
+	X: M.Digest,
+	K: symmetric_key
+  
+  const 
+	h_a_key, b_h_key, h_a_m_digest, b_h_m_digest: protocol_id
+
+  init 
+	State := 1
+
+  transition
+
+    1.  State  = 1 /\ RCV_AH({A.K'}_inv(Kap)) =|>
+		State':= 3 /\ RCV_AH({A.X'}_K')
+		   		   /\ request(H,A,b_h_key,K')
+		   		   /\ request(H,A,b_h_m_digest,M'.Digest') 
+
+    2.  State  = 3 /\ SND_HB({A.K'}_inv(Kap)) =|>
+		   		   %/\ secret(K',h_a_key,{A,B})
+		   		   %/\ witness(A,B,h_a_key,K')
+		State':= 4 /\ SND_HB({A.X'}_K')
+		   		   /\ secret(X',h_a_m_digest,{A,B})
+		   		   /\ witness(A,B,h_a_m_digest,X')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role subject_high (A,H,B: agent,             
+                  Kap: public_key,
+                  %Hash: hash_func,
+                  RCV_HB, SND: channel (dy)) 
+played_by B def=
+
+  local State : nat,
+        M: message,
+		Hash: hash_func,
+        Digest: hash(message),
+		Digest_received : hash(message),
+		K: symmetric_key
+  const
+	h_b_key, h_b_m_digest: protocol_id
+
+  init 
+	State := 5
+
+  transition  
+   
+    3.  State  = 5 /\ RCV_HB({A.K'}_inv(Kap)) =|>
+		State':= 6 /\ RCV_HB({A.M'.Digest'}_K')
+		   		   /\ request(B,H,h_b_key,K')
+		   		   /\ request(B,H,h_b_m_digest,M'.Digest') 
+				   /\ Digest' := Hash(M')
+                   /\ equal(Digest_received,Digest')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role session(A, H, B: agent, Kap: public_key) def=
+
+  local RCV_HA, SND_AH, RCV_AH, RCV_HB, SND_HB, SND : channel (dy)
+
+  composition 
+
+	   subject_low(A,H,B,Kap,RCV_HA,SND_AH)
+       /\ skh(A,H,B,Kap,RCV_AH,SND_HB)
+       /\ subject_high(A,H,B,Kap,RCV_HB,SND)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+    const a, h, b      : agent,
+	  kap, ki   : public_key,
+	  k: symmetric_key,
+	  m: message,
+	  digest: hash_func,
+	  h_a_key, 
+	  b_h_key, 
+	  h_a_m_digest, 
+	  b_h_m_digest,
+	  h_b_key, 
+	  h_b_m_digest : protocol_id
+
+    intruder_knowledge = {a, h, b, kap, ki, inv(ki)}
+
+    composition
+
+		session(a,h,b,kap)
+     /\ session(a,i,b,kap)
+     /\ session(i,h,b,kap)
+ 	 /\ session(a,h,i,kap)
+     
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of h_a_key, h_a_m_digest, h_b_key, h_b_m_digest 
+  authentication_on h_a_key, b_h_key
+  authentication_on h_a_m_digest, b_h_m_digest 
+
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

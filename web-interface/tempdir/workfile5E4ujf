@@ -1,0 +1,164 @@
+%% PROTOCOL*: ISO3 Public Key Mutual Authentication Protocol
+%% VARIANT: two-pass mutual authentication
+%% PURPOSE: Two parties authenticate each other. Aim of the Mutual authentication
+%% is to make sure to each of the parties of the other's identity. In this
+%% protocol authentication should be achieved by a single encrypted message sent from each party.
+%% REFERENCE:
+%% egin{itemize}
+%% item cite{clark97survey,ISO-IEC-9798-3}
+%% end{itemize} 
+%% MODELER: 
+%% egin{itemize}
+%% item Haykal Tej, Siemens CT IC 3, 2003 and
+%% item Luca Compagna et al, AI-Lab DIST University of Genova, November 2004
+%% end{itemize}
+%% ALICE_BOB:
+%% egin{verbatim}
+%% 1. A -> B : PKa,A,{PKa,A}inv(PKs), Na, B, Text2,{Na,B,Text1}inv(PKa)
+%% 2. B -> A : PKb,B,{PKb,B}inv(PKs), Nb, A, Text4,{Nb,A,Text3}inv(PKb)
+%% end{verbatim}
+%% egin{itemize}
+%% item erb!inv(PKs)! is the private key of the server erb!C!
+%% item erb!{PKa,A}inv(PKs)! is the certificate of agent erb!A!
+%% item erb!{PKb,B}inv(PKs)! is the certificate of agent erb!B!
+%% end{itemize}
+%% PROBLEMS: 2
+%% CLASSIFICATION: G1, G2
+%% ATTACKS: 
+%% The intruder can attack this protocol by simple eavesdropping
+%% and replaying the messages.
+%% egin{verbatim}
+%% i     -> (a,6) : start
+%% (a,6) -> i     : pka,a,{pka,a}inv(pks),na(a,6),b,ctext2,
+%%                  {na(a,6),b,ctext1}inv(pka)
+%% i     -> (b,9) : start
+%% (b,9) -> i     : pkb,b,{pkb,b}inv(pks),na(b,9),a,ctext2,
+%%                  {na(b,9),a,ctext1}inv(pkb)
+%% i     -> (a,6) : pkb,b,{pkb,b}inv(pks),na(b,9),a,ctext2,
+%%                  {na(b,9),a,ctext1}inv(pkb)
+%% end{verbatim}
+%% NOTES:
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+%% HLPSL:
+role iso3_Init( A, B     : agent,	
+                Pka, Pks : public_key,
+                Snd, Rcv : channel(dy))
+played_by A
+def=
+
+  local  State		   : nat,
+         Na		   : text,
+         Nb, Text3, Text4  : text,
+         Pkb		   : public_key
+
+  init State := 0 
+
+%%%  knowledge(A)={A,B,Pka,Pks,ctext1,ctext2}
+
+  transition
+
+   1. State = 0
+      / Rcv(start)
+      =|> rujurthrt
+      State' := 1
+      / Na' := new()
+      / Snd(Pka.A.{Pka.A}_inv(Pks).Na'.B.ctext2.{Na'.B.ctext1}_inv(Pka)) 
+      / witness(A,B,na,Na')
+
+   2. State = 1 
+      / Rcv(Pkb'.B.{Pkb'.B}_inv(Pks).Nb'.A.Text4'.{Nb'.A.Text3'}_inv(Pkb'))
+      =|> 
+      State' := 2
+      / wrequest(A,B,nb,Nb')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role iso3_Resp (B, A     : agent, 					
+                Pkb, Pks : public_key,
+                Snd, Rcv : channel(dy))
+played_by B
+def=
+
+   local  State          : nat,
+          Nb             : text,
+          Na,Text1,Text2 : text,
+          Pka            : public_key
+
+   init State := 0
+
+%%%   knowledge(B)={A,B,Pkb,Pks,ctext3,ctext4}
+
+   transition
+
+   1. State = 0 
+      / Rcv(Pka'.A.{Pka'.A}_inv(Pks).Na'.B.Text2'.{Na'.B.Text1'}_inv(Pka'))
+      =|> 
+      State' := 1
+      / Nb' := new()
+      / Snd(Pkb.B.{Pkb.B}_inv(Pks).Nb'.A.ctext4.{Nb'.A.ctext3}_inv(Pkb)) 
+      / witness(B,A,nb,Nb')
+      / wrequest(B,A,na,Na')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role session (A, B     : agent,
+	      Pka, Pkb : public_key,
+              Pks      : public_key) def=
+
+  local SA, RA, SB, RB: channel (dy)
+
+  composition
+
+          iso3_Init(A,B,Pka,Pks,SA,RA)
+       / iso3_Resp(B,A,Pkb,Pks,SB,RB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role environment() def=
+
+  const ctext1, ctext2, ctext3, ctext4 : text,
+	na, nb                         : protocol_id,
+        a, b                           : agent,
+        pka, pkb, pks, pki             : public_key
+
+  intruder_knowledge={a,b,pks,pki,inv(pki)}
+
+%%% LC: sufficient for finding the attacks
+  composition
+
+	session(a,b,pka,pkb,pks)
+     /	session(a,b,pka,pkb,pks)
+     /	session(b,a,pkb,pka,pks)
+
+%%%   composition
+%%% 
+%%% 	 session(a,b,pka,pkb,pks,sa1,ra1,sb1,rb1)
+%%%   / session(a,c,pka,pkc,pks,sa2,ra2,sc2,rc2)
+%%%   / session(a,a,pka,pka,pks,sa3,ra3,sa3,ra3)
+%%%   / session(b,a,pkb,pka,pks,sb4,rb4,sa4,ra4)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+goal
+
+   %ISO3_Init weakly authenticates ISO3_Resp on nb
+   weak_authentication_on nb % addressess G1 and G2
+
+   %ISO3_Resp weakly authenticates ISO3_Init on na
+   weak_authentication_on na % addressess G1 and G2
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+environment()
+ 

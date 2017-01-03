@@ -1,0 +1,110 @@
+%%%%%%%%%%%%%%%% ALICE %%%%%%%%%%%%%%%%%
+role alice (A, S, T: agent,             
+            Kca: public_key,    
+            SND, RCV: channel (dy)) 
+
+played_by A def=
+
+  local State : nat,
+        Ns: text,
+        Ks : public_key,
+        Kt: public_key,
+        K: symmetric_key
+
+   const 
+      request_id, msg, msgT   : text
+
+   init State := 0
+  transition  
+    0.  State  = 0 /\ RCV(start) =|> 
+        State':= 2 /\ SND(request_id)
+                  
+    2.  State  = 2 /\ RCV({{Ks'}_inv(Kca).msgT}_inv(Kt')) =|> 
+        State':= 4 /\ K':=new() /\ SND({K'}_Ks') /\ secret(K', cleSecrete, {A, S})
+
+    4.  State = 4 /\ RCV({{msg}_K}_inv(Kt)) =|>
+        State' := 6              
+end role
+%%%%%%%%%%%%%%%% ALICE %%%%%%%%%%%%%%%%%
+
+
+%%%%%%%%%%%%%%%% SERVER %%%%%%%%%%%%%%%%%
+role server(A, S, T: agent,      
+         Ks, Kca: public_key,
+         SND, RCV: channel (dy)) 
+
+played_by S def=
+
+  local State : nat, 
+        Kt: public_key,
+        K     : symmetric_key
+
+  const request_id, msg, msgT   : text %utiliser un Nonce au lieu d'un msg et verifier le secret
+
+  init State := 1
+  transition 
+    1.  State  = 1 /\ RCV({request_id.msgT}_inv(Kt')) =|> 
+        State':= 3 /\ SND({Ks}_inv(Kca)) % on envoie le certificat
+
+    3.  State  = 3 /\ RCV({{K'}_Ks.msgT}_inv(Kt)) =|> 
+        State':= 5 /\ SND({msg}_K')     
+end role
+%%%%%%%%%%%%%%%% SERVER %%%%%%%%%%%%%%%%%
+
+
+%%%%%%%%%%%%%%%% SERVER TIERS %%%%%%%%%%%%%%%%%
+role tiers(A, S, T: agent,      
+         Kca, Kt: public_key,
+         SND, RCV: channel (dy)) 
+played_by T def=
+  local State : nat,
+         Ks    : public_key,
+         K     : symmetric_key
+  const msg, msgT   : text
+
+  init State := 7
+  transition 
+    7.  State  = 7 /\ RCV(request_id) =|> 
+        State':= 8 /\ SND({request_id.msgT}_inv(Kt))
+
+    8.  State  = 8 /\ RCV({K'}_Ks') =|> 
+        State':= 9 /\ SND({{K'}_Ks'.msgT}_inv(Kt))     
+
+    9. State   = 9 /\ RCV({msg}_K) =|>
+       State' := 10 /\ SND({{msg}_K.msgT}_inv(Kt))     
+
+end role
+%%%%%%%%%%%%%%%% SERVER TIERS %%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%% ROLE SESSION %%%%%%%%%%%%%%%%%
+role session(A, S, T: agent, Kt, Ks, Kca: public_key) def=
+  local SA, RA, SS, RS, ST, RT: channel (dy)
+  composition 
+        alice(A, S, T, Kca, SA, RA)
+     /\ server(A, S, T, Ks, Kca, SS, RS)
+     /\ tiers(A, S, T, Kt, Kca, ST, RT)
+end role
+%%%%%%%%%%%%%%%% ROLE SESSION %%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%% ROLE ENVIRONMENT %%%%%%%%%%%%%%%%%
+role environment() def=
+    const a, b, s, t          : agent,
+          kt, ks, kca       : public_key,
+          cleSecrete    : protocol_id
+    intruder_knowledge = {a, s, t, kt, ks, kca}
+    composition
+        session(a, s, t, kt, ks, kca)
+        /\session(i, s, t, kt, ks, kca)
+ %      /\session(b, s, t, kt, ks, kca)
+ %    /\ session(a,i,ka,ki)
+ %    /\ session(i,b,ki,kb)
+end role
+%%%%%%%%%%%%%%%% ROLE ENVIRONMENT %%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%% GOAL %%%%%%%%%%%%%%%%%
+goal
+  secrecy_of cleSecrete
+end goal
+%%%%%%%%%%%%%%%% GOAL %%%%%%%%%%%%%%%%%
+
+environment()

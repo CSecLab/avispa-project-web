@@ -1,0 +1,56 @@
+role alice (A,B: agent,
+            Ka, Kb: public_key,
+            SND,RCV: channel (dy)) played_by A def=
+  exists State : nat, Na : text (fresh), Nb: text
+  init State=0
+  knowledge(A) = { inv(Ka) }
+  transition
+    step1. State=0 /\  RCV(start)  =|> State'=1 /\ SND({Na'.A}Kb)
+    step2. State=1 /\ RCV({Na.Nb'}Ka) =|> State'=2 /\ SND({Nb'}Kb)
+end role
+
+played_by 
+knowledge
+start message to signal an initiator that he should start
+step1 and step2 are merely labels
+
+
+
+role Bob(A: agent,      
+         Ka, Kb: public_key,      
+         SND,RCV: channel (dy)) played_by B def=
+  exists State : nat, Na: text, Nb: text (fresh)
+  init State=0
+  knowledge(B) = { inv(Kb) }
+  transition     
+    step1. State=0 /\ RCV({Na'.A}Kb) 
+       =|> State'=1 /\ SND({Na.Nb'}Ka)
+    step2. State=1 /\ RCV({Nb}Ka)     
+       =|> State'=2 
+end role
+
+
+role NSPK(S,R: agent -> channel (dy),
+          Instances: (agent,agent, public_key,public_key) set) def=  
+  exists A, B: agent, Ka, Kb: public_key
+  composition 
+     /\_{in((A,B,Ka,Kb),Instances)}
+         Alice(A,B,Ka,Kb,S(A),R(A))
+      /\ Bob(A,B,Ka,Kb,S(B),R(B))
+end role
+
+
+role Environment() def=
+    composition
+    NSPK([(a,s_a),(b,s_b)],                   % S
+         [(a,r_a),(b,r_b)],                   % R
+         [(a,b,ka,kb),(a,i,ka,ki)])           % Instances
+end role
+
+goal
+         Alice weakly authenticates Bob on Nb   
+         Bob weakly authenticates Alice on Na
+         secrecy of Na, Nb
+end goal
+
+

@@ -1,0 +1,114 @@
+%% PROTOCOL: User Authentication in Wireless Sensor Network.
+%% PURPOSE:
+%% Mutual authentication between two sensor nodes i & j with challenge response protocol.
+%% ALICE_BOB:
+role alice (SNi, SNj, BS   : agent,
+           	SKij   : symmetric_key,
+	   	H : hash_func,
+            TMi, Vi : text, 
+           	Snd, Rcv: channel(dy))
+played_by SNi
+def=
+         local State  : nat,
+         TMj, Vj, RNi, RNj, PM:  text,
+         Ti, Tj, Ri, Rj, Ci, Cj, X, Q, P : text
+         const alice_bob_nj,  bob_alice_ni,
+               subs, sub1, sub2 : protocol_id
+
+   init  State := 0
+
+  transition
+   1. State   = 0 /\ Rcv(start) =|>
+      State' := 1 /\ RNi' := new()
+        /\ secret({Ri, Rj, X}, subs, BS)
+        /\ secret({Ti}, sub1, SNi)
+        /\ secret({Tj}, sub2, SNj)
+        /\ Snd(SNi. RNi'.H(Ti.H(Ri.Ci.X).Q).TMi.Vi.H(Ti.P).H(Ri.P))
+        /\ witness( SNi, SNj, bob_alice_ni, RNi')
+
+   2. State   = 1 /\ 
+      Rcv(SNj.RNi'.RNj'.TMj.Vj.H(Tj.P).H(Rj.P).H(Tj.H(Rj.Cj.X).Q)
+          .{PM}_SKij.H(SKij.PM.RNi'.RNj'.TMi.TMj.Vi.Vj)) =|> 
+      State' := 2  /\ request(SNj,SNi,alice_bob_nj,RNj')  
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role bob (SNi,SNj,BS   : agent,
+           	SKij   : symmetric_key,
+	   	H : hash_func,
+            TMj,Vj : text, 
+           	Snd, Rcv: channel(dy))
+played_by SNj
+def=
+         local State  : nat,
+         TMi, Vi, RNi, RNj, PM:  text,
+         Ti, Tj, Ri, Rj, Ci, Cj, X, Q, P : text
+         const  bob_alice_ni,  alice_bob_nj, 
+                sub1, sub2 : protocol_id
+   init  State := 0
+
+  transition
+   1. State   = 0 /\ Rcv(SNi. RNi'.H(Ti.H(Ri.Ci.X).Q).
+                         TMi.Vi.H(Ti.P).H(Ri.P)) =|>  
+      State' := 1 /\ RNj' := new()
+                  /\ PM' := new()
+      /\ secret({Ri, Rj, X}, subs, BS)
+      /\ secret({Ti}, sub1, SNi)
+      /\ secret({Tj}, sub2, SNj)
+      /\ Snd(SNj.RNi'.RNj'.TMj.Vj.H(Tj.P).H(Rj.P).H(Tj.H(Rj.Cj.X).Q)
+             .{PM}_SKij.H(SKij.PM.RNi'.RNj'.TMi.TMj.Vi.Vj))
+      /\ witness(SNj, SNi, alice_bob_nj, RNj')
+      /\ request(SNi, SNj, bob_alice_ni, RNi')   
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(SNi,SNj, BS: agent,
+	     SKij: symmetric_key,
+             TMi, TMj, Vi, Vj: text,               
+             H : hash_func 
+	)
+def=
+
+  local  SI, SJ, RI, RJ: channel (dy)
+  
+  composition
+           alice(SNi, SNj, BS, SKij, H, TMi,Vi, SI, RI)
+       /\  bob(SNj, SNi, BS, SKij, H, TMj,Vj, SJ, RJ)
+end role 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+
+  const sni,snj,bs    : agent,
+        skij: symmetric_key,
+        h   : hash_func,
+       tmi,vi,tmj,vj, p, q: text,
+       ti, tj: text,
+ alice_bob_nj,  bob_alice_ni, subs, sub1, sub2 : protocol_id
+
+  intruder_knowledge = {sni, snj, h, tmi, vi, tmj, vj, p, q}
+
+  composition
+	session(sni, snj, bs, skij, tmi,vi,tmj,vj,h) /\
+	session(snj,sni, bs, skij, tmi,vi,tmj,vj,h) 
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+  secrecy_of subs
+  secrecy_of sub1
+  secrecy_of sub2
+  authentication_on alice_bob_nj
+  authentication_on bob_alice_ni
+  
+end goal
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()
+

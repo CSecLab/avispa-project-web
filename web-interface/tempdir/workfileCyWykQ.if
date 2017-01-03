@@ -1,0 +1,95 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileCyWykQ
+
+section signature:
+
+state_codeserver: agent * agent * symmetric_key * hash_func * nat * text * text * text * set(agent) * nat -> fact
+state_bcm: agent * agent * symmetric_key * hash_func * nat * text * text * text * set(agent) * nat -> fact
+
+
+section types:
+
+Capv, capv, Dummy_Capv: symmetric_key
+5, 3, 1, State, 6, 4, 2, SID, 0, Dummy_State: nat
+Sessionrnd, Exch, Synchro, Dummy_Synchro, Dummy_Sessionrnd, Dummy_Exch, dummy_nonce: text
+set_65, set_55: set
+Set_38, Set_21, Dummy_Set_38, Dummy_Set_21, ASGoal: set(agent)
+start, MGoal: message
+Hash, h: hash_func
+c, B, C, a, i, b: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(i).
+ state_bcm(a,b,capv,h,0,dummy_nonce,dummy_nonce,dummy_nonce,set_55,3).
+ state_codeserver(b,a,capv,h,1,dummy_nonce,dummy_nonce,dummy_nonce,set_65,4)
+
+
+section rules:
+
+step step_0 (B,C,Capv,Hash,Sessionrnd,Dummy_Exch,Synchro,Set_21,SID) :=
+ state_bcm(B,C,Capv,Hash,0,Sessionrnd,Dummy_Exch,Synchro,Set_21,SID).
+ iknows(start)
+ =>
+ state_bcm(B,C,Capv,Hash,2,Sessionrnd,apply(Hash,Capv),Synchro,Set_21,SID).
+ iknows(Synchro)
+
+step step_1 (B,C,Capv,Hash,Dummy_Sessionrnd,Dummy_Exch,Dummy_Synchro,Set_21,SID,Sessionrnd,Synchro) :=
+ state_bcm(B,C,Capv,Hash,2,Dummy_Sessionrnd,Dummy_Exch,Dummy_Synchro,Set_21,SID).
+ iknows(Synchro)
+=[exists Sessionrnd]=>
+ state_bcm(B,C,Capv,Hash,4,Sessionrnd,apply(Hash,Capv),Synchro,Set_21,SID).
+ iknows(scrypt(apply(Hash,Capv),Sessionrnd))
+
+step step_2 (B,C,Dummy_Capv,Hash,Dummy_Sessionrnd,Exch,Synchro,Dummy_Set_21,SID,Capv,Sessionrnd) :=
+ state_bcm(B,C,Dummy_Capv,Hash,4,Dummy_Sessionrnd,Exch,Synchro,Dummy_Set_21,SID).
+ iknows(scrypt(Sessionrnd,Capv))
+ =>
+ state_bcm(B,C,Capv,Hash,6,Sessionrnd,Exch,Synchro,Dummy_Set_21,SID).
+ secret(Capv,capv,Dummy_Set_21).
+ contains(B,Dummy_Set_21).
+ contains(C,Dummy_Set_21)
+
+step step_3 (C,B,Capv,Hash,Sessionrnd,Dummy_Exch,Dummy_Synchro,Set_38,SID,Synchro) :=
+ state_codeserver(C,B,Capv,Hash,1,Sessionrnd,Dummy_Exch,Dummy_Synchro,Set_38,SID).
+ iknows(Synchro)
+ =>
+ state_codeserver(C,B,Capv,Hash,3,Sessionrnd,apply(Hash,Capv),Synchro,Set_38,SID).
+ iknows(Synchro)
+
+step step_4 (C,B,Capv,Hash,Dummy_Sessionrnd,Dummy_Exch,Synchro,Dummy_Set_38,SID,Sessionrnd,Exch) :=
+ state_codeserver(C,B,Capv,Hash,3,Dummy_Sessionrnd,Dummy_Exch,Synchro,Dummy_Set_38,SID).
+ iknows(scrypt(Exch,Sessionrnd))
+ =>
+ state_codeserver(C,B,Capv,Hash,5,Sessionrnd,Exch,Synchro,Dummy_Set_38,SID).
+ iknows(scrypt(Sessionrnd,Capv)).
+ secret(Exch,exch,Dummy_Set_38).
+ contains(B,Dummy_Set_38).
+ contains(C,Dummy_Set_38)
+
+
+section properties:
+
+property secrecy_of_exch (MGoal,ASGoal) :=
+ [] ((secret(MGoal,exch,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_capv (MGoal,ASGoal) :=
+ [] ((secret(MGoal,capv,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_exch (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,exch,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_capv (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,capv,ASGoal) &
+ not(contains(i,ASGoal))
+

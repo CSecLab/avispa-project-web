@@ -1,0 +1,160 @@
+%% LC changes: 
+%% - MK was not used by the basic roles. I have added a macro 
+%%   and now the basic roles use it;
+%% - added macros for GX and GY. This requires also:
+%%   (i)  to write the value (and not the name) of the macro 
+%%        inside the first transition in which the role uses it;
+%%   (ii) to add the type declarations for X and Y in EKE_Resp 
+%%        and Eke2_Init respectively.
+
+%% 1-7-2  eke-2 with mutual authentication
+
+%% A-B Notation:
+
+%% 1. A --> B : {G(X)}_K(A,B)           %%  {g exp X}_K(A,B)
+%%     B compute master key MK
+%%            MK = H(A,B,G(X),G(Y),G(G(X),Y)) = H(A,B,G(X),G(Y),G(G(Y),X))
+%%              %%  MK = H(A,B, g exp X, g exp Y, g exp XY)
+
+%% 2. B --> A : {G(Y)}_K(A,B), H(MK,1)  %%  G(Y) stands for (g exp X)
+%%            A computes master key MK
+
+%% 3. A --> B : H(MK,2)
+%%            session key K = H(MK,0)
+
+%% H : hash function
+%% K(A,B): password (shared key)
+
+%% --------------------------Nhlpsl-spec ---------------------
+
+role Eke2_Init (A,B : agent,
+                G: text,
+		H: function,
+                Kab : symmetric_key,
+             	Snd,Rcv: channel(dy)) played_by A def=
+
+  exists State :nat, 
+	 X:text (fresh), 
+	 Y:text,
+	GY,MK:message
+
+  owns   Snd
+
+  const two : text
+
+  init   State = 0
+  accept State = 2
+  knowledge(A) = {A,B,Kab,two}
+
+  transition
+
+   1. State =0 /\ Rcv(start) =|> Snd({exp(G,X')}Kab) /\ State' =1 
+
+   2. State =1 /\ 
+      Rcv({exp(G,Y')}Kab.H(H(A.B.exp(G,X).exp(G,Y').exp(exp(G,Y'),X)).one))
+        =|> 
+	   State' =2	
+	   /\ GY'=exp(G,Y')
+	   /\ MK'=H(A.B.exp(G,X).exp(G,Y').exp(exp(G,Y'),X))
+           /\ Snd(H(H(A.B.exp(G,X).exp(G,Y').exp(exp(G,Y'),X)).two)) 
+	   /\ secret(H(A.B.exp(G,X).exp(G,Y').exp(exp(G,Y'),X)),A)
+	   /\ secret(H(A.B.exp(G,X).exp(G,Y').exp(exp(G,Y'),X)),B)
+	   /\ request(A,B,mk,H(A.B.exp(G,X).exp(G,Y').exp(exp(G,Y'),X)))
+	   /\ witness(A,B,mk,H(A.B.exp(G,X).exp(G,Y').exp(exp(G,Y'),X)))
+         
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role Eke2_Resp (B,A : agent,
+                G: text,
+		H: function,
+                Kab : symmetric_key,
+            Snd,Rcv : channel(dy)) played_by B def=
+
+  exists State :nat, 
+	 Y:text (fresh),
+	 X:text,
+	GX,MK:message
+  owns    Snd
+
+  const one : text
+
+  init  State = 0
+  accept State = 2
+
+  knowledge(B) = {A,B,Kab,one}
+  
+  transition
+
+   1.   State =0 /\ Rcv({exp(G,X')}Kab)
+        =|> 
+	State'=1
+	/\ GX'=exp(G,X')
+	/\ MK'=H(A.B.exp(G,X').exp(G,Y').exp(exp(G,X'),Y'))
+	/\ Snd({exp(G,Y')}Kab.H(H(A.B.exp(G,X').exp(G,Y').exp(exp(G,X'),Y')).one))
+	/\ secret(H(A.B.exp(G,X').exp(G,Y').exp(exp(G,X'),Y')),B)
+	/\ secret(H(A.B.exp(G,X').exp(G,Y').exp(exp(G,X'),Y')),A)
+	/\ witness(B,A,mk,H(A.B.exp(G,X').exp(G,Y').exp(exp(G,X'),Y')))
+
+   2. State =1 /\ Rcv(H(H(A.B.GX.exp(G,Y).exp(GX,Y)).two)) 
+      =|> 
+      	State' =2
+     /\ request(B,A,mk,H(A.B.GX.exp(G,Y).exp(GX,Y)))
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role Session (A,B: agent,
+           G: text,
+	   H: function,
+	   Kab: symmetric_key,
+           SA,RA,SB,RB: channel(dy) ) def=
+
+   composition
+
+           Eke2_Init(A,B,G,H,Kab,SA,RB)  /\
+           Eke2_Resp(B,A,G,H,Kab,SB,RA)
+
+end role
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role Environment() def=
+
+  const mk: protocol_id
+
+%%  knowledge(i)  = {a,b,c}
+
+  knowledge(i)  = {a,b}
+
+  composition
+
+	Session(a,b,g,h,kab,sa1,ra1,sb1,rb1)/\
+	Session(a,i,g,h,kai,sa3,ra3,sa3,ra3)/\
+	Session(i,b,g,h,kib,sb4,rb4,sa4,ra4)
+
+%%     Eke2([(a,s_a),(b,s_b)],
+%%          [(a,r_a),(b,r_b)],
+%%	   g,
+%%	   h,
+%%          [(a,b,kab),             %% instances
+%%           (a,c,kac),
+%%           (a,a,kaa),
+%%           (b,a,kab)])
+
+end role
+
+goal
+  secrecy_of MK
+  Eke2_Init authenticates Eke2_Resp on MK  %% J: was on X,Y
+  Eke2_Resp authenticates Eke2_Init on MK  %% J: was on X,Y
+end goal
+
+Environment()
+
+
+

@@ -1,0 +1,125 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    role alice (A, B: agent,             
+                Ka, Ks: public_key, 
+		H: hash_func,   
+		G: text,   
+                SND, RCV: channel (dy)) 
+    played_by A def=
+
+      local State : nat, 
+         	Na, Nb: text,
+		X:text,
+		Kb: public_key,
+		PCR:text,
+		SK:message,
+		KEr:message
+	
+
+      init State := 0
+
+      transition  
+       
+        0.  State  = 0 /\ RCV(start) =|> 
+            State':= 2 /\ Na' := new() 
+			/\ X' := new()
+			/\ SND(Na'.exp(G,X'))
+                       
+        2.  State  = 2 /\ RCV({B.Kb'}_inv(Ks).{Na.KEr'.PCR}_inv(kb)) =|> 
+            State':= 4 /\ SK':=H(exp(KEr',X))
+			/\  Nb' := new()
+			 /\ SND({Nb'}_SK')
+		
+			
+	4.  State  = 4 /\ RCV(Nb') =|>
+	    State':= 6 /\ secret(SK,sk1,{A,B})
+			%%/\ secret(Nb',nb1,{A,B})
+			/\ request(A,B,alice_bob_na,Na)
+			/\ request(A,B,alice_bob_nb,Nb')
+			/\ request(A,B,sk1,SK)
+		
+
+    end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    role bob(A, B: agent,      
+             Kb: public_key,
+	     Ks : public_key,
+	     H: hash_func,
+	     G: text,    
+             SND, RCV: channel (dy)) 
+    played_by B def=
+
+      local State : nat, 
+            	Na, Nb: text,
+		Y:text,
+		PCR:text,
+		SK:message,
+		KEi:message
+
+      init State := 1
+
+      transition 
+
+        1.  State  = 1 /\ RCV(Na'.KEi') =|> 
+            State':= 3 /\ Y' :=new()
+			/\ PCR' :=new()
+			/\ SND({B.Kb}_inv(Ks).{Na'.exp(G,Y').PCR'}_inv(Kb))
+			/\ SK' := H(exp(KEi,Y'))
+			/\ witness(B,A,alice_bob_na,Na')
+		
+	
+	3. State = 3 /\ RCV({Nb'}_SK) =|>
+	   State':= 5 /\ SND(Nb')
+			/\ witness(B,A,sk1,SK)
+			/\ witness(B,A,alice_bob_nb,Nb')
+   
+    end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    role session(A, B: agent, Ka, Kb, Ks: public_key, H: hash_func, G: text) def=
+
+      local SA, RA, SB, RB: channel (dy)
+
+      composition 
+
+            alice(A,B,Ka,Ks,H,G,SA,RA)
+         /\ bob  (A,B,Kb,Ks,H,G,SB,RB)
+
+    end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    role environment() def=
+
+        const a, b         : agent,
+              kb, ka, ks, ki   : public_key,
+	      h : hash_func,
+	      g: text,
+              na, nb,
+              alice_bob_nb,
+              bob_alice_na, sec_a_SK, sk1,nb1  : protocol_id
+	
+
+        intruder_knowledge = {a, b, kb, ka, ks, ki, inv(ki),{i.ki}_(inv(ks)),g,h}
+        composition
+
+            session(a,b,ka,kb,ks,h,g)
+         /\ session(a,i,ka,ki,ks,h,g)
+         /\ session(i,b,ki,kb,ks,h,g)
+
+    end role
+
+
+
+    goal
+
+
+ 	secrecy_of sk1
+%%	secrecy_of nb1
+	authentication_on sk1
+	authentication_on alice_bob_na
+	authentication_on alice_bob_nb
+
+    end goal
+  
+
+
+
+    environment()
+

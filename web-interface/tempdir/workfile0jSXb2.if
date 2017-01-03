@@ -1,0 +1,56 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfile0jSXb2
+
+section signature:
+
+
+
+section types:
+
+alice_bob_challenge: protocol_id
+MGoal: message
+State, 5, 3, 4, 2, 1, 0, SID2, SID1, SID: nat
+Ka, Kb, ka, kb, ki: public_key
+A, B, A2Goal, A1Goal, S, a, b, s, i: agent
+Challenge, GetChallenge, SentChallenge, RequestAccess, RunningChallenge, Done, Timer: text
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(a).
+ iknows(b).
+ iknows(s).
+ iknows(ka).
+ iknows(kb).
+ iknows(ki).
+ iknows(inv(ki)).
+ iknows(i)
+
+
+section rules:
+
+
+section properties:
+
+property authentication_on_alice_bob_challenge (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,alice_bob_challenge,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,alice_bob_challenge,MGoal))
+     /\ ((request(A1Goal,A2Goal,alice_bob_challenge,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,alice_bob_challenge,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state authentication_on_alice_bob_challenge (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,alice_bob_challenge,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,alice_bob_challenge,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_alice_bob_challenge (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,alice_bob_challenge,MGoal,SID1).
+ request(A1Goal,A2Goal,alice_bob_challenge,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

@@ -1,0 +1,246 @@
+%%%%%%%%%%% Role for user A %%%%%%%%%%%%%%%%%%
+
+role userA (S, A, B : agent,
+% symmetric key between A and S
+        SKas : symmetric_key,
+% H is hash function
+         H : hash_func,
+         SEND, RECV: channel(dy))
+played_by A
+def=
+local State : nat,
+ IDA, IDB, IDS, PWA, BioA, RA, RB, H1B : text,
+ KS, P, KA, KB, XA, YA, YB, NAB, NBA, C1B : text,
+ C1S, H1S, SKAB, K1B, H4B, H3A, H3B : text,   
+ F, Add, Gen, Rep : hash_func
+const s_a_ra, a_b_nab, a_s_nab, b_a_nba,
+     s1, s2, s3, s4, s5 : protocol_id
+init State := 0
+transition
+% Registration phase
+1. State = 0 /\ RECV(start) =|>
+% Send the registration request to server S securely
+ State' := 1 /\ secret({PWA,BioA}, s1, A)
+             /\ SEND({IDA.H(PWA.Gen(BioA))}_SKas)
+% Receive the smart card SCA from server S securely
+2. State = 1 /\ RECV({H(Add(KS.H(IDA.F(H(IDA.KS.RA').P).
+                F(KS.P)).
+                H(IDA.KS.RA')).H(PWA.Gen(BioA)).IDA).
+                xor(KA',H(PWA.Gen(BioA))).
+                F(H(IDA.KS.RA').P).H.P}_SKas ) =|>
+State' := 2 /\ secret({RA',KS}, s2, S)
+% A's acceptance of the value RA' generated for A by S
+            /\ request(S, A, s_a_ra, RA') 
+% Login, and authentication and key agreement phases
+% Send Req message to user B
+             /\ YA' := new()
+             /\ NAB' := new()
+             /\ XA' := F(H(KA'.YA'.NAB').P)
+             /\ C1B' := {IDA.NAB'}_Add(F(H(KA.YA'.NAB').F(KS.P)).
+                         H(KA.YA'.NAB').F(H(IDB.F(H(IDB.KS.RB')
+                        .P).F(KS.P)).F(H(IDB.KS.RB').P)))
+             /\ H1B' := H(Add(F(H(KA.YA'.NAB').F(KS.P)).
+                        H(KA.YA'.NAB').F(H(IDB.F(H(IDB.KS.RB').P)
+                        .F(KS.P)).F(H(IDB.KS.RB').P))).
+                        F(H(KA'.YA'.NAB').P).C1B'.IDA.IDB.NAB')
+            /\ SEND(C1B'.XA'.H1B')
+% A has freshly generated the value NAB' for B
+            /\ witness(A, B, a_b_nab, NAB')
+% Send Req message to server S
+        /\ C1S' := {IDA.IDB.NAB}_F(H(KA.YA'.NAB').F(KS.P))
+        /\ H1S' := H(F(H(KA.YA'.NAB').F(KS.P)).
+                    XA.IDA.IDB.IDS.C1S'.NAB'.KA)
+        /\ SEND(C1S'.XA'.H1S')
+% A has freshly generated the value NAB' for S
+        /\ witness(A, S, a_s_nab, NAB')
+% Receive Resp message from user B
+3. State = 2 /\ RECV({NBA'}_F(H(KB.YB'.NAB').F(H(KA.YA'.NAB').P)).
+      F(H(KB.YB'.NAB').
+      H(F(H(KB.YB'.NAB').F(H(KA.YA'.NAB').P))).
+      {NBA'}_F(H(KB.YB'.NAB').F(H(KA.YA'.NAB').P)).
+      F(H(KA.YA'.NAB').P).F(H(KB.YB'.NAB').P).
+      NAB'.NBA'.KB.H(KA.YA'.NAB').P)) 
+% Receive Conf message from server S
+      /\ RECV(H(F(KS.F(H(KA.YA'.NAB').P)).
+                IDA.IDB.NAB'.H(NBA').KA)) =|>
+% Send Agree message to user B
+State' := 4  /\ SKAB' := F(H(KA.YA'.NAB').F(H(KB.YB'.NAB').P))
+             /\ K1B' := Add(F(H(KA.YA'.NAB').F(KS.P)).
+                   H(KA.YA'.NAB').H(IDB.F(H(IDB.KS.RB').P)
+                   .F(KS.P)).F(H(IDB.KS.RB').P))
+             /\ H4B' := H(SKAB'.F(H(KA.YA'.NAB').P).
+                   F(H(KB.YB'.NAB').P).NAB'.NBA'.K1B')
+             /\ SEND(H4B')
+% A's acceptance of the value NBA' generated for A by B
+             /\ request(B, A, b_a_nba, NBA')  
+end role
+
+
+%%%%%%%%%%% Role for user B %%%%%%%%%%%%%%%%%%
+
+role userB (S, A, B : agent,
+% H is hash function
+         H : hash_func,
+         SEND, RECV: channel(dy))
+played_by B
+def=
+local State : nat,
+ IDA, IDB, IDS, PWA, BioA, RA, RB, H1B, C2A, C2S : text,
+ KS, P, KA, KB, XA, YA, YB, NAB, NBA, C1B : text,
+ C1S, H1S, SKAB, K1B, H4B, H3A, H3B, H2A, H2S : text,   
+ F, Add, Gen, Rep : hash_func
+const s_a_ra, a_b_nab, a_s_nab, b_a_nba, b_s_nba,
+     s1, s2, s3, s4, s5 : protocol_id
+init State := 0
+transition
+% Login, and authentication and key agreement phases
+% Receive Req message from user A
+1. State = 0 /\ RECV({IDA.NAB'}_Add(F(H(KA.YA'.NAB').F(KS.P)).
+                 H(KA.YA'.NAB').F(H(IDB.F(H(IDB.KS.RB').P)
+                 .F(KS.P)).F(H(IDB.KS.RB').P))).
+                 F(H(KA'.YA'.NAB').P).
+                 H(Add(F(H(KA.YA'.NAB').F(KS.P)).
+                 H(KA.YA'.NAB').F(H(IDB.F(H(IDB.KS.RB').P).
+                 F(KS.P)).F(H(IDB.KS.RB').P))).
+                 F(H(KA'.YA'.NAB').P).
+                 {IDA.NAB'}_Add(F(H(KA.YA'.NAB').F(KS.P)).
+                 H(KA.YA'.NAB').F(H(IDB.F(H(IDB.KS.RB').P).
+                 F(KS.P)).F(H(IDB.KS.RB').P))).IDA.IDB.NAB'))  =|>
+% Send Resp message to user A
+State' := 1 /\ NBA' := new()
+            /\ YB' := new()
+       /\ C2A' := {NBA'}_F(H(KB.YB'.NAB').F(H(KA.YA'.NAB').P))
+       /\ H2A' := H(F(H(KB.YB'.NAB').F(H(KA.YA'.NAB').P)).
+          {NBA'}_F(H(KB.YB'.NAB').F(H(KA.YA'.NAB').P)).
+          F(H(KA.YA'.NAB').P).F(H(KB.YB'.NAB').P).
+          NAB'.NBA'.KB.H(KA.YA'.NAB').P)
+      /\ SEND(C2A'.H(KB.YB'.NAB').H2A')
+% B has freshly generated the value NBA' for A
+      /\ witness(B, A, b_a_nba, NBA')
+% Send Resp message to server S
+      /\ C2S' := {IDA.IDB.H(NBA')}_F(H(KB.YB'.NAB').F(KS.P))
+      /\ H2S' := H(F(H(KB.YB'.NAB').F(KS.P)).F(H(KB.YB'.NAB').P).
+               {IDA.IDB.H(NBA')}_F(H(KB.YB'.NAB').F(KS.P)).
+               IDA.IDB.IDS.H(NBA').NAB'.KB)
+     /\ SEND(C2S'.H(KB.YB'.NAB').H2S')
+% B has freshly generated the value NBA' for S
+      /\ witness(B, A, b_s_nba, NBA')
+% Receive Conf message from server S
+2. State = 1 /\ RECV(H(F(KS.F(H(KB.YB'.NAB').P)).
+               IDB.IDA.H(NBA').NAB'.KB)) =|>
+State' := 2
+% Receive Agree message from user A
+3. State = 2 /\ RECV(H(F(H(KA.YA'.NAB').F(H(KB.YB'.NAB').P)).
+               F(H(KA.YA'.NAB').P).F(H(KB.YB'.NAB').P).NAB'.
+               NBA'.Add(F(H(KA.YA'.NAB').F(KS.P)).
+               H(KA.YA'.NAB').H(IDB.F(H(IDB.KS.RB').P)
+               .F(KS.P)).F(H(IDB.KS.RB').P)))) =|>
+% B's acceptance of the value NAB' generated for B by A
+State' := 3 /\ request(A, B, a_b_nab, NAB')  
+end role
+
+%%%%%%%%%%% Role for server S %%%%%%%%%%%%%%%%%%
+
+role serverS (S, A, B : agent,
+% symmetric key between A and S
+        SKas : symmetric_key,
+% H is hash function
+         H : hash_func,
+         SEND, RECV: channel(dy))
+played_by S
+def=
+local State : nat,
+ IDA, IDB, IDS, PWA, BioA, RA, RB, H1B : text,
+ KS, P, KA, KB, XA, YA, NAB, NBA, C1B : text,
+ C1S, H1S, SKAB, K1B, H4B, H3A, H3B : text,   
+ F, Add, Gen, Rep : hash_func
+const s_a_ra, a_b_nab, a_s_nab, b_a_nba, b_s_nba,
+     s1, s2, s3, s4, s5 : protocol_id
+init State := 0
+transition
+% Registration phase
+% Receive the registration request from user A securely
+1. State = 0 /\ RECV({IDA.H(PWA.Gen(BioA))}_SKas) =|>
+% Send the smart card SCA securely to the user A
+State' := 1  /\ RA' := new()
+             /\ RB' := new()
+             /\ PA' := F(H(IDA.KS.RA').P)
+             /\ KA' := Add(KS.H(IDA.PA'.F(KS.P)).H(IDA.KS.RA'))
+             /\ HA' := H(KA'.H(PWA.Gen(BioA)).IDA)
+             /\ TA' := xor(KA',H(PWA.Gen(BioA))) 
+             /\ secret({PWA,BioA}, s1, A)
+             /\ secret({RA',RB', KS}, s2, S)
+             /\ SEND({HA'.TA'.PA'.H.P}_SKas)
+% S has freshly generated the value RA' for A
+             /\ witness(S, A, s_a_ra, RA')
+% Login, and authentication and key agreement phases
+% Receive Req message from user A
+2. State = 1 /\ RECV({IDA.IDB.NAB}_F(H(KA.YA'.NAB').F(KS.P)).
+                F(H(KA'.YA'.NAB').P).
+                H(F(H(KA.YA'.NAB').F(KS.P)).
+                XA.IDA.IDB.IDS.{IDA.IDB.NAB}_F(H(KA.YA'.NAB').
+                F(KS.P)).NAB'.KA))  
+% Receive Resp message from user B
+             /\ RECV({IDA.IDB.H(NBA')}_F(H(KB.YB'.NAB').F(KS.P)).
+               H(KB.YB'.NAB').
+               H(F(H(KB.YB'.NAB').F(KS.P)).F(H(KB.YB'.NAB').P).
+               {IDA.IDB.H(NBA')}_F(H(KB.YB'.NAB').F(KS.P)).
+               IDA.IDB.IDS.H(NBA').NAB'.KB)) =|>
+% Send Conf message to user A
+State' := 3 /\ H3A' := H(F(KS.F(H(KA.YA'.NAB').P)).
+               IDA.IDB.NAB'.H(NBA').KA)
+            /\ SEND(H3A')
+% Send Conf message to user B
+            /\ H3B' := H(F(KS.F(H(KB.YB'.NAB').P)).
+               IDB.IDA.H(NBA').NAB'.KB)
+            /\ SEND(H3B')
+% S's acceptance of the value NAB' generated for S by A
+             /\ request(A, S, a_s_nab, NAB')  
+% S's acceptance of the value NBA' generated for S by B
+             /\ request(B, S, b_s_nba, NBA')  
+end role
+
+
+%%%%%%%%%%% Role for session %%%%%%%%%%%%%%%%%%
+
+role session(S, A, B : agent,
+        SKas : symmetric_key,
+        H : hash_func)
+def=
+  local S1, S2, S3, R1, R2, R3: channel (dy)
+composition
+   userA (S, A, B, SKas, H, S1, R1)
+/\ userB (S, A, B, SKas, H, S2, R2)
+/\ serverS (S, A, B, SKas, H, S3, R3)
+end role
+
+
+%%%%%%%%%%% Role for goal and environment %%%%%%%%%%%%%%%%%%
+
+role environment()
+def=
+  const s, a, b: agent, skas : symmetric_key,
+      h : hash_func, f : hash_func,
+      p: text, 
+      s_a_ra, s1, s2,
+      s3, s4, s5 : protocol_id
+intruder_knowledge = {s, a, b, h, f, p}
+composition
+   session(s, a, b, skas, h)
+/\ session(s, a, i, skas, h)
+/\ session(s, i, b, skas, h)
+/\ session(i, a, b, skas, h)
+end role
+goal
+  secrecy_of s1
+  secrecy_of s2
+  secrecy_of s3
+  secrecy_of s4
+  secrecy_of s5
+  authentication_on s_a_ra
+  
+end goal
+environment()
+
+
+

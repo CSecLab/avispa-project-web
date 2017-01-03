@@ -1,0 +1,109 @@
+role ms(
+	MS,BS,GW:agent,
+	Kmsk:symmetric_key,
+	Trun,Dot:hash_func,
+	SND_MB,RCV_MB:channel(dy))
+played_by MS def=
+  local State :nat,
+        N_ms,N_bs:text,
+        Kpmk,Ktck:symmetric_key,
+        Tms:{agent.symmetric_key}_symmetric_key,
+        Cmac:{text.agent.{agent.symmetric_key}_symmetric_key.text}_symmetric_key
+  const id_gw1,id_gw2:text
+  init State :=0
+  transition
+  1.State  =0/RCV_MB(start)=|>
+    State':=2/Kpmk':=Dot(Kmsk.BS.160)
+	     /Ktck':=Trun(Kpmk'.128)
+             /N_ms':=new()
+	     /Cmac':={id_gw1.MS.Tms.N_ms'}_Ktck'
+	     /SND_MB((id_gw1.MS.Tms.N_ms').Cmac')
+  2.State  =2/RCV_MB(id_gw2.MS.Tms'.N_bs'.Cmac')=|>
+    State':=4/N_ms':=new()
+             /SND_MB(MS.N_bs'.N_ms'.Cmac')
+             /equest(MS,BS,bs_ms_cmac,Cmac')
+             /witness(MS,BS,ms_bs_cmac,Cmac')
+  3.State  =4/RCV_MB(N_bs'.N_ms.Cmac')=|>
+    State':=6
+end role
+role bs(
+	MS,BS,GW:agent,
+        Kagk2:symmetric_key,
+	H2,Trun:hash_func,
+	SND_MB,RCV_MB,SND_BG,RCV_BG:channel(dy))
+played_by BS def=
+  local State :nat,
+        N_ms,N_bs:text,
+        Kagk1,Ktagk,Kpmk,Ktck:symmetric_key,
+        Tms:{agent.symmetric_key}_symmetric_key,
+        Cmac:{text.agent.{agent.symmetric_key}_symmetric_key.text}_symmetric_key
+  const id_gw1,id_gw2:text
+  init State :=1
+  transition
+  1.State  =1/RCV_MB((id_gw1.MS.{MS.Kpmk'}_Ktagk'.N_ms').Cmac')=|>
+    State':=3/SND_BG(id_gw1)
+  2.State  =3/RCV_BG(Kagk1')=|>
+    State':=9/witness(BS,MS,bs_ms_cmac,Cmac')
+             /Ktagk':=H2(Kagk2.MS)
+             /Tms':={MS.Kpmk}_Ktagk'
+             /N_bs':=new()
+             /Ktck':=Trun(Kpmk.128)
+             / Cmac':={id_gw2.MS.Tms'.N_bs'}_Ktck'
+             /SND_MB(id_gw2.MS.Tms'.N_bs'.Cmac') 
+ 3.State  =11/RCV_MB(MS.N_bs.N_ms'.Cmac')=|>
+   State':=13/N_bs':=new()
+             /SND_MB(N_bs'.N_ms'.Cmac')
+             /equest(BS,MS,ms_bs_cmac,Cmac')      
+end role 
+role gw(
+	MS,BS,GW:agent,
+        Kagk2:symmetric_key,
+	Mul,H1:hash_func,
+	SND_BG,RCV_BG:channel(dy))
+played_by GW def=
+  local State :nat,
+        R:text,
+        Kagk1:symmetric_key
+  const id_gw1:text
+  init State :=5
+  transition
+  1.State  =5/RCV_BG(id_gw1)=|>
+    State':=7/R':=new()
+	     /Kagk1':=Mul(R'.H1(id_gw1))
+	     /SND_BG(Kagk1')
+                   /secret(Kagk1',kagk1,{BS,GW})
+end role 
+
+role session(
+	MS,BS,GW:agent,
+	Kmsk,Kagk2:symmetric_key,
+	Mul,H1,H2,Trun,Dot:hash_func)
+def=
+  local  SMB,RMB,SBG,RBG:channel(dy)
+  composition
+	ms(MS,BS,GW,Kmsk,Trun,Dot,SMB,RMB)
+	/s(MS,BS,GW,Kagk2,H2,Trun,SMB,RMB,SBG,RBG)
+        /gw(MS,BS,GW,Kagk2,Mul,H1,SBG,RBG)
+end role
+role environment()
+def=
+  const m,b,g:agent,
+        km,kbg,ki:symmetric_key,
+        mul,h1,h2,trun,dot:hash_func,
+        bs_ms_cmac,ms_bs_cmac,kagk1:protocol_id
+  intruder_knowledge={m,b,g,km,kbg,ki,mul,h1,h2,trun,dot}
+  composition
+	session(m,b,g,km,kbg,mul,h1,h2,trun,dot)
+	/session(i,b,g,ki,kbg,mul,h1,h2,trun,dot)
+	/session(m,i,g,km,ki,mul,h1,h2,trun,dot)
+        /session(m,b,i,km,ki,mul,h1,h2,trun,dot)
+end role
+
+goal
+  secrecy_of kagk1
+  authentication_on ms_bs_cmac
+  authentication_on bs_ms_cmac
+end goal
+
+environment()
+	  

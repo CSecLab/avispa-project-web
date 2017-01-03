@@ -1,0 +1,98 @@
+%% PROTOCOL: HOMEWORK: New Homework Protocol
+%% PURPOSE: Two-party mutual autentication
+%% SERVER_CLIENT:
+%%\begin{verbatim}
+%% 1.   C <- S: Rs
+%% 2.	C -> S: {Rc}_Es, {f(Rs), P, C}_Kcs, in which Kcs = f(Rc, Rs)
+%% 3.	C <- S: {f(Rc)}_Kcs. 
+%%\end{verbatim}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+%%HLPSL:
+role server (S,C   : agent,
+		Es    : public_key,
+           	Kcs   : symmetric_key,
+	   	F     : hash_func,
+           	Snd, Rcv: channel(dy))
+played_by S
+def=
+           
+  local State  : nat,
+        Rs, Rc, P : text
+
+  init  State := 0
+
+  transition
+   1. State   = 0 /\ Rcv(start) =|>
+      State' := 1 /\ Snd(Rs)
+
+   2. State   = 1 /\ Rcv((Rc)_Es, (F(Rs), P, C)_Kcs) =|> 
+      State' := 2 /\ Snd({F(Rc)}_Kcs)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role client (S,C : agent,
+		Es  : public_key,
+                Kcs : symmetric_key,
+		F   : hash_func,
+                Snd, Rcv: channel(dy))
+played_by C
+def=
+           
+  local State  : nat,
+        Rs, Rc, P : text
+
+  init  State := 0
+
+  transition
+   1. State   = 0 /\ Rcv(Rs') =|>  
+      State' := 1 /\ Snd((Rc)_Es, (F(Rs), P, C)_Kcs))
+
+   2. State   = 1 /\ Rcv(F(Rc)}_Kcs) =|>
+      State' := 2 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(S,C: agent,
+	     Kcs: symmetric_key,
+	     F: hash_func)
+def=
+
+  local SS, SC, RS, RC: channel (dy)
+
+  composition
+           server(S, C, Kcs, F, SS, RS)
+       	/\ client(S, C, Kcs, F, SC, RC)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+
+  const s, c          : agent,
+        kcs	      : symmetric_key,
+        F             : hash_func
+
+
+  intruder_knowledge = {s, c, Es}
+
+  composition
+	session(s,c,kcs,F) /\
+	session(s,i,kcs,F) /\
+        session(c,i,kcs,F)
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+secrecy_of Rc, Rs, Kcs
+  
+end goal
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+        

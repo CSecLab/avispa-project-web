@@ -1,0 +1,193 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilexMoR51
+
+section signature:
+
+state_tokenendpoint: agent * agent * agent * text * symmetric_key * symmetric_key * protocol_id * protocol_id * nat * text * text * set(agent) * nat -> fact
+state_openidprovider: agent * agent * agent * text * text * symmetric_key * protocol_id * protocol_id * nat * text * text * set(agent) * set(agent) * nat -> fact
+state_relyingparty: agent * agent * agent * text * text * symmetric_key * symmetric_key * symmetric_key * protocol_id * protocol_id * protocol_id * protocol_id * nat * text * text * text * set(agent) * set(agent) * set(agent) * nat -> fact
+
+
+section types:
+
+rokey, rtkey, rikey, cskey, RTKey, CSKey, ROKey: symmetric_key
+set_131, set_124, set_123, set_112, set_111, set_110: set
+clientid, uri, Code, IdToken, URI, Stat, ClientId, Dummy_URI, Dummy_ClientId, Dummy_IdToken, Dummy_Code, Dummy_Stat, dummy_nonce: text
+Set_67, Set_52, Set_51, Dummy_Set_67, Set_32, Set_30, Dummy_Set_52, Dummy_Set_51, Set_27, Dummy_Set_32, Dummy_Set_30, Dummy_Set_27, ASGoal: set(agent)
+start, MGoal: message
+State, 3, 5, SID, 2, 4, 1, 0, Dummy_State, SID2, SID1: nat
+rp, op, te, TE, RP, OP, A2Goal, A1Goal, i: agent
+tokenreq, tokenres, auth_4, auth_3, TokenReq, TokenRes, auth_2, auth_1, AuthReq, AuthRes, sec_1, authreq, authres: protocol_id
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(rp).
+ iknows(op).
+ iknows(te).
+ iknows(rikey).
+ iknows(i).
+ state_relyingparty(rp,op,te,clientid,uri,rokey,rtkey,cskey,authreq,authres,tokenreq,tokenres,0,dummy_nonce,dummy_nonce,dummy_nonce,set_110,set_111,set_112,3).
+ state_openidprovider(op,rp,te,clientid,uri,rokey,authreq,authres,0,dummy_nonce,dummy_nonce,set_123,set_124,4).
+ state_tokenendpoint(te,rp,op,uri,rtkey,cskey,tokenreq,tokenres,0,dummy_nonce,dummy_nonce,set_131,5)
+
+
+section rules:
+
+step step_0 (RP,OP,TE,ClientId,URI,ROKey,RTKey,CSKey,AuthReq,AuthRes,TokenReq,TokenRes,Dummy_Stat,Code,IdToken,Dummy_Set_27,Set_30,Set_32,SID,Stat) :=
+ state_relyingparty(RP,OP,TE,ClientId,URI,ROKey,RTKey,CSKey,AuthReq,AuthRes,TokenReq,TokenRes,0,Dummy_Stat,Code,IdToken,Dummy_Set_27,Set_30,Set_32,SID).
+ iknows(start)
+=[exists Stat]=>
+ state_relyingparty(RP,OP,TE,ClientId,URI,ROKey,RTKey,CSKey,AuthReq,AuthRes,TokenReq,TokenRes,1,Stat,Code,IdToken,Dummy_Set_27,Set_30,Set_32,SID).
+ secret(Stat,sec_1,Dummy_Set_27).
+ iknows(scrypt(ROKey,pair(AuthReq,pair(ClientId,pair(Stat,URI))))).
+ contains(RP,Dummy_Set_27).
+ contains(OP,Dummy_Set_27)
+
+step step_1 (RP,OP,TE,ClientId,URI,ROKey,RTKey,CSKey,AuthReq,AuthRes,TokenReq,TokenRes,Dummy_Stat,Dummy_Code,IdToken,Set_27,Dummy_Set_30,Dummy_Set_32,SID,Stat,Code) :=
+ state_relyingparty(RP,OP,TE,ClientId,URI,ROKey,RTKey,CSKey,AuthReq,AuthRes,TokenReq,TokenRes,1,Dummy_Stat,Dummy_Code,IdToken,Set_27,Dummy_Set_30,Dummy_Set_32,SID).
+ iknows(scrypt(ROKey,pair(AuthRes,pair(Code,Stat))))
+ =>
+ state_relyingparty(RP,OP,TE,ClientId,URI,ROKey,RTKey,CSKey,AuthReq,AuthRes,TokenReq,TokenRes,2,Stat,Code,IdToken,Set_27,Dummy_Set_30,Dummy_Set_32,SID).
+ secret(Stat,sec_1,Dummy_Set_30).
+ secret(Code,sec_2,Dummy_Set_32).
+ iknows(scrypt(RTKey,pair(TokenReq,pair(Code,URI)))).
+ contains(RP,Dummy_Set_30).
+ contains(OP,Dummy_Set_30).
+ contains(RP,Dummy_Set_32).
+ contains(OP,Dummy_Set_32)
+
+step step_2 (RP,OP,TE,ClientId,URI,ROKey,RTKey,CSKey,AuthReq,AuthRes,TokenReq,TokenRes,Stat,Code,Dummy_IdToken,Set_27,Set_30,Set_32,SID,IdToken) :=
+ state_relyingparty(RP,OP,TE,ClientId,URI,ROKey,RTKey,CSKey,AuthReq,AuthRes,TokenReq,TokenRes,2,Stat,Code,Dummy_IdToken,Set_27,Set_30,Set_32,SID).
+ iknows(scrypt(RTKey,pair(TokenRes,scrypt(CSKey,IdToken))))
+ =>
+ state_relyingparty(RP,OP,TE,ClientId,URI,ROKey,RTKey,CSKey,AuthReq,AuthRes,TokenReq,TokenRes,3,Stat,Code,IdToken,Set_27,Set_30,Set_32,SID)
+
+step step_3 (OP,RP,TE,Dummy_ClientId,Dummy_URI,ROKey,AuthReq,AuthRes,Dummy_Code,Dummy_Stat,Dummy_Set_51,Dummy_Set_52,SID,ClientId,URI,Code,Stat) :=
+ state_openidprovider(OP,RP,TE,Dummy_ClientId,Dummy_URI,ROKey,AuthReq,AuthRes,0,Dummy_Code,Dummy_Stat,Dummy_Set_51,Dummy_Set_52,SID).
+ iknows(scrypt(ROKey,pair(AuthReq,pair(ClientId,pair(Stat,URI)))))
+=[exists Code]=>
+ state_openidprovider(OP,RP,TE,ClientId,URI,ROKey,AuthReq,AuthRes,1,Code,Stat,Dummy_Set_51,Dummy_Set_52,SID).
+ witness(OP,RP,auth_1,ClientId).
+ witness(OP,RP,auth_2,URI).
+ secret(Stat,sec_1,Dummy_Set_51).
+ secret(Code,sec_2,Dummy_Set_52).
+ iknows(scrypt(ROKey,pair(AuthRes,pair(Code,Stat)))).
+ contains(RP,Dummy_Set_51).
+ contains(OP,Dummy_Set_51).
+ contains(RP,Dummy_Set_52).
+ contains(OP,Dummy_Set_52)
+
+step step_4 (TE,RP,OP,Dummy_URI,RTKey,CSKey,TokenReq,TokenRes,Dummy_Code,Dummy_IdToken,Dummy_Set_67,SID,URI,Code,IdToken) :=
+ state_tokenendpoint(TE,RP,OP,Dummy_URI,RTKey,CSKey,TokenReq,TokenRes,0,Dummy_Code,Dummy_IdToken,Dummy_Set_67,SID).
+ iknows(scrypt(RTKey,pair(TokenReq,pair(Code,URI))))
+=[exists IdToken]=>
+ state_tokenendpoint(TE,RP,OP,URI,RTKey,CSKey,TokenReq,TokenRes,1,Code,IdToken,Dummy_Set_67,SID).
+ secret(Code,sec_2,Dummy_Set_67).
+ witness(TE,RP,auth_3,Code).
+ witness(OP,RP,auth_4,URI).
+ iknows(scrypt(RTKey,pair(TokenRes,scrypt(CSKey,IdToken)))).
+ contains(RP,Dummy_Set_67).
+ contains(OP,Dummy_Set_67)
+
+
+section properties:
+
+property authentication_on_auth_1 (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,auth_1,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,auth_1,MGoal))
+     /\ ((request(A1Goal,A2Goal,auth_1,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,auth_1,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_auth_2 (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,auth_2,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,auth_2,MGoal))
+     /\ ((request(A1Goal,A2Goal,auth_2,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,auth_2,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_auth_3 (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,auth_3,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,auth_3,MGoal))
+     /\ ((request(A1Goal,A2Goal,auth_3,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,auth_3,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_auth_4 (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,auth_4,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,auth_4,MGoal))
+     /\ ((request(A1Goal,A2Goal,auth_4,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,auth_4,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property secrecy_of_sec_1 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_1,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_sec_2 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_2,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state authentication_on_auth_1 (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,auth_1,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,auth_1,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_auth_1 (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,auth_1,MGoal,SID1).
+ request(A1Goal,A2Goal,auth_1,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_auth_2 (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,auth_2,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,auth_2,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_auth_2 (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,auth_2,MGoal,SID1).
+ request(A1Goal,A2Goal,auth_2,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_auth_3 (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,auth_3,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,auth_3,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_auth_3 (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,auth_3,MGoal,SID1).
+ request(A1Goal,A2Goal,auth_3,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_auth_4 (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,auth_4,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,auth_4,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_auth_4 (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,auth_4,MGoal,SID1).
+ request(A1Goal,A2Goal,auth_4,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state secrecy_of_sec_1 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_1,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_sec_2 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_2,ASGoal) &
+ not(contains(i,ASGoal))
+

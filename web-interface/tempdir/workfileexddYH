@@ -1,0 +1,116 @@
+role alice (A, S, B	: agent,
+			K_AS: symmetric_key,
+			SND_AS, SND_AB, RCV_AS, RCV_AB : channel(dy))
+played_by A
+def=
+	local 	State: nat,
+			Na, Nb: text,
+			K_AB: symmetric_key,
+			Token: {symmetric_key.text.text}_symmetric_key
+			
+	init 	State :=0
+	transition	
+	1. 	State=0 / RCV_AB(start) =|>
+		State':=4 / 
+		Na':=new() /
+		SND_AS(A.B.Na')
+		
+	2. 	State=4 / RCV_AS({B.Na.K_AB'.Token'}_K_AS) =|>
+		State':=6 /
+		SND_AB(Token')
+		
+	3. 	State=6 / RCV_AB({Nb'}_K_AB) =|>
+		State':=8 / 
+		SND_AB({xor(Nb', 1)}_K_AB) /
+		witness(A, B, alice_bob_nb, Nb')
+		
+end role
+		
+role server(A, S, B: agent,
+			K_AS, K_BS: symmetric_key,
+			SND_AS, SND_BS, RCV_AS, RCV_BS : channel(dy))
+played_by S
+def=
+	local	State: nat,
+			Na, Ns: text,
+			K_AB: symmetric_key
+			
+	init 	State :=1
+	transition
+	1. 	State = 1 / RCV_AS(A.B.Na') =|>
+		State' := 3 / 
+		SND_BS(A)
+		
+	2.  State = 3 / RCV_BS({A.Ns'}_K_BS) =|>
+		State' := 4 /
+		K_AB' := new() /
+		SND_AS({B.Na.K_AB'.{K_AB'.A.Ns'}_K_BS}_K_AS)
+		/ secret(K_AB',k,{A, B, S})
+
+end role
+
+role bob(A, S, B: agent,
+		 K_BS: symmetric_key,
+		 SND_AB, SND_BS, RCV_AB, RCV_BS: channel(dy))
+played_by B
+def=
+	local	State: nat,
+			Nb, Ns: text,
+			K_AB: symmetric_key
+			
+	init 	State := 2
+	transition
+	1.	State = 2 / RCV_BS(A) =|>
+		State' := 5 /
+		Ns':= new() /
+		SND_BS({A.Ns'}_K_BS)
+		
+	2.	State = 5 / RCV_AB({K_AB'.A.Ns}_K_BS) =|>
+		State' := 7 /
+		Nb' := new() /
+		SND_AB({Nb'}_K_AB')
+		
+		
+	3. 	State = 7 / RCV_AB({xor(Nb, 1)}_K_AB) =|>
+		State = 8 / request(B,A, alice_bob_na, Nb)
+		
+end role
+
+role session(A, S, B : agent,
+			 K_AS, K_BS: symmetric_key)
+def=
+
+	local 	SAS, SBS, SAB,
+			RAS, RBS, RAB : channel(dy)
+			
+	composition
+		alice (A, S, B, K_AS, SAS, SAB, RAS, RAB) /
+		server (A, S, B, K_AS, K_BS, SAS, SBS, RAS, RBS) /
+		bob (A, S, B, K_BS, SAB, SBS, RAB, RBS)
+		
+end role
+
+role environment()
+def=
+
+	const a, b, s: agent,
+		  k_ab, k_as, k_bs: symmetric_key,
+		  alice_bob_nb, k: protocol_id
+		  
+	intruder_knowledge = {a, s, b, ki}
+	
+	composition
+		session(a, s, b, k_ab, k_bs) /
+		session(a, s, i, k_ab, ki) /
+		session(i, s, b, ki, k_bs)
+		
+end role
+
+goal
+	secrecy_of k
+	authentication_on alice_bob_na
+end goal
+
+environment()
+		
+		 

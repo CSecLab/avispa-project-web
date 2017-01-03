@@ -1,0 +1,116 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileAMz7n3
+
+section signature:
+
+state_client: agent * agent * public_key * public_key * symmetric_key * nat * text * text * text * nat -> fact
+state_distrib: agent * agent * public_key * public_key * symmetric_key * nat * text * text * text * nat -> fact
+
+
+section types:
+
+ASGoal: set(agent)
+start, MGoal: message
+pKc, pKd, pKi, PKc, PKd: public_key
+State, 4, 2, SID, 1, 0, Dummy_State, 3, SID2, SID1: nat
+Nd, Nc, Info, Dummy_Nc, Dummy_Nd, dummy_nonce, info: text
+distributeur_nd, client_nc: protocol_id
+c, d, D, C, A2Goal, A1Goal, i: agent
+sKi, SKd, SKc, sKc, sKd: symmetric_key
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(c).
+ iknows(d).
+ iknows(pKc).
+ iknows(pKd).
+ iknows(i).
+ state_distrib(d,c,pKc,pKd,sKd,0,dummy_nonce,dummy_nonce,dummy_nonce,3).
+ state_client(d,c,pKc,pKd,sKc,0,dummy_nonce,dummy_nonce,dummy_nonce,4)
+
+
+section rules:
+
+step step_0 (D,C,PKc,PKd,SKd,Dummy_Nd,Nc,Info,SID,Nd) :=
+ state_distrib(D,C,PKc,PKd,SKd,0,Dummy_Nd,Nc,Info,SID).
+ iknows(start)
+=[exists Nd]=>
+ state_distrib(D,C,PKc,PKd,SKd,1,Nd,Nc,Info,SID).
+ iknows(crypt(PKc,pair(D,Nd)))
+
+step step_1 (D,C,PKc,PKd,SKd,Nd,Dummy_Nc,Info,SID,Nc) :=
+ state_distrib(D,C,PKc,PKd,SKd,1,Nd,Dummy_Nc,Info,SID).
+ iknows(crypt(PKd,pair(C,pair(Nc,Nd))))
+ =>
+ state_distrib(D,C,PKc,PKd,SKd,2,Nd,Nc,Info,SID).
+ iknows(crypt(PKc,Nc))
+
+step step_2 (C,D,PKd,PKc,SKc,Dummy_Nc,Dummy_Nd,Info,SID,Nc,Nd) :=
+ state_client(C,D,PKd,PKc,SKc,0,Dummy_Nc,Dummy_Nd,Info,SID).
+ iknows(crypt(PKc,pair(D,Nd)))
+=[exists Nc]=>
+ state_client(C,D,PKd,PKc,SKc,1,Nc,Nd,Info,SID).
+ iknows(crypt(PKd,pair(C,pair(Nc,Nd))))
+
+step step_3 (C,D,PKd,PKc,SKc,Nc,Nd,Info,SID) :=
+ state_client(C,D,PKd,PKc,SKc,1,Nc,Nd,Info,SID).
+ iknows(crypt(PKc,Nc))
+ =>
+ state_client(C,D,PKd,PKc,SKc,2,Nc,Nd,Info,SID).
+ iknows(scrypt(SKc,Info))
+
+
+section properties:
+
+property authentication_on_client_nc (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,client_nc,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,client_nc,MGoal))
+     /\ ((request(A1Goal,A2Goal,client_nc,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,client_nc,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_distributeur_nd (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,distributeur_nd,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,distributeur_nd,MGoal))
+     /\ ((request(A1Goal,A2Goal,distributeur_nd,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,distributeur_nd,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property secrecy_of_info (MGoal,ASGoal) :=
+ [] ((secret(MGoal,info,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state authentication_on_client_nc (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,client_nc,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,client_nc,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_client_nc (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,client_nc,MGoal,SID1).
+ request(A1Goal,A2Goal,client_nc,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_distributeur_nd (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,distributeur_nd,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,distributeur_nd,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_distributeur_nd (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,distributeur_nd,MGoal,SID1).
+ request(A1Goal,A2Goal,distributeur_nd,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state secrecy_of_info (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,info,ASGoal) &
+ not(contains(i,ASGoal))
+

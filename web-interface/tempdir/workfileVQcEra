@@ -1,0 +1,91 @@
+role user (
+     U, S     : agent,
+SND, RCV : channel (dy) , 
+H, H1    : hash_func,  
+B        : public_key)
+played_by U 
+def= 
+local State                      : nat , 
+K_S   : symmetric_key, 
+Kus, Rx, Rc, W, V, Authu, Auths  : text
+
+const  
+sec_kus1,sec_rx,sec_s : protocol_id
+init State :=0 
+transition 
+1.     State =  0 /\ RCV(start)=|> 
+       State':= 1 /\ Rx':=new ()  
+                  /\ SND({Rx'}_B)  
+                  /\ witness (U, S, na, Rx')  
+                  /\ secret(Rx', sec_rx ,U)
+
+2.     State = 1  /\ RCV({Rc'}_B.H1({Rc'}_B,{Rx.H(K_S).Rc'}_B)) =|> 
+       State':= 2 /\ Kus':={Rx.Rc'.H(K_S)}_B
+                  /\ SND(H1({Rx'}_B,Kus') ) 
+                  /\ secret(K_S,sec_s,U) 
+                  /\ secret(Kus', sec_kus1, {U,S}) 
+                 /\ request (U, S, ns, Rc') 
+                 /\ request (U, S, ns, K_S) 
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role server (
+     S, U     : agent,
+SND, RCV : channel (dy) , 
+H, H1    : hash_func,  
+B        : public_key)
+played_by S 
+def= 
+local State                      : nat , 
+K_S                              : symmetric_key, 
+Kus, Rx, Rc, W, V, Authu, Auths  : text
+const  sec_kus2 , sec_rc , sec_s2        : protocol_id
+init State :=0 
+transition
+1.     State =0  /\ RCV({Rx'}_B) =|> 
+    State':=1 /\ Rc':=new()  
+              /\ SND({Rc'}_B.H1({Rc'}_B,{Rc'.H(s).Rx}_B)) 
+              /\  witness (S, U, ns, Rc') 
+             /\  secret (Rc', sec_rc, S) 
+             /\  secret (K_S, sec_s2, S) 
+
+2.    State=2   /\ RCV(H1({Rx'}_B,Kus'))=|> 
+   State':=3 /\ secret (Kus', sec_kas2, {A, S}) 
+             /\ request (S ,A, na , Rx')  
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session ( 
+U, S  : agent , 
+H,H1  : hash_func  ,  
+B  : public_key ) 
+def= 
+local 
+           SU, RU, SS, RS  : channel (dy) 
+composition 
+   user (U, S, SU, RU, H, H1, B) 
+/\ server (S, U, SS, RS, H, B) 
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment ( ) 
+
+def= 
+const 
+nu, ns  : protocol_id , 
+u, s , i  : agent , 
+h, h1  : hash_func , 
+     b, bi  : public_key 
+intruder_knowledge={u, s, h, h1, b} 
+
+composition 
+    session (u, s, h, h1, b) 
+ /\ session (u, i, h, h1, b) 
+ /\ session (i, s, h, h1, b) 
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal 
+secrecy_of 
+sec_kus1,  sec_kus2, sec_s, sec_s2 
+authentication_on nu 
+authentication_on ns 
+end goal 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment ()

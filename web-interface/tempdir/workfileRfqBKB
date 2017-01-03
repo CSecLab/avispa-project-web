@@ -1,0 +1,163 @@
+%%%%%%%%%%%%%%%%%%role vehicle%%%%%%%%%%%%%%
+
+role vehicle  (OBU, PCA, LTCA: agent,
+		EncryptKey_PCA,EncryptKey_LTCA : public_key,
+		H: hash_func,
+		Snd_PV, Rcv_PV, Snd_LV, Rcv_LV : channel (dy))
+ 
+played_by OBU def=
+	
+	local	State: nat,
+		RespEncryptKey: symmetric_key,
+		TSP, PseudonymKeys, ACK: text
+		
+	
+	const pseudoReq : protocol_id 
+
+  init  State := 0
+
+  transition
+
+% Pseudonym Certificate Initiate Request
+
+     1. State=0 /\ Rcv_PV (start) =|>
+	
+	State':= 1 /\
+	
+	PseudonymKeys' := new() /\
+	
+	
+	RespEncryptKey' := new() /\
+	
+	
+	TSP' := new() /\
+	
+		
+	Snd_PV ({PseudonymKeys'.RespEncryptKey'.TSP'}_EncryptKey_PCA.{TSP'.h(PseudonymKeys')}_EncryptKey_LTCA) /\
+
+ 
+	secret (PseudonymKeys', pseudoReq, {OBU,PCA})
+
+     2.State=1 /\ Rcv_PV (ACK)=|>
+	
+	State':= 2
+
+     3.State=2 /\ Rcv_LV (TSP.h(PseudonymKeys))=|>
+	
+	State':= 3
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%role Pseudonym Certificate Authority%%%%%%%%%%%%%%	
+
+role pseudonymCertificateAuthority     (PCA, OBU, LTCA: agent,
+					EncryptKey_PCA, EncryptKey_LTCA : public_key,
+					H: hash_func,
+					 Snd_VP, Rcv_VP, Snd_LP : channel (dy))
+ 
+played_by PCA def=
+	
+	local	State: nat,
+		RespEncryptKey: symmetric_key,
+		TSP, PseudonymKeys,ACK : text
+		
+
+
+	init  State := 0
+
+  transition
+
+	1. State=0 /\ Rcv_VP ({PseudonymKeys'.RespEncryptKey'.TSP'}_EncryptKey_PCA.{TSP'.h(PseudonymKeys')}_EncryptKey_LTCA)
+	
+	=|>
+
+	 State':=1 /\ Snd_VP(ACK) /\ Snd_LP (h(PseudonymKeys'.RespEncryptKey'.TSP').{TSP'.h(PseudonymKeys')}_EncryptKey_LTCA)
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%% role long term certificate Authority %%%%%%%%%%%%%%%%%%%%%%%%%%%	
+			
+role longTermCertificateAuthority      (LTCA, OBU, PCA: agent,
+					EncryptKey_PCA, EncryptKey_LTCA : public_key,
+					H: hash_func,
+					Snd_VL, Rcv_PL: channel (dy))
+ 
+played_by LTCA def=
+	
+	local	State: nat,
+		RespEncryptKey: symmetric_key,
+		TSP, PseudonymKeys : text
+	
+
+
+	init  State := 0
+
+  transition
+
+	1. State=0 /\ Rcv_PL (h(PseudonymKeys'.RespEncryptKey'.TSP').{TSP'.h(PseudonymKeys')}_EncryptKey_LTCA) 
+	=|>	  
+	
+	State':=1 /\ Snd_VL (TSP'.h(PseudonymKeys'))
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%% role session %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session 				(OBU, PCA, LTCA: agent,
+					EncryptKey_PCA, EncryptKey_LTCA : public_key,
+					H: hash_func)
+			 
+def=
+ local  Snd_PV, Rcv_PV, Snd_LV, Rcv_LV, Snd_VP, Rcv_VP, Snd_LP, Snd_VL, Rcv_PL: channel (dy)
+
+composition
+	vehicle (OBU, PCA, LTCA, EncryptKey_PCA, EncryptKey_LTCA, H, Snd_PV, Rcv_PV, Snd_LV, Rcv_LV)
+      /\pseudonymCertificateAuthority (PCA, OBU, LTCA, EncryptKey_PCA, EncryptKey_LTCA, H, Snd_VP, Rcv_VP, Snd_LP)
+      /\ longTermCertificateAuthority (LTCA, OBU, PCA, EncryptKey_LTCA, EncryptKey_PCA, H, Snd_VL, Rcv_PL)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+def=
+
+  const obu, pca, ltca        : agent,
+        encryptKey_PCA,
+	encryptKey_LTCA : public_key,
+        h             : hash_func,
+        pseudoReq        : protocol_id
+
+  intruder_knowledge = {i, obu, pca, ltca, encryptKey_PCA, encryptKey_LTCA, h}
+
+  composition
+	  session(obu, pca, ltca, encryptKey_PCA, encryptKey_LTCA, h) 
+	/\session(pca,ltca, pca, encryptKey_PCA, encryptKey_LTCA, h)
+	
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+goal
+
+ %secrecy of pseudonyms keys
+ secrecy_of pseudoReq
+%authentication_on roadside_vehicle_SK
+                         
+ 
+  
+end goal
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+
+
+
+
+
+
+

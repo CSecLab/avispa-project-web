@@ -1,0 +1,54 @@
+role role_C(C:agent,D:agent,Kc:public_key,Kd:public_key,SND,RCV:channel(dy))
+played_by C
+def=
+	local
+		State:nat,Ins:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(D.{Ins'}_inv(Kd)) =|> State':=1 /\ request(C,D,auth_1,Ins') /\ secret(Ins',sec_2,{C,D}) /\ SND(C.{Ins'}_inv(Kc))
+end role
+
+role role_D(D:agent,C:agent,Kc:public_key,Kd:public_key,SND,RCV:channel(dy))
+played_by D
+def=
+	local
+		State:nat,Ins:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ Ins':=new() /\ secret(Ins',sec_2,{C,D}) /\ witness(D,C,auth_1,Ins') /\ SND(D.{Ins'}_inv(Kd))
+		2. State=1 /\ RCV(C.{Ins}_inv(Kc)) =|> State':=2 /\ secret(Ins',sec_2,{C,D})
+end role
+
+role session1(D:agent,C:agent,Kc:public_key,Kd:public_key)
+def=
+	local
+		SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_D(D,C,Kc,Kd,SND2,RCV2) /\ role_C(C,D,Kc,Kd,SND1,RCV1)
+end role
+
+role session2(D:agent,C:agent,Kc:public_key,Kd:public_key)
+def=
+	local
+		SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_D(D,C,Kc,Kd,SND2,RCV2) /\ role_C(C,D,Kc,Kd,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		ki:public_key,scard:agent,kc:public_key,hash_0:function,tv:agent,kd:public_key,auth_1:protocol_id,sec_2:protocol_id
+	intruder_knowledge = {tv,scard,ki,inv(ki),kc,kd}
+	composition
+		session2(tv,i,ki,kd) /\ session1(tv,scard,kc,kd)
+end role
+
+goal
+	authentication_on auth_1
+	secrecy_of sec_2
+end goal
+
+environment()

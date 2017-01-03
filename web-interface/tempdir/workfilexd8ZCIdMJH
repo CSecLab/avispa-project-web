@@ -1,0 +1,88 @@
+role alice(A, B, S  : agent,
+           Ks, Ka   : symmetric_key,
+           Snd, Rcv : channel (dy))
+played_by A def=
+
+	local State, N : nat
+
+	init State := 0
+
+	transition
+
+	ask. State = 0 /\ Snd({A.B}_Ks) =|>
+		 State': 2
+
+	get. State = 2 /\ Rcv({S.N'}_Ka)
+
+end role
+
+role bob(A, B, S  : agent,
+         Ks, Kb   : symmetric_key,
+         Snd, Rcv : channel (dy))
+played_by B def=
+
+	local State, N : nat
+
+	init State := 2
+
+	transition
+
+	get. State = 2 /\ Rcv({S.N'}_Kb)
+	 
+end role
+
+role server(A, B, S    : agent,
+            Ks, Ka, Kb : symmetric_key,
+            Snd, Rcv   : channel (dy))
+played_by S def=
+
+	local State, N : nat
+
+	init State := 1
+
+	transition
+
+	.dispatch State = 1 /\ Rcv({A.B})_Ks /\ N' := new () =|>
+			  State' := 2 /\ Snd({S.N}_Ka /\ Snd({S.N}_Kb)
+
+end role
+
+role session (A, B, S   : agent,
+              Ks, Ka, Kb :  symmetric_key)
+def=
+
+	local SA, SB, SS, RA, RB, RS : channel (dy)
+
+	composition
+
+		   alice  (A, B, S, Ks, Ka, SA, RA)
+		/\ bob    (A, B, S, Ks, Kb, SB, RB)
+		/\ server (A, B, S, Ks, Ka, Kb, SS, RS)
+
+end role
+
+% The main role
+role environment() def=
+
+	local Snd, Rcv: channel (dy)
+
+	const a, b, s, i   : agent,
+	      ka kb, ki ks : symmetric_key,
+
+	intruder_knowledge = {a, b, ks, ka, kb, ki}
+
+	composition
+		session (a, b, s, ka, kb, ks) /\
+		session (a, i, s, ka, kb, ks) /\
+		session (a, b, i, ka, kb, ks)
+
+end role
+
+goal
+
+	secrecy_of n
+	authentication_on
+
+end goal
+
+environment ()

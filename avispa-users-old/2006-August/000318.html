@@ -1,0 +1,208 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Avispa-users] Unable to Model a Known Insecure Protocol
+   </TITLE>
+   <LINK REL="Index" HREF="index.html" >
+   <LINK REL="made" HREF="mailto:avispa-users%40avispa-project.org?Subject=%5BAvispa-users%5D%20Unable%20to%20Model%20a%20Known%20Insecure%20Protocol&In-Reply-To=">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000317.html">
+   <LINK REL="Next"  HREF="000319.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Avispa-users] Unable to Model a Known Insecure Protocol</H1>
+    <B>bhavin.desai at ntlworld.com</B> 
+    <A HREF="mailto:avispa-users%40avispa-project.org?Subject=%5BAvispa-users%5D%20Unable%20to%20Model%20a%20Known%20Insecure%20Protocol&In-Reply-To="
+       TITLE="[Avispa-users] Unable to Model a Known Insecure Protocol">bhavin.desai at ntlworld.com
+       </A><BR>
+    <I>Mon Aug 21 18:49:38 CEST 2006</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000317.html">[Avispa-users] Special Issue of Information and Computation on
+	'Computer Security: Foundations and Automated Reasoning'
+</A></li>
+        <LI>Next message: <A HREF="000319.html">[Avispa-users] Unable to Model a Known Insecure Protocol
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#318">[ date ]</a>
+              <a href="thread.html#318">[ thread ]</a>
+              <a href="subject.html#318">[ subject ]</a>
+              <a href="author.html#318">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hello,
+
+As shown below, I am trying to model a fairly simple protocol, called the Second Protocol Attempt in the book &quot;Protocols for Authentication and Key Establishment &quot; by Boyd and Mathuria.
+
+I was expecting AVISPA to produce a result of UNSAFE.  However, the result is SAFE.
+
+The Alice &amp; Bob notation, and the HLPSL is shown below.  Perhaps I have modelled it wrong?
+
+Bhavin.
+
+=============================================
+
+%% STILL NEED THE FRESHNESS GOAL SATISFIED
+
+%% Boyd and Mathuria
+%% Second Protocol Attempt
+%% 
+%% 1. A -&gt; S : A, B
+%% 2. S -&gt; A : {Kab}_Kas, {Kab}_Kbs
+%% 3. A -&gt; B : {Kab}_Kbs, A
+%% 
+%% This is modelled in HLPSL for AVISPA as follows.
+%% 
+%% HLPSL:
+
+%%----------------------------------------------------------------------
+role alice (A, S, B: agent,
+	Kas, Kbs : symmetric_key,
+	SND_SA, RCV_SA, SND_BA, RCV_BA: channel(dy))
+
+played_by A def=
+
+local
+	Kab : symmetric_key,
+	State : nat,
+	X : {symmetric_key}_symmetric_key
+%% Note that X is required for X' = {Kab'}_Kbs below
+
+init 	State := 100
+
+transition
+
+%% 1. A -&gt; S : A, B
+	100. State = 100 /\ RCV_BA(start) =|&gt;
+		State':= 110 /\ SND_SA(A.B)
+%% 2. S -&gt; A : {Kab}_Kas, {Kab}_Kbs
+	110. State = 110 /\ RCV_SA({Kab'}_Kas.X') =|&gt;
+%% 3. A -&gt; B : {Kab}_Kbs, A
+		State':= 120 /\ SND_BA(X'.A)
+		/\ witness(A, B, alice_bob_Kab, Kab')
+
+end role
+
+%%----------------------------------------------------------------------
+role server (A, S, B: agent,
+	Kas, Kbs : symmetric_key,
+	SND_AS, RCV_AS: channel(dy))
+
+played_by S def=
+
+local 
+	Kab : symmetric_key,
+	State : nat
+
+init 	State := 200
+
+transition
+
+%% 1. A -&gt; S : A, B
+	200. State = 200 /\ RCV_AS(A.B) =|&gt;
+%% 2. S -&gt; A : {Kab}_Kas, {Kab}_Kbs
+		State':= 2 /\ Kab' := new() 
+		/\ SND_AS({Kab'}_Kas.{Kab'}_Kbs) 
+		/\ secret(Kab', kab, {A, S, B})
+%% IGNORED 3. A -&gt; B : {Kab}_Kbs, A
+
+end role
+
+%%----------------------------------------------------------------------
+role bob (A, S, B: agent,
+	Kbs : symmetric_key,
+	RCV_AB: channel(dy))
+
+played_by B def=
+
+local 
+	Kab : symmetric_key,
+	State : nat
+
+init 	State := 300
+
+transition
+
+%% IGNORED 1. A -&gt; S : A, B
+%% IGNORED 2. S -&gt; A : KAB
+%% 3. A -&gt; B : {Kab}_Kbs, A
+	300. State = 300 /\ RCV_AB({Kab'}_Kbs.A) =|&gt;
+		State':= 310 /\ witness(B, A, alice_bob_Kab, Kab')
+
+end role
+
+%%----------------------------------------------------------------------
+role session(A, S, B : agent,
+	Kas, Kbs : symmetric_key)
+def=
+local
+	SSA, RSA, SBA, RBA,
+	SAS, RAS,
+	RAB: channel(dy)
+
+composition
+	alice (A, S, B, Kas, Kbs, SSA, RSA, SBA, RBA)
+	/\ server(A, S, B, Kas, Kbs, SAS, RAS)
+	/\ bob (A, S, B, Kbs, RAB)
+end role
+
+%%----------------------------------------------------------------------
+role environment()
+def=
+
+const 
+	a, b, s : agent,
+	kas, kbs, ki : symmetric_key,
+	kab: protocol_id
+
+intruder_knowledge = {a, b, s, ki}
+
+composition
+	session(a,s,b, ka, kb)
+	/\ session(a,s,i, ka, ki)
+	/\ session(i,s,b, ki, kb)
+
+end role
+
+%%----------------------------------------------------------------------
+goal
+	secrecy_of kab
+end goal
+
+%%----------------------------------------------------------------------
+environment()
+
+
+
+
+-----------------------------------------
+Email sent from www.ntlworld.com
+Virus-checked using McAfee(R) Software 
+Visit www.ntlworld.com/security for more information
+
+</PRE>
+
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000317.html">[Avispa-users] Special Issue of Information and Computation on
+	'Computer Security: Foundations and Automated Reasoning'
+</A></li>
+	<LI>Next message: <A HREF="000319.html">[Avispa-users] Unable to Model a Known Insecure Protocol
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#318">[ date ]</a>
+              <a href="thread.html#318">[ thread ]</a>
+              <a href="subject.html#318">[ subject ]</a>
+              <a href="author.html#318">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="http://www.avispa-project.org/mailman/listinfo/avispa-users">More information about the Avispa-users
+mailing list</a><br>
+</body></html>

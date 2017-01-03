@@ -1,0 +1,86 @@
+role alice (
+A, B: agent,
+Pa, Pb : public_key,
+Xa, Xb : symmetric_key,
+R, P : text,
+U, Sigma, M : message,
+H, Conc, Union, Pred: hash_func,
+SND, RCV : channel (dy))
+played_by A
+def=
+local State : nat
+const aliceid, bobid, tid : protocol_id
+init State := 0
+transition
+1.State = 0/\RCV(start) =|>
+State' := 1/\R' := new()
+/\secret(R, tid, A)
+/\U' :=Pred(R, Pa)
+/\Sigma' := Pred(Pred(Xa, Union(R, H(Conc(M, U))), Pb))
+/\SND(M.U.Sigma)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role bob(
+B, A : agent,
+Pa, Pb : public_key,
+Xa, Xb : symmetric_key,
+R, P : text,
+U, Sigma, M : message,
+H, Conc, Union, Pred : hash_func,
+SND, RCV : channel (dy))
+played_by B
+def=
+local State : nat
+const aliceid, bobid, tid : protocol_id
+init State := 1
+transition
+1.State =1/\RCV(M.U.Sigma) =|>
+State' :=2/\secret (R, tid, A)
+/\Sigma' := Pred(Xb, Union(Union, Pred(H(Conc(M, U), Pa))))
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(
+A, B  :agent,
+Pa,Pb: public_key,
+Xa, Xb : symmetric_key,
+R, P :text)
+def=
+local SND,RCV : channel(dy)
+composition
+alice(A, B,Pa,Xb,SND,RCV)
+/\bob(A,B,Pb,SND,RCV)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+def=
+const a,b : agent,
+aliceid, bobid, tid : protocol_id,
+xa, xb, xi : symmetric_key,
+r, p : text
+
+intruder_knowledge = { a, b, r, p, xi }
+composition
+session(a, b, xa, xb, r, p) 
+/\ session(i, b, xi, xb, r, p)
+/\ session( a, i, xa, xi, r, p) 
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+secrecy_of aliceid
+secrecy_of bobid
+secrecy_of tid
+authentication_on aliceid, bobid
+end goal
+environment()
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+
+
+
+
+

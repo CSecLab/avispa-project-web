@@ -1,0 +1,153 @@
+role user(Ui,Sj,RC: agent,
+            SK1: symmetric_key,
+             SK2: symmetric_key,
+             H,Mul,Add,Sub: hash_func,
+                   Snd,Rcv:channel(dy))
+played_by Ui
+def=
+local State:nat,
+IDi,SIDj,MK,Bi,R1,R2,R3,Fi,Ai,Ci,X,P,PWi,Vi,M1,M4,M7,SK :text,
+DIDi,Di,M2,M3,Ei,M5,M6,DIDnew,M8,M9,Li :message,
+Inc:hash_func
+const user_server,user_regcentre,server_user,regcentre_user,regcentre_server,
+subs1,subs2,subs3,subs4,subs5,subs6,subs7,subs8,subs9:protocol_id
+init State:=0
+transition
+1.State=0/\Rcv(start)=|>
+State':=1/\Fi':=H(Bi)
+%Send registration request message
+/\Snd({IDi.Fi'}_SK1)
+/\secret({Bi},subs1,Ui)
+/\secret({IDi,Fi'},subs2,{Ui,RC})
+2.State=1/\Rcv({Di.DIDi}_SK1)=|>
+State':=2/\Vi':=H(IDi.PWi.Fi)
+/\R1':=new()
+/\M1':=Mul(R1'.P)
+/\M2':=Add(Mul(Fi.P),M1')
+/\M3':=H(IDi.M1'.SIDj.Di)
+/\Snd(Di.DIDi.M2'.M3')
+/\secret({R1'},subs3,Ui)
+/\secret({M1'},subs4,{Ui,RC,Sj})
+/\witness(Ui,RC,user_regcentre,R1')
+3.State=2/\Rcv(DIDnew,M9,M8,M5)=|>
+State':=3/\SK':=H(M1.M4.M7)
+/\Li':=Add(Mul(SK'.P),Mul(H(IDi.Fi).P))
+/\Snd(Li')
+/\request(Sj,Ui,server_user,R3)
+/\request(RC,Ui,regcentre_user,R2)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role regcentre(Ui,Sj,RC: agent,
+            SK1: symmetric_key,
+             SK2: symmetric_key,
+             H,Mul,Add,Sub: hash_func,
+             Snd,Rcv:channel(dy))
+played_by RC
+def=
+local State:nat,
+IDi, SIDj,MK,Bi,Fi,R1,R2,R3,Ai,Ci,X,P,PWi,Vi,M1,M4,M7,SK :text,
+DIDi,Di,M2,M3,Ei,M5,M6,DIDnew,M8,M9,Li :message,
+Inc:hash_func
+const user_server,user_regcentre,server_user,regcentre_user,regcentre_server,
+subs1,subs2,subs3,subs4,subs5,subs6,subs7,subs8,subs9:protocol_id
+init State:=0
+transition
+1. State=0/\Rcv(SIDj)=|>
+State':=1/\secret({X},subs5,RC)
+/\MK':=H(SIDj.X)
+/\Snd({MK'}_SK2)
+/\secret({MK'},subs6,{Sj,RC})
+2.State=1/\Rcv({IDi.Fi}_SK1)=|>
+State':=2/\DIDi':={IDi.R}_H(X)
+/\Ai':=Mul(Fi.P)
+/\Ci':=Mul(H(IDi.X).P)
+/\Di':=Add(Ai',Ci')
+/\Snd({Di'.DIDi'}_SK1)
+/\secret({Ci'},subs7,{Ui,RC})
+/\secret({X},subs5,RC)
+3.State=2/\Rcv(DIDi.Di.M2.M3)=|>
+State':=3/\R2':=new()
+/\DIDnew':={IDi.R2'}_H(X)
+/\Ei':={IDi.M1.Fi}_H(SIDj.X)
+/\M4':=Mul(R2'.P)
+/\M5':=Add(M4',Mul(Fi.P))
+/\M6':=H(M4'.DIDnew'.IDi.SIDj)
+/\Snd(M5'.M6'.DIDnew'.Ei')
+/\secret({R2'},subs8,RC)
+/\request(Ui,RC,user_regcentre,R1)
+/\witness(RC,Sj,regcentre_server,R2')
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role server(Ui,Sj,RC: agent,
+            SK1: symmetric_key,
+             SK2: symmetric_key,
+             H,Mul,Add,Sub: hash_func,
+             Snd,Rcv:channel(dy))
+played_by Sj
+def=
+local State:nat,
+IDi, SIDj,MK,Bi,Fi,R1,R2,R3,Ai,Ci,X,P,PWi,Vi,M1,M4,M7,SK :text,
+DIDi,Di,M2,M3,Ei,M5,M6,DIDnew,M8,M9,Li :message,
+Inc:hash_func
+const user_server,user_regcentre,server_user,regcentre_user,regcentre_server,
+subs1,subs2,subs3,subs4,subs5,subs6,subs7,subs8,subs9:protocol_id
+init State:=0
+transition
+1.State=0/\Rcv(start)=|>
+State':=1/\SIDj':=new()
+/\Snd(SIDj')
+2.State=1/\Rcv({MK}_SK2.M5.M6.DIDnew.Ei)=|>
+State':=2/\R3':=new()
+/\M7':=Mul(R3'.P)
+/\M8':=Add(M7',M1)
+/\M9':=H(DIDnew.M7'.M4.Mul(Fi.P))
+/\Snd(DIDnew'.M9'.M8'.M5)
+/\request(Ui,Sj,user_server,R1)
+/\witness(Sj,Ui,server_user,R3')
+/\secret({R3'},subs9,Sj)
+3.State=2/\Rcv(Li)=|>
+State':=3/\request(Ui,Sj,user_server,R1)
+/\request(RC,Sj,regcentre_server,R2)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(Ui,Sj,RC: agent,
+            SK1: symmetric_key,
+             SK2: symmetric_key,
+             H,Mul,Add,Sub: hash_func)
+def=
+local SI,SJ,RI,RJ,PI,PJ:channel(dy)
+composition
+alice(Ui,Sj,RC,SK1,SK2,H,Mul,Add,Sub,SI,RI)
+/\bob(Ui,Sj,RC,SK1,SK2,H,Mul,Add,Sub,SJ,RJ)
+/\regcentre(Ui,Sj,RC,SK1,SK2,H,Mul,Add,Sub,PI,PJ)
+end role
+role environment()
+def=
+const ui,sj,rc:agent,
+sk1:symmetric_key,
+sk2:symmetric_key,
+h,mul,add,sub:hash_func,
+idi,sidj,mk,bi,fi,r1,r2,r3,ai,ci,x,p,pwi,vi,m1,m4,m7,sk :text,
+user_server,user_regcentre,server_user,regcentre_user,regcentre_server,
+subs1,subs2,subs3,subs4,subs5,subs6,subs7,subs8,subs9:protocol_id
+intruder_knowledge={ui,sj,rc,h,add,sub,mul,di,didi}
+composition
+session(ui,sj,rc,sk1,sk2,h,mul,add,sub)
+/\session(ui,sj,rc,sk1,sk2,h,mul,add,sub)
+/\session(sj,ui,rc,sk1,sk2,h,mul,add,sub)
+end role
+goal
+secrecy_of subs1
+secrecy_of subs2
+secrecy_of subs3
+secrecy_of subs4
+secrecy_of subs5
+secrecy_of subs6
+secrecy_of subs7
+secrecy_of subs8
+secrecy_of subs9
+authentication_on user_regcentre_r1
+authentication_on regcentre_server_r3
+authentication_on server_user_r2
+end goal
+environment()

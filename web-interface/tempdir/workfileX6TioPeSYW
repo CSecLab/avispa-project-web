@@ -1,0 +1,110 @@
+role alice(A, B: agent,
+	Kpa, Kpb: public_key,
+	Ksab: symmetric_key,
+	SND, RCV: channel (dy),
+	GenKsab: hash_func)
+
+played_by A def=
+
+  local 
+	State : nat, 
+	Na, Nb: text,
+	Kpra: symmetric_key,
+	Qa, Aa, Ab: text
+
+init State := 0
+
+  transition
+	
+	0.  State  = 0 /\ RCV(start) =|> 
+            State':= 2 /\ Kpa' := new() /\ Kpra' := new() /\ Na' := new() 
+		   /\ SND(Na'.Kpa')
+
+    2.  State  = 2 /\ RCV(Nb'.Kpb') =|> 
+            State':= 4
+		   /\ Ksab' := GenKsab(Kpra,Kpb)
+		   /\ secret(Ksab,ksab,{A,B}) 
+		   /\ Qa':=new() /\ Aa':=new() /\ SND({Qa'}_Ksab')
+		   /\ witness(A,B,alice_question,Qa')
+	4. 	State = 4 /\ RCV({Ab'}_Ksab) =|> 
+			State':=6 /\ request(A,B,bob_question,Ab')
+			/\ witness(A,B,bob_question,Aa')
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob(A, B: agent,
+	Kpa, Kpb: public_key,
+	Ksab: symmetric_key,
+	SND, RCV: channel (dy),
+	GenKsab: hash_func)
+		
+played_by B def=
+
+  local 
+	State : nat, 
+	Na, Nb: text,
+	Kprb: symmetric_key,
+	Qa, Aa, Ab: text
+
+init State := 1
+
+  transition
+	
+	1.  State  = 1 /\ RCV(Na'.Kpa) =|> 
+            State':= 3 /\ Kpb' := new() /\ Kprb' := new() /\ Nb' := new()
+		    /\ SND(Na'.Kpb')
+			/\ Ksab' := GenKsab(Kprb,Kpa)
+			/\ secret(Ksab, ksab, {A,B})
+	3. 	State =3 /\ RCV({Qa'}_Ksab) =|>
+			State':=5 /\ Ab':=new() /\ request(B,A,alice_question,Qa')
+			/\ witness(B,A,answer_bob,Ab')
+			/\ SND({Ab'}_Ksab)
+			
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(A, B: agent,
+	Kpa, Kpb: public_key,
+	Ksab: symmetric_key,
+	GenKsab: hash_func)
+def=
+local SA, RA, SB, RB: channel(dy)
+
+composition
+
+	alice(A,B,Kpa,Kpb,Ksab,SA,RA,GenKsab)
+	/\
+	bob(A,B,Kpa,Kpb,Ksab,SB,RB,GenKsab)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() 
+def=
+	const 
+		a, b : agent,
+        ka, kb, ki: public_key,
+		ksab, ksi: symmetric_key,
+		genKsab: hash_func,
+		alice_question, bob_answer: protocol_id
+       
+    intruder_knowledge = {a,b,ki,ksi,genKsab}
+
+    composition
+
+        session(a,b,ka,kb,ksab,genKsab,alice_question, bob_answer)
+     /\ session(a,i,ka,ki,ksab,genKsab,alice_question, bob_answer)
+     /\ session(i,b,ka,ki,ksi,genKsab,alice_question, bob_answer)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+  secrecy_of ksab
+  authentication_on alice_question
+  authentication_on bob_answer
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

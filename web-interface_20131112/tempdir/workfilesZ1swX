@@ -1,0 +1,107 @@
+role node (N,BS: agent,
+	   Km: symmetric_key,
+	   MAC,F,H,Suc: function
+	   RCV,SND: channel(dy))
+played_by N
+def=
+
+local 	State: nat,
+	No: agent,
+	Size1,Size2, Counter: nat,
+      	AM1,AM2: text,
+	IV1,IV2, Data1, Data2: message
+
+init State:=0 
+
+transition
+	1. State=0/\
+		RCV(N.AM1'.Size1'.No'.Counter'.{xor(IV1',Data1')}_F(Km.N).{MAC(N.AM1'.Size1'.No'.Counter'.Data1')}_H(Km.N)) /\
+		IV1'= N.AM1'.Size1'.No'.Counter'
+	   =|>
+	   State':=1 /\
+	   	AM2':=new() /\ Size2':=41 /\ Counter':=Suc(Counter') /\ Data2':=new()
+	   	/\ IV2':=No'.AM2'.Size2'.N.Counter'
+	   	/\SND(No'.AM2'.Size2'.N.Counter'.{xor(IV2',Data2')}_F(Km.N).{MAC(No'.AM2'.Size2'.N.Counter'.Data2')}_H(Km.N))
+		/\ request(N,No',auth_data1,Data1')
+	 	/\ witness(N,No',auth_data2,Data2')
+		/\ secret(Data2', secret_data2,{BS,N})
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role basestation(BS: agent,
+		 Nodes: (agent) set,
+		 Counter: nat,
+	   	 Km: symmetric_key,
+	  	 MAC,F,H, Suc: function,
+	   	 RCV,SND: channel(dy)
+		)
+played_by BS
+def=
+
+local 	State: nat,
+	No: agent,
+	Size1,Size2: nat,
+      	AM1, AM2: text,
+	IV1,IV2,Data1,Data2: message
+init State:=0 
+
+transition
+	1. State=0
+		/\ RCV(start)
+		/\in(No',Nodes)
+	    =|>
+	   State':=1 /\
+	  	AM1':=new() /\ Size1':=41 /\  Data1':=new()
+	   	/\ IV1':=No'.AM1'.Size1'.BS.Counter/\ SND(No'.AM1'.Size1'.BS.Counter.{xor(IV1',Data1')}_F(Km.No').{MAC(No'.AM1'.Size1'.BS.Counter.Data1')}_H(Km.No')) /\
+		witness(BS,No',auth_data1, Data1')
+		/\ secret(Data1', secret_data1,{BS,No'})
+	  
+	
+	
+	2.  State=1 /\ 
+		RCV(BS.AM2'.Size2'.No.Suc(Counter).{xor(IV2',Data2')}_F(Km.No).{MAC(BS.AM2'.Size2'.No.Suc(Counter).Data2')}_H(Km.No))
+		/\ IV2'=BS.AM2'.Size2'.No.Suc(Counter)
+	    =|>
+	    State':=2
+		/\ Counter':=Suc(Counter)
+		/\ request(BS,No,auth_data2, Data2')
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(BS,N1,N2: agent,
+	     C: nat,
+	     Km: symmetric_key,
+	     MAC,F,H, Suc: function
+	    )
+def=
+	local  SND,RCV: channel(dy)
+	composition
+		node(N1,BS,Km,MAC,F,H,Suc,RCV,SND)
+		/\ node(N2,BS,Km,MAC,F,H,Suc,RCV,SND)
+		/\ basestation(BS,{N1,N2},C,Km,MAC,F,H,Suc,RCV,SND)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+	const  	bs,n1,n2,n3,n4: agent,
+		km,ki: symmetric_key,
+		mac,f,h,suc: function,
+		auth_data1,auth_data2,secret_data1,secret_data2: protocol_id
+	
+	intruder_knowledge={i,bs,n1,n2,ki,mac,f,h,suc}
+
+	composition
+		session(bs,n1,n2,0,km,mac,f,h,suc)
+		%%/\ session(bs,n1,n4,4,km,mac,f,h,suc)
+	     	/\ session(bs,n1,i,6,km,mac,f,h,suc)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+	%%authentication_on auth_data1	
+	authentication_on auth_data2
+	secrecy_of secret_data1,secret_data2
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()
+ 

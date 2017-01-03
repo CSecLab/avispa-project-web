@@ -1,0 +1,161 @@
+%% PROTOCOL:
+%% IKEv2: Internet Key Exchange, version 2
+%%
+%% VARIANT: authentication based on digital signatures
+%%
+%% PURPOSE:
+%% IKE is designed to perform mutual authentication and key exchange prior to setting up an IPsec connection.
+%% IKEv2 exists in several variants, the defining difference being the authentication method used.
+%% This variant, which we call IKEv2-DS, uses digital signatures.
+%% 
+%% MODELER:
+%% Sebastian Mödersheim, ETH Zürich, December 2003
+%% Paul Hankes Drielsma, ETH Zürich, December 2003
+%%
+%% HLPSL:
+
+role alice(A,B:agent,
+           G: text,
+           F: hash_func,
+           Ka,Kb: public_key,
+           SND_B, RCV_B: channel (dy))
+played_by A
+def=
+
+  local Ni, SA1, SA2, DHX: text, 
+        Nr: text,
+        KEr: message, %% more specific: exp(text,text)
+        SK: hash(text.text.text.message),
+        State: nat
+
+  const sec_a_SK : protocol_id
+
+  init  State := 0
+
+  transition
+
+  %% The IKE_SA_INIT exchange:
+  %% We have abstracted away from the negotiation of cryptographic
+  %% parameters.  Alice sends a nonce SAi1, which is meant to
+  %% model Alice sending only a single crypto-suite offer.  Bob must
+  %% then respond with the same nonce.
+  1. State = 0  /\ RCV_B(start) =|>
+     State':= 2 /\ SA1' := new()
+                /\ DHX' := new()
+                /\ Ni' := new()
+                /\ SND_B( SA1'.exp(G,DHX').Ni' )
+
+  %% Alice receives message 2 of IKE_SA_INIT, checks that Bob has
+  %% indeed sent the same nonce in SAr1, and then sends the first 
+  %% message of IKE_AUTH.
+  %% As authentication Data, she signs her first message and Bob's nonce.
+  2. State = 2  /\ RCV_B(SA1.KEr'.Nr') =|>
+     State':= 4 /\ SA2' := new()
+                /\ SK' := F(Ni.Nr'.SA1.exp(KEr',DHX))
+                /\ SND_B( {A.{SA1.exp(G,DHX).Ni.Nr'}_(inv(Ka)).SA2'}_SK' )
+                /\ witness(A,B,sk2,F(Ni.Nr'.SA1.exp(KEr',DHX)))
+
+
+
+
+
+  3. State = 4  /\ RCV_B({B.{SA1.KEr.Nr.Ni}_(inv(Kb)).SA2}_SK) =|>
+     State':= 9 /\ secret(SK,sec_a_SK,{A,B})
+                /\ request(A,B,sk1,SK)
+
+end role
+
+
+
+role bob (B,A:agent,
+          G: text,
+          F: hash_func,
+          Kb, Ka: public_key,
+          SND_A, RCV_A: channel (dy))
+played_by B
+def=
+
+  local Ni, SA1, SA2: text, 
+        Nr, DHY: text,
+        SK: hash(text.text.text.message),
+        KEi: message,
+        State: nat
+
+  const sec_b_SK : protocol_id
+
+  init  State := 1
+
+  transition
+
+  1. State = 1  /\ RCV_A( SA1'.KEi'.Ni' ) =|>
+     State':= 3 /\ DHY' := new()
+                /\ Nr' := new()
+                /\ SND_A(SA1'.exp(G,DHY').Nr')
+                /\ SK' := F(Ni'.Nr'.SA1'.exp(KEi',DHY'))
+                /\ witness(B,A,sk1,F(Ni'.Nr'.SA1'.exp(KEi',DHY')))
+
+  2. State = 3  /\ RCV_A( {A.{SA1.KEi.Ni.Nr}_(inv(Ka)).SA2'}_SK ) =|>
+     State':= 9 /\ SND_A( {B.{SA1.exp(G,DHY).Nr.Ni}_(inv(Kb)).SA2'}_SK )
+                /\ secret(SK,sec_b_SK,{A,B})
+                /\ request(B,A,sk2,SK)
+
+end role
+
+
+
+role session(A, B: agent,
+             Ka, Kb: public_key,
+             G: text,
+             F: hash_func)
+def=
+
+  local SA, RA, SB, RB: channel (dy)
+
+  composition
+           alice(A,B,G,F,Ka,Kb,SA,RA)
+        /\ bob(B,A,G,F,Kb,Ka,SB,RB)
+
+end role
+
+
+
+role environment()
+def=
+ 
+  const sk1,sk2    : protocol_id,
+        a, b       : agent,
+        ka, kb, ki : public_key,
+        g          : text,
+        f          : hash_func
+
+  intruder_knowledge = {g,f,a,b,ka,kb,i,ki,inv(ki)
+
+                       }
+
+  composition
+
+        session(a,b,ka,kb,g,f)
+     /\ session(a,i,ka,ki,g,f)
+     /\ session(i,b,ki,kb,g,f)
+
+end role
+
+
+
+goal
+
+  %secrecy_of SK
+  secrecy_of sec_a_SK, sec_b_SK % Addresses G9
+
+  %Alice authenticates Bob on sk1
+  authentication_on sk1 % Addresses G1, G2, G3, G7, G10
+  %Bob authenticates Alice on sk2
+  authentication_on sk2 % Addresses G1, G2, G3, G7, G10
+
+end goal
+
+
+
+environment()
+
+

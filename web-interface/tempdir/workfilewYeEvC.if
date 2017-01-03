@@ -1,0 +1,102 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilewYeEvC
+
+section signature:
+
+state_pointRelais: agent * agent * public_key * public_key * hash_func * nat * message * message * text * text * text * nat -> fact
+state_alice: agent * agent * public_key * public_key * hash_func * text * nat * message * message * text * text * set(agent) * nat -> fact
+
+
+section types:
+
+set_95, set_93, set_91, set_76: set
+dummy_set: set(message)
+Dummy_Set_24, Set_24, ASGoal: set(agent)
+nba, pointRelais_alice_nb: protocol_id
+X, Y, Dummy_Y, Dummy_X, dummy_msg, MGoal, start: message
+13, 12, 10, 6, 4, SID, State, Dummy_State, 3, 2, SID2, SID1, 1, 0: nat
+Rep, Dummy_Rep, Num, Dummy_Num, Na, Dummy_Reponse, Dummy_Na, dummy_nonce, Reponse, numIS, repIS, numAI, repAI, numAS, repAS: text
+H, h: hash_func
+Ka, Kp, pKA, pKS, pKI: public_key
+A, P, A2Goal, A1Goal, agentA, agentS, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(agentA).
+ iknows(agentS).
+ iknows(pKA).
+ iknows(pKS).
+ iknows(pKI).
+ iknows(inv(pKI)).
+ iknows(i).
+ state_alice(agentA,agentS,pKA,pKS,h,numAS,0,dummy_msg,dummy_msg,dummy_nonce,dummy_nonce,set_76,3).
+ state_pointRelais(agentS,agentA,pKA,pKS,h,0,dummy_msg,dummy_msg,dummy_nonce,dummy_nonce,dummy_nonce,4).
+ state_alice(agentA,i,pKA,pKS,h,numAI,0,dummy_msg,dummy_msg,dummy_nonce,dummy_nonce,set_91,6).
+ state_pointRelais(agentS,i,pKA,pKS,h,0,dummy_msg,dummy_msg,dummy_nonce,dummy_nonce,dummy_nonce,10).
+ state_alice(agentA,agentS,pKA,pKS,h,numAS,0,dummy_msg,dummy_msg,dummy_nonce,dummy_nonce,set_95,12).
+ state_pointRelais(agentS,agentA,pKA,pKS,h,0,dummy_msg,dummy_msg,dummy_nonce,dummy_nonce,dummy_nonce,13)
+
+
+section rules:
+
+step step_0 (A,P,Ka,Kp,H,Num,Dummy_X,Y,Reponse,Dummy_Na,Dummy_Set_24,SID,Na) :=
+ state_alice(A,P,Ka,Kp,H,Num,0,Dummy_X,Y,Reponse,Dummy_Na,Dummy_Set_24,SID).
+ iknows(start)
+=[exists Na]=>
+ state_alice(A,P,Ka,Kp,H,Num,1,apply(H,pair(Num,Na)),Y,Reponse,Na,Dummy_Set_24,SID).
+ iknows(crypt(Kp,crypt(inv(Ka),pair(Num,pair(Na,apply(H,pair(Num,Na))))))).
+ witness(A,P,pointRelais_alice_nb,Num).
+ secret(Num,nba,Dummy_Set_24).
+ contains(A,Dummy_Set_24).
+ contains(P,Dummy_Set_24)
+
+step step_1 (A,P,Ka,Kp,H,Num,X,Dummy_Y,Dummy_Reponse,Na,Set_24,SID,Y,Reponse) :=
+ state_alice(A,P,Ka,Kp,H,Num,1,X,Dummy_Y,Dummy_Reponse,Na,Set_24,SID).
+ iknows(crypt(Ka,pair(Reponse,pair(Na,Y))))
+ =>
+ state_alice(A,P,Ka,Kp,H,Num,2,X,Y,Reponse,Na,Set_24,SID)
+
+step step_2 (P,A,Ka,Kp,H,Dummy_X,Dummy_Y,Dummy_Na,Dummy_Num,Dummy_Rep,SID,X,Na,Num,Rep) :=
+ state_pointRelais(P,A,Ka,Kp,H,0,Dummy_X,Dummy_Y,Dummy_Na,Dummy_Num,Dummy_Rep,SID).
+ iknows(crypt(Kp,crypt(inv(Ka),pair(Num,pair(Na,X)))))
+=[exists Rep]=>
+ state_pointRelais(P,A,Ka,Kp,H,1,X,apply(H,pair(Rep,Na)),Na,Num,Rep,SID).
+ iknows(crypt(Ka,crypt(inv(Kp),pair(Rep,pair(Na,apply(H,pair(Rep,Na))))))).
+ request(P,A,pointRelais_alice_nb,Num,SID)
+
+
+section properties:
+
+property authentication_on_pointRelais_alice_nb (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,pointRelais_alice_nb,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,pointRelais_alice_nb,MGoal))
+     /\ ((request(A1Goal,A2Goal,pointRelais_alice_nb,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,pointRelais_alice_nb,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property secrecy_of_nba (MGoal,ASGoal) :=
+ [] ((secret(MGoal,nba,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state authentication_on_pointRelais_alice_nb (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,pointRelais_alice_nb,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,pointRelais_alice_nb,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_pointRelais_alice_nb (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,pointRelais_alice_nb,MGoal,SID1).
+ request(A1Goal,A2Goal,pointRelais_alice_nb,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state secrecy_of_nba (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,nba,ASGoal) &
+ not(contains(i,ASGoal))
+

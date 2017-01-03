@@ -1,0 +1,25 @@
+role Alice(A, B, S: agent, Ka, Ks: public_key;
+KR: (agent,public_key) set,  SND, RCV: channel (dy)) played_by A def=
+local State: nat, Na: text(fresh), Nb: text, Kb: public_key
+init State = 0
+transition
+% Start of the protocol, provided Alice already knows Bob’s public key.
+step1a. State =0 /\ START() /\ in((B,Kb’), KR)
+=|> State’=2 /\ SND({Na’.A}Kb’) /\ witness(A,B,na,Na’)
+% Start of the protocol otherwise.
+step1b. State =0 /\ START() /\ not(in((B,Kb’), KR))
+=|> State’=1 /\ SND(A.B)
+% Receipt of response from server
+step2.  State =1 /\ RCV({B.Kb’}inv(Ks))
+=|> State’=2 /\ KR’ = cons((B,Kb’), KR)
+/\ SND({Na’.A}Kb’) /\ witness(A,B,na,Na’)
+% Receiving the second message and sending the third.
+step3.  State =2 /\ RCV({Na.Nb’}Ka)
+=|> State’=3 /\ SND({Nb’}Kb) /\ request(A,B,nb,Nb’)
+end role
+role Server(S: agent, Keys: function;
+SND, RCV: channel (dy)) played_by S def=
+local A, B: agent
+transition
+step0. RCV(A’.B’) =|> SND({B’.Keys(B’)}inv(Keys(S)))
+end role

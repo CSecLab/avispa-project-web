@@ -1,0 +1,35 @@
+signature
+begin
+# host name and public-key
+host : pubkey ? p r i n c i p a l ;
+getpubkey : p r i n c i p a l ? pubkey ;
+# probabilisitic encryption
+pencrypt : ( message , pubkey , nonce ) ? message ;
+decrypt : ( message , pr i v key ) ? message ;
+# blind signature
+f a i r b l i n d : (message , nonce ) ? message ;
+unbl ind : (message , nonce ) ? message ;
+revmsg : message ? message ;
+revsign : (message , pubkey ) ? message ;
+# zero-knowledge proof
+proof : (message , message , pubkey ) ? message ;
+checkproof : (message , message , pubkey ) ? message ;
+ok : message ;
+end
+axioms
+declare h : p r i n c i p a l ; m:message ; r : nonce ; p r i v k : pr i v key ; pubk : pubkey ;
+begin
+# host name and public-key
+host ( getpubkey ( h ) ) = h ;
+getpubkey ( host ( pubk ) ) = pubk ;
+# probabilistic encryption
+decrypt ( pencrypt (m, inv ( p r i v k ) , r ) , p r i v k ) = m;
+# blind signature
+unbl ind ( sign (asym, pr i v k , f a i r b l i n d (m, r ) ) , r )= sign (asym, pr i v k ,m) ;
+revmsg ( f a i r b l i n d (m, r ) ) = m;
+revsign ( f a i r b l i n d (m, r ) , pubk ) = sign (asym, inv ( pubk ) ,m) ;
+# zero-knowledge proof
+checkproof ( proof ( pencrypt (m, pubk , r ) ,m, pubk ) ,
+pencrypt (m, pubk , r ) ,
+pubk ) = ok ;
+end

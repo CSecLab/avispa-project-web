@@ -1,0 +1,198 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%	USER
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role user(
+	U,H,B		: agent,
+	D		: hash_func,
+	Ku,Kh,Kb	: public_key,
+	Uh,Ub,Hu,Bu	: channel(dy)) played_by U def=
+	
+	local
+		State,Nuhb,Nuh,Id	: nat,
+		R,M,C,S1,S3,S4,S5,S6	: text
+	init
+		State	:= 0
+	transition
+	0.	State	=	0		
+	=|>	State'	:=	1	/\	S1' := new()
+					/\	C' := new()
+					/\	Nuhb' := new()
+					/\	Nuh' := new()
+					/\	secret(C', c, {U,H})
+					/\	secret(Nuh', nuh, {U,H})
+					/\	secret(Nuhb', nuhb, {U,H,B})
+					/\	Ub({U.{C'.Nuh'.S1'}_inv(Ku)}_Kh.{{Nuhb'.S1'}_inv(Ku)}_Kb)
+
+	1.	State	=	1	/\	Bu({{Id'}_inv(Kb)}_Ku)
+	=|>	State'	:=	2	/\	Uh({{Id'.Nuhb.Nuh}_inv(Ku)}_Kh)
+
+	2.	State	=	2	/\	Hu({{Id.M'}_inv(Kh)}_Ku)
+	=|>	State'	:=	3	/\	Ub(Id)
+
+	3.	State	=	3	/\	Bu(Id.{{xor({D(C.M)}_inv(Kh),M).Nuh.S3'}_inv(Kh)}_Ku.{{Id.Nuhb.S3'}_inv(Kh)}_Kb.S4'.{D(Id.{{xor({D(C.M)}_inv(Kh),M).Nuh.S3'}_inv(Kh)}_Ku.{{Id.Nuhb.S3'}_inv(Kh)}_Kb.S4')}_inv(Kb))
+	=|>	State'	:=	4	/\	R' := new()
+					/\	S5' := new()
+					/\	secret(R', r, {U,H})
+					/\	Ub({{R'.Nuh.S5'}_inv(Ku)}_Kh.{{Id.Nuhb.S5'}_inv(Ku)}_Kb)
+						% Calculate token by "Token := xor(xor({D(C.M)}_inv(Kh),M),M)"
+					
+	4.	State	=	4	/\	Bu({{Id}_inv(Kb)}_Ku)
+	=|>	State'	:=	5	/\	Uh({{Id.R}_inv(Ku)}_Kh)
+
+
+
+%	3.	State	=	3	/\	Bu(Id.{{xor({D(C.M)}_inv(Kh),M).Nuh.S3'}_inv(Kh)}_Ku.{{Id.Nuhb.S3}_inv(Kh)}_Kb.S4'.{D(Id.{{xor({D(C.M)}_inv(Kh),M).Nuh.S3'}_inv(Kh)}_Ku.{{Id.Nuhb.S3'}_inv(Kh)}_Kb.S4')}_inv(Kb))
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%	BOARD
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role board(
+	U,H,B		: agent,
+	D		: hash_func,
+	Ku,Kh,Kb	: public_key,
+	Bu,Bh,Ub,Hb	: channel(dy)) played_by B def=
+	
+	local
+		State,Nuh,Nuhb,Id	: nat,
+		M,C,R,S1,S2,S3,S4,S5,S6	: text,
+		Sign			: {hash_func}_inv(public_key)
+	init
+		State	:= 0
+	transition
+	0.	State	=	0	/\	Ub({U.{C'.Nuh'.S1'}_inv(Ku)}_Kh.{{Nuhb'.S1'}_inv(Ku)}_Kb)
+	=|>	State'	:=	1	/\	Id' := new()
+					/\	S2' := new()
+					/\	Sign' := {D(Id'.{U.{C'.Nuh'.S1'}_inv(Ku)}_Kh.{{Nuhb'.S1'}_inv(Ku)}_Kb.S2')}_inv(Kb)
+					/\	Bu({{Id'}_inv(Kb)}_Ku)
+						% We may safely assume that the user queried the bulletin board through a TLS channel
+						% or even even on a insecure channel, the user may check the equality of the REQ she
+						% sends and she queried, so the user can always guarantee to know the correct Id value.
+						% Thus, there is nothing wrong to send the Id value in an encrypted envelope.
+						% Note that, this approach will decrease the number of states during model checking.
+	
+	1.	State	=	1	/\	Hb(Id)
+	=|>	State'	:=	2	/\	Bh(Id.{U.{C.Nuh.S1}_inv(Ku)}_Kh.{{Nuhb.S1}_inv(Ku)}_Kb.S2.Sign)
+						% For a complete model of the proposed mechanism, any party must be able to query the
+						% bulletin board by Id. However, this will cause state explosion during model checking.
+						% That's why, we don't add another input from the user as "Ub(Id)" to this state.
+						% P.S. Frankly, we are just modelling three users here. Normally, the bulletin board
+						% must response to the globe.
+
+	2.	State	=	2	/\	Hb({{xor({D(C.M')}_inv(Kh),M').Nuh.S3'}_inv(Kh)}_Ku.{{Id.Nuhb.S3'}_inv(Kh)}_Kb)
+	=|>	State'	:=	3	/\	S4' := new()
+					/\	Sign' := {D(Id.{{xor({D(C.M')}_inv(Kh),M').Nuh.S3'}_inv(Kh)}_Ku.{{Id.Nuhb.S3'}_inv(Kh)}_Kb.S4')}_inv(Kb)
+					/\	Bh({{Id}_inv(Kb)}_Kh)
+						% We may safely assume that the host queried the bulletin board such as user (state 0), here.
+
+	3.	State	=	3	/\	Ub(Id)
+	=|>	State'	:=	4	/\	Bu(Id.{{xor({D(C.M)}_inv(Kh),M).Nuh.S3}_inv(Kh)}_Ku.{{Id.Nuhb.S3}_inv(Kh)}_Kb.S4.Sign)
+						% Just accepts queries from the user as with the previous case. See state 1 above.
+
+	4.	State	=	4	/\	Ub({{R'.Nuh.S5'}_inv(Ku)}_Kh.{{Id.Nuhb.S5'}_inv(Ku)}_Kb)
+	=|>	State'	:=	5	/\	S6' := new()
+					/\	Sign' := {D(Id.{{R'.Nuh.S5'}_inv(Ku)}_Kh.{{Id.Nuhb.S5'}_inv(Ku)}_Kb.S6')}_inv(Kb)
+					/\	Bu({{Id}_inv(Kb)}_Ku)
+						% We may safely assume that the user queried the bulletin board as in state 0 here.
+
+	5.	State	=	5	/\	Hb(Id)
+	=|>	State'	:=	6	/\	Bh(Id.{{R.Nuh.S5}_inv(Ku)}_Kh.{{Id.Nuhb.S5}_inv(Ku)}_Kb.S6.Sign)
+						% Just accepts queries from the host as in state 1 above.
+						
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%	HOST
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role host(
+	U,H,B		: agent,
+	D		: hash_func,
+	Ku,Kh,Kb	: public_key,
+	Hu,Uh,Hb,Bh	: channel(dy)) played_by H def=
+	
+	local
+		State,Nuhb,Nuh,Id	: nat,
+		R,M,C,S1,S2,S3,S4,S5,S6	: text,
+		T			: {hash_func}_inv(public_key),
+		REQr			: {{nat.text}_inv(public_key)}_public_key
+	init
+		State	:= 0
+	transition
+	0.	State	=	0	/\	Uh({{Id'.Nuhb'.Nuh'}_inv(Ku)}_Kh)
+	=|>	State'	:=	1	/\	Hb(Id')
+
+	1.	State	=	1	/\	Bh(Id.{U.{C'.Nuh.S1'}_inv(Ku)}_Kh.{{Nuhb.S1'}_inv(Ku)}_Kb.S2'.{D(Id.{U.{C'.Nuh.S1'}_inv(Ku)}_Kh.{{Nuhb.S1'}_inv(Ku)}_Kb.S2')}_inv(Kb))
+	=|>	State'	:=	2	/\	M' := new()
+					/\	T' := {D(C'.M')}_inv(Kh)
+					/\	secret(T', t, {U,H})
+					/\	secret(M', m, {U,H,B})
+					/\	S3' := new()
+					/\	Hb({{xor(T',M').Nuh.S3'}_inv(Kh)}_Ku.{{Id.Nuhb.S3'}_inv(Kh)}_Kb)
+					
+	
+	2.	State	=	2	/\	Hb({{Id}_inv(Kb)}_Kh)
+	=|>	State'	:=	3	/\	Hu({{Id.M}_inv(Kh)}_Ku)
+
+	3.	State	=	3	/\	Uh({{Id.R'}_inv(Ku)}_Kh)
+	=|>	State'	:=	4	/\	Hb(Id)
+
+	4.	State	=	4	/\	Bh(Id.{{R.Nuh.S5'}_inv(Ku)}_Kh.{{Id.Nuhb.S5'}_inv(Ku)}_Kb.S6'.{D(Id.{{R.Nuh.S5'}_inv(Ku)}_Kh.{{Id.Nuhb.S5'}_inv(Ku)}_Kb.S6')}_inv(Kb))
+	=|>	State'	:=	5
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%	SESSION
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(
+	U,H,B			: agent,
+	D			: hash_func,
+	Ku,Kh,Kb		: public_key,
+	Uh,Ub,Hu,Bu,Bh,Hb	: channel(dy)) def=
+	
+	composition
+		user(U,H,B,D,Ku,Kh,Kb,Uh,Ub,Hu,Bu)
+	/\	board(U,H,B,D,Ku,Kh,Kb,Bu,Bh,Ub,Hb)
+	/\	host(U,H,B,D,Ku,Kh,Kb,Hu,Uh,Hb,Bh)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%	ENVIRONMENT
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+	const
+		u,h,b,i			:	agent,
+		ku,kh,kb,ki		:	public_key,
+		d			: 	hash_func,
+		uh,ub,hu,bu,bh,hb	:	channel(dy),
+		r,t,m,c,nuh,nuhb	:	protocol_id
+	intruder_knowledge	=	{u,h,b,i,d,ku,kh,kb,ki,inv(ki)}
+	composition
+		session(u,h,b,d,ku,kh,kb,uh,ub,hu,bu,bh,hb)
+%	/\	session(u,h,b,d,ku,kh,kb,uh,ub,hu,bu,bh,hb)
+%		session(i,h,b,d,ki,kh,kb,uh,ub,hu,bu,bh,hb)
+%	/\	session(u,i,b,d,ku,ki,kb,uh,ub,hu,bu,bh,hb)
+%	/\	session(u,h,i,d,ku,kh,ki,uh,ub,hu,bu,bh,hb)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%	GOAL
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+	secrecy_of	r
+	secrecy_of	t
+	secrecy_of	m
+	secrecy_of	nuhb
+	secrecy_of	c
+	secrecy_of	nuh
+end goal
+environment()

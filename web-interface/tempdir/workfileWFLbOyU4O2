@@ -1,0 +1,126 @@
+role user (Ui, S : agent,            
+          SK : symmetric_key,
+          % H is hash function
+          H : hash_func,
+          Snd, Rcv: channel(dy))
+ % Ui is the user; S is the server
+ played_by Ui
+ def=
+ local State : nat,
+ IDi, PWi, RPWi,Ri, A,B,G,Ci,Ei,Ws,Vs,Vi, Yi, Wi, EIDi : text,           
+ T1,T3 : text,
+ X : symmetric_key,
+ Y : public_key
+ const user_server_T1, server_user_T3, user_server_A,server_user_B, subs1, subs2, subs3: protocol_id
+ init State := 0   
+ transition                              
+  % Registration phase                    
+1. State = 0 /\ Rcv(start) =|>          
+   State':=1
+       /\ Ri' := new()
+       /\ RPWi' := H(PWi.Ri')    
+       /\ Snd({IDi.RPWi'}_SK)                
+       /\ secret({X}, subs1, S)
+       /\ secret({PWi,Ri}, subs2, Ui)
+       /\ secret({IDi}, subs3, {Ui,s})
+2. State = 1/\Rcv({xor(H(IDi.X),H(PWi.Ri)).H(H(PWi.Ri).IDi).xor(xor(IDi,PWi),Ri).H}_SK) =|>
+  % Login phase
+   State' := 2 /\ T1' := new()
+       /\ A' := new() 
+       /\ Ri' := xor(xor(xor(IDi,PWi),Ri),xor(IDi,PWi)) 
+       /\ Wi' := H(H(PWi.Ri).IDi)
+       /\ Ci' := exp(G,A')
+       /\EIDi' := {IDi.T1'}_Y
+       /\ Vi' := H(IDi.Yi.Ci'.T1') 
+       /\ Snd (EIDi', Ci',Vi')
+       /\ witness(Ui, S, user_server_A, A')
+       /\ witness(Ui, S, user_server_T1, T1')
+     % Authentication phase
+3. State = 2 /\ Rcv(Ws'.Vs'.T3') =|>
+   State':=3 /\ request(S, Ui, server_user_T3 , T3)
+  end role
+role server (Ui, S : agent,                                
+             SK : symmetric_key,                                 
+             % H is hash function                                
+             H : hash_func,
+             Snd, Rcv: channel(dy))
+         % Ui is the user; S is the server
+         played_by S
+         def=
+           local State : nat,
+ IDi, PWi, RPWi, Ri, EIDi, A,B,G,Ci,Ei,Ws,Vs, Vi, Yi, Wi: text,           
+ % Ri is a secret number to Ui            
+ % X is a secret key of S      
+      T1, T3 : text,
+    X : symmetric_key
+ const user_server_T1, server_user_T3,user_server_A,server_user_B, subs1, subs2 : protocol_id
+         init State := 0                         
+          transition
+         % Registration phase
+         % Receive the registration request message from the user
+         1. State = 0 /\ Rcv({IDi.H(PWi.Ri)}_SK) =|>
+         % Keep x secret to S and PWi, Ri to Ui
+           State' := 1 /\ secret({X}, subs1, S)
+                /\ secret({PWi,Ri}, subs2, Ui)
+         % Send the smart card to the user
+	       /\Wi' := H(H(PWi.Ri).IDi)
+	       /\Yi' := xor(H(IDi.X),H(PWi.Ri))
+               /\Snd({Yi'.Wi'.H}_SK)
+       % Login phaseed subject that involves skill
+   % flight instructor
+         % Receive the login request message
+                    2. State = 1 /\
+              Rcv(EIDi', Ci',Vi') =|>
+              % Authentication phase
+              State' := 2 /\
+             % generate a random nonce
+                 B' := new()
+          % T3 is the current system timestamp
+              /\ T3' := new()
+              /\ Ei' := exp(G,B)
+	      /\Vs' := H(IDi.Yi.T3')                 
+              /\ Ws' := xor((Ei'),H(Yi))
+     % Send the authentication request message
+              /\ Snd(Ws'.Vs'.T3')
+       % S has freshly generated the random nonce B for Ui
+              /\ witness(S, Ui, server_user_B, B')
+       % S has freshly generated the timestamp T3 for Ui
+              /\ witness(S, Ui, server_user_T3, T3')
+     
+       % S’s acceptance of the value T1 generated for S by Ui
+              /\ request(Ui, S, user_server_T1, T1)
+ end role
+role session(Ui, S: agent,
+SK : symmetric_key,
+H : hash_func)
+def=
+local SI, SJ, RI, RJ: channel (dy)
+composition
+user(Ui, S, SK, H, SI, RI)
+/\ server(Ui, S, SK, H, SJ, RJ)
+end role
+role environment()
+def=
+const ui, s: agent,
+sk : symmetric_key,
+h : hash_func,
+user_server_T1, server_user_T3,
+subs1, subs2 : protocol_id
+intruder_knowledge = {ui, s, h}
+composition
+session(ui, s, sk, h)
+/\ session(ui, s, sk, h)
+end role
+goal
+secrecy_of subs1
+secrecy_of subs2
+secrecy_of subs3
+authentication_on user_server_T1
+authentication_on server_user_T3
+end goal
+environment()
+
+
+
+
+

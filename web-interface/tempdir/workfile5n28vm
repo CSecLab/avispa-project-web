@@ -1,0 +1,108 @@
+%%
+%%
+%%
+%%
+%%PROTOCOL: Elliptic curve cryptography-based access control in sensor networks.
+%%PURPOSE: To demonstrate the access control in sensor networks using elliptic curve cryptography.
+%Client -> Server  : 
+%Server -> Client :  Reply
+
+
+role client (U, S : agent,Snd, Rcv: channel(dy), Hash: hash_func)
+played_by U
+def=
+local State : nat,
+P,Q,Reply,CA, ACA,TA, ZR, YR, ZZR, R, RR, Na: text,
+Add,Mul,Mac,Demac,Xfun:hash_func,
+
+QA:public_key
+const client_id, server_id, sub1 : protocol_id
+init State := 0
+transition
+1. State = 0 /\ Rcv(start) =|>
+		 State' := 1 /\ ACA' := new()
+	/\ CA' := new()
+	/\ QA' := new()
+	/\ Snd(CA.ACA) %ZZR'.YR.Mac(R'.Na')
+	/\ Rcv(ZZR.YR.Mac(R.Na))
+	/\witness(U,S, client_id, CA')
+	%/\request (S, U, server_id, R')
+2. State = 1  =|>
+State' := 2 
+	%/\ Demac( Mac(R.Na))
+	/\ ZR' := Mul(inv(QA).YR)
+	/\ Snd(Mac(R.Na.ACA)) 
+	/\ Rcv(R.Reply)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+role server (U,S : agent,
+Snd, Rcv: channel(dy),Hash: hash_func)
+played_by S
+def=
+local State : nat,
+Add,Mul,Mac,Demac,Xfun:hash_func,
+P, Q, EA,Reply, CA, ACA,TA, ZR, YR, ZZR, R, RR, Na: text,
+QA:public_key
+const client_id, server_id, sub2 : protocol_id
+init State := 0
+
+transition
+
+1. State = 0 /\ Rcv(CA.ACA) =|>
+	 State' := 1 
+							/\ EA' := new()%Hash(CA.ACA)
+							/\ QA' := Mul(EA'.CA.Q)
+							/\ R' := new()
+							/\ secret({R'},sub1, {S,U})
+							/\ Na' := new()
+							/\ secret({Na'},sub2, {S,U})
+							/\ ZR' := Mul(Hash(R').QA')
+							/\ YR' := Mul(Hash(R').P)
+							/\ ZZR' := xor(R',Xfun(ZR'))
+							/\ Snd(ZZR'.YR'.Mac(R'.Na'))
+							/\ witness( S,U, server_id, ZZR') 
+2. State = 1 /\ Rcv(Mac(R'.Na'.ACA)) =|>
+State' := 2 
+	%				/\ request (U, S, server_id, ACA)
+					/\ Reply' := new() 
+					/\ Snd(R'.Reply')
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(U,S: agent
+)
+def=
+local
+SA, SB, RA, RB: channel (dy),
+P,Q,Reply, CA, ACA,TA, ZR, YR, ZZR, R, RR, Na: text,
+Add,Mul,Mac,Demac,Xfun,Hash:hash_func,
+QA:public_key
+const client_id,server_id, sub1, sub2 : protocol_id
+composition
+client(U, S, SA, RA,Hash)
+/\ server(U, S, SB, RB,Hash)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+const a, b: agent,
+p,q,qa: text,
+client_id, server_id, sub1, sub2 : protocol_id
+intruder_knowledge = {p,q}
+composition
+session(a, b) /\
+session(a, b)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+secrecy_of sub1
+secrecy_of sub2
+authentication_on client_id
+authentication_on server_id
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

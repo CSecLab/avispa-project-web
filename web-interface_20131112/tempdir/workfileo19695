@@ -1,0 +1,166 @@
+role client(C, S             : agent,
+            SND, RCV         : channel(dy),
+            Hash             : hash_func,
+            HostKey          : hash_func,
+            P                : nat,
+            LetterP          : text),
+
+played_by C def=
+
+  local State:    nat,
+        Rc:       text,
+        RS:       text,
+        X:        text,
+        EGY,K:    message, %should be: text
+        H,SID_:   message, %should be: text
+        Kcs, Kcs: message, %should be: symmetric_key
+        SecretS:  text
+  
+  const secretC     : text,
+        k           : protocol_id,
+        sec_K,
+        sec_Kcs,
+        sec_Kcs,
+        sec_secretC : protocol_id
+
+  init   State := 1
+
+
+  transition
+
+   1. State  = 1 /\ RCV(start) =|> 
+      State':= 3 /\ RC' := new()
+                 /\ SND(RC')
+
+   3. State  = 3 /\ RCV(Rs') =|> 
+      State':= 5 /\ X' := new()
+                 /\ SND(exp(G,X'))
+
+   5. State  = 5 /\ RCV(HostKey(S).EGY'.{H'}_inv(HostKey(S)))
+                 /\ H' = Hash(RC.Rs.HostKey(S).exp(G,X).EGY'.K') 
+                 /\ K' = exp(EGY',X) =|> 
+      State':= 7 /\ SID_' := H' 
+                 /\ KCS' := Hash(K'.H'.LetterC.SID_')
+                 /\ KCs' := Hash(exp(EGY',X).H'.LetterD.H')
+                 /\ secret(K',  sec_K,  {C,S})
+                 /\ secret(KCS',sec_KCS,{C,S})
+                 /\ secret(KSC',sec_KSC,{C,S})
+                 /\ SND({secretC}_KCS')
+                 %/\ secret(secretC,sec_secretC,{C,S})
+                 %/\ request(C,S,k,K')  % standard version
+                 /\ request(S,S,k,K')
+
+   7. State  = 7 /\ RCV({SecretS'}_Kcs) =|> 
+      State':= 9 
+
+end role
+
+-------------------------------------------------------------------------------------
+
+role server(C, S             : agent,
+            SND, RCV         : channel(dy),
+            Hash             : hash_func,
+            HostKey          : hash_func,
+            P                : nat,
+            LetterP,         : text)
+
+played_by S def=
+
+  local State:    nat,
+        NS:       text,
+        NC:       text,
+        Y:        text,
+        EGX,K:    message, %should be: text
+        H,SID_:   message, %should be: text
+        Kcs, Kcs: message, %should be: symmetric_key
+        SecretC:  text
+ 
+  const k:       protocol_id
+
+           
+  init  State := 2
+
+
+  transition
+   2. State  = 2 /\ RCV(RC') =|> 
+      State':= 6 /\ Rs' := new()
+                 /\ SND(Rs')
+
+   6. State  = 6 /\ RCV(EGX') =|> 
+      State':= 8 /\ Y' := new()
+                 /\ K' := exp(EGX',Y') 
+                 /\ H' := Hash(NC.NS.HostKey(S).EGX'.exp(G,Y').K')
+                 /\ SID_' := H' 
+                 /\ Kcs' := Hash(K'.H'.LetterC.SID_')
+                 /\ Kcs' := Hash(K'.H'.LetterD.SID_')
+                 /\ SND(HostKey(S).exp(G,Y').{H'}_inv(HostKey(S)))
+                 %/\ witness(S,C,k,K')  % standard version
+                 /\ witness(S,S,k,K')
+
+   8. State  = 8 /\ RCV({SecretC'}_Kcs) =|> 
+      State':=10
+
+
+
+
+
+
+
+
+
+
+
+end role
+--------------------------------------------------------------------------------
+
+role session(C, S    : agent,
+             CS, SC  : channel (dy),
+             Hash    : hash_func,
+             HostKey : hash_func,
+             G       : nat,
+             LetterC, LetterD : text)
+def=
+  composition
+           client(C, S, CS, SC, Hash, HostKey, G, LetterC, LetterD)
+       /\  server(C, S, SC, CS, Hash, HostKey, G, LetterC, LetterD)
+end role
+
+--------------------------------------------------------------------------------
+
+role environment() def=
+
+  const
+    c,s                : agent,
+    cs,sc,is,si,ci,ic  : channel (dy),
+    hash_,host_key     : hash_func,
+    g                  : nat,
+    letter_c, letter_d : text
+
+  intruder_knowledge = {c,s,hash_,host_key,g,letter_c,letter_d,
+                        inv(host_key(i))}
+
+  composition
+        session(c,s,cs,sc,hash_,host_key,g,letter_c,letter_d) 
+     /\ session(i,s,is,si,hash_,host_key,g,letter_c,letter_d) 
+     /\ session(c,i,ci,ic,hash_,host_key,g,letter_c,letter_d)
+
+end role
+
+
+--------------------------------------------------------------------------------
+
+goal
+
+  %secrecy_of K, KCS, KSC, secretC 
+  secrecy_of sec_K, sec_KCS, sec_KSC 
+
+  %Client authenticates Server on k
+  authentication_on k
+   
+end goal
+  
+
+--------------------------------------------------------------------------------
+
+environment()
+

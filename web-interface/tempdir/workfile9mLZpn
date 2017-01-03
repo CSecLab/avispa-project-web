@@ -1,0 +1,96 @@
+role client
+(C,A,O,S: agent,
+Kco,Kca,Kcs : symmetric_key,
+SND_CA, RCV_CA, SND_CO, RCV_CO, SND_CS, RCV_CS: channel(dy))
+played_by C
+def=
+local State : nat,
+Nc,No,Na1,Na2,Na3 : text,
+K : symmetric_key
+
+init State:=0
+
+transition
+1. State = 0  =|> State':=2 /\ SND_CO({Nc}_Kco)
+2. State = 2 /\ RCV_CO({Nc.No}_Kco) =|>
+	State':= 4 /\ SND_CA({{Nc.No}_Kco.Na1}_Kca)
+3. State = 4 /\ RCV_CA({{Nc.No}_Kco.Na2}_Kca,{{Nc.No}_Kco.Na3}_Kca) =|>
+	State':=6/\SND_CA({{Nc.No}_Kco.Na3}_Kca)
+4. State= 6/\ RCV_CA({{Nc.No}_Kco.Na2}_Kca,{{Nc.No}_Kco.Na3}_Kca) =|>
+	State':=7
+
+end role
+
+role owner(C,A,O, S: agent,
+Kco : symmetric_key,
+SND_CO, RCV_CO: channel(dy))
+played_by O
+def=
+local 
+State : nat,
+Nc,No : text,
+K : symmetric_key
+
+init   State:=1
+
+transition
+1. State = 1/\ RCV_CO({Nc.No}_Kco)=|> State':=2/\SND_CO({Nc.No}_Kco)
+
+end role
+
+role authorization(C,A,O, S: agent,
+Kco : symmetric_key,
+SND_CA, RCV_CA: channel(dy))
+played_by A
+def=
+local State : nat,
+Nc,No : text,
+K : symmetric_key
+
+init   State:=1
+
+transition
+1. State = 3/\ RCV_CA ({Nc.No}_Kco)=|> State':=4/\SND_CA({Nc.No}_Kco)
+
+end role
+
+
+role server(C,A,O,S: agent,
+Kco : symmetric_key,
+SND_CS, RCV_CS: channel(dy))
+played_by S
+def=
+local State : nat,
+Nc,Ns,No : text,
+K : symmetric_key
+
+init   State:=1
+
+transition
+1. State = 5/\ RCV_CS({Nc.No}_Kco)=|> State':=6/\SND_CS({Nc.No}_Kco)
+
+end role
+
+role session
+(A,C,S,O : agent,
+Kco, Kca, Kcs : symmetric_key) def=
+local SND_CA, RCV_CA, SND_CO, RCV_CO, SND_CS, RCV_CS: channel(dy)
+
+composition
+client (A,C,S,O, Kco, Kca, Kcs ,SND_CA, RCV_CA, SND_CO, RCV_CO, SND_CS, RCV_CS)
+/\ owner(A,C,S,O, Kco,  RCV_CO,SND_CO)
+/\ server(A,C,S,O, Kcs, RCV_CS,SND_CS)
+/\ authorization(A,C,S,O, Kca,RCV_CA,SND_CA)
+end role
+
+role environment()
+def=
+const c, o, a, s : agent,
+kco, kcs, kca, kio , kia, kis : symmetric_key
+intruder_knowledge = {c,a, s, kio , kia, kis }
+composition
+session(c,o,a,s,kco,kcs,kca)
+/\ session(i,o,a,s,kco,kia,kis)
+end role
+
+environment()

@@ -1,0 +1,56 @@
+role role_U(U,V:agent,
+            MAC,ECC:function,
+            Knwk:symmetric_key,
+            Cu,Pu,EPu:text,
+            Eu:public_key,
+            SND,RCV:channel(dy))
+played_by U
+def=
+	local   State:nat,Cv:text,Ev:public_key,MACu:text,MACv:text
+	init    State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ SND({Cu}_Knwk)
+		2. State=1 /\ RCV({Cv'}_Knwk) =|> State':=2 /\ SND({Eu}_Knwk)
+		4. State=2 /\ RCV({Ev'}_Knwk) =|> State':=3 /\ Kl'=ECC(Pu,Eu,EPu,Cv,Ev) /\ MACu':=MAC(Kl') /\ SND({MACu'}_Knwk)
+		6. State=3 /\ RCV({MACv'}_Knwk) =|> State':=4
+end role
+
+role role_V(U,V:agent,
+            MAC,ECC:function,
+            Knwk:symmetric_key,
+            Cv,P,EPv:text,
+            Ev:public_key,
+            SND,RCV:channel(dy))
+played_by V
+def=
+	local   State:nat,Cu:text,Eu:public_key,MACu:text,MACv:text
+	init    State := 0
+	transition
+		1. State=0 /\ RCV({Cu'}_Knwk) =|> State':=1 /\ SND({Cv}_Knwk)
+		3. State=1 /\ RCV({Eu'}_Knwk) =|> State':=2 /\ SND({Ev}_Knwk)
+		5. State=2 /\ RCV({MACu'}_Knwk) =|> State':=3 /\ Kl'=ECC(Pv,Ev,EPv,Cu,Eu) /\ MACu':=MAC(Kl') /\ SND({MACv'}_Knwk)
+end role
+
+role session1(Pv:text,EPv:text,Ev:public_key,Cv:text,U:agent,V:agent,MAC:function,ECC:function,Knwk:symmetric_key,Cu:text,Eu:public_key,EPu:text,Pu:text)
+def=
+	local
+		SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_U(U,V,MAC,ECC,Knwk,Cu,Eu,EPu,Pu,SND2,RCV2) /\ role_V(U,V,MAC,ECC,Knwk,Cv,Ev,EPv,Pv,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		hash_0:function,ecc:function,responder:agent,const_1:public_key,const_1:text,initiator:agent,mac:function,nwkKey:symmetric_key,const_1:text,const_1:public_key,const_1:text,const_1:text,sec_1:protocol_id,sec_2:protocol_id
+	intruder_knowledge = {responder,initiator}
+	composition
+		session1(const_1,const_1,const_1,const_1,initiator,responder,mac,ecc,nwkKey,const_1,const_1,const_1,const_1)
+end role
+
+goal
+	secrecy_of sec_1
+	secrecy_of sec_2
+end goal
+
+environment()

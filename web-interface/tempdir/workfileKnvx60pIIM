@@ -1,0 +1,136 @@
+role mme(MME,D : agent,
+            Snd, Rec: channel(dy),
+            Ks: symmetric_key,
+            Sqn : text,
+            F1,F2,F3,F4,F5: hash_func)
+played_by MME
+def=
+
+  local State : nat,
+  ACC1,ACC2,ACC3,RAND,AMF,Km,IDhss : text
+    const r1,r2,ssqn1 : protocol_id,
+       add     : hash_func 
+
+  init  State := 1 
+
+  transition
+    1.  State   = 1 
+		    /\ Rec(ACC1)
+        =|> 
+        State' := 2 /\ ACC1' := new()
+                    /\ Snd(ACC2') 
+                    /\ secret(ACC1,ACC2,{MME,D})
+                    /\ witness(MME,D,r1,ACC1',ACC2')
+    2.  State = 2 /\ Rec(IDhss'.F5(ACC3'.IDhss').F1(ACC1'.ACC2'))  =|>
+	    State' := 3    /\ secret(ACC3,{MME,D})
+                    /\ witness(MME,D,r1,ACC3')
+	
+	3.  State = 3 /\ Snd(RAND'.AMF'.{Sqn}_F5(Ks.RAND').F3(Ks.Sqn.RAND')) =|>
+	    State' := 4
+              /\Km' := new()
+              /\ Km':= F4(Ks.RAND')
+              /\ secret (Km', {MME, D})
+	4.  State   = 4 /\ Rec(F4(Km.RAND))
+        =|> 
+        State' := 5 /\ Sqn' := add(Sqn,1) 
+                    /\ wrequest(MME,D,r2,RAND')
+        
+end role
+
+
+role d(D,MME : agent,
+            Snd, Rec: channel(dy),
+            Ks: symmetric_key,
+            Sqn : text,
+            F1,F2,F3,F4,F5: hash_func)
+played_by D
+def=
+
+  local State : nat,
+  ACC1,ACC2,ACC3,RAND,AMF,Km,IDhss : text
+    const r1,r2,ssqn2 : protocol_id,
+      add     : hash_func  
+
+  init  State := 1
+
+  transition
+
+    1.  State = 1 /\ Rec(start) =|> 
+        State':=2 
+		/\ACC1' := new()
+        /\ACC2' := new()
+        /\ACC3' := new()
+		/\IDhss' := new()
+		/\ Snd(ACC1)  
+    2.  State = 2 /\ Rec(ACC2')  =|> 
+	    State' := 3 /\ Snd(IDhss'.F5(ACC3'.IDhss').F1(ACC1'.ACC2'))  
+	
+	3.  State = 3 /\ Rec(RAND'.AMF'.{Sqn}_F5(Ks.RAND').F3(Ks.Sqn.RAND')) =|>  
+	    State' := 4
+              /\Km' := new()
+              /\ Km':= F4(Ks.RAND')
+              /\ secret (Km', {MME, D})
+    4.  State =4 /\ Snd(F4(Km. RAND')) 
+                  /\ secret(Sqn,ssqn2,{MME,D})
+                  /\ wrequest(MME,D,r1,RAND') 
+                  /\ witness(MME,D,r2,RAND')
+				  
+end role
+
+
+role session(D,MME: agent,
+             Ks  : symmetric_key,
+             Sqn: text,
+             F1,F2,F3,F4,F5: hash_func,
+             SA,RA,SB,RB: channel(dy)) def=
+
+   composition
+
+         d(D,MME,SA,RA,Ks,Sqn,F1,F2,F3,F4,F5)
+      /\ mme(MME,D,SB,RB,Ks,Sqn,F1,F2,F3,F4,F5)
+
+end role
+
+
+
+role environment() def=
+
+ local Sd1,Rd1,Sm1,Rm1 : channel (dy)
+
+ const r1, r2                 : protocol_id,
+       d, i, m                : agent,
+       ks_dm, ks_im, ks_di        : symmetric_key,
+       f1, f2, f5, f3, f4            : hash_func,
+       sqn_dm, sqn_im, sqn_di : text
+
+ intruder_knowledge={d,m,i,f1,f2,f3,f4,f5}
+
+ composition
+ 
+        session(d,m,k_dm,sqn_dm,f1,f2,f3,f4,f5,Sd1,Rd1,Sm1,Rm1) 
+% /\    session(i,s,k_is,sqn_is,f1,f2,f5,si1,ri1,ss2,rs2) 
+% /\    session(a,i,k_ai,sqn_ai,f1,f2,f5,sa2,ra2,si2,ri2)
+
+
+end role
+
+
+
+goal
+
+  % Confidentiality (G12)
+  secrecy_of ssqn1,ssqn2
+
+  % Message Authentication (G2)
+  % Mobile weakly authenticates Server on r1  % the nonce R
+  weak_authentication_on r1
+
+  % Message Authentication (G2)
+  % Server weakly authenticates Mobile on r2  % the nonce R
+  weak_authentication_on r2
+
+end goal
+
+
+
+environment()

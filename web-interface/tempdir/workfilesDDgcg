@@ -1,0 +1,101 @@
+role client(
+A, S : agent ,
+SND,RCV : channel (dy) ,
+H : hash_func ,
+P, Qs : public_key )
+played by A
+def=
+local State : nat ,
+PW : symmetric_key,
+Kas, Rs, Ra, Sigma, SKu, Ta, Ts,F : text,
+Username , Realm : message
+const sec_kas1 , sec_sku,
+sec_ra , sec pw : protocol_lid
+init State :=0
+transition
+State =0/\RCV(start)=|>
+State':=1
+/ \ Ra':=new ()
+/ \ SND({Ra'}_P . Username)
+/ \ witness (A, S , na , Ra')
+/ \ secret(Ra', sec_ra ,A)
+State=1
+/ \ RCV( Realm.{Rs'}_ P.H({Ra.Rs'}_P.
+{Ra'}_Qs.{Rs'}_P, {Ra'}_P)) = | >
+State':=2
+/ \ F':=H(Realm.{Ra.Rs}_P.H(Username.PW))
+/ \ SND(Realm.F')
+/ \Kas':=H(Username.{Ra.Rs}_P.{Ra}_P.{Rs}_P)
+/ \ secret(PW,sec_pw,A)
+/ \ secret(Kas', sec_kas1, {A,S})
+/ \ request (A, S, ns, Ra)
+/ \ request (A, S, ns, PW)
+end role
+
+role server (
+S ,A : agent,
+SND,RCV : channel(dy),
+H : hash_func,
+P, Qs : public_key)
+played_by S
+def=
+local State : nat,
+PW : symmetric_key,
+Ra, Rs, Sigma, SKs, Ta, Ts, F, Kas : text,
+Username, Realm : message
+const sec_kas2, sec_rs, sec_pw1 : protocol_id
+init State :=0
+
+transition
+
+State =0/ \RCV({Ra'}_P.Username)=| >
+State':=1
+/ \Rs':=new( )
+/ \ Sigma':=H({Rs'.Ra}_P.{{Ra}_P}_
+inv (Qs ).{Rs'}_P,{Ra}_P)
+/ \SND(Realm.{Rs'}_P.Sigma')
+/ \ witness (S, A, ns, Rs ')
+/ \ secret (Rs', sec_rs, S)
+/ \ secret (PW, sec_pw1, S)
+State=2 / \RCV(Realm.F’)=| >
+State':=3
+/ \F':=H(Realm.{Rs.Ra}_P.H(Username.PW))
+/ \Kas':=H(Username.{Rs.Ra}_P.{Ra}_P.{Rs}_P)
+/ \ secret (Kas', sec_kas2, {A, S})
+/ \ request (S ,A, na , Rs)
+end role
+
+role session (
+A, S : agent ,
+H : hash_func ,
+P, Qs : public_key )
+def=
+local
+SA, RA, SS, RS : channel (dy)
+composition
+client (A, S, SA, RA, H, P, Qs)
+/ \ server (S, A, SS, RS, H, P, Qs)
+end role
+
+role environment ( )
+def=
+const
+na, ns : protocol_id ,
+a, s, i : agent ,
+h : hash_func ,
+p, qs, qi : public_key
+intruder_knowledge={a, s, h, p, qs, qi}
+composition
+session (a, s, h, p, qs)
+/ \ session (a, i, h, p, qi)
+/ \ session (i, s, h, qs, qi)
+end role
+
+goal
+secrecy_of
+sec_kas1, sec_kas2, sec_ra, sec_rs, sec_pw,
+sec_pw1
+authentication_on na
+authentication_on ns
+end goal
+environment ( )

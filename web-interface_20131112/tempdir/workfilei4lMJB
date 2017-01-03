@@ -1,0 +1,144 @@
+%% A: Original Signer
+%% B: Proxy Signer
+%% V: Designated verifier
+%% ID-SDVPS Scheme using Elliptic Curve Bilinear Pairing
+%% Designed by AKD
+
+
+role originalsigner (
+A, B, V : agent,
+SKab : symmetric_key,
+H : hash_func,
+F : hash_func,
+Snd, Rcv: channel(dy))
+
+played_by A
+
+def=
+local State : nat,
+K, G, P, Q, XA, YA, Mw : text
+const alice_bob_na, bob_alice_nb, bob_verifier_nc,
+verifier_bob_nd, subs1, subs2 : protocol_id
+
+init State := 0
+
+transition
+
+1. State = 0 /\ Rcv(start) =|>
+State' := 1 /\ K' := new()
+/\ secret({K', XA}, subs1, A)
+/\ Snd({exp(G, K').F(XA.exp(G, K').K'.Mw)}_SKab.P.Q)
+/\ witness(A, B, bob_alice_nb, K')
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role proxysigner (
+A, B, V : agent,
+SKab: symmetric_key,
+H : hash_func,
+F : hash_func,
+Snd, Rcv: channel(dy))
+played_by B
+def=
+local State : nat,
+K, G, P, Q, XA, YA, Gc, Si, SKc, XB, YB, M, Mw : text
+const alice_bob_na, bob_alice_nb, bob_verifier_nc,
+verifier_bob_nd, subs1, subs2 : protocol_id
+
+init State := 0
+
+transition
+
+1. State = 0 /\ Rcv({exp(G, K').F(XA.exp(G, K').K'.Mw)}_SKab.P.Q) =|>
+State' := 1 
+/\ M' := new()
+/\ secret({K', XA}, subs1, A)
+/\ secret({Si, SKc, XB}, subs2, B)
+/\ Snd(M'.Mw.exp(G, K').H(M'.Mw.exp(G, (F(XA.exp(G, K').K'.Mw)).H(M'.Mw.SKc.Si).XB)).H(M'.Mw.SKc.Si).P.Q)
+/\ witness(B, V, verifier_bob_nd, SKc)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role verifier (
+A, B, V : agent,
+H : hash_func,
+F : hash_func,
+Snd, Rcv: channel(dy))
+
+played_by V
+
+def=
+local State : nat,
+K, G, P, Q, XA, YA, Gc, Si, SKc, XB, YB, M, Mw : text
+const alice_bob_na, bob_alice_nb, bob_verifier_nc,
+verifier_bob_nd, subs1, subs2 : protocol_id
+
+init State := 0
+
+transition
+
+1. State = 0 /\ Rcv(M'.Mw.exp(G, K').H(M'.Mw.exp(G, (F(XA.exp(G, K').K'.Mw)).H(M'.Mw.SKc.Si).XB)).H(M'.Mw.SKc.Si).P.Q) =|>
+State' := 1 
+/\ secret({K', XA}, subs1, A)
+/\ secret({Si, SKc, XB}, subs2, B)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role session(A,B, V: agent, 
+             SKab: symmetric_key, 
+             H: hash_func, 
+             F: hash_func 
+    ) 
+def= 
+ 
+  local  SA, SB, SV, RA, RB, RV: channel (dy), 
+         K, G, P, Q, XA, YA, Gc, Si, SKc, XB, YB, M:  text 
+         const alice_bob_na,  bob_alice_nb, subs1, subs2 : protocol_id 
+            
+  composition 
+           originalsigner(A, B, V, SKab, H, F, SA, RA) 
+       /\  proxysigner(A, B, V, SKab, H, F, SB, RB) 
+       /\  verifier (A, B, V, H, F, SV, RV) 
+end role 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role environment() 
+
+def= 
+ 
+  const a, b, v    : agent, 
+        skab : symmetric_key, 
+        h   : hash_func, 
+        f   : hash_func, 
+        k, g, p, q, xa, ya, gc, si, skc, xb, yb, m, mw:  text, 
+        alice_bob_na,  bob_alice_nb, subs1, subs2 : protocol_id 
+ 
+  intruder_knowledge = {a, b, v, h, f, ya, yb, g, p, q, m, mw} 
+ 
+  composition 
+    session(a, b, v, skab, h, f) 
+  /\session(a, b, v, skab, h, f)
+  /\session(a, b, v, skab, h, f) 
+ 
+end role 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+ 
+goal 
+  
+secrecy_of subs1 
+  secrecy_of subs2 
+  authentication_on alice_bob_na 
+  authentication_on bob_alice_nb 
+  authentication_on bob_verifier_nc 
+  authentication_on verifier_bob_nd 
+   
+end goal 
+  
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+environment()
+

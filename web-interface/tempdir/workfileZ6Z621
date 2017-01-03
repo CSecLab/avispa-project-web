@@ -1,0 +1,50 @@
+role role_P(P:agent,S:agent,F:hash_func,Ca:agent,SND,RCV:channel(dy)) 
+played_by P 
+def= 
+	 local  
+ 	State:nat,CertS:text,Kca:public_key,Ks:public_key,Nonce1:text,SSPs:text,H:hash_func,IdS:text,Lifetime:text  
+	init  
+		 State := 0 
+	 transition   
+		1. State=0 /\ RCV(start) =|> State':=1 /\ CertS':=new() /\ SND(CertS')   
+		2. State=1 /\ RCV({IdS'}_inv(Kca')) =|> State':=2   
+		4. State=2 /\ 
+
+RCV(SSPs'.H(SSPs').IdS.Nonce1'.Lifetime'.{F(H(SSPs').IdS.Nonce1'.Lifetime')}_inv(Ks')) =|> State':=3 end role  
+
+role role_S(S:agent,P:agent,F:hash_func,H:hash_func,Ca:agent,SND,RCV:channel(dy)) 
+played_by S 
+def=  
+	local   
+		State:nat,Ks:public_key,Nonce1:text,SSPs:text,IdS:text,Lifetime:text  
+	init   
+		State := 0  
+	transition   
+		3. State=0 /\ RCV(Nonce1') =|> State':=1 /\ Ks':=new() /\ Lifetime':=new() /\ IdS':=new() /\ SSPs':=new() /\ SND(SSPs'.H(SSPs').IdS'.Nonce1'.Lifetime'.{F(H(SSPs').IdS'.Nonce1'.Lifetime')}_inv(Ks')) end role  
+
+role role_Ca(Ca:agent,S:agent,P:agent,SND,RCV:channel(dy)) played_by Ca 
+def= 
+	 local   
+		State:nat,CertS:text,Kca:public_key,IdS:text,Nonce1:text 
+	 init   
+		State := 0  
+	transition   1. State=0 /\ RCV(CertS') =|> State':=1 /\ Kca':=new() /\ IdS':=new() /\ SND({IdS'}_inv(Kca')) /\ Nonce1':=new() /\ SND(Nonce1') end role  
+
+role session1(S:agent,P:agent,F:hash_func,H:hash_func,Ca:agent) 
+def=  
+	local   
+		SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)  
+	composition   role_S(S,P,F,H,Ca,SND3,RCV3) /\ role_Ca(Ca,S,P,SND2,RCV2) /\ role_P(P,S,F,Ca,SND1,RCV1) end role  
+
+role environment() 
+def=  
+	const  
+	 hash_0:hash_func,const_1:hash_func,proxy:agent,serveur:agent,certif:agent,auth_1:protocol_id  intruder_knowledge = {proxy,certif,serveur}  
+	composition   
+		session1(serveur,proxy,const_1,const_1,certif) 
+end role  
+
+goal  
+	authentication_on auth_1 
+end goal  
+environment() 

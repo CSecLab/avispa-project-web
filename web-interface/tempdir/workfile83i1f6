@@ -1,0 +1,57 @@
+
+role role_Pa(Pa:agent,Pb:agent,Pc:agent,S:public_key,Sb:public_key,Sc:public_key,SND,RCV:channel(dy))
+played_by Pa
+def=
+	local
+		State:nat,Nb:text,Nc:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ Nb':=new() /\ witness(Pa,Pb,auth_1,Nb') /\ SND({Nb'.Pa}_S) /\ Nc':=new() /\ witness(Pa,Pc,auth_2,Nc') /\ SND({Nc'.Pa}_S)
+end role
+
+role role_Pb(Pb:agent,Pa:agent,Sb:public_key,SND,RCV:channel(dy))
+played_by Pb
+def=
+	local
+		State:nat,S:public_key,Nb:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV({Nb'.Pa}_S') =|> State':=1 /\ request(Pb,Pa,auth_1,Nb')
+end role
+
+role role_Pc(Pc:agent,Pa:agent,Sc:public_key,SND,RCV:channel(dy))
+played_by Pc
+def=
+	local
+		State:nat,S:public_key,Nc:text
+	init
+		State := 0
+	transition
+		2. State=0 /\ RCV({Nc'.Pa}_S') =|> State':=1
+end role
+
+role session1(Sb:public_key,Pb:agent,S:public_key,Pc:agent,Pa:agent,Sc:public_key)
+def=
+	local
+		SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_Pc(Pc,Pa,Sc,SND3,RCV3) /\ role_Pb(Pb,Pa,Sb,SND2,RCV2) /\ role_Pa(Pa,Pb,Pc,S,Sb,Sc,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+	noeuda:agent,secret:public_key,secretb:public_key,noeudb:agent,noeudc:agent,secretc:public_key,auth_1:protocol_id,auth_2:protocol_id
+	intruder_knowledge = {}
+	composition
+		session1(secretb,noeudb,secret,noeudc,noeuda,secretc)
+end role
+
+goal
+	authentication_on auth_1
+	authentication_on auth_2
+end goal
+
+environment()

@@ -1,0 +1,62 @@
+role keyowner(
+	A,B : agent,
+	SND,RCV : channel(dy))
+played_by A def=
+       local
+	State : nat,
+	UINFO,QUES,ANS,STATUS: text
+init
+	State :=0
+transition
+sendforgot. State=0 /\ RCV(start)=|>
+	      State':=1 /\ UINFO':=new() /\ SND(UINFO)
+receivequestion. State=1 /\ RCV(QUES)=|>
+	 State':=2 /\ ANS':=new() /\ SND(ANS)
+receivestatus. State=2 /\ RCV(STATUS)=|>
+	 State':=3 /\ witness(A,B,renewal_ans,ANS)
+end role
+
+role keymanager(
+	A,B :agent,
+	SND,RCV :channel(dy))
+played_by B def=
+ local
+ 	State :nat,
+ 	UINFO,QUES,ANS,STATUS: text
+		
+ init
+	State :=0
+ transition
+ receiveforgot. State=0 /\ RCV(UINFO)=|>
+ 		   State':=1 /\ QUES':=new() /\ SND(QUES)
+ receiveanswer. State=1 /\ RCV(ANS)=|>
+ 		  State':=2 /\ SND(STATUS)/\ secret(B,A,renewal_ans,ANS)
+ 
+end role
+
+role session(
+	A,B :agent)
+def=
+ local SA, SB, RA, RB : channel(dy)
+ composition
+  keyowner(A,B,SA,RA)
+ /\ keymanager(A,B,SB,RB)
+end role
+
+role environment()
+def=
+const renewal_ans,
+k1 : protocol_id,
+      a,b : agent
+intruder_knowledge = {a,b}
+composition
+session(a,b)
+/\ session(a,i)
+/\ session(i,b)
+end role
+
+goal
+secrecy_of k1
+authentication_on renewal_ans
+end goal
+environment()

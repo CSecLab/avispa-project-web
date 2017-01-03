@@ -1,0 +1,91 @@
+%% IF specification of /home/compa/Work/Projects/AVISPA/AVISPA-FET-EU-02/shared/assessment_I_Year/hlpsl/SPEKE.problems.hlpsl
+
+section signature:
+
+state_SPEKE_Resp: agent * agent * symmetric_key * nat * text * text * text * text * message * message * nat -> fact
+state_SPEKE_Init: agent * agent * symmetric_key * nat * text * text * text * text * message * message * nat -> fact
+
+
+section types:
+
+cb, ca : protocol_id
+Na, Ca, Nb, Cb, Dummy_Cb, Dummy_Nb, Dummy_Ca, Dummy_Na, dummy_nonce : text
+10, 6, 4, State, CID, 3, CID2, 2, CID1, 1, 0 : nat
+Y, K, Dummy_Y, Dummy_K, Dummy_X, dummy_msg, MGoal, X, start : message
+b, a, A, B, AGoal, i : agent
+Kab, kab, kbi, kai : symmetric_key
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(a).
+ iknows(b).
+ iknows(kai).
+ iknows(kbi).
+ iknows(start).
+ iknows(i).
+ state_SPEKE_Init(a,b,kab,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,3).
+ state_SPEKE_Resp(b,a,kab,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,4).
+ state_SPEKE_Init(a,i,kai,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,6).
+ state_SPEKE_Resp(b,i,kbi,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,10)
+
+
+section rules:
+
+step step_0 (A,B,Kab,Dummy_Na,Ca,Cb,Nb,X,K,Na,CID) :=
+ state_SPEKE_Init(A,B,Kab,0,Dummy_Na,Ca,Cb,Nb,X,K,CID).
+ iknows(start)
+=[exists Na]=>
+ state_SPEKE_Init(A,B,Kab,1,Na,Ca,Cb,Nb,X,K,CID).
+ iknows(exp(Kab,Na))
+
+step step_1 (A,B,Kab,Na,Dummy_Ca,Cb,Dummy_Nb,Dummy_X,Dummy_K,Ca,Nb,CID) :=
+ state_SPEKE_Init(A,B,Kab,1,Na,Dummy_Ca,Cb,Dummy_Nb,Dummy_X,Dummy_K,CID).
+ iknows(exp(Kab,Nb))
+=[exists Ca]=>
+ state_SPEKE_Init(A,B,Kab,2,Na,Ca,Cb,Nb,exp(Kab,Nb),exp(exp(Kab,Nb),Na),CID).
+ iknows(scrypt(exp(exp(Kab,Nb),Na),Ca)).
+ witness(A,B,ca,Ca)
+
+step step_2 (A,B,Kab,Na,Ca,Dummy_Cb,Nb,X,K,Cb,CID) :=
+ state_SPEKE_Init(A,B,Kab,2,Na,Ca,Dummy_Cb,Nb,X,K,CID).
+ iknows(scrypt(K,pair(Cb,Ca)))
+ =>
+ state_SPEKE_Init(A,B,Kab,3,Na,Ca,Cb,Nb,X,K,CID).
+ iknows(scrypt(K,Cb))
+
+step step_3 (B,A,Kab,Dummy_Nb,Cb,Ca,Dummy_Na,Dummy_Y,Dummy_K,Nb,Na,CID) :=
+ state_SPEKE_Resp(B,A,Kab,0,Dummy_Nb,Cb,Ca,Dummy_Na,Dummy_Y,Dummy_K,CID).
+ iknows(exp(Kab,Na))
+=[exists Nb]=>
+ state_SPEKE_Resp(B,A,Kab,1,Nb,Cb,Ca,Na,exp(Kab,Na),exp(exp(Kab,Na),Nb),CID).
+ iknows(exp(Kab,Nb))
+
+step step_4 (B,A,Kab,Nb,Dummy_Cb,Dummy_Ca,Na,Y,K,Cb,Ca,CID) :=
+ state_SPEKE_Resp(B,A,Kab,1,Nb,Dummy_Cb,Dummy_Ca,Na,Y,K,CID).
+ iknows(scrypt(K,Ca))
+=[exists Cb]=>
+ state_SPEKE_Resp(B,A,Kab,2,Nb,Cb,Ca,Na,Y,K,CID).
+ iknows(scrypt(K,pair(Cb,Ca))).
+ request(B,A,ca,Ca,CID)
+
+step step_5 (B,A,Kab,Nb,Cb,Ca,Na,Y,K,CID) :=
+ state_SPEKE_Resp(B,A,Kab,2,Nb,Cb,Ca,Na,Y,K,CID).
+ iknows(scrypt(K,Cb))
+ =>
+ state_SPEKE_Resp(B,A,Kab,3,Nb,Cb,Ca,Na,Y,K,CID)
+
+
+section goals:
+
+goal authenticate_Ca (A,B,Ca,CID) :=
+ request(B,A,ca,Ca,CID).
+ not(witness(A,B,ca,Ca)) &
+ not(equal(A,i))
+goal replay_protection_Ca (A,B,Ca,CID1,CID2) :=
+ request(B,A,ca,Ca,CID1).
+ request(B,A,ca,Ca,CID2) &
+ not(equal(CID1,CID2)) &
+ not(equal(A,i))
+

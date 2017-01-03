@@ -1,0 +1,111 @@
+role mobile (A, B: agent,             
+            K_rabina:public_key,
+            K_rabinb:symmetric_key,
+            Hash: hash_func,
+            SND, RCV: channel (dy)) 
+played_by A def=
+
+  local State : nat, 
+         Mn_tmp, Nh, HoA, MN_sig, CoA, Nm:text
+
+  const  mobile_home_na : protocol_id
+  init State := 0
+
+  transition  
+   
+    0.  State  = 0 /\ RCV(start) =|> 
+         State':= 2   /\ Mn_tmp' := new() /\ HoA' := new()
+		   /\ MN_sig' := new() /\ CoA' := new()
+		   /\ Nm' :=new() /\ Nh' :=new()
+                   /\ SND(HoA'.MN_sig'.{CoA'.Mn_tmp'.(Hash(Nm'.Nh'.K_rabina,K_rabinb))}_K_rabinb) 
+		   /\ SND(Hash(Nm'.xor(Nh')).(Hash(Hash(Nm'.xor(Nh')))).xor(Nh'))  
+	           /\ secret(Mn_tmp',na,{A,B}) 
+		   /\ witness(A,B,home_mobile_na,Mn_tmp')  
+		 
+
+    2.  State  = 2 /\ RCV(HoA'.MN_sig'.{CoA'.Mn_tmp'.(Hash(Nm'.Nh'.K_rabina,K_rabinb))}_K_rabina) 
+		   /\ RCV(Hash(Nm'.xor(Nh')).(Hash(Hash(Nm'.xor(Nh')))).xor(Nh')) =|> 
+	State':= 4  /\ wrequest(A,B,mobile_home_nh,Nh')  
+		   
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role home(A, B: agent,
+	    K_rabina:symmetric_key,
+            K_rabinb:public_key,
+	    Hash: hash_func,     
+            SND, RCV: channel (dy)) 
+played_by B def=
+
+  local State : nat, 
+	Mn_tmp,Nh,HoA,CoA, MN_sig,Nm: text
+   const  home_mobile_nh : protocol_id
+
+  init State := 1
+
+  transition 
+
+    1.	State= 1 /\  RCV(HoA'.MN_sig'.{CoA'.Mn_tmp'.(Hash(Nm'.Nh'.K_rabina,K_rabinb))}_K_rabinb) =|> 
+	State':= 3 /\ SND(HoA'.{CoA'.Mn_tmp'.(Hash(Nm'.Nh'.K_rabina,K_rabinb))}_K_rabina) 
+		/\ SND(Hash(Nm'.xor(Nh')).(Hash(Hash(Nm'.xor(Nh')))).xor(Nh')) 
+		/\ secret(Nh,nh,{B,A}) 
+		/\ witness(B,A,mobile_home_nh,Nh')
+
+    3.  State  = 3 /\ RCV({Nh'}_K_rabinb) =|>   
+	State':= 5 /\ wrequest(B,A,home_mobile_na,Mn_tmp)  
+	       
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(A, B: agent,  K_rabina,K_rabinb: symmetric_key,Hash: hash_func) def=
+
+ local SA, RA, SB, RB: channel (dy)
+%, Mn_tmp, HoA, MN_sig, CoA,Nm,Nh: text,
+
+%Hash: hash_func
+
+  composition 
+
+	             mobile(A,B,K_rabina,K_rabinb,Hash,SA,RA)
+                   /\ home (B,A,K_rabina,K_rabinb,Hash,SB,RB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment() def=
+
+    const a, b : agent,
+	   h : hash_func,
+	  ka, kb, ki :public_key, 
+	 % k_a,k_b:public_key,
+	  na, nh,
+	  mobile_home_nh,
+	  home_mobile_na : protocol_id
+	  
+    intruder_knowledge = {a, b, ka, kb, ki, inv(ki) , b,a, kb, ka, ki, inv(ki)}
+
+    composition
+
+	session(a,b,ka,kb,h)
+ %/\ session(b,a,kb,ka,h)
+      
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of na
+  secrecy_of nh
+  weak_authentication_on home_mobile_nh
+  weak_authentication_on mobile_home_na
+  
+
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

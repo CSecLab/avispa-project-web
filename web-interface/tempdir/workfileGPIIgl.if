@@ -1,0 +1,174 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileGPIIgl
+
+section signature:
+
+state_speke_Resp: agent * agent * symmetric_key * nat * text * text * text * message * message * set(agent) * set(agent) * nat -> fact
+state_speke_Init: agent * agent * symmetric_key * nat * text * text * text * message * message * set(agent) * set(agent) * nat -> fact
+
+
+section types:
+
+set_97, set_96, set_95, set_94, set_93, set_92, set_90, set_89, set_82, set_81, set_68, set_67: set
+sec_r_Ca, sec_r_Cb, cb, ca, sec_i_Ca, sec_i_Cb: protocol_id
+Ca, Nb, Cb, Dummy_Nb, Dummy_Cb, Dummy_Ca, Dummy_Na, dummy_nonce, Na: text
+Set_45, Set_44, Dummy_Set_45, Dummy_Set_44, Dummy_Set_27, Dummy_Set_22, Set_27, Set_22, ASGoal: set(agent)
+10, 6, State, 4, SID, 3, Dummy_State, 2, 1, 0, SID2, SID1: nat
+Y, K, Dummy_Y, Dummy_K, Dummy_X, start, dummy_msg, X, MGoal: message
+Kab, kab, kai, kbi: symmetric_key
+A, B, A2Goal, A1Goal, a, b, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(kai).
+ iknows(kbi).
+ iknows(i).
+ state_speke_Init(a,b,kab,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,set_67,set_68,3).
+ state_speke_Resp(b,a,kab,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,set_81,set_82,4).
+ state_speke_Init(a,i,kai,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,set_89,set_90,6).
+ state_speke_Resp(b,i,kbi,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,set_96,set_97,10)
+
+
+section rules:
+
+step step_0 (A,B,Kab,Dummy_Na,Ca,Cb,X,K,Set_22,Set_27,SID,Na) :=
+ state_speke_Init(A,B,Kab,0,Dummy_Na,Ca,Cb,X,K,Set_22,Set_27,SID).
+ iknows(start)
+=[exists Na]=>
+ state_speke_Init(A,B,Kab,1,Na,Ca,Cb,X,K,Set_22,Set_27,SID).
+ iknows(exp(Kab,Na))
+
+step step_1 (A,B,Kab,Na,Dummy_Ca,Cb,Dummy_X,Dummy_K,Dummy_Set_22,Set_27,SID,Ca,X) :=
+ state_speke_Init(A,B,Kab,1,Na,Dummy_Ca,Cb,Dummy_X,Dummy_K,Dummy_Set_22,Set_27,SID).
+ iknows(X)
+=[exists Ca]=>
+ state_speke_Init(A,B,Kab,2,Na,Ca,Cb,X,exp(X,Na),Dummy_Set_22,Set_27,SID).
+ iknows(scrypt(exp(X,Na),Ca)).
+ secret(Ca,sec_i_Ca,Dummy_Set_22).
+ witness(A,B,ca,Ca).
+ contains(A,Dummy_Set_22).
+ contains(B,Dummy_Set_22)
+
+step step_2 (A,B,Kab,Na,Ca,Dummy_Cb,X,K,Set_22,Dummy_Set_27,SID,Cb) :=
+ state_speke_Init(A,B,Kab,2,Na,Ca,Dummy_Cb,X,K,Set_22,Dummy_Set_27,SID).
+ iknows(scrypt(K,pair(Cb,Ca)))
+ =>
+ state_speke_Init(A,B,Kab,3,Na,Ca,Cb,X,K,Set_22,Dummy_Set_27,SID).
+ iknows(scrypt(K,Cb)).
+ secret(Cb,sec_i_Cb,Dummy_Set_27).
+ request(A,B,cb,Cb,SID).
+ contains(A,Dummy_Set_27).
+ contains(B,Dummy_Set_27)
+
+step step_3 (B,A,Kab,Dummy_Nb,Cb,Ca,Dummy_Y,Dummy_K,Set_44,Set_45,SID,Nb,Y) :=
+ state_speke_Resp(B,A,Kab,0,Dummy_Nb,Cb,Ca,Dummy_Y,Dummy_K,Set_44,Set_45,SID).
+ iknows(Y)
+=[exists Nb]=>
+ state_speke_Resp(B,A,Kab,1,Nb,Cb,Ca,Y,exp(Y,Nb),Set_44,Set_45,SID).
+ iknows(exp(Kab,Nb))
+
+step step_4 (B,A,Kab,Nb,Dummy_Cb,Dummy_Ca,Y,K,Dummy_Set_44,Dummy_Set_45,SID,Cb,Ca) :=
+ state_speke_Resp(B,A,Kab,1,Nb,Dummy_Cb,Dummy_Ca,Y,K,Dummy_Set_44,Dummy_Set_45,SID).
+ iknows(scrypt(K,Ca))
+=[exists Cb]=>
+ state_speke_Resp(B,A,Kab,2,Nb,Cb,Ca,Y,K,Dummy_Set_44,Dummy_Set_45,SID).
+ iknows(scrypt(K,pair(Cb,Ca))).
+ secret(Ca,sec_r_Ca,Dummy_Set_44).
+ secret(Cb,sec_r_Cb,Dummy_Set_45).
+ witness(B,A,cb,Cb).
+ request(B,A,ca,Ca,SID).
+ contains(A,Dummy_Set_44).
+ contains(B,Dummy_Set_44).
+ contains(A,Dummy_Set_45).
+ contains(B,Dummy_Set_45)
+
+step step_5 (B,A,Kab,Nb,Cb,Ca,Y,K,Set_44,Set_45,SID) :=
+ state_speke_Resp(B,A,Kab,2,Nb,Cb,Ca,Y,K,Set_44,Set_45,SID).
+ iknows(scrypt(K,Cb))
+ =>
+ state_speke_Resp(B,A,Kab,3,Nb,Cb,Ca,Y,K,Set_44,Set_45,SID)
+
+
+section properties:
+
+property secrecy_of_sec_i_Ca (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_i_Ca,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_sec_i_Cb (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_i_Cb,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_sec_r_Ca (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_r_Ca,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_sec_r_Cb (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_r_Cb,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_cb (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,cb,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,cb,MGoal))
+     /\ ((request(A1Goal,A2Goal,cb,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,cb,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_ca (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,ca,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,ca,MGoal))
+     /\ ((request(A1Goal,A2Goal,ca,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,ca,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_sec_i_Ca (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_i_Ca,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_sec_i_Cb (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_i_Cb,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_sec_r_Ca (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_r_Ca,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_sec_r_Cb (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_r_Cb,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_cb (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,cb,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,cb,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_cb (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,cb,MGoal,SID1).
+ request(A1Goal,A2Goal,cb,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_ca (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,ca,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,ca,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_ca (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,ca,MGoal,SID1).
+ request(A1Goal,A2Goal,ca,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

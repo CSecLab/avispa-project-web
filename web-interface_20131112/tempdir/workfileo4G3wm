@@ -1,0 +1,65 @@
+role reader (R,T: agent,IDr,Ni,EPCt : text ,Ki: symmetric_key, CRC: hash_func,Snd,Rec:channel(dy))
+played_by R def=
+
+local State : nat,Nt,Nr : text,
+Mreq, Mresp: message 
+ const sec_k : protocol_id
+init State := 0
+transition
+1. State = 0    /\ Rec(start) =|>  
+   State':= 1   /\ Nr' := new() 
+                /\ Snd(Mreq.Nr'.CRC(xor(Ni,Nr')))
+				/\ witness(R,T,aut_reader,Nr')
+				
+2. State = 1    /\ Rec(Nt'.xor(xor(Ki,EPCt),Nt').CRC(xor(xor(Nt',Ni),xor(xor(Ki,EPCt),Nt')))) =|>
+   State':= 2   /\ Snd(Mresp)
+                /\ request(R,T,aut_tag,Nt')
+				/\ secret(Ki,sec_k,{R,T})
+end role
+
+role tag (T,R: agent,IDr,Ni,EPCt : text ,Ki: symmetric_key, CRC: hash_func,Snd,Rec:channel(dy))
+played_by T def=
+
+local State : nat,Nt,Nr : text,
+Mreq, Mresp: message 
+ const sec_k1 : protocol_id
+init State := 0
+transition
+1. State = 0    /\ Rec(Mreq.Nr'.CRC(xor(Ni,Nr'))) =|> 
+   State':= 1   /\ Nt' := new() 
+                /\ Snd(Nt'.xor(xor(Ki,EPCt),Nt').CRC(xor(xor(Nt',Ni),xor(xor(Ki,EPCt),Nt'))))
+                /\ witness(T,R,aut_tag,Nt')
+
+2. State = 1    /\ Rec(Mresp) =|> 
+   State':= 2   /\ request(T,R,aut_reader,Nr)
+                /\ secret(Ki,sec_k1,{T,R})
+end role
+
+role session(T,R: agent,IDr,Ni,EPCt : text ,Ki: symmetric_key, CRC: hash_func) def=
+ local St,Rt,Sr,Rr : channel(dy)
+const aut_reader,aut_tag : protocol_id
+composition
+   tag(T,R,IDr,Ni,EPCt,Ki,CRC,St,Rt)
+/\ reader(R,T,IDr,Ni,EPCt,Ki,CRC,Sr,Rr)
+end role
+
+role environment() def=
+const t1,t2,r : agent,
+      idr,ni,epct:text,
+      ki : symmetric_key, 
+      aut_reader,aut_tag :protocol_id, 
+      crc : hash_func
+intruder_knowledge = {t1,t2,r,crc}
+composition
+session(t1,r,idr,ni,epct,ki,crc) /\ session(t2,r,idr,ni,epct,ki,crc)
+end role
+
+goal
+secrecy_of sec_k,sec_k1
+authentication_on aut_reader
+authentication_on aut_tag
+end goal
+
+environment()  
+                 
+            

@@ -1,0 +1,146 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileW20295
+
+section signature:
+
+state_customer: agent * agent * agent * symmetric_key * symmetric_key * hash_func * hash_func * message * text * nat * text * text * symmetric_key * message * pair(agent,pair(agent,pair(message,pair(message,pair(text,message))))) * pair(agent,pair(agent,pair(symmetric_key,text))) * set(agent) * nat -> fact
+state_merchant: agent * agent * agent * symmetric_key * symmetric_key * hash_func * hash_func * text * nat * text * symmetric_key * message * pair(agent,pair(agent,pair(message,pair(message,pair(text,message))))) * pair(agent,pair(agent,pair(symmetric_key,text))) * nat -> fact
+state_netbill: agent * agent * agent * symmetric_key * symmetric_key * hash_func * hash_func * text * nat * text * text * symmetric_key * pair(agent,pair(agent,pair(message,pair(message,pair(text,message))))) * pair(agent,pair(agent,pair(symmetric_key,text))) * nat -> fact
+
+
+section types:
+
+set_131: set
+Receipt, Dummy_Receipt: pair(agent,pair(agent,pair(symmetric_key,text)))
+Epo, Dummy_Epo: pair(agent,pair(agent,pair(message,pair(message,pair(text,message)))))
+Dummy_Set_30, Set_30, ASGoal: set(agent)
+X, Dummy_Ekgoods, Dummy_X, start, Ekgoods, dummy_msg, MGoal, Hgoods: message
+State, 3, 5, SID, 2, 4, 1, 0, Dummy_State: nat
+kcn, kmn, kcm, K, Kcn, Kmn, Kcm, Dummy_K, dummy_sk: symmetric_key
+customer_netbill_goods, customer_netbill_receipt, netbill_customer_epo, cacct_secret, merchant_netbill_receipt, netbill_merchant_k, merchant_customer_epo, customer_merchant_goods, k_secret, goods_secret: protocol_id
+Epoid, Goods, Cacct, Dummy_Goods, Dummy_Epoid, dummy_nonce, goods, cacct: text
+c, m, n, C, M, N, dummy_agent, A2Goal, A1Goal, i: agent
+H, S, h, s: hash_func
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(c).
+ iknows(m).
+ iknows(n).
+ iknows(h).
+ iknows(s).
+ iknows(kcm).
+ iknows(kmn).
+ iknows(goods).
+ iknows(i).
+ state_netbill(n,c,m,kcn,kmn,h,s,cacct,0,dummy_nonce,dummy_nonce,dummy_sk,pair(dummy_agent,pair(dummy_agent,pair(dummy_msg,pair(dummy_msg,pair(dummy_nonce,dummy_msg))))),pair(dummy_agent,pair(dummy_agent,pair(dummy_sk,dummy_nonce))),3).
+ state_merchant(m,c,n,kcm,kmn,h,s,goods,0,dummy_nonce,dummy_sk,dummy_msg,pair(dummy_agent,pair(dummy_agent,pair(dummy_msg,pair(dummy_msg,pair(dummy_nonce,dummy_msg))))),pair(dummy_agent,pair(dummy_agent,pair(dummy_sk,dummy_nonce))),4).
+ state_customer(c,m,n,kcm,kcn,h,s,apply(h,goods),cacct,0,dummy_nonce,dummy_nonce,dummy_sk,dummy_msg,pair(dummy_agent,pair(dummy_agent,pair(dummy_msg,pair(dummy_msg,pair(dummy_nonce,dummy_msg))))),pair(dummy_agent,pair(dummy_agent,pair(dummy_sk,dummy_nonce))),set_131,5)
+
+
+section rules:
+
+step step_0 (N,C,M,Kcn,Kmn,H,S,Cacct,Dummy_Epoid,Dummy_Goods,Dummy_K,Dummy_Epo,Dummy_Receipt,SID,Epoid,Goods,K) :=
+ state_netbill(N,C,M,Kcn,Kmn,H,S,Cacct,0,Dummy_Epoid,Dummy_Goods,Dummy_K,Dummy_Epo,Dummy_Receipt,SID).
+ iknows(scrypt(Kmn,pair(pair(C,pair(M,pair(apply(H,Goods),pair(scrypt(K,Goods),pair(Epoid,scrypt(Kcn,Cacct)))))),pair(apply(S,pair(pair(C,pair(M,pair(apply(H,Goods),pair(scrypt(K,Goods),pair(Epoid,scrypt(Kcn,Cacct)))))),C)),pair(Goods,pair(K,apply(S,pair(scrypt(Kmn,pair(C,pair(M,pair(apply(H,Goods),pair(scrypt(K,Goods),pair(Epoid,scrypt(Kcn,Cacct))))))),pair(apply(S,pair(pair(C,pair(M,pair(apply(H,Goods),pair(scrypt(K,Goods),pair(Epoid,scrypt(Kcn,Cacct)))))),C)),pair(Goods,pair(K,M)))))))))))
+ =>
+ state_netbill(N,C,M,Kcn,Kmn,H,S,Cacct,1,Epoid,Goods,K,pair(C,pair(M,pair(apply(H,Goods),pair(scrypt(K,Goods),pair(Epoid,scrypt(Kcn,Cacct)))))),pair(C,pair(M,pair(K,Epoid))),SID).
+ iknows(scrypt(Kmn,pair(pair(C,pair(M,pair(K,Epoid))),pair(apply(S,pair(pair(C,pair(M,pair(K,Epoid))),N)),scrypt(Kcn,pair(Epoid,Cacct)))))).
+ wrequest(N,C,netbill_customer_epo,pair(C,pair(M,pair(apply(H,Goods),pair(scrypt(K,Goods),pair(Epoid,scrypt(Kcn,Cacct)))))),SID).
+ witness(N,C,customer_netbill_receipt,pair(C,pair(M,pair(K,Epoid)))).
+ witness(N,C,customer_netbill_goods,Goods)
+
+step step_1 (M,C,N,Kcm,Kmn,H,S,Goods,Dummy_Epoid,Dummy_K,X,Epo,Receipt,SID,Epoid,K) :=
+ state_merchant(M,C,N,Kcm,Kmn,H,S,Goods,0,Dummy_Epoid,Dummy_K,X,Epo,Receipt,SID).
+ iknows(apply(H,Goods))
+=[exists Epoid,K]=>
+ state_merchant(M,C,N,Kcm,Kmn,H,S,Goods,1,Epoid,K,X,Epo,Receipt,SID).
+ iknows(pair(scrypt(K,Goods),scrypt(Kcm,Epoid)))
+
+step step_2 (M,C,N,Kcm,Kmn,H,S,Goods,Epoid,K,Dummy_X,Dummy_Epo,Receipt,SID,X) :=
+ state_merchant(M,C,N,Kcm,Kmn,H,S,Goods,1,Epoid,K,Dummy_X,Dummy_Epo,Receipt,SID).
+ iknows(scrypt(Kcm,pair(pair(C,pair(M,pair(apply(H,Goods),pair(scrypt(K,Goods),pair(Epoid,X))))),apply(S,pair(pair(C,pair(M,pair(apply(H,Goods),pair(scrypt(K,Goods),pair(Epoid,X))))),C)))))
+ =>
+ state_merchant(M,C,N,Kcm,Kmn,H,S,Goods,2,Epoid,K,X,pair(C,pair(M,pair(apply(H,Goods),pair(scrypt(K,Goods),pair(Epoid,X))))),Receipt,SID).
+ iknows(scrypt(Kmn,pair(pair(C,pair(M,pair(apply(H,Goods),pair(scrypt(K,Goods),pair(Epoid,X))))),pair(apply(S,pair(pair(C,pair(M,pair(apply(H,Goods),pair(scrypt(K,Goods),pair(Epoid,X))))),C)),pair(Goods,pair(K,apply(S,pair(scrypt(Kmn,pair(C,pair(M,pair(apply(H,Goods),pair(scrypt(K,Goods),pair(Epoid,X)))))),pair(apply(S,pair(pair(C,pair(M,pair(apply(H,Goods),pair(scrypt(K,Goods),pair(Epoid,X))))),C)),pair(Goods,pair(K,M)))))))))))
+
+step step_3 (M,C,N,Kcm,Kmn,H,S,Goods,Epoid,K,Dummy_X,Epo,Dummy_Receipt,SID,X) :=
+ state_merchant(M,C,N,Kcm,Kmn,H,S,Goods,2,Epoid,K,Dummy_X,Epo,Dummy_Receipt,SID).
+ iknows(scrypt(Kmn,pair(pair(C,pair(M,pair(K,Epoid))),pair(apply(S,pair(pair(C,pair(M,pair(K,Epoid))),N)),X))))
+ =>
+ state_merchant(M,C,N,Kcm,Kmn,H,S,Goods,3,Epoid,K,X,Epo,pair(C,pair(M,pair(K,Epoid))),SID).
+ iknows(scrypt(Kcm,pair(pair(C,pair(M,pair(K,Epoid))),pair(apply(S,pair(pair(C,pair(M,pair(K,Epoid))),N)),X))))
+
+step step_4 (C,M,N,Kcm,Kcn,H,S,Hgoods,Cacct,Goods,Epoid,K,Ekgoods,Epo,Receipt,Set_30,SID) :=
+ state_customer(C,M,N,Kcm,Kcn,H,S,Hgoods,Cacct,0,Goods,Epoid,K,Ekgoods,Epo,Receipt,Set_30,SID).
+ iknows(start)
+ =>
+ state_customer(C,M,N,Kcm,Kcn,H,S,Hgoods,Cacct,1,Goods,Epoid,K,Ekgoods,Epo,Receipt,Set_30,SID).
+ iknows(Hgoods)
+
+step step_5 (C,M,N,Kcm,Kcn,H,S,Hgoods,Cacct,Goods,Dummy_Epoid,K,Dummy_Ekgoods,Dummy_Epo,Receipt,Dummy_Set_30,SID,Epoid,Ekgoods) :=
+ state_customer(C,M,N,Kcm,Kcn,H,S,Hgoods,Cacct,1,Goods,Dummy_Epoid,K,Dummy_Ekgoods,Dummy_Epo,Receipt,Dummy_Set_30,SID).
+ iknows(pair(Ekgoods,scrypt(Kcm,Epoid)))
+ =>
+ state_customer(C,M,N,Kcm,Kcn,H,S,Hgoods,Cacct,2,Goods,Epoid,K,Ekgoods,pair(C,pair(M,pair(Hgoods,pair(Ekgoods,pair(Epoid,scrypt(Kcn,Cacct)))))),Receipt,Dummy_Set_30,SID).
+ iknows(scrypt(Kcm,pair(pair(C,pair(M,pair(Hgoods,pair(Ekgoods,pair(Epoid,scrypt(Kcn,Cacct)))))),apply(S,pair(pair(C,pair(M,pair(Hgoods,pair(Ekgoods,pair(Epoid,scrypt(Kcn,Cacct)))))),C))))).
+ secret(Cacct,cacct_secret,Dummy_Set_30).
+ witness(C,N,netbill_customer_epo,pair(C,pair(M,pair(Hgoods,pair(Ekgoods,pair(Epoid,scrypt(Kcn,Cacct))))))).
+ contains(C,Dummy_Set_30).
+ contains(N,Dummy_Set_30)
+
+step step_6 (C,M,N,Kcm,Kcn,H,S,Cacct,Dummy_Goods,Epoid,Dummy_K,Epo,Dummy_Receipt,Set_30,SID,Goods,K) :=
+ state_customer(C,M,N,Kcm,Kcn,H,S,apply(H,Goods),Cacct,2,Dummy_Goods,Epoid,Dummy_K,scrypt(K,Goods),Epo,Dummy_Receipt,Set_30,SID).
+ iknows(scrypt(Kcm,pair(pair(C,pair(M,pair(K,Epoid))),pair(apply(S,pair(pair(C,pair(M,pair(K,Epoid))),N)),scrypt(Kcn,pair(Epoid,Cacct))))))
+ =>
+ state_customer(C,M,N,Kcm,Kcn,H,S,apply(H,Goods),Cacct,3,Goods,Epoid,K,scrypt(K,Goods),Epo,pair(C,pair(M,pair(K,Epoid))),Set_30,SID).
+ wrequest(C,N,customer_netbill_receipt,pair(C,pair(M,pair(K,Epoid))),SID).
+ wrequest(C,N,customer_netbill_goods,Goods,SID)
+
+
+section properties:
+
+property weak_authentication_on_customer_netbill_goods (A1Goal,A2Goal,MGoal,SID) :=
+ [] ((wrequest(A1Goal,A2Goal,customer_netbill_goods,MGoal,SID)
+      /\ ~ equal(A2Goal,i))
+     => witness(A2Goal,A1Goal,customer_netbill_goods,MGoal))
+
+property weak_authentication_on_customer_netbill_receipt (A1Goal,A2Goal,MGoal,SID) :=
+ [] ((wrequest(A1Goal,A2Goal,customer_netbill_receipt,MGoal,SID)
+      /\ ~ equal(A2Goal,i))
+     => witness(A2Goal,A1Goal,customer_netbill_receipt,MGoal))
+
+property weak_authentication_on_netbill_customer_epo (A1Goal,A2Goal,MGoal,SID) :=
+ [] ((wrequest(A1Goal,A2Goal,netbill_customer_epo,MGoal,SID)
+      /\ ~ equal(A2Goal,i))
+     => witness(A2Goal,A1Goal,netbill_customer_epo,MGoal))
+
+property secrecy_of_cacct_secret (MGoal,ASGoal) :=
+ [] ((secret(MGoal,cacct_secret,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state weak_authentication_on_customer_netbill_goods (A1Goal,A2Goal,MGoal,SID) :=
+ wrequest(A1Goal,A2Goal,customer_netbill_goods,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,customer_netbill_goods,MGoal)) &
+ not(equal(A2Goal,i))
+
+attack_state weak_authentication_on_customer_netbill_receipt (A1Goal,A2Goal,MGoal,SID) :=
+ wrequest(A1Goal,A2Goal,customer_netbill_receipt,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,customer_netbill_receipt,MGoal)) &
+ not(equal(A2Goal,i))
+
+attack_state weak_authentication_on_netbill_customer_epo (A1Goal,A2Goal,MGoal,SID) :=
+ wrequest(A1Goal,A2Goal,netbill_customer_epo,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,netbill_customer_epo,MGoal)) &
+ not(equal(A2Goal,i))
+
+attack_state secrecy_of_cacct_secret (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,cacct_secret,ASGoal) &
+ not(contains(i,ASGoal))
+

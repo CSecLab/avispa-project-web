@@ -1,0 +1,100 @@
+role alice (Ui, Sj: agent,
+SKas : symmetric_key,
+H: hash_func,
+Snd, Rcv: channel(dy))
+played_by Ui
+def=
+local State : nat,
+IDi, PWi, PWDi, NIDi, Bi, NIDii, SIDj, Xs, Rc, Ti: text,
+Eii, Gi, Li, Rs, SK, Ki, Di, Fi, Ei: message,
+Inc : hash_func
+const alice_server, server_alice, subs1, subs2, subs3, subs4, subs5, subs6: protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(start) =|>
+State' := 1 /\ PWDi' := H(IDi.PWi)
+/\ Snd({IDi.PWDi'.Bi}_SKas)
+/\ secret({IDi}, subs1, {Ui,Sj})
+/\ secret({PWi}, subs2, {Ui})
+2. State = 1 /\ Rcv({Fi'.Ei'.Ti'}_SKas) =|>
+State' := 2 /\ Rc' := new()
+/\ NIDi' := xor(Ti, H(IDi.Fi))
+/\ Eii' := xor(Ei, H(IDi.PWi))
+/\ Gi' := xor(Eii',Rc')
+/\ NIDii' := xor(NIDi', H(Rc'))
+/\ Li' := H(NIDi'.Rc)
+/\ Snd(Fi'.Gi'.Li'.NIDii')
+%/\ secret({PWi}, subs2, {Ui})
+%/\ secret({Ti}, subs3, {Ui})
+%/\ witness(Ui, Sj, alice_server, Ti')
+3. State = 2 /\ Rcv(Ki'.Di') =|>
+State' := 3 /\ Rs' := xor(Eii',Di)
+/\ Ki' := H(Eii'.Rs')
+/\ SK' := H(Rc.Rs)
+end role
+
+role server (Sj, Ui: agent,
+SKas : symmetric_key,
+H: hash_func,
+Snd, Rcv: channel(dy) )
+played_by Sj
+def=
+local State : nat,
+IDi, PWi, PWDi, Bi, NIDi, NIDii, SIDj, Xs, Rc, Ti: text,
+Eii, Gi, Li, Rs, SK, Ki, Di, Ai, Fi, CIDi, Ei : message,
+Inc : hash_func
+const alice_server, server_alice, subs1, subs2, subs3, subs4, subs5, subs6: protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(IDi.PWDi'.Bi) =|>
+State' := 1 /\ NIDi' := new()
+/\ CIDi' := H(IDi.Bi)
+/\ Fi' := H(Bi) 
+/\ Ei' := xor(H(SIDj.Xs.Fi'),PWDi)
+/\ Ti' := xor(NIDi, H(IDi.Fi'))
+/\ Snd({Fi'.Ei'.Ti'}_SKas)   
+/\ secret({Xs}, subs5, {Sj})
+2. State = 1 /\ Rcv(Fi'.Gi'.Li'.NIDii') =|>
+State' := 2 /\ Rs' := new()
+/\ Ai' := H(SIDj.Xs.Fi)
+/\ Di' := xor(Ai',Rs')
+/\ Ki' := H(Ai.Rs')
+%/\ witness(Sj, Ui, server_alice, Rs')
+%/\request(Ui, Sj, server_alice, Rs')
+/\secret({Rs'},subs6,{Sj})
+/\ Snd(Ki'.Di')
+end role
+
+role session(Ui, Sj: agent,
+SKas : symmetric_key,
+H: hash_func)
+def=
+local SI, SJ, RI, RJ: channel (dy)
+composition
+alice(Ui, Sj, SKas, H, SI, RI) 
+/\ server(Ui, Sj, SKas, H, SJ, RJ)
+end role
+role environment()
+def=
+const ui, sj: agent,
+skas : symmetric_key,
+h, mul, add, sub: hash_func,
+idi, pwi, nidi, nidii, sidj, xs, ri, ti, rs: text,
+alice_server_rc, server_alice_rs, subs1,
+subs2, subs3, subs4, subs5, subs6: protocol_id
+intruder_knowledge = {ui, sj, h}
+composition
+session( ui, sj, skas, h)
+/\ session(sj, ui, skas, h)
+end role
+goal
+secrecy_of subs1
+secrecy_of subs2
+secrecy_of subs3
+secrecy_of subs4
+secrecy_of subs5
+secrecy_of subs6
+authentication_on alice_server_rc
+authentication_on server_alice_rs
+end goal
+environment()

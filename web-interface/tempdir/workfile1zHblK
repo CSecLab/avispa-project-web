@@ -1,0 +1,58 @@
+role alice(Ui,Sj:agent,
+SKuisj:symmetric_key,
+% H is the one-way hash function
+% BH is the Bio Hshing function
+H : hash_func,
+BH : hash_func,
+Snd, Rcv:channel(dy))
+% Player by the initiator: the user Ui
+played_by Ui
+def=
+local State : nat,
+	IDi,PWi,Ni,BIOi,X,Tr,PSK:text,
+	SIDj,N1,N2:text,
+	Xi,Yi,Zi,W1,W2:text
+const alice_bob_n1, bob_alice_n2,
+	alice_bob_ni,bob_alice_tr,
+	subs1,subs2,subs3,subs4,subs5:protocol_id
+init State:=0
+transition
+%User registration phase
+1. State=0 /\ Rcv(start)=|>
+  State':=1/\ Ni':=new()
+%Send the registration request message to Sj
+	/\W1':=H(PWi.Ni')
+	/\W2':= H(xor(IDi,Ni'))
+	/\secret({PWi,BIOi,Ni'},subs2,Ui)
+	/\secret({IDi},subs3, {Ui,Sj})
+	/\Snd({IDi.W1'.W2'}_SKuisj)
+%Ui has freshly generated the value Ni for Sj
+/\witness(Ui,Sj,alice_bob_ni,Ni')
+%Receive the registration acknowledgement message from Sj
+2. State=1/\ Rcv({xor(H(H(IDi.X.Tr')),H(PWi.Ni')).
+	xor(H(PSK),H(xor(IDi,Ni'))).
+	xor(PSK,H(IDi.X.Tr')).H}_SKuisj)=|>
+
+%Login phase
+State':=2/\secret({X,PSK,Tr'},subs1,Sj)
+/\N1':=new()
+/\secret({N1'},subs4,Ui)
+%Send the login request message  to Sj
+/\Snd(xor(PSK,H(IDi.X.Tr')).
+xor(H(PSK),N1').
+xor(IDi,H(N1'.H(H(IDi.X.Tr')))).
+H(IDi.N1'.H(H(IDi.X.Tr))))
+%Ui has freshly generated the value N1 for Sj
+/\witness(Ui,Sj,alice_bob_n1,N1')
+%Authentication phase
+%Receive the authentication request message
+% from Sj
+3.State=2/\Rcv(SIDj.xor(N2',H(IDi.N1')).
+H(H(IDi.SIDj.H(H(IDi.X.Tr')).
+N1'.N2').N1'.N2'))=|>
+%Send the message  to Sj
+State':=3/\ Snd(H(H(IDi.SIDj.H(H(IDi.X.Tr')).
+N1'.N2').N1'.N2'))
+%Ui's acceptance of the value N2 generated for Ui by Sj 
+/\ request(Sj,Ui,bob_alice_n2,N2')
+end role

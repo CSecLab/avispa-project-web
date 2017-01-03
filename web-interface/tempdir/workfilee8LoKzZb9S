@@ -1,0 +1,112 @@
+%%Version1-Liao-wang-2009
+%%smart card includes:Vi,Bi,Hi,Y,function
+%%user's id pass : IDi, PWi
+
+role useri(U,S: agent,
+			SIDj,IDi, PWi,Vi,Bi,Hi,Y :text ,  
+		    Hash : function,
+            SND, RCV: channel(dy))
+			
+played_by U def=
+
+local State : nat, 
+		Ni,Nj,Ti,Qi ,CIDi, Pij,Mij2, SharedKey : text
+	
+	
+init State := 0
+	
+transition
+	0. State = 0 /\ RCV(start) =|> 
+		State':= 1 
+		/\ Ti' := xor(Vi,Hash(IDi.PWi))
+		/\ Ni' := new() 
+		/\ CIDi' := xor(Hash(PWi),Hash(Ti'.Y.Ni')) 
+		/\ Pij' := xor(Ti',Hash(Y.Ni'.SIDj))
+		/\ Qi' := Hash(Bi.Y.Ni')
+		/\ SND(CIDi'.Pij'.Qi'.Ni')
+		/\ witness(U, S, s_u_ni , Ni')
+		/\secret(IDi, sec_idu , {U})
+
+		
+	2. State = 1 /\ RCV(Hash(Bi.Ni.Y.SIDj).Nj') =|> 
+		State' := 2 
+		/\ Mij2' := Hash(Bi.Nj'.Y.SIDj)
+		/\ SND(Mij2')
+		/\ SharedKey' := Hash(Bi.Ni.Nj'.SIDj)
+		/\ secret(SharedKey',sec_SK , {U,S})
+		/\ request(S,U, u_s_nj , Nj')
+	 
+	
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role serverj(U, S: agent,
+					Y,X,SIDj : text,
+					Hash : function,
+					SND, RCV: channel(dy))
+played_by S def=
+local State : nat,	
+		Ni,Nj,Ti ,CIDi, Pij,Mij1, SharedKey , Hpw , Bi: text
+		
+		
+					
+init State :=0
+
+transition	
+	1. State = 0 /\ RCV(CIDi'.Pij'.Hash(xor(xor(CIDi',Hash(xor(Pij',Hash(Y.Ni'.SIDj)).Y.Ni')),Hash(X)).Ni'.Y).Ni') =|> 
+		State' := 1 
+		/\ Ti' := xor(Pij' , Hash(Y.Ni'.SIDj))
+		/\ Hpw' := xor(CIDi' , Hash(Ti'.Y.Ni'))
+		/\ Bi' := xor(Hpw',Hash(X))
+		/\ Mij1' := Hash(Bi'.Ni'.Y.SIDj)
+		/\ Nj' := new()
+		/\ SND(Mij1'.Nj')
+		/\ witness(S, U, u_s_nj , Nj')
+		/\ request(U,S, s_u_ni , Ni')
+		
+	3. State = 1 /\ RCV(Hash(Bi.Nj.Y.SIDj)) =|>
+	   State' := 2
+	   /\ SharedKey' := Hash(Bi.Ni.Nj.SIDj)
+	   /\ secret(SharedKey',sec_SK , {U,S})
+	  
+
+end role
+
+
+%%%%%%%%%
+role session (U, S: agent, Y,X,SIDj ,IDi, PWi,Vi,Bi,Hi :text , Ha : function)
+def=
+	local Su, Ru , SS,RS  : channel(dy)
+	
+	composition 
+	useri( U,S ,SIDj,IDi, PWi,Vi,Bi,Hi,Y , Ha , Su , Ru) /\ serverj(U,S, Y,X,SIDj,Ha, SS, RS) 
+	
+end role
+
+%%%%%%%%%
+
+
+role environment() def=
+	const 	u,s , i:agent,	
+	 x , idi, pwi ,sidj ,vi ,bi ,hi ,y :text,
+	sharedkey , sec_idu ,sec_SK, s_u_ni,u_s_nj: protocol_id,
+	ha : function
+	
+	
+	intruder_knowledge = { u, s , ha}
+	
+	composition		session(u,s,y,x,sidj,idi,pwi,vi,bi,hi, ha) 
+		%%/\ session(i,s,y,x,sidj,idi,pwi,vi,bi,hi,ha)/\ session(u,i,ha)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%
+goal   
+  secrecy_of sec_SK  
+  secrecy_of sec_idu  
+  authentication_on s_u_ni
+  authentication_on u_s_nj
+  %%[]~iknows(X)
+end goal
+%%%%%%%%%%%
+
+environment()

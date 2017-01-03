@@ -1,0 +1,141 @@
+%%%%% Role of the user Ui %%%%%%%%%%%%%%%%%%%%%
+role user (Ui, S: agent,
+           SKuis: symmetric_key,
+           H : hash_func,
+           TX, RX: channel(dy))
+played_by Ui 
+def=
+  local State: nat,
+  IDi, B, PWi, BIOi, Mk, U, Di, RIDi : text,
+  DIDi, Ci, Vi, Ti, P, Ss, Ts : text, 
+  Gen, Rep, ECM : hash_func
+const sk1, sk2, sk3, ui_s_u, ui_s_ti, 
+      s_ui_s, s_ui_ts : protocol_id
+% Initialize state State to 0
+init State := 0
+transition
+% User registration phase
+1. State = 0 /\ RX(start) =|>
+% Send registration request to server S securely
+ State' := 1 /\ secret({Mk}, sk1, {S})
+             /\ secret({PWi,BIOi}, sk2, {Ui})
+             /\ secret({IDi}, sk3, {Ui})
+	     /\ B' := new()
+	     /\ RIDi' := H(IDi.B')
+	     /\ TX({RIDi}_SKuis)
+% Receive mobile device from S securely
+2. State = 1 /\ RX({H(H(IDi.B').Mk)}_SKuis) =|>
+% Login phase
+State' := 3  /\ U' := new()
+             /\ Ti' := new()
+             /\ Ci' := ECM(U'.P)
+             /\ Di' := ECM(U'.ECM(Mk.P))
+             /\ DIDi' := xor(H(IDi.B'),Di')
+             /\ Vi' := H(H(IDi.B').Ti'.H(H(IDi.B').Mk).Di')
+% Send login message to S via public channel
+            /\ TX(DIDi'.Ci'.Vi'.Ti')
+% Ui has freshly generated the values u and Ti for S
+            /\ witness (Ui, S, ui_s_u, U')
+            /\ witness (Ui, S, ui_s_ti, Ti')
+% Authentication and key agreement phase
+% Receive authentication message from S via public channel
+3. State = 3 /\ RX(ECM(Ss'.P).H(H(IDi.B').Ti'.H(H(IDi.B').
+                Ti'.H(H(IDi.B').Mk).
+                Ts'.ECM(Mk.ECM(U'.P)).ECM(Ss'.ECM(U'.P))).Ts'
+               .ECM(Ss'.ECM(U'.P))).Ts') =|>
+% Ui's acceptance of the values s and Ts generated for Ui by S  
+State' := 5 /\ request(S, Ui, s_ui_s, Ss')
+            /\ request(S, Ui, s_ui_ts, Ts')
+end role
+
+
+
+
+%%%%% Role of the server S %%%%%%%%%%%%%%%%%%%%%
+role server (Ui, S: agent,
+           SKuis: symmetric_key,
+           H : hash_func,
+           TX, RX: channel(dy))
+played_by S 
+def=
+  local State: nat,
+  IDi, B, PWi, BIOi, Mk, U, Ss : text,
+  Ti, Ts, P, Cs, Ds, Zs, SKs, Vs : text,
+  Gen, Rep, ECM : hash_func
+const sk1, sk2, sk3, ui_s_u, ui_s_ti, 
+      s_ui_s, s_ui_ts : protocol_id
+% Initialize state State to 0
+init State := 0
+transition
+% User registration phase
+% Receive registration request from user Ui securely
+1. State = 0 /\ RX({H(IDi.B')}_SKuis) =|>
+ State' := 2 /\ secret({Mk}, sk1, {S})
+             /\ secret({PWi,BIOi}, sk2, {Ui})
+             /\ secret({IDi}, sk3, {Ui})
+% Send mobile device to Ui securely
+             /\ TX({H(H(IDi.B').Mk)}_SKuis)
+% Login phase
+% Receive login message from Ui via public channel
+2. State = 2 /\ RX(xor(IDi,ECM(U'.ECM(Mk.P))).ECM(U'.P).
+                H(H(IDi.B').Ti'.H(H(IDi.B').Mk).
+		ECM(U'.ECM(Mk.P))).Ti') =|>
+% Authentication and key agreement phase
+State' := 4  /\ Ss' := new()
+             /\ Ts' := new()
+             /\ Cs' := ECM(Ss'.P)
+            /\ Ds' := ECM(Mk.ECM(U'.P))
+            /\ Zs' := ECM(Ss'.ECM(U'.P))
+            /\ SKs' := H(H(IDi.B').Ti'.H(H(IDi.B').Mk).
+                       Ts'.Ds'.Zs')
+            /\ Vs' := H(H(IDi.B').Ti'.SKs'.Ts'.Zs')
+% Send authentication message to Ui via public channel
+           /\ TX(Cs'.Vs'.Ts')
+% S has freshly generated the values s and Ts for Ui
+           /\ witness (S, Ui, s_ui_s, Ss')
+           /\ witness (S, Ui, s_ui_ts, Ts')
+% S's acceptance of u and Ti generated for S by Ui
+           /\ request(Ui, S, ui_s_u, U')
+           /\ request(Ui, S, ui_s_ti, Ti')
+end role
+
+
+%%%%%%% Role specification for the session %%%%%%%%
+role session(Ui, S: agent,
+	     SKuis: symmetric_key,
+             H : hash_func)
+def=
+  local T1, R1, T2, R2: channel (dy)
+  composition
+    user(Ui, S, SKuis, H, T1, R1)
+ /\ server(Ui, S, SKuis, H, T2, R2)     
+end role
+
+
+%%%%%%% Role specification for the goal and environment %%%%%%%%
+role environment()
+def=
+  const ui, s : agent,
+      skuis: symmetric_key,
+      h : hash_func, 
+      gen, rep, ecm : hash_func,
+      ti, ts, didi, ci, vi, cs, vs, p : text,
+      sk1, sk2, sk3, ui_s_u, ui_s_ti, 
+      s_ui_s, s_ui_ts : protocol_id
+intruder_knowledge = {h, gen, rep, ecm, ti, ts, p}
+composition
+   session(ui, s, skuis, h) 
+/\ session(i, s, skuis, h) 
+/\ session(ui, i, skuis, h) 
+end role
+
+goal
+secrecy_of sk1
+secrecy_of sk2
+secrecy_of sk3
+authentication_on ui_s_u
+authentication_on ui_s_ti
+authentication_on s_ui_s
+authentication_on s_ui_ts
+end goal
+environment()

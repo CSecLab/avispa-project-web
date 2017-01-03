@@ -1,0 +1,111 @@
+%%HLPSL:
+role alice (A, B, S: agent,             
+            Ka, Kb, Ks, Kab: public_key,      
+            SND, RCV: channel (dy)) 
+played_by A def=
+
+  local State : nat, 
+        Na, Nb, Ns: text
+
+  init State := 0
+
+  transition  
+   
+    0.  State  = 0 /\ RCV(start) =|> 
+	State':= 2 /\ Na' := new() /\ SND(A.B.{xor(A,Na')}_Ks.{xor(Na',B)}_Ks.{xor(Na',Kab)}_Ks)
+		   /\ secret(Na',nas,{A,S}) 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob(A, B, S: agent,      
+         Ka, Kb, Ks, Kab: public_key,      
+         SND, RCV: channel (dy)) 
+played_by B def=
+
+  local State : nat, 
+	Na, Nb, Ns: text
+
+  init State := 1
+
+  transition
+
+    1.  State  = 1 /\ RCV(start) =|> 
+	State':= 3 /\ Nb' := new() /\ SND(B.A.{xor(B,Nb')}_Ks.{xor(Nb',A)}_Ks.{xor(Nb',Kab)}_Ks)
+		   /\ secret(Nb',nbs,{B,S}) 
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role serveur(A, B, S: agent,      
+         Ka, Kb, Ks,Kab: public_key,      
+         SND, RCV: channel (dy)) 
+played_by S def=
+
+  local State : nat, 
+	Na, Nb, Ns: text
+
+  init State := 4
+
+  transition 
+
+    4.  State   = 4 /\ RCV(A.B.{xor(A,Na')}_Ks.{xor(Na',B)}_Ks.{xor(Na',Kab)}_Ks) =|> 
+	State' := 5 /\ Ns' := new() /\ SND(xor(Ns,{A}_Ka)) 
+		    /\ secret(Ns,nsa,{S,A}) 
+
+    6.  State   = 6 /\ RCV(B.A.{xor(B,Nb')}_Ks.{xor(Nb',A)}_Ks.{xor(Nb',Kab)}_Ks) =|> 
+	State' := 7 /\ SND(xor(Ns,{B}_Kb)) 
+		    /\ secret(Ns,nsb,{S,B}) 
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(A, B, S: agent, Ka, Kb, Ks, Kab: public_key) def=
+
+  local SA, RA, SB, RB, SS, RS: channel (dy)
+
+  composition 
+
+	alice	(A,B,S,Ka,Kb,Ks,Kab,SA,RA)
+     /\ bob  	(A,B,S,Ka,Kb,Ks,Kab,SB,RB)
+     /\ serveur	(A,B,S,Ka,Kb,Ks,Kab,SS,RS)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+    const a, b, s       : agent,
+	  ka, kb, kab, ki, ks: public_key,
+	  nas, nbs, nsa, nsb : protocol_id
+
+    intruder_knowledge = {a, b, s, ka, kb, ks,  ki, inv(ki)}
+
+    composition
+
+	session(a,b,s,ka,kb,ks,kab)
+     /\ session(a,i,s,ka,ki,ks,kab)
+     /\ session(i,b,s,ki,kb,ks,kab)
+     /\ session(a,b,i,ka,kb,ki,kab)
+
+     /\ session(i,i,s,ki,ki,ks,kab)
+     /\ session(i,b,i,ki,kb,ki,kab)
+     /\ session(a,i,i,ka,ki,ki,kab)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of nas, nbs, nsa, nsb
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+

@@ -1,0 +1,116 @@
+%% SUBJECT: Utilisation d'un système de récupération automatique de colis dans
+%% un point relais, en utilisant son téléphone portable
+%% PROTOCOL: demander l’état d’un colis
+%% PURPOSE: savoir si le colis est arrivé ou non au point relais
+%% ALICE_RELAIS:
+%% 1. A ----------- {numéro_commande,N1,haché}_PKr ---------> R
+%% 2. R ----------- {réponse,N1,haché}_PKa -----------------> A
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% HLPSL:
+% Role of the initiator:
+role alice (A, R: agent,             
+            PKa, PKr: public_key,  
+            Snd, Rcv: channel(dy),
+            Ncommande: text,
+	    H : hash_func)
+played_by A def=
+
+  local State : nat,
+	X: message,
+	N1, N2: text,
+	Reponse: text
+
+  init State := 0
+
+  transition
+
+   % Start, Alice (= l'utilisateur) envoie son numéro de commande et un nonce au point relais ainsi qu'un haché du message  
+   0.   State  = 0 /\ Rcv(start) =|> 
+	State':= 1 /\ N1' := new() /\ Snd({Ncommande.N1'.H(Ncommande.N1')}_PKr) /\ secret(Ncommande.N1',information,{A,R}) /\ witness(A,R,serveur_alice_log,Ncommande)
+
+   % Reception de la réponse du point relais
+   1.   State  = 1 /\ Rcv({Reponse'.N2'.X'}_PKa) /\ X' = H(Reponse'.N2') /\ N2' = N1 =|> 
+	State':= 2 /\ request(A,R,alice_serveur_log,Reponse')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% role point relais
+role relais (A, R: agent,             
+             PKa, PKr: public_key,      
+             SND, RCV: channel (dy),
+	     H : hash_func) 
+played_by R def=
+
+  local State : nat, 
+        Reponse, Ncommande: text,
+	N1: text,
+	X: message
+
+  init State := 0
+
+  transition  
+   
+    0.  State  = 0 /\ RCV({Ncommande'.N1'.X'}_PKr) /\ X' = H(Ncommande'.N1') =|> 
+	State':= 1 /\ Reponse' := new() /\ SND({Reponse'.N1'.H(Reponse'.N1')}_PKa) /\ secret(Reponse'.N1',res,{A,R})  /\ request(R,A,serveur_alice_log,Ncommande') /\ witness(R,A,alice_serveur_log,Reponse')
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% définition du rôle caractérisant une session
+role session(A, R: agent, 
+	     PKa, PKr: public_key, 
+	     Ncommande: text, 
+	     H : hash_func, 
+	     Snd, Rcv: channel(dy)) 
+def=
+
+  local SA, RA, SR, RR: channel (dy)
+
+  composition 
+
+	alice(A,R,PKa,PKr,SA,RA,Ncommande,H)
+     /\ relais (A,R,PKa,PKr,SR,RR,H)
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% définition du rôle caractérisant le scenario à exécuter
+role environment() def=
+
+    local Snd, Rcv: channel(dy)
+
+    const a, r                                         			: agent,
+	  pka, pkr, pki                                			: public_key,
+          ncommande				    			: text,
+	  h					       			: hash_func,
+ 	  information, res, serveur_alice_log, alice_serveur_log        : protocol_id
+
+    intruder_knowledge = {a, r, pka, pkr, pki, inv(pki)}
+
+    composition
+
+	session(a,r,pka,pkr,ncommande,h,Snd,Rcv) 
+     /\ session(a,i,pka,pki,ncommande,h,Snd,Rcv) 
+     /\ session(i,r,pki,pkr,ncommande,h,Snd,Rcv)
+    %/\ session(a,r,pka,pkr,ncommande,h,Snd,Rcv)
+
+end role
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% pas de section goal ici (donc pas de propriété à vérifier)
+goal
+  secrecy_of information
+  secrecy_of res
+  authentication_on serveur_alice_log
+  authentication_on alice_serveur_log
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% lancement du rôle principal
+environment()
+

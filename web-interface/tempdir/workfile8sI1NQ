@@ -1,0 +1,112 @@
+role client
+(C,A,O,S: agent,
+Kcs,Kca : symmetric_key,
+SND_CA, RCV_CA, SND_CS, RCV_CS: channel(dy))
+played_by C
+def=
+local 
+State : nat,
+Napp,Na,Kc:text
+
+init State:=0
+
+transition
+1. State = 0 /\RCV_CA(start)
+	=|> State':=2 /\ Napp':=new() /\SND_CA({Napp'}_Kca)
+2. State = 2 /\ RCV_CA({Na'}_Kca) 
+	=|> State':= 4 /\ SND_CA({Na'}_Kca,{Kc}_Kca)
+3. State = 4 /\ RCV_CA({Ncs1'}_Kc,{Ncs2'}_Kc) =|>
+	State':=6/\SND_CA({Ncs2'}_Kca)
+4. State= 6/\ RCV_CA({Ncs1'}_Kc,{Ncs2'}_Kc) =|>
+	State':=8/\SND_CS({Ncs1'}_Kcs)
+end role
+
+role owner(C,A,O,S: agent,
+Kao: symmetric_key,
+SND, RCV: channel(dy))
+played_by O
+def=
+local 
+State : nat,
+No,Napp,Kc : text
+
+init   State:=5
+
+transition
+1. State = 5/\ RCV({Napp'}_Kao,{Kc'}_Kao)
+	=|> State':=7/\No':=new()/\SND({No'}_Kao)
+
+end role
+
+role authorization(C,A,O,S: agent,
+Kao,Kca: symmetric_key,
+SND_CA,RCV_CA,SND_AO,RCV_AO: channel(dy))
+played_by A
+def=
+local 
+State : nat,
+Na,Ncs1,Ncs2,Kc:text
+
+init State:=1
+
+transition
+1. State=1/\ RCV_CA ({Napp'}_Kca)
+	=|> State':=3 /\ Na':=new()/\SND_CA({Na'}_Kca)
+2. State=3/\ RCV_CA ({Na'}_Kca,{Kc'}_Kca)
+	=|> State':=5 /\SND_AO({Na'}_Kao,{Kc'}_Kao)
+3. State=5/\ RCV_AO ({Kca}_Kca)=|> State':=7 /\Ncs1':=new()/\
+	Ncs2':=new()/\ SND_CA({Ncs1'}_Kca,{Ncs2'}_Kca)
+4. State=7/\ RCV_CA ({Ncs2'}_Kca)
+	=|> State':=9 /\Ncs1':=new()/\
+	Ncs2':=new()/\ SND_CA({Ncs1'}_Kca,{Ncs2'}_Kca)
+
+end role
+
+
+role server(C,A,O,S: agent,
+Kcs : symmetric_key,
+SND, RCV: channel(dy))
+played_by S
+def=
+local State : nat,
+Kc: text,
+T:message
+
+init   State:=8
+
+
+transition
+1. State = 8/\ RCV({Ncs1'}_Kcs,{Kc'}_Kcs)
+	=|> State':=9/\T':=new()/\SND({T'}_Kc)/\secret(T',T,{C,S})
+
+end role
+
+role session
+(A,C,S,O : agent,
+Kcs, Kca, Kao: symmetric_key) def=
+local SND_CA, RCV_CA, SND_AO, RCV_AO, SND_CS, RCV_CS: channel(dy)
+
+composition
+client (C,A,O,S, Kcs, Kca, Ncs1,Ncs2 ,SND_CA, RCV_CA, SND_CS, RCV_CS)
+/\ owner(C,A,O,S, Kao,  RCV_CO,SND_CO)
+/\ server(C,A,O,S, Kcs , RCV_CS,SND_CS)
+/\ authorization(C,A,O,S,Kao,Kca,SND_CA,RCV_CA,SND_AO,RCV_AO)
+end role
+
+role environment()
+def=
+const c, o, a, s,i : agent,
+kcs,kca,kao,kia,kis,koi : symmetric_key,
+T:protocol_id
+
+intruder_knowledge = {c,a,o,s,kia,kis}
+composition
+session(a,c,s,o,kcs, kca, kao)
+/\ session(i,o,a,s,kio,kca, kia,kis,koi)
+end role
+
+goal
+secrecy_of T
+end goal
+
+environment()

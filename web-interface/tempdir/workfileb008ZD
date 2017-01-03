@@ -1,0 +1,52 @@
+role alice(
+A,B,S : agent,
+PWA : symmetric_key,
+Hash : hash_func,
+SND,RCV : channel(dy))
+played_by A def=
+local
+State : nat,
+X,Z,P1 : text,
+GY,Key : message
+const sec_m_key: protocol_id
+init
+State := 0
+transition
+1. State = 0 /\ RCV(start) =|>
+State':= 1 /\ X' := new()
+/\ P1' := new()
+/\ SND(xor(exp(G,X'), exp(M,PWA)). exp(G,P1'))
+2. State = 1 /\ RCV(xor(exp(GY',Z'), H(PWA.A.B.exp(G,X).exp(exp(G,P1),Z'))).exp(G,Z').H(A.B.Key')) =|>
+State':= 2 /\ Key' :=exp(exp(GY',Z'), X)
+/\ SND(H(A.B. Key'))
+/\ witness(A,B,key1,Key')
+/\ request(A,B,key,Key)
+/\ secret(Key,sec_m_Key,A,B)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob( 
+A, B, S : agent,
+PWA,PWB : symmetric_key,
+Hash : hash_func,
+M,N,G :text,
+SND,RCV : channel(dy))
+played_by B def=
+local 
+State : nat,
+X, Y, Z, P1, P2 : text,
+GX, GY : message,
+FM1, FM2, Key :message
+const sec_v_Key : protocol_id
+init State := 0
+transition
+1.State = 0 /\ RCV(xor(exp(G,X'),exp(M,PWA)).exp(G,P1')) =|>
+State' := 1 /\ Y' := new()
+/\ P2' := new()
+/\ SND(xor(exp(G,X'), exp(M,PWA)).exp(G,P1').xor(exp(G,Y'),
+exp(N,PWB)).exp(G,P2'))
+/\ request(B,A,key1,Key)
+/\ secret(Key,sec_v_Key,B,A)
+/\ witness(B, A, key, Key')
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

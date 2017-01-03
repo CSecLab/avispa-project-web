@@ -1,0 +1,118 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileQatCMDwgbH
+
+section signature:
+
+state_idp: agent * public_key * public_key * symmetric_key * message * set(nat) * message * nat * agent * text * public_key * nat * set(agent) * nat -> fact
+state_user: agent * agent * public_key * public_key * symmetric_key * message * nat * nat * message * text * message * nat -> fact
+
+
+section types:
+
+test, op_user_authentication: protocol_id
+Dummy_Nb, dummy_nonce, Nb: text
+Dummy_Secret, Dummy_CACertificate, dummy_msg, MGoal, protectedResource, CACertificate, ProtectedResource, start, Secret, Certificate: message
+kru, kiro, koi, kri, Kru: symmetric_key
+set_98, set_113, set_109: set
+set_89, ResourceIDs, set_111, set_108: set(nat)
+ASGoal, Set_45, Dummy_Set_45: set(agent)
+dummy_pk, kca, ku, ki_o, kca_fake, kidp, Kcert, Kca, Kroot, Ku, Dummy_Kcert: public_key
+dummy_agent, A2Goal, A1Goal, u, r, U, R, Dummy_U, i: agent
+Dummy_State, 3, SID, SID2, SID1, resourceID, 5, ResourceID, State, 8, 4, 2, 1, 0, 9, 7, Dummy_ResourceID, dummy_nat: nat
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(u).
+ iknows(r).
+ iknows(kca).
+ iknows(ku).
+ iknows(ki_o).
+ iknows(resourceID).
+ iknows(i).
+ state_user(u,r,ku,kca,kru,crypt(inv(kca),pair(u,ku)),resourceID,0,dummy_msg,dummy_nonce,dummy_msg,3).
+ state_idp(r,kidp,kca,kru,protectedResource,set_89,crypt(inv(kca),pair(r,kidp)),1,dummy_agent,dummy_nonce,dummy_pk,dummy_nat,set_98,4).
+ state_idp(r,kidp,kca,kri,protectedResource,set_108,crypt(inv(kca),pair(r,kidp)),1,dummy_agent,dummy_nonce,dummy_pk,dummy_nat,set_109,7).
+ state_user(u,i,ku,kca,kri,crypt(inv(kca),pair(u,ku)),resourceID,0,dummy_msg,dummy_nonce,dummy_msg,9).
+ contains(resourceID,set_89).
+ contains(resourceID,set_108)
+
+
+section rules:
+
+step step_0 (U,R,Ku,Kca,Kru,Certificate,ResourceID,CACertificate,Nb,Secret,SID) :=
+ state_user(U,R,Ku,Kca,Kru,Certificate,ResourceID,0,CACertificate,Nb,Secret,SID).
+ iknows(start)
+ =>
+ state_user(U,R,Ku,Kca,Kru,Certificate,ResourceID,2,CACertificate,Nb,Secret,SID).
+ iknows(scrypt(Kru,pair(U,pair(R,Certificate))))
+
+step step_1 (U,R,Ku,Kca,Kru,Certificate,ResourceID,Dummy_CACertificate,Dummy_Nb,Secret,SID,CACertificate,Nb) :=
+ state_user(U,R,Ku,Kca,Kru,Certificate,ResourceID,2,Dummy_CACertificate,Dummy_Nb,Secret,SID).
+ iknows(scrypt(Kru,pair(crypt(Ku,Nb),crypt(inv(Kca),CACertificate))))
+ =>
+ state_user(U,R,Ku,Kca,Kru,Certificate,ResourceID,4,CACertificate,Nb,Secret,SID).
+ iknows(scrypt(Kru,pair(Nb,pair(U,pair(R,ResourceID))))).
+ witness(U,R,op_user_authentication,Nb)
+
+step step_2 (U,R,Ku,Kca,Kru,Certificate,ResourceID,CACertificate,Nb,Dummy_Secret,SID,Secret) :=
+ state_user(U,R,Ku,Kca,Kru,Certificate,ResourceID,4,CACertificate,Nb,Dummy_Secret,SID).
+ iknows(scrypt(Kru,Secret))
+ =>
+ state_user(U,R,Ku,Kca,Kru,Certificate,ResourceID,8,CACertificate,Nb,Secret,SID)
+
+step step_3 (R,Kroot,Kca,Kru,ProtectedResource,ResourceIDs,CACertificate,Dummy_U,Dummy_Nb,Dummy_Kcert,ResourceID,Set_45,SID,U,Nb,Kcert) :=
+ state_idp(R,Kroot,Kca,Kru,ProtectedResource,ResourceIDs,CACertificate,1,Dummy_U,Dummy_Nb,Dummy_Kcert,ResourceID,Set_45,SID).
+ iknows(scrypt(Kru,pair(U,pair(R,crypt(inv(Kca),pair(U,Kcert))))))
+=[exists Nb]=>
+ state_idp(R,Kroot,Kca,Kru,ProtectedResource,ResourceIDs,CACertificate,3,U,Nb,Kcert,ResourceID,Set_45,SID).
+ iknows(scrypt(Kru,pair(crypt(Kcert,Nb),CACertificate)))
+
+step step_4 (R,Kroot,Kca,Kru,ProtectedResource,ResourceIDs,CACertificate,U,Nb,Kcert,Dummy_ResourceID,Dummy_Set_45,SID,ResourceID) :=
+ state_idp(R,Kroot,Kca,Kru,ProtectedResource,ResourceIDs,CACertificate,3,U,Nb,Kcert,Dummy_ResourceID,Dummy_Set_45,SID).
+ iknows(scrypt(Kru,pair(Nb,pair(U,pair(R,ResourceID))))).
+ contains(ResourceID,ResourceIDs)
+ =>
+ state_idp(R,Kroot,Kca,Kru,ProtectedResource,ResourceIDs,CACertificate,5,U,Nb,Kcert,ResourceID,Dummy_Set_45,SID).
+ request(R,U,op_user_authentication,Nb,SID).
+ iknows(scrypt(Kru,ProtectedResource)).
+ secret(ProtectedResource,test,Dummy_Set_45).
+ contains(U,Dummy_Set_45).
+ contains(R,Dummy_Set_45).
+ contains(ResourceID,ResourceIDs)
+
+
+section properties:
+
+property authentication_on_op_user_authentication (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,op_user_authentication,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,op_user_authentication,MGoal))
+     /\ ((request(A1Goal,A2Goal,op_user_authentication,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,op_user_authentication,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property secrecy_of_test (MGoal,ASGoal) :=
+ [] ((secret(MGoal,test,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state authentication_on_op_user_authentication (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,op_user_authentication,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,op_user_authentication,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_op_user_authentication (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,op_user_authentication,MGoal,SID1).
+ request(A1Goal,A2Goal,op_user_authentication,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state secrecy_of_test (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,test,ASGoal) &
+ not(contains(i,ASGoal))
+

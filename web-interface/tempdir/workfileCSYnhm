@@ -1,0 +1,65 @@
+role alice (A, S: agent,
+            K : symmetric_key,
+            SND_SA, RCV_SA: channel(dy))
+played_by A
+def=
+    local State           : nat,
+          Nreq, Ncha, Nsuc: text
+init State := 0
+transition
+1. State = 0  /\ RCV_SA(start) =|>
+   State':= 2 /\ Nreq' := new()
+              /\ SND_SA(Nreq')
+2. State = 2  /\ RCV_SA(Ncha') =|>
+   State':= 4 /\ SND_SA({Ncha'}_K)
+              /\ witness(A,S,alice_server_ncha,Ncha')
+3. State = 4  /\ RCV_SA(Nsuc') =|>
+   State':= 6
+end role 
+
+role server (A, S : agent,
+              K   : symmetric_key,
+       SND_AS, RCV_AS: channel(dy))
+played_by S
+def=
+    local State           : nat,
+          Nreq, Ncha, Nsuc: text
+init State := 1
+transition
+1. State = 1  /\ RCV_AS(Nreq') =|>
+   State':= 3 /\ Ncha' := new()
+              /\ SND_AS(Ncha')
+3. State = 3  /\ RCV_AS({Ncha'}_K) =|>
+   State':= 5 /\ request(S,A,alice_server_ncha,Ncha')
+              /\ Nsuc' := new()
+              /\ SND_AS(Nsuc')
+end role 
+
+role session(A, S: agent,
+              K: symmetric_key)
+def=
+local
+  SSA, RSA,
+  SAS, RAS : channel (dy)
+composition
+  alice (A, S, K, SSA, RSA)
+  /\ server(A, S, K, SAS, RAS)
+end role 
+
+role environment()
+def=
+   const a, s : agent,
+         kas, kis, kai: symmetric_key,
+  alice_server_ncha: protocol_id 
+intruder_knowledge = {a, s, kis, kia}
+composition
+   session(a,s,kas)
+   /\ session(i,s,kis)
+   /\ session(a,i,kai)
+end role 
+
+goal
+    authentication_on    alice_server_ncha
+end goal
+
+environment() 

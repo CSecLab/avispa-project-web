@@ -1,0 +1,118 @@
+%%%%%%%%%%%%%%%%%%%%%%%%
+role user (
+	U, S: agent, 
+	Qu: symmetric_key, 
+	Hf1, HF2: hash_func, 
+	SND, RCV: channel (dy)
+)
+played_by U
+def=
+local
+	State:nat,
+	Na, Ny, Nb: text, 
+	CHx, Auths, Authu: text, 
+	SK: symmetric_key
+const ny, chx, u_s_tax, sk, u_s_auth, s_u_tbx, s_u_auth: protocol_id
+init State := 0
+
+transition
+0. State=0 /\ RCV(start) =|>
+   State' := 2 /\ Na' := new() 
+		/\ Ny' := new() 
+		/\ CHx' := Hf1(Ny') 
+		/\ SND({U.Ny'}_Qu.exp(CHx', Na').HF2(U. Ny'.exp(CHx', Na'))) 
+		/\ secret(Ny', ny, {U, S}) 
+		/\ secret(CHx', chx, {U, S})
+		/\ witness(U, S, u_s_tax, exp(CHx', Na'))
+2. State=2 /\ RCV(S.exp(CHx', Nb').Auths') =|>
+   State' := 4 /\ SK' := HF2(exp(CHx', Na'). exp(CHx', Nb'). exp(exp(CHx', Nb'), Na'))
+		/\ Authu' := HF2(SK'.U.S)
+		/\ SND(Authu') 
+		/\ secret(SK', sk, {U, S})
+		/\ witness(U, S, u_s_auth, Authu')
+		/\ request(U, S, s_u_tbx, exp(CHx', Nb'))
+		/\ request(U, S, s_u_auth, Auths')
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%
+role server (
+	U, S: agent, 
+	Qu: symmetric_key, 
+	Hf1, HF2: hash_func, 
+	SND, RCV: channel (dy)
+)
+played_by S
+def=
+local
+	State:nat,
+	Ny, Na, Nb: text, 
+	CHx, Auths, Authu: text, 
+	SK: symmetric_key
+const ny, chx, sk, s_u_tbx, s_u_auth, u_s_tax, u_s_auth: protocol_id
+init State := 1
+
+transition
+1. State=1 /\ RCV({U.Ny'}_Qu.exp(CHx', Na').HF2(U. Ny'.exp(CHx', Na'))) =|>
+   State' := 3 /\ Nb' := new() 
+		/\ CHx' := Hf1(Ny') 
+		/\ SK' := HF2(exp(CHx', Na'). exp(CHx', Nb'). exp(exp(CHx', Na'), Nb'))
+		/\ Auths' := HF2(SK'.S.U)
+		/\ SND(S.exp(CHx', Nb').Auths') 
+		/\ secret(Ny', ny, {U, S}) 
+		/\ secret(CHx', chx, {U, S})
+		/\ secret(SK', sk, {U, S})
+		/\ witness(S, U, s_u_tbx, exp(CHx', Nb'))
+		/\ witness(S, U, s_u_auth, Auths')
+		/\ request(S, U, u_s_tax, exp(CHx', Na'))
+3. State=3 /\ RCV(Authu') =|>
+   State' := 5 /\ request(S, U, u_s_auth, Authu')
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%
+role session(
+	U, S: agent, 
+	Qu: symmetric_key, 
+	Hf1, HF2: hash_func
+)
+def=
+local SNDU, RCVU, SNDS, RCVS: channel (dy)
+const u_s_tax, u_s_auth, s_u_tbx, s_u_auth: protocol_id
+composition
+	user (U, S, Qu, Hf1, HF2, SNDU, RCVU)
+	/\ server (U, S, Qu, Hf1, HF2, SNDS, RCVS)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+const 
+	u, s: agent, 
+	kus, kui, kis: symmetric_key, 
+	hf1, hf2: hash_func,
+	ny, chx, sk, s_u_tbx, s_u_auth, u_s_tax, u_s_auth: protocol_id 
+intruder_knowledge = {u, s, i, kui, kis, hf1, hf2}
+composition
+	session(u, s, kus, hf1, hf2)
+	/\ session(u, i, kui, hf1, hf2)
+	/\ session(i, s, kis, hf1, hf2)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+
+% Confidentiality of Ny, CHx, SK
+secrecy_of ny, chx, sk
+
+% Strong authentication including replay attack
+% user authenticates server on s_u_tbx, s_u_auth
+authentication_on s_u_tbx
+authentication_on s_u_auth
+
+% Strong authentication including replay attack
+% server authenticates user on u_s_tax, u_s_auth
+authentication_on u_s_tax
+authentication_on u_s_auth
+
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

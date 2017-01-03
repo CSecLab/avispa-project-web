@@ -1,0 +1,106 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileMN9YkM
+
+section signature:
+
+state_role_R: agent * agent * agent * agent * symmetric_key * symmetric_key * symmetric_key * nat * text * text * text * text * nat -> fact
+state_role_E: agent * agent * agent * agent * symmetric_key * nat * text * text * text * symmetric_key * text * nat -> fact
+state_role_N: agent * agent * agent * agent * symmetric_key * nat * text * text * text * text * nat -> fact
+state_role_M: agent * agent * agent * agent * symmetric_key * nat * text * text * text * symmetric_key * text * nat -> fact
+
+
+section types:
+
+auth_1: protocol_id
+MGoal, start: message
+dummy_sk, const_1, Krm, Krn, Kre, Dummy_Krm: symmetric_key
+A2Goal, A1Goal, m, e, r, n, M, N, E, R, i: agent
+dummy_nonce, T, Ts, S, Te, Dummy_T, Dummy_Ts, Dummy_S, Dummy_Te: text
+3, SID, SID2, SID1, State, 2, 1, 0, 6, 5, 4, Dummy_State: nat
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(i).
+ state_role_M(m,r,e,n,const_1,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,dummy_nonce,3).
+ state_role_N(n,r,e,m,const_1,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,4).
+ state_role_E(e,r,n,m,const_1,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,dummy_nonce,5).
+ state_role_R(r,e,n,m,const_1,const_1,const_1,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,6)
+
+
+section rules:
+
+step step_0 (M,R,E,N,Krn,Dummy_Te,Dummy_S,Dummy_Ts,Dummy_Krm,Dummy_T,SID,Te,S,Ts,Krm,T) :=
+ state_role_M(M,R,E,N,Krn,0,Dummy_Te,Dummy_S,Dummy_Ts,Dummy_Krm,Dummy_T,SID).
+ iknows(pair(R,pair(S,pair(Ts,Te))))
+=[exists T,Krm]=>
+ state_role_M(M,R,E,N,Krn,1,Te,S,Ts,Krm,T,SID).
+ iknows(scrypt(Krm,pair(M,T)))
+
+step step_1 (N,R,E,M,Krm,Dummy_Te,Dummy_S,Dummy_Ts,T,SID,Te,S,Ts) :=
+ state_role_N(N,R,E,M,Krm,0,Dummy_Te,Dummy_S,Dummy_Ts,T,SID).
+ iknows(pair(R,pair(S,pair(Ts,Te))))
+ =>
+ state_role_N(N,R,E,M,Krm,1,Te,S,Ts,T,SID).
+ iknows(pair(R,pair(S,pair(Ts,Te))))
+
+step step_2 (N,R,E,M,Krm,Te,S,Ts,Dummy_T,SID,T) :=
+ state_role_N(N,R,E,M,Krm,1,Te,S,Ts,Dummy_T,SID).
+ iknows(scrypt(Krm,pair(M,T)))
+ =>
+ state_role_N(N,R,E,M,Krm,2,Te,S,Ts,T,SID).
+ iknows(scrypt(Krm,pair(M,T)))
+
+step step_3 (E,R,N,M,Kre,Dummy_Te,Dummy_S,Dummy_Ts,Krm,T,SID,Te,S,Ts) :=
+ state_role_E(E,R,N,M,Kre,0,Dummy_Te,Dummy_S,Dummy_Ts,Krm,T,SID).
+ iknows(start)
+=[exists S,Ts,Te]=>
+ state_role_E(E,R,N,M,Kre,1,Te,S,Ts,Krm,T,SID).
+ iknows(scrypt(Kre,pair(R,pair(S,pair(Ts,Te))))).
+ iknows(pair(R,pair(S,pair(Ts,Te))))
+
+step step_4 (E,R,N,M,Kre,Te,S,Ts,Dummy_Krm,Dummy_T,SID,Krm,T) :=
+ state_role_E(E,R,N,M,Kre,1,Te,S,Ts,Dummy_Krm,Dummy_T,SID).
+ iknows(scrypt(Krm,pair(M,T)))
+ =>
+ state_role_E(E,R,N,M,Kre,2,Te,S,Ts,Krm,T,SID).
+ iknows(scrypt(Krm,pair(M,T)))
+
+step step_5 (R,E,N,M,Krn,Krm,Kre,Dummy_Ts,Dummy_S,Dummy_Te,T,SID,Ts,S,Te) :=
+ state_role_R(R,E,N,M,Krn,Krm,Kre,0,Dummy_Ts,Dummy_S,Dummy_Te,T,SID).
+ iknows(scrypt(Kre,pair(R,pair(S,pair(Ts,Te)))))
+ =>
+ state_role_R(R,E,N,M,Krn,Krm,Kre,1,Ts,S,Te,T,SID)
+
+step step_6 (R,E,N,M,Krn,Krm,Kre,Ts,S,Te,Dummy_T,SID,T) :=
+ state_role_R(R,E,N,M,Krn,Krm,Kre,1,Ts,S,Te,Dummy_T,SID).
+ iknows(scrypt(Krm,pair(M,T)))
+ =>
+ state_role_R(R,E,N,M,Krn,Krm,Kre,2,Ts,S,Te,T,SID)
+
+
+section properties:
+
+property authentication_on_auth_1 (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,auth_1,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,auth_1,MGoal))
+     /\ ((request(A1Goal,A2Goal,auth_1,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,auth_1,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state authentication_on_auth_1 (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,auth_1,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,auth_1,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_auth_1 (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,auth_1,MGoal,SID1).
+ request(A1Goal,A2Goal,auth_1,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

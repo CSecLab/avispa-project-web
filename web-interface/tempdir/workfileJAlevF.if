@@ -1,0 +1,84 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileJAlevF
+
+section signature:
+
+state_role_A: agent * agent * text * text * public_key * nat * public_key * text * text * set * nat -> fact
+state_role_B: agent * public_key * nat * text * agent * text * public_key * text * text * set * nat -> fact
+
+
+section types:
+
+sec_1: protocol_id
+State, 4, SID, 2, 3, 1, 0, Dummy_State: nat
+Set_37, Dummy_Set_22, Set_22, set_72, Dummy_Set_37, set_58: set
+ASGoal: set(agent)
+start, MGoal: message
+Ka, Kb, Dummy_Kb, Dummy_Ka, dummy_pk, kb, ka: public_key
+K, S, P, G, Dummy_K, Dummy_S, Dummy_P, Dummy_G, dummy_nonce, g, p: text
+A, B, Dummy_A, dummy_agent, alice, i, bob: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(alice).
+ iknows(bob).
+ iknows(i).
+ state_role_B(bob,kb,0,dummy_nonce,dummy_agent,dummy_nonce,dummy_pk,dummy_nonce,dummy_nonce,set_58,3).
+ state_role_A(alice,bob,p,g,ka,0,dummy_pk,dummy_nonce,dummy_nonce,set_72,4)
+
+
+section rules:
+
+step step_0 (B,Kb,Dummy_G,Dummy_A,Dummy_P,Ka,S,K,Set_37,SID,G,A,P) :=
+ state_role_B(B,Kb,0,Dummy_G,Dummy_A,Dummy_P,Ka,S,K,Set_37,SID).
+ iknows(pair(A,pair(P,G)))
+ =>
+ state_role_B(B,Kb,1,G,A,P,Ka,S,K,Set_37,SID)
+
+step step_1 (B,Kb,G,A,P,Dummy_Ka,S,K,Set_37,SID,Ka) :=
+ state_role_B(B,Kb,1,G,A,P,Dummy_Ka,S,K,Set_37,SID).
+ iknows(Ka)
+ =>
+ state_role_B(B,Kb,2,G,A,P,Ka,S,K,Set_37,SID).
+ iknows(Kb)
+
+step step_2 (B,Kb,G,A,P,Ka,Dummy_S,Dummy_K,Dummy_Set_37,SID,S,K) :=
+ state_role_B(B,Kb,2,G,A,P,Ka,Dummy_S,Dummy_K,Dummy_Set_37,SID).
+ iknows(scrypt(S,K))
+ =>
+ state_role_B(B,Kb,3,G,A,P,Ka,S,K,Dummy_Set_37,SID).
+ secret(K,sec_1,Dummy_Set_37)
+
+step step_3 (A,B,P,G,Ka,Kb,S,K,Set_22,SID) :=
+ state_role_A(A,B,P,G,Ka,0,Kb,S,K,Set_22,SID).
+ iknows(start)
+ =>
+ state_role_A(A,B,P,G,Ka,1,Kb,S,K,Set_22,SID).
+ iknows(pair(A,pair(P,G))).
+ iknows(Ka)
+
+step step_4 (A,B,P,G,Ka,Dummy_Kb,Dummy_S,Dummy_K,Dummy_Set_22,SID,Kb,S,K) :=
+ state_role_A(A,B,P,G,Ka,1,Dummy_Kb,Dummy_S,Dummy_K,Dummy_Set_22,SID).
+ iknows(Kb)
+=[exists K,S]=>
+ state_role_A(A,B,P,G,Ka,2,Kb,S,K,Dummy_Set_22,SID).
+ secret(K,sec_1,Dummy_Set_22).
+ iknows(scrypt(S,K))
+
+
+section properties:
+
+property secrecy_of_sec_1 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_1,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_sec_1 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_1,ASGoal) &
+ not(contains(i,ASGoal))
+

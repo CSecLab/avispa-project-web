@@ -1,0 +1,104 @@
+role client(A, B : agent,  
+           H			: hash_func, 
+           Nab, Time		: text,
+           SND, RCV		: channel (dy))
+played_by A
+def=
+
+   local Na1,Na2		: text,
+       	State			: nat,
+	Random,Seed,Token 	: text,
+	Finished		: text
+
+   init  State := 0
+
+   transition
+
+   0.  State = 0
+       /\ RCV(start)
+       =|>
+       State' := 2
+       /\ Na1' := H(Nab)
+       /\ Na2' := H(Time.Na1'.Na1')
+       /\ SND(A.Na1'.Na2')
+
+   2.  State = 2
+       /\ RCV(A.B.Seed.Token)
+       =|>
+       State' := 4
+       /\ Token' := H(Seed.Na2)
+       /\ request(A,B,auth_token,Random') 
+
+end role
+
+role server(A, B : agent,
+         H			: hash_func,
+         Nab, Time		: text,
+         SND, RCV		: channel (dy))
+played_by B
+def=
+
+   local Na1,Na2		: text,
+       	State			: nat,
+	Random,Seed,Token 	: text,
+	Finished		: text
+
+   init  State := 1
+
+   transition
+
+   1.  State = 1
+       /\ RCV(A.Na1'.Na2')
+       =|>
+       State' := 3
+       /\ Random' := new()
+       /\ Seed' := H(Random')
+       /\ Na1' := H(Nab)
+       /\ Na2' := H(Time.Na1'.Na1')
+       /\ Token' := H(Seed'.Na2')
+       /\ SND(A.B.Seed',Token')
+       /\ witness(B,A,auth_token,Random')
+       /\ secret(Random',sec_token,{A,B})
+	   
+
+end role
+
+
+role session(A,B: agent,
+             Nab,Time 	: text,
+             H		: hash_func)
+def=
+
+   local  SA, SB, RA, RB: channel (dy)
+
+   composition
+                client(A,B,H,Nab,Time,SA,RA)
+           /\   sever(A,B,H,Nab,Time,SB,RB)
+
+end role
+
+role environment()
+def=
+
+   const sec_token, auth_token : protocol_id,
+         h		: hash_func,
+         a, b   	: agent,
+         nab, nib, time	: text
+
+   intruder_knowledge = { a, b, nib, time }
+
+   composition
+        session(a,b,nab,time,h)
+     /\  session(a,i,nib,time,h)
+     /\  session(i,b,nib,time,h)
+
+end role
+
+goal
+
+  secrecy_of sec_token
+  authentication_on auth_token
+
+end goal
+
+environment()

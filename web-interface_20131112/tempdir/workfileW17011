@@ -1,0 +1,144 @@
+role alice(
+A,B : agent, % Agents
+SECRETS : text, % A's Secrets
+STRINGA : text, % A's Capabilities & IDs
+H,HM : hash_func, % Chosen Hash and HMAC functions
+SEND,RECV : channel(dy)) % Channels
+played_by A def=
+local State : nat, % State
+STRINGB : text, % B's Capabilities & IDs
+SECRETSIDA,SECRETSIDB : message, % Secret IDs
+S0 : message, % New secret
+COMMITSTRING : text, % Commit message
+HVB,MH : message, % Stuff
+ZRTPKEYA,ZRTPKEYB: message, % ZRTP keys
+CIPHBLOCKA,CIPHBLOCKB : message, % CFB
+PVA,PVB : message, % Public keys
+SVA : text % A's Secret key
+init State := 0
+
+transition
+1. State = 0 /\ RECV(start) =|>
+   State' := 2 /\ SEND(hello.STRINGA)
+2. State = 2 /\ RECV(helloack.hello.STRINGB') =|>
+   State' := 4 /\ SEND(helloack)
+3. State = 4 /\ RECV(commit.COMMITSTRING'.HVB') =|>
+   State' := 6 /\ SECRETSIDA' := HM(SECRETS.responder)
+               /\ SVA':=new()
+               /\ PVA' := exp(g,SVA')
+               /\ SEND(dhpart1.PVA'.SECRETSIDA')
+4. State = 6 /\ RECV(dhpart2.PVB'.SECRETSIDB')
+             /\ SECRETSIDB' = HM(SECRETS.initiator)
+             /\ HVB = H(PVB'.hello.STRINGA) =|>
+
+   State' := 8 /\ MH' := H(hello.STRINGA.commit.COMMITSTRING.dhpart1.PVA.
+                           SECRETSIDA.dhpart2.PVB'.SECRETSIDB')
+               /\ S0' := H(H(exp(PVB,SVA)).SECRETS.MH')
+               /\ secret(S0',s0,{A,B})
+               /\ witness(A,B,bob_alice_s0,S0')
+               /\ ZRTPKEYA' := HM(S0'.rzrtp)
+               /\ CIPHBLOCKA' := new()
+               /\ SEND(confirm1.HM(CIPHBLOCKA').cfbivA.{CIPHBLOCKA'}_ZRTPKEYA')
+               /\ secret(CIPHBLOCKA',ciphA,{A,B})
+5. State = 8 /\ RECV(confirm2.HM(CIPHBLOCKB').cfbivB.{CIPHBLOCKB'}_ZRTPKEYB')
+             /\ ZRTPKEYB' = HM(S0.izrtp) =|>
+   State' := 10 /\ SEND(conf2ack)
+                /\ request(A,B,alice_bob_s0,S0)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob(
+A,B : agent, % Agents
+SECRETS : text, % A's Secrets
+STRINGB : text, % A's Capabilities & IDs
+H,HM : hash_func, % Chosen Hash and HMAC functions
+COMMITSTRING : text, % Commit message
+SEND,RECV : channel(dy)) % Channels
+played_by B def=
+local State : nat, % State
+STRINGA : text, % B's Capabilities & IDs
+SECRETSIDA,SECRETSIDB : message, % Secret IDs
+S0 : message, % New secret
+HVB,MH : message, % Stuff
+ZRTPKEYA,ZRTPKEYB: message, % ZRTP keys
+CIPHBLOCKA,CIPHBLOCKB : message, % CFB
+PVA,PVB : message, % Public keys
+SVB : text % B's Secret key
+init State := 1
+
+transition
+1. State = 1 /\ RECV(hello.STRINGA') =|>
+State' := 3 /\ SEND(helloack.hello.STRINGB)
+2. State = 3 /\ RECV(helloack) =|>
+State' := 5 /\ SVB':=new()
+/\ PVB' := exp(g,SVB')
+/\ HVB' := H(PVB'.hello.STRINGA)
+/\ SEND(commit.COMMITSTRING.HVB')
+3. State = 5 /\ RECV(dhpart1.PVA'.SECRETSIDA')
+/\ SECRETSIDA' = HM(SECRETS.responder) =|>
+State' := 7 /\ SECRETSIDB' := HM(SECRETS.initiator)
+/\ SEND(dhpart2.PVB.SECRETSIDB')
+4. State = 7 /\ RECV(confirm1.HM(CIPHBLOCKA').cfbivA.{CIPHBLOCKA'}_ZRTPKEYA')
+/\ MH' = H(hello.STRINGA.commit.COMMITSTRING.dhpart1.PVA.
+SECRETSIDA.dhpart2.PVB.SECRETSIDB')
+/\ S0' = H(H(exp(PVA,SVB)).SECRETS.MH')
+/\ ZRTPKEYA' = HM(S0'.rzrtp) =|>
+State' := 9 /\ CIPHBLOCKB' := new()
+/\ ZRTPKEYB' := HM(S0'.izrtp)
+/\ SEND(confirm2.HM(CIPHBLOCKB').cfbivB.{CIPHBLOCKB'}_ZRTPKEYB')
+/\ secret(CIPHBLOCKB',ciphB,{A,B})
+/\ request(B,A,bob_alice_s0,S0)
+/\ secret(S0',s0,{A,B})
+/\ witness(B,A,bob_alice_s0,S0')
+5. State = 9 /\ RECV (conf2ack) =|>
+
+State' := 11
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(
+A,B : agent,
+SECRETSA,SECRETSB : text,
+STRINGA,STRINGB : text)
+def=
+local SA,SB,RA,RB : channel(dy)
+const hello,helloack,commit,dhpart1,dhpart2,confirm1,confirm2,conf2ack,
+responder,initiator,rzrtp,izrtp,commitstring,cfbivA,cfbivB: text,
+g : nat,
+h,hm : hash_func
+
+composition
+alice(A,B,SECRETSA,STRINGA,h,hm,SA,RA)
+/\ bob(A,B,SECRETSB,STRINGB,h,hm,commitstring,SB,RB)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+def=
+const a,b : agent,
+secretsab,secretsai,secretsib : text,
+stringa,stringb,stringi : text,
+s0,ciphA,ciphB,alice_bob_s0,bob_alice_s0 : protocol_id
+intruder_knowledge = {a,b,h,hm,secretsai,secretsib,stringa,stringb,stringi,
+hello,helloack,commit,dhpart1,dhpart2,confirm1,
+confirm2,conf2ack,responder,initiator,rzrtp,izrtp,
+commitstring,cfbivA,cfbivB,g}
+
+composition
+session(a,b,secretsab,secretsab,stringa,stringb)
+/\ session(a,i,secretsai,secretsai,stringa,stringi)
+/\ session(i,b,secretsib,secretsib,stringi,stringb)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+secrecy_of s0
+secrecy_of ciphA
+secrecy_of ciphB
+
+authentication_on alice_bob_s0
+authentication_on bob_alice_s0
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()
+                

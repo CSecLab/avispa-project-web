@@ -1,0 +1,89 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilen4oyCYEl6W
+
+section signature:
+
+state_sensor: agent * agent * agent * symmetric_key * text * hash_func * nat * symmetric_key * symmetric_key * nat -> fact
+state_gateway: agent * agent * agent * text * text * symmetric_key * symmetric_key * hash_func * hash_func * nat * text * text * symmetric_key * symmetric_key * symmetric_key * nat -> fact
+state_user: agent * agent * agent * symmetric_key * text * hash_func * nat * text * text * symmetric_key * symmetric_key * set(agent) * nat -> fact
+
+
+section types:
+
+Dummy_Set_25, ASGoal, Set_25: set(agent)
+sk: protocol_id
+MGoal, start: message
+hashh, addh, Hash, Add: hash_func
+Dummy_Nx, Dummy_Nu, dummy_nonce, SNid, Nx, Nu, IDu: text
+set_88, set_104: set
+Dummy_SK2, Dummy_SK3, Dummy_SK, dummy_sk, kug, kgs, SK, SK2, Kgs, SK3, Kug, Dummy_Kgs: symmetric_key
+SENSOR, USER, GATEWAY, sensor, gateway, user, i: agent
+4, SID, Dummy_State, 3, 6, State, 7, 5, 2, 1, 0, 9, 8: nat
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(i).
+ state_user(user,sensor,gateway,kug,dummy_nonce,hashh,0,dummy_nonce,dummy_nonce,dummy_sk,dummy_sk,set_88,3).
+ state_gateway(gateway,user,sensor,dummy_nonce,dummy_nonce,kug,kgs,addh,hashh,1,dummy_nonce,dummy_nonce,dummy_sk,dummy_sk,dummy_sk,4).
+ state_sensor(sensor,user,gateway,kgs,dummy_nonce,hashh,2,dummy_sk,dummy_sk,5).
+ state_gateway(gateway,i,sensor,dummy_nonce,dummy_nonce,kug,kgs,addh,hashh,1,dummy_nonce,dummy_nonce,dummy_sk,dummy_sk,dummy_sk,8).
+ state_sensor(sensor,i,gateway,kgs,dummy_nonce,hashh,2,dummy_sk,dummy_sk,9)
+
+
+section rules:
+
+step step_0 (USER,SENSOR,GATEWAY,Kug,IDu,Hash,Dummy_Nu,Dummy_Nx,SK,SK3,Set_25,SID,Nu) :=
+ state_user(USER,SENSOR,GATEWAY,Kug,IDu,Hash,0,Dummy_Nu,Dummy_Nx,SK,SK3,Set_25,SID).
+ iknows(start)
+=[exists Nu]=>
+ state_user(USER,SENSOR,GATEWAY,Kug,IDu,Hash,4,Nu,xor(Kug,Nu),SK,SK3,Set_25,SID).
+ iknows(xor(Kug,Nu))
+
+step step_1 (USER,SENSOR,GATEWAY,Kug,IDu,Hash,Nu,Nx,Dummy_SK,Dummy_SK3,Dummy_Set_25,SID,SK3) :=
+ state_user(USER,SENSOR,GATEWAY,Kug,IDu,Hash,4,Nu,Nx,Dummy_SK,Dummy_SK3,Dummy_Set_25,SID).
+ iknows(SK3)
+ =>
+ state_user(USER,SENSOR,GATEWAY,Kug,IDu,Hash,5,Nu,Nx,xor(apply(Hash,pair(Kug,pair(IDu,Nu))),SK3),SK3,Dummy_Set_25,SID).
+ secret(xor(apply(Hash,pair(Kug,pair(IDu,Nu))),SK3),sk,Dummy_Set_25).
+ contains(USER,Dummy_Set_25).
+ contains(GATEWAY,Dummy_Set_25).
+ contains(SENSOR,Dummy_Set_25)
+
+step step_2 (GATEWAY,USER,SENSOR,IDu,SNid,Kug,Kgs,Add,Hash,Dummy_Nx,Dummy_Nu,Dummy_SK,Dummy_SK2,SK3,SID,Nx,SK) :=
+ state_gateway(GATEWAY,USER,SENSOR,IDu,SNid,Kug,Kgs,Add,Hash,1,Dummy_Nx,Dummy_Nu,Dummy_SK,Dummy_SK2,SK3,SID).
+ iknows(Nx)
+=[exists SK]=>
+ state_gateway(GATEWAY,USER,SENSOR,IDu,SNid,Kug,Kgs,Add,Hash,3,Nx,xor(Kug,Nx),SK,xor(apply(Hash,Kgs),SK),SK3,SID).
+ iknows(xor(apply(Hash,Kgs),SK))
+
+step step_3 (GATEWAY,USER,SENSOR,IDu,SNid,Kug,Kgs,Add,Hash,Nx,Nu,SK,SK2,Dummy_SK3,SID) :=
+ state_gateway(GATEWAY,USER,SENSOR,IDu,SNid,Kug,Kgs,Add,Hash,3,Nx,Nu,SK,SK2,Dummy_SK3,SID).
+ iknows(SNid)
+ =>
+ state_gateway(GATEWAY,USER,SENSOR,IDu,SNid,Kug,Kgs,Add,Hash,7,Nx,Nu,SK,SK2,xor(apply(Hash,pair(Kug,pair(IDu,Nu))),SK),SID).
+ iknows(xor(apply(Hash,pair(Kug,pair(IDu,Nu))),SK))
+
+step step_4 (SENSOR,USER,GATEWAY,Dummy_Kgs,SNid,Hash,Dummy_SK,Dummy_SK2,SID,SK2) :=
+ state_sensor(SENSOR,USER,GATEWAY,Dummy_Kgs,SNid,Hash,2,Dummy_SK,Dummy_SK2,SID).
+ iknows(SK2)
+ =>
+ state_sensor(SENSOR,USER,GATEWAY,apply(Hash,pair(Dummy_Kgs,SNid)),SNid,Hash,6,xor(apply(Hash,Dummy_Kgs),SK2),SK2,SID).
+ iknows(SNid)
+
+
+section properties:
+
+property secrecy_of_sk (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sk,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_sk (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sk,ASGoal) &
+ not(contains(i,ASGoal))
+

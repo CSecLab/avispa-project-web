@@ -1,0 +1,150 @@
+role alice(A, B : agent,
+	   PMK : symmetric_key,
+	   PTK_PRF : hash_func,
+	   MIC_Hash : hash_func, % MAC hash func
+	   Succ : hash_func,
+	   H_MAC : hash_func,
+	   Snd, Rcv : channel(dy) )
+played_by A
+def=
+
+ local	State : nat,
+	Anonce: text,
+	Snonce: text,
+	Sqn : text,
+	GMK : text,
+	GNonce : text,
+	GTK_PRF : hash_func,
+	GTK : hash(text.agent.text),
+	A_rsnie : text,
+	B_rsnie : text,
+	PMKID : hash(symmetric_key.agent.agent),
+	PTK : hash(symmetric_key.agent.agent.text.text),
+	MIC1 : hash(symmetric_key.text.text.text),
+	MIC2 : message,
+	MIC3 : hash(hash(symmetric_key.agent.agent.text.text).hash(text))
+
+init
+ State := 0
+
+transition
+
+1. State  = 0 /\ Rcv(start) =|>
+   State':= 2 /\ Anonce' := new()
+	      /\ PMKID' := H_MAC(PMK.A.B)
+	      /\ Sqn' := new()
+	      /\ Snd(Anonce'.Sqn'.PMKID')
+	      /\ witness(A,B,bob_alice_na,Anonce')
+2. State = 2  /\ Rcv(Snonce'.B_rsnie'.Sqn.MIC1')
+	      /\ MIC1' = MIC_Hash(PMK.Snonce'.Sqn.B_rsnie') =|>
+   State':= 4 /\ A_rsnie':= new()
+	      /\ GMK' := new()
+	      /\ GNonce' := new()
+	      /\ GTK' := GTK_PRF(GMK'.A.GNonce')
+	      /\ PTK' := PTK_PRF(PMK.A.B.Anonce.Snonce')
+	      /\ MIC2' := MIC_Hash(PTK'.Anonce.Succ(Sqn).A_rsnie'.{GTK'}_PTK')
+	      /\ Snd(Anonce.A_rsnie'.{GTK'}_PTK'.Succ(Sqn).MIC2')
+	      /\ secret(GTK',gtk1,{A,B})
+
+3. State = 4  /\ Rcv(Succ(Sqn).MIC3')
+	      /\ MIC3' = MIC_Hash(PTK.Succ(Sqn)) =|>
+  State':= 6  /\ request(A,B,alice_bob_ns,Snonce)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role bob(
+    A, B     : agent,
+    PMK      : symmetric_key,
+    PTK_PRF  : hash_func,
+    MIC_Hash : hash_func,
+    Succ     : hash_func,
+    H_MAC    : hash_func,
+    Snd, Rcv : channel(dy) )
+played_by B def=
+
+local
+ State : nat,
+ Anonce : text,
+ Snonce : text,
+ Sqn : text,
+ GTK : hash(text.agent.text),
+ A_rsnie : text,
+ B_rsnie : text,
+ PMKID : hash(symmetric_key.agent.agent),
+ PTK : hash(symmetric_key.agent.agent.text.text),
+ MIC1 : hash(symmetric_key.text.text.text),
+ MIC2 : message,
+ MIC3 : hash(hash(symmetric_key.agent.agent.text.text).hash(text))
+
+init
+ State := 1
+
+transition
+
+1. State  = 1 /\ Rcv(Anonce'.Sqn'.PMKID') =|>
+   State':= 3 /\ Snonce' := new()
+	      /\ B_rsnie' := new()
+	      /\ PTK' := PTK_PRF(PMK.A.B.Anonce'.Snonce')
+	      /\ MIC1' := MIC_Hash(PMK.Snonce'.Sqn'.B_rsnie')
+	      /\ Snd(Snonce'.B_rsnie'.Sqn'.MIC1')
+	      /\ witness(B,A,alice_bob_ns,Snonce')
+
+2. State = 3  /\ Rcv(Anonce.A_rsnie'.{GTK'}_PTK'.Succ(Sqn).MIC2')
+	      /\ MIC2' = MIC_Hash(PTK.Anonce.Succ(Sqn).A_rsnie'.{GTK'}_PTK') =|>
+   State':= 5 /\ MIC3' := MIC_Hash(PTK.Succ(Sqn))
+	      /\ Snd(Succ(Sqn).MIC3')
+	      /\ request(B,A,bob_alice_na,Anonce)
+
+end role
+
+
+role session(
+    A, B     : agent,
+    PMK      : symmetric_key,
+    PTK_PRF  : hash_func,
+    MIC_Hash : hash_func,
+    Succ     : hash_func,
+    H_MAC    : hash_func )
+def=
+
+local
+   SA, RA, SB, RB : channel (dy)
+
+composition
+	alice (A,B,PMK, PTK_PRF, MIC_Hash, Succ, H_MAC, SA,RA)
+     /\ bob   (A,B,PMK, PTK_PRF, MIC_Hash, Succ, H_MAC, SB,RB)
+
+end role
+
+role environment()
+def=
+
+ const
+    a, b : agent,
+    gtk1,
+    alice_bob_ns,
+    bob_alice_na : protocol_id,
+    pmk_a_b,
+    pmk_a_i,
+    pmk_i_b : symmetric_key,
+    ptk_prf : hash_func,
+    mic_hash : hash_func,
+    succ : hash_func,
+    h_mac : hash_func
+
+intruder_knowledge = {a,b,ptk_prf,mic_hash,succ,h_mac,pmk_a_i,pmk_i_b}
+
+composition
+       session(a,b, pmk_a_b, ptk_prf, mic_hash, succ, h_mac)
+   /\  session(a,i, pmk_a_i, ptk_prf, mic_hash, succ, h_mac)
+   /\  session(i,b, pmk_i_b, ptk_prf, mic_hash, succ, h_mac)
+end role
+
+goal
+    secrecy_of gtk1
+    authentication_on alice_bob_ns
+    authentication_on bob_alice_na
+
+end goal
+
+environment()

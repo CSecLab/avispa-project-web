@@ -1,0 +1,110 @@
+role alice(
+		
+		A,B 		: agent,
+		PKa,PKb	: public_key,
+		H		: hash_func,
+		Snd,Rcv	: channel(dy)
+
+				)
+
+played_by A
+
+def=
+
+local		State		: nat,
+		Msg		: text	
+
+const a_b_msg : protocol_id
+
+init State := 0
+
+transition
+
+1. 	State = 0 /\ Rcv(start) =|>
+	State':= 1 /\ Msg' := new()
+			/\ Snd({Msg'}_PKb.{H({Msg'}_PKb)}_inv(PKa))
+			/\ secret(Msg',a_b_msg,{A,B})
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob(
+
+		A,B 		: agent,
+		PKa,PKb	: public_key,
+		H		: hash_func,
+		Snd,Rcv	: channel(dy)
+	
+				)
+
+played_by B
+
+def=
+
+local		State		: nat,
+		Msg		: text
+	
+
+init State := 0
+
+transition
+
+1. 	State = 0 /\ Rcv({Msg}_PKb.{H({Msg}_PKb)}_inv(PKa))=|>
+	State':= 1
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role session(
+
+		A,B 		: agent,
+		PKa,PKb	: public_key,
+		H		: hash_func
+
+               ) 
+
+def=
+
+ local	SndA,RcvA,SndB,RcvB 	: channel(dy) 
+		
+
+ composition
+  		alice(A,B,PKa,PKb,H,SndA,RcvA) 
+	  /\ bob(B,A,PKb,PKa,H,SndB,RcvB)
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() 
+
+def=
+
+  const a,b,i			: agent,
+        pk_a,pk_b,pk_i	: public_key,
+	   h				: hash_func, 
+	   a_b_msg 		: protocol_id
+      
+        
+ intruder_knowledge = {a,b,i,pk_a,pk_b,pk_i,inv(pk_i),h}
+
+ composition
+  	session(a,b,pk_a,pk_b,h) 
+  /\ session(i,b,pk_i,pk_b,h)
+  /\ session(a,i,pk_a,pk_i,h)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+    secrecy_of a_b_msg 
+
+end goal
+
+environment()

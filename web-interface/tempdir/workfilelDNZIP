@@ -1,0 +1,157 @@
+role role1(A ,B,C,D: agent,G:text,P1,P2,P3,P4:public_key,SND,RCV:channel(dy))
+played_by A def=
+local
+State :nat,
+X,X1,X2,Y,A1 :text,
+K,K1 : symmetric_key
+init State:=0
+transition
+1. State=0/\ RCV(start) =|>
+State':=2 /\ A1':=new()
+/\ X' := exp(G,A1')
+/\ SND ({A.X'}_inv(P1))
+/\ witness(A,B,role2_role1_x,X')
+
+2. State=2 /\ RCV({B.Y'}_inv(P2)) =|>
+State':=4 /\ K':=exp(Y',A1)
+/\request(A,B,role1_role2_y,Y')
+/\ secret(K',k,{A,B})
+
+3. State=4 /\ RCV({C.X2'}_inv(P3))=|>
+
+State':= 6
+/\ request(A,C,role1_role3_x2, X2')
+/\ K1':= exp(X2',K)
+/\ X1':= exp(G,K)
+/\secret(K1',k1,{A,B,C,D})
+/\ SND({A.X1'}_inv(P1))
+/\ witness(C,A,role3_role1_x1,X1')
+
+end role
+
+
+role role2 (A,B,C,D:agent,
+G:text,P1,P2,P3,P4 :public_key,
+SND,RCV:channel(dy))
+played_by B def=
+local
+State : nat,
+X,Y,A2 : text,
+K : symmetric_key
+init
+State:=1
+transition
+1. State=1
+/\ RCV({A.X'}_inv(P1)) =|>  State':=3
+
+/\request(B,A,role2_role1_x,X')
+
+/\ A2':=new()
+/\ Y':=exp(G,A2')
+/\ K' := exp(G,A2')
+/\ SND({B.Y'}_inv(P2))
+/\witness(B,A,role1_role2_y,Y')
+/\secret(K',k,{B,A})
+
+end role
+
+
+
+
+role role3(A ,B,C,D : agent,G:text,P1,P2,P3,P4:public_key,SND,RCV:channel(dy))
+played_by C def=
+local
+State :nat,
+X,X1,X2,Y,A3 :text,
+K ,K1: symmetric_key
+init 
+State:=0
+
+transition
+1. State=0/\ RCV(start) =|>
+
+State':=2 /\ A3':=new()
+/\ X' := exp(G,A3')
+/\ SND ({C.X'}_inv(P3))
+/\ witness(C,D,role4_role3_x,X')
+
+2. State=2 /\ RCV({D.Y'}_inv(P4)) =|>
+State':=4 /\ K':=exp(Y',A3)
+/\request(C,D,role3_role4_y,Y')
+/\ secret(K',k,{C,D})
+
+3. State= 4 /\ RCV({A.X1'}_inv(P1))=|>
+State':= 6
+/\ request(C,A, role3_role1_x1,X1')
+/\ K1':= exp(X1',K)
+/\ secret(K1',k1,{A,B,C,D})
+/\ X2':= exp(G, K)
+/\ SND({C.X2'}_inv(P3))
+/\witness(A,C,role1_role3_x2, X2')
+
+end role
+
+
+role role4 (A,B,C,D:agent,G:text,P1,P2,P3,P4 :public_key,SND,RCV:channel(dy))
+played_by D def=
+local
+State : nat,
+X,Y,A4 : text,
+K : symmetric_key
+init
+State:=1
+transition
+1. State=1
+/\ RCV({C.X'}_inv(P3)) =|>  State':=3
+
+/\request(D,C,role4_role3_x,X')
+
+/\ A4':=new()
+/\ Y':=exp(G,A4')
+/\ K':= exp(X',A4')
+/\ SND({D.Y'}_inv(P4))
+/\witness(D,C,role3_role4_y,Y')
+/\secret(K',k,{D,C})
+
+end role
+
+
+
+
+role session (A,B,C,D:agent,
+G:text,P1,P2,P3,P4:public_key)
+def=
+local SND_A,RCV_A,SND_B,RCV_B,SND_C,RCV_C,SND_D,RCV_D:channel(dy)
+composition
+role1(A,B,C,D,G,P1,P2,P3,P4,SND_A,RCV_A)
+/\ role2(A,B,C,D,G,P1,P2,P3,P4,SND_B,RCV_B)
+/\role3(A,B,C,D,G,P1,P2,P3,P4,SND_C,RCV_C)
+/\role4(A,B,C,D,G,P1,P2,P3,P4,SND_D,RCV_D)
+end role
+
+
+role environment() def=
+const a,b,c,d:agent,
+g:text,
+p1,p2,p3,p4 : public_key,
+role1_role2_y,role2_role1_x,k,role3_role1_x1,role1_role3_x2,k1,role4_role3_x,role3_role4_y : protocol_id
+
+intruder_knowledge = {a,b,g,p1,p2,p3,p4}
+composition
+session(a,b,c,d,g,p1,p2,p3,p4)
+/\ session(a,i,c,d,g,p1,p2,p3,p4)
+/\ session (i,b,c,d,g,p1,p2,p3,p4)
+/\ session (a,b,i,d,g,p1,p2,p3,p4)
+/\ session (a,b,c,i,g,p1,p2,p3,p4)
+end role
+
+goal
+secrecy_of k,k1
+
+authentication_on role1_role2_y
+authentication_on role2_role1_x
+authentication_on role3_role1_x1
+authentication_on role1_role3_x2
+ 
+end goal
+environment()

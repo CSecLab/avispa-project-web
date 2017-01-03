@@ -1,0 +1,937 @@
+using System;
+using System.Diagnostics;
+using System.Reflection;
+using System.IO;
+using System.Text;
+using CryptoSysPKI;
+using System.Text.RegularExpressions;
+namespace PKIEVersion2Protocol
+{
+    
+    class PKIEVersion2Protocol
+    {
+        /// 
+        /// The main entry point for the application.
+        /// 
+        [STAThread]
+        static void Main(string[] args)
+        {
+           
+            string s;
+            char ch;
+            int i, n, nblock, r, k;
+            byte[] b;
+            bool isok;
+            byte[] msg;
+            byte[] bcheck;
+            StringBuilder sbPrivateKey;
+            StringBuilder sbPublicKey;
+            string keyhex, plainStr, cipherStr, ivhex, okhex;
+            byte[] arrPlain;
+            byte[] arrCipher;
+            byte[] arrKey;
+            byte[] arrIV;
+            string excontent, fnameData, fnameEnc, fnameCheck;
+            string fnameInput, fnameOutput, fnameCert, fname;
+            string pubkeyFile, prikeyFile;
+            string issuerCert;
+            string hexDigest;
+            string strCheck, certBase64, distname;
+            string query;
+            StringBuilder sbKeyCheck;
+            string cert1, cert2, certList, certFile, crlFile, snStr, csrFile;
+            string extns, dn, password, xmlKey, msgStr, keyStr, dateStr;
+            int keyBits;
+            string subdir;
+            string b64str, s1;
+            byte[] b1;
+            long flen;
+            string[] arrFileNames = new string[] 
+            { 
+                "AlicePrivRSASign.epk", 
+                "AliceRSASignByCarl.cer", 
+                "bob.p7b", 
+                "BobPrivRSAEncrypt.epk", 
+                "BobRSASignByCarl.cer",
+                "CarlPrivRSASign.epk",
+                "CarlRSASelf.cer",
+                "rfc3280bis_cert1.cer",
+                "rfc3280bis_cert2.cer",
+                "rfc3280bis_CRL.crl",
+                "dims.cer",
+                "UTNUSERFirst-Object.cer",
+                "ocsp_response_ok_dims.dat",
+            };
+
+            bool doPrompt = false;
+            bool askDelete = false;
+            bool doBigFile = false;
+            for (int iarg = 0; iarg < args.Length; iarg++)
+            {
+                if (args[iarg] == "prompt")
+                    doPrompt = true;
+                if (args[iarg] == "askdelete")
+                    askDelete = true;
+                if (args[iarg] == "bigfile")
+                    doBigFile = true;
+            }
+
+            Console.WriteLine("GENERAL FUNCTIONS:");
+            n = CryptoSysPKI.General.Version();
+            Console.WriteLine("Version={0}", n);
+            ch = CryptoSysPKI.General.LicenceType();
+            Console.WriteLine("LicenceType={0}", ch);
+            s = CryptoSysPKI.General.ModuleName();
+            Console.WriteLine("ModuleName={0}", s);
+            s = CryptoSysPKI.General.CompileTime();
+            Console.WriteLine("CompileTime={0}", s);
+            n = General.IsWin64();
+            Console.WriteLine("IsWin64={0}", n);
+            s = General.Platform();
+            Console.WriteLine("Platform={0}", s);
+            s = CryptoSysPKI.General.LastError();
+            Console.WriteLine("LastError='{0}' (expecting empty)", s);
+            n = CryptoSysPKI.General.PowerUpTests();
+            Console.WriteLine("PowerUpTests={0} (expecting 0)", n);
+
+          
+            string assemblyFile = Assembly.GetExecutingAssembly().Location;
+            string assemblyDir = Path.GetDirectoryName(assemblyFile);
+            Console.WriteLine("Local directory is '{0}'.", assemblyDir);
+            Console.WriteLine("Checking required test files are in local directory...");
+            string missingFile = "STOPPED: Required file is missing.
+ Look in pkiDotNetTestFiles.zip";
+            foreach (string fn in arrFileNames)
+            {
+                if (FileIsNotPresent(fn, missingFile)) return;
+            }
+
+            subdir = "pkitest." + Cnv.ToHex(Rng.Bytes(4));
+            Console.WriteLine("Creating test sub-directory '{0}'", subdir);
+            System.IO.Directory.CreateDirectory(subdir);
+            foreach (string fn in arrFileNames)
+            {
+                System.IO.File.Copy(fn, subdir + "" + fn, true);
+            }
+            System.IO.Directory.SetCurrentDirectory(subdir);
+            Console.WriteLine("CWD is " + System.IO.Directory.GetCurrentDirectory());
+
+            Console.WriteLine("TESTING TRIPLE DES:");
+            keyhex = "010101010101010101010101010101010101010101010101";
+            plainStr = "8000000000000000";
+            cipherStr = "95F8A5E5DD31D900";
+            s = Tdea.Encrypt(plainStr, keyhex, Mode.ECB, null);
+            Console.WriteLine("KY={0}", keyhex);
+            Console.WriteLine("PT={0}", plainStr);
+            Console.WriteLine("CT={0}", s);
+            Console.WriteLine("OK={0}", cipherStr);
+            Debug.Assert(String.Compare(s, cipherStr, true) == 0, "Tdea.HexECB failed");
+            s = Tdea.Decrypt(cipherStr, keyhex, Mode.ECB, null);
+            Console.WriteLine("P'={0}", s);
+            Console.WriteLine("OK={0}", plainStr);
+            Debug.Assert(String.Compare(s, plainStr, true) == 0, "Tdea.HexECB failed");
+
+            arrPlain = Cnv.FromHex(plainStr);
+            arrCipher = Cnv.FromHex(cipherStr);
+            arrKey = Cnv.FromHex(keyhex);
+            b = Tdea.Encrypt(arrPlain, arrKey, Mode.ECB, null);
+            Console.WriteLine("CT={0}", Cnv.ToHex(b));
+            b = Tdea.Decrypt(arrCipher, arrKey, Mode.ECB, null);
+            Console.WriteLine("P'={0}", Cnv.ToHex(b));
+
+           keyhex = "737C791F25EAD0E04629254352F7DC6291E5CB26917ADA32";
+            ivhex = "B36B6BFB6231084E";
+            plainStr = "5468697320736F6D652073616D706520636F6E74656E742E0808080808080808";
+            cipherStr = "d76fd1178fbd02f84231f5c1d2a2f74a4159482964f675248254223daf9af8e4";
+            s = Tdea.Encrypt(plainStr, keyhex, Mode.CBC, ivhex);
+            Console.WriteLine("KY={0}", keyhex);
+            Console.WriteLine("IV={0}", ivhex);
+            Console.WriteLine("PT={0}", plainStr);
+            Console.WriteLine("CT={0}", s);
+            Console.WriteLine("OK={0}", cipherStr);
+            Debug.Assert(String.Compare(s, cipherStr, true) == 0, "Tdea.Encrypt{Hex,CBC} failed");
+            s = Tdea.Decrypt(cipherStr, keyhex, Mode.CBC, ivhex);
+            Console.WriteLine("P'={0}", s);
+            Console.WriteLine("OK={0}", plainStr);
+            Debug.Assert(String.Compare(s, plainStr, true) == 0, "Tdea.Decrypt{Hex,CBC} failed");
+
+            arrPlain = Cnv.FromHex(plainStr);
+            arrCipher = Cnv.FromHex(cipherStr);
+            arrKey = Cnv.FromHex(keyhex);
+            arrIV = Cnv.FromHex(ivhex);
+            b = Tdea.Encrypt(arrPlain, arrKey, Mode.CBC, arrIV);
+            Console.WriteLine("CT={0}", Cnv.ToHex(b));
+            b = Tdea.Decrypt(arrCipher, arrKey, Mode.CBC, arrIV);
+            Console.WriteLine("P'={0}", Cnv.ToHex(b));
+            Debug.Assert(String.Compare(arrPlain.ToString(), b.ToString()) == 0, "Tdea.BytesCBC failed");
+
+            excontent = "This is some sample content.";
+            fnameData = "excontent.txt";
+            MakeATextFile(fnameData, excontent);
+
+            keyhex = "fedcba98765432100123456789abcdeffedcba9876543210";
+            fnameEnc = "excontent.tdea.enc.dat";
+            okhex = "DD1E1FA430AE6BE1D3B83245F7A5B17C4BF03688238778E95F2CCD05AF1A8F44";
+            n = Tdea.FileEncrypt(fnameEnc, fnameData, keyhex, Mode.ECB, null);
+            if (0 == n)
+                Console.WriteLine("Tdea.File created encrypted file '{0}'", fnameEnc);
+            else
+                Console.WriteLine("Tdea.File returned error code {0}", n);
+            Debug.Assert(0 == n, "Tdea.File failed.");
+
+            b = ReadABinaryFile(fnameEnc);
+            Console.WriteLine("CT={0}", Cnv.ToHex(b));
+            Debug.Assert(String.Compare(Cnv.ToHex(b), okhex, true) == 0, "Tdea.FileEncrypt failed");
+
+            fnameCheck = "excontent.tdea.chk.txt";
+            b = Cnv.FromHex(keyhex);
+            n = Tdea.FileDecrypt(fnameCheck, fnameEnc, b, Mode.ECB, null);
+            if (0 == n)
+            {
+                Console.WriteLine("Tdea.File decrypted to file '{0}'", fnameCheck);
+                s = ReadATextFile(fnameCheck);
+                Debug.Assert(String.Compare(s, excontent) == 0, "Decrypted file data does not match");
+            }
+            else
+                Console.WriteLine("Tdea.File returned error code {0}", n);
+            Debug.Assert(0 == n, "Tdea.File failed.");
+
+            
+            Console.WriteLine("RSA FUNCTION TESTS:");
+            sbPublicKey = Rsa.GetPublicKeyFromCert("AliceRSASignByCarl.cer");
+            Console.WriteLine("PublicKey={0}", sbPublicKey.ToString());
+            Console.WriteLine("PublicKeyBits={0}", Rsa.KeyBits(sbPublicKey.ToString()));
+            Console.WriteLine("PublicKeyBytes={0}", Rsa.KeyBytes(sbPublicKey.ToString()));
+
+            msg = System.Text.Encoding.Default.GetBytes("Hello world!");
+            nblock = Rsa.KeyBytes(sbPublicKey.ToString());
+            b = Rsa.EncodeMsgForEncryption(nblock, msg, Rsa.EME.PKCSv1_5);
+            Console.WriteLine("BLK={0}", Cnv.ToHex(b));
+
+            b = Rsa.RawPublic(b, sbPublicKey.ToString());
+            Console.WriteLine("ENC={0}", Cnv.ToHex(b));
+
+            sbPrivateKey = Rsa.ReadEncPrivateKey("AlicePrivRSASign.epk", "password");
+            Console.WriteLine("PrivateKey={0}", sbPrivateKey.ToString());
+            Console.WriteLine("PrivateKeyBits={0}", Rsa.KeyBits(sbPrivateKey.ToString().ToString()));
+            Console.WriteLine("PrivateKeyBytes={0}", Rsa.KeyBytes(sbPrivateKey.ToString().ToString()));
+
+            b = Rsa.RawPrivate(b, sbPrivateKey.ToString().ToString());
+            Console.WriteLine("DEC={0}", Cnv.ToHex(b));
+
+            b = Rsa.DecodeMsgForEncryption(b, Rsa.EME.PKCSv1_5);
+            Console.WriteLine("MSG={0}", Cnv.ToHex(b));
+            s = System.Text.Encoding.Default.GetString(b);
+            Console.WriteLine("MSG={0}", s);
+
+            msg = System.Text.Encoding.Default.GetBytes("abc");
+            nblock = Rsa.KeyBytes(sbPrivateKey.ToString().ToString());
+            b = Rsa.EncodeMsgForSignature(nblock, msg, HashAlgorithm.Sha1);
+            Console.WriteLine("BLK={0}", Cnv.ToHex(b));
+
+            b = Rsa.RawPrivate(b, sbPrivateKey.ToString().ToString());
+            Console.WriteLine("SIG={0}", Cnv.ToHex(b));
+
+            b = Rsa.RawPublic(b, sbPublicKey.ToString());
+            Console.WriteLine("VER={0}", Cnv.ToHex(b));
+            bcheck = Rsa.EncodeMsgForSignature(nblock, msg, HashAlgorithm.Sha1);
+            if (CompareByteArrays(bcheck, b))
+                Console.WriteLine("OK, verification OK");
+            else
+                Console.WriteLine("ERROR: verification failed");
+            Debug.Assert(CompareByteArrays(bcheck, b), "Verification failed");
+
+            Console.WriteLine("Testing RSA Encoding methods...");
+            Console.WriteLine("EME-PKCS1-V1_5 method");
+            msg = Cnv.FromHex("deadbeef");
+            b = Rsa.EncodeMsgForEncryption(64, msg, Rsa.EME.PKCSv1_5);
+            Console.WriteLine("MSG={0}", Cnv.ToHex(msg));
+            Console.WriteLine("EME={0}", Cnv.ToHex(b));
+            bcheck = Rsa.DecodeMsgForEncryption(b, Rsa.EME.PKCSv1_5);
+            Console.WriteLine("MSG={0}", Cnv.ToHex(bcheck));
+            Debug.Assert(CompareByteArrays(bcheck, msg), "EME-PKCSv1_5 Decoding failed");
+
+            Console.WriteLine("EME-OAEP method");
+            msg = Cnv.FromHex("deadbeef");
+            b = Rsa.EncodeMsgForEncryption(64, msg, Rsa.EME.OAEP);
+            Console.WriteLine("MSG={0}", Cnv.ToHex(msg));
+            Console.WriteLine("EME={0}", Cnv.ToHex(b));
+            bcheck = Rsa.DecodeMsgForEncryption(b, Rsa.EME.OAEP);
+            Console.WriteLine("MSG={0}", Cnv.ToHex(bcheck));
+            Debug.Assert(CompareByteArrays(bcheck, msg), "EME-OAEP Decoding failed");
+
+            Console.WriteLine("EME-PKCS1-V1_5 method for signature");
+            msg = System.Text.Encoding.Default.GetBytes("abc");
+            b = Rsa.EncodeMsgForSignature(64, msg, HashAlgorithm.Sha1);
+            Console.WriteLine("MSG={0}", Cnv.ToHex(msg));
+            Console.WriteLine("EMSA={0}", Cnv.ToHex(b));
+            bcheck = Rsa.DecodeDigestForSignature(b);
+            Console.WriteLine("MD={0}", Cnv.ToHex(bcheck));
+            Debug.Assert(CompareByteArrays(bcheck, Cnv.FromHex("A9993E364706816ABA3E25717850C26C9CD0D89D")));
+
+            n = Rsa.CheckKey(sbPrivateKey.ToString());
+            Console.WriteLine("Rsa.CheckKey returns {0} for private key (expecting 0)", n);
+            n = Rsa.CheckKey(sbPublicKey.ToString());
+            Console.WriteLine("Rsa.CheckKey returns {0} for public key (expecting 1)", n);
+            Console.WriteLine("Try an invalid key string...");
+            n = Rsa.CheckKey("Some garbage in a string");
+            Console.WriteLine("Rsa.CheckKey returns {0} (expecting -ve error code) {1};{2}", n,
+              General.ErrorLookup(n), General.LastError());
+
+            s = Rsa.ToXMLString(sbPrivateKey.ToString(), Rsa.XmlOptions.ForceRSAKeyValue);
+            Console.WriteLine("Key in XML format={0}", s);
+
+            s = Rsa.FromXMLString(s, false);
+            fname = "alice.pfx";
+            n = Pfx.MakeFile(fname, "AliceRSASignByCarl.cer",
+              "AlicePrivRSASign.epk", "password", "Alice's Key", Pfx.Options.Default);
+            Console.WriteLine("Pfx.MakeFile returns {0} (expected 0)", n);
+            Debug.Assert(0 == n, "Failed to create PFX file");
+            isok = Pfx.SignatureIsValid(fname, "password");
+            Console.WriteLine("Signature in {0} is {1}", fname, (isok ? "OK" : "INVALID"));
+            Debug.Assert(isok, "PFX signature is invalid");
+            fnameOutput = "alice_epk_from_pfx.bin";
+            n = Rsa.GetPrivateKeyFromPFX(fnameOutput, fname);
+            Console.WriteLine("Rsa.GetPrivateKeyFromPFX returns {0} (expected +ve)", n);
+            Debug.Assert(n > 0, "Failed to extract private key from PFX file");
+            sbPrivateKey = Rsa.ReadEncPrivateKey(fnameOutput, "password");
+            strCheck = sbPrivateKey.ToString();
+            sbPrivateKey = Rsa.ReadEncPrivateKey("AlicePrivRSASign.epk", "password");
+            Debug.Assert(Rsa.KeyHashCode(strCheck) == Rsa.KeyHashCode(sbPrivateKey.ToString()), "Private keys don't match");
+
+            fname = "AlicePriInfo_ssl.txt";
+            n = Rsa.SavePrivateKeyInfo(fname, sbPrivateKey.ToString(), Rsa.Format.SSL);
+            Console.WriteLine("Rsa.SavePrivateKeyInfo returns {0} (expected 0)", n);
+            Debug.Assert(0 == n, "Failed to create unencrypted private key file");
+            strCheck = sbPrivateKey.ToString();
+            s = Rsa.ReadPrivateKeyInfo(fname).ToString();
+            Console.WriteLine("Rsa.KeyHashCode(old)={0,8:X}", Rsa.KeyHashCode(strCheck));
+            Console.WriteLine("Rsa.KeyHashCode(new)={0,8:X}", Rsa.KeyHashCode(s));
+            Debug.Assert(Rsa.KeyHashCode(strCheck) == Rsa.KeyHashCode(s), "Private keys don't match");
+
+            fname = "alice.pfx";
+            sbPrivateKey = Rsa.ReadPrivateKeyFromPFX(fname, "password");
+            Console.WriteLine("Rsa.ReadPrivateKeyFromPFX returns a string {0} characters long", sbPrivateKey.ToString().Length);
+            Debug.Assert(sbPrivateKey.ToString().Length > 0, "Rsa.ReadPrivateKeyFromPFX failed");
+            Console.WriteLine("Rsa.KeyHashCode={0,8:X}", Rsa.KeyHashCode(sbPrivateKey.ToString()));
+
+            sbPublicKey = Rsa.PublicKeyFromPrivate(sbPrivateKey);
+            Console.WriteLine("Rsa.PublicKeyFromPrivate returns a string {0} characters long", sbPublicKey.ToString().Length);
+            Debug.Assert(sbPublicKey.ToString().Length > 0, "Rsa.PublicKeyFromPrivate failed");
+            Console.WriteLine("Rsa.KeyHashCode={0,8:X}", Rsa.KeyHashCode(sbPublicKey.ToString()));
+            Debug.Assert(Rsa.KeyHashCode(sbPublicKey.ToString()) == Rsa.KeyHashCode(sbPrivateKey.ToString()),
+                "Public and private keys don't match");
+
+            fname = "pubkey_check.txt";
+            n = Rsa.SavePublicKey(fname, sbPublicKey.ToString(), Rsa.Format.PEM);
+            Console.WriteLine("Rsa.SavePublicKey returns {0} (expected 0)", n);
+            Debug.Assert(0 == n, "Failed to create public key file");
+
+            strCheck = sbPublicKey.ToString();
+            s = Rsa.ReadPublicKey(fname).ToString();
+            Console.WriteLine("Rsa.KeyHashCode(old)={0,8:X}", Rsa.KeyHashCode(strCheck));
+            Console.WriteLine("Rsa.KeyHashCode(new)={0,8:X}", Rsa.KeyHashCode(s));
+            Debug.Assert(Rsa.KeyHashCode(strCheck) == Rsa.KeyHashCode(s), "Public keys don't match");
+            fname = "alice-nokey.pfx";
+            n = Pfx.MakeFile(fname, "AliceRSASignByCarl.cer",
+                "", "", "Alice's Cert", Pfx.Options.PlainCert);
+            Console.WriteLine("Pfx.MakeFile (no key) returns {0} (expected 0)", n);
+            Debug.Assert(0 == n, "Failed to create PFX file (no key)");
+            fnameInput = "alice.pfx";
+            fnameCert = "alice_fromPFX.cer";
+            n = X509.GetCertFromPFX(fnameCert, fnameInput, "password");
+            Console.WriteLine("X509.GetCertFromPFX returns {0} (expected +ve).", n);
+            Debug.Assert(n > 0, "Failed to extract certificate from PFX file");
+            s = X509.CertSubjectName(fnameCert, "");
+            Console.WriteLine("{0} has subject {1}.", fnameCert, s);
+            sbPrivateKey = Rsa.ReadEncPrivateKey("AlicePrivRSASign.epk", "password");
+            Debug.Assert(sbPrivateKey.Length > 0, "Failed to read in private key");
+            sbPublicKey = Rsa.GetPublicKeyFromCert("AliceRSASignByCarl.cer");
+            Debug.Assert(sbPublicKey.Length > 0, "Failed to read in public key");
+            n = Rsa.KeyMatch(sbPrivateKey.ToString(), sbPublicKey.ToString());
+            Console.WriteLine("Rsa.KeyMatch(PRIV_alice,PUB_alice) returned {0} (expected 0)", n);
+            Debug.Assert(n == 0, "Rsa.KeyMatch failed");
+            sbPublicKey = Rsa.GetPublicKeyFromCert("BobRSASignByCarl.cer");
+            n = Rsa.KeyMatch(sbPrivateKey.ToString(), sbPublicKey.ToString());
+            Console.WriteLine("Rsa.KeyMatch(PRIV_alice,PUB_bob) returned {0} [{1}] (expected -ve)", n, General.ErrorLookup(n));
+            Debug.Assert(n != 0, "Rsa.KeyMatch failed");
+
+            pubkeyFile = "mykey_pub.bin";
+            prikeyFile = "mykey_epk.bin";
+            n = Rsa.MakeKeys(pubkeyFile, prikeyFile, 512, Rsa.PublicExponent.Exp_EQ_65537,
+              1024, "password", Rsa.PbeOptions.Default, true);
+            Console.WriteLine("Rsa.MakeKeys returned {0}", n);
+            Debug.Assert(n == 0, "Failed to create RSA key pair");
+            Console.WriteLine("Created public/private key pair OK");
+            Console.WriteLine("X509 TESTS:");
+            fnameCert = "myCAcert.cer";
+            n = X509.MakeCertSelf(fnameCert, prikeyFile, 1, 5, "CN=Me;C=AU", "myemail@here.com",
+              X509.KeyUsageOptions.DigitalSignature | X509.KeyUsageOptions.KeyCertSign,
+              "password", X509.Options.FormatPem);
+            Console.WriteLine("X509.MakeCertSelf returned {0}", n);
+
+            fnameCert = "mycert.cer";
+            issuerCert = "CarlRSASelf.cer";
+            prikeyFile = "CarlPrivRSASign.epk";
+            n = X509.MakeCert(fnameCert, issuerCert, pubkeyFile, prikeyFile,
+              101, 2, "CN=Me;C=US;O=MyOrg", "", 0, "password",
+              X509.Options.SigAlg_Md5WithRSAEncryption | X509.Options.VersionOne);
+            Console.WriteLine("X509.MakeCert returned {0}", n);
+            n = X509.VerifyCert(fnameCert, issuerCert);
+            if (0 == n)
+                Console.WriteLine("OK, {0} was issued by {1}.", fnameCert, issuerCert);
+            else
+                Console.WriteLine("ERROR: {0} was NOT issued by {1}.", fnameCert, issuerCert);
+
+            fnameCert = "myCAcert.cer";
+            issuerCert = "myCAcert.cer";
+            n = X509.VerifyCert(fnameCert, issuerCert);
+            if (0 == n)
+                Console.WriteLine("OK, {0} was issued by {1}.", fnameCert, issuerCert);
+            else
+                Console.WriteLine("ERROR: {0} was NOT issued by {1}.", fnameCert, issuerCert);
+
+            s = X509.CertSubjectName(fnameCert, "");
+            Console.WriteLine("{0} has subject {1}.", fnameCert, s);
+            fnameCert = "mycert.cer";
+            s = X509.CertSubjectName(fnameCert, "|");
+            Console.WriteLine("{0} has subject {1}.", fnameCert, s);
+
+            s = X509.CertThumb(fnameCert, HashAlgorithm.Sha1);
+            Console.WriteLine("{0} has SHA-1 Thumbprint {1}
+	--Go on, use CERTMGR and check!", fnameCert, s);
+
+            fnameCert = "CarlRSASelf.cer";
+            Console.WriteLine("For certificate '{0}':", fnameCert);
+            s = X509.CertIssuedOn(fnameCert);
+            Console.WriteLine("Issued at  {0}", s);
+            s = X509.CertExpiresOn(fnameCert);
+            Console.WriteLine("Expires at {0}", s);
+            isok = X509.CertIsValidNow(fnameCert);
+            if (isok)
+                Console.WriteLine("OK, {0} is valid now.", fnameCert);
+            else
+                Console.WriteLine("ERROR: {0} is NOT valid now.", fnameCert);
+            fnameCert = "CarlRSASelf.cer";
+            s = X509.CertIssuerName(fnameCert, ";");
+            Console.WriteLine("Issuer Name:   {0}", s);
+            s = X509.CertSerialNumber(fnameCert);
+            Console.WriteLine("Serial Number: {0}", s);
+            s = X509.HashIssuerAndSN(fnameCert, HashAlgorithm.Sha1);
+            Console.WriteLine("Hash(IssuerName+SerialNumber) = {0}", s);
+
+            fnameCert = "CarlRSASelf.cer";
+            Console.WriteLine("For X.509 certificate '{0}'", fnameCert);
+            query = "version";
+            s = X509.QueryCert(fnameCert, query);
+            Console.WriteLine("X509.QueryCert('{0}') = {1}", query, s);
+            query = "signatureAlgorithm";
+            s = X509.QueryCert(fnameCert, query);
+            Console.WriteLine("X509.QueryCert('{0}') = {1}", query, s);
+            query = "sigAlgID";
+            s = X509.QueryCert(fnameCert, query);
+            Console.WriteLine("X509.QueryCert('{0}') = {1}", query, s);
+            query = "notBefore";
+            s = X509.QueryCert(fnameCert, query);
+            Console.WriteLine("X509.QueryCert('{0}') = {1}", query, s);
+            query = "notAfter";
+            s = X509.QueryCert(fnameCert, query);
+            Console.WriteLine("X509.QueryCert('{0}') = {1}", query, s);
+            query = "issuerName";
+            s = X509.QueryCert(fnameCert, query);
+            Console.WriteLine("X509.QueryCert('{0}') = {1}", query, s);
+            query = "subjectName";
+            s = X509.QueryCert(fnameCert, query);
+            Console.WriteLine("X509.QueryCert('{0}') = {1}", query, s);
+            query = "subjectPublicKeyAlgorithm";
+            s = X509.QueryCert(fnameCert, query);
+            Console.WriteLine("X509.QueryCert('{0}') = {1}", query, s);
+            query = "isCA";
+            s = X509.QueryCert(fnameCert, query);
+            Console.WriteLine("X509.QueryCert('{0}') = {1}", query, s);
+            query = "serialNumber";
+            s = X509.QueryCert(fnameCert, query);
+            Console.WriteLine("X509.QueryCert('{0}') = {1}", query, s);
+            s = X509.QueryCert(fnameCert, query, X509.Options.Decimal);
+            Console.WriteLine("X509.QueryCert('{0}', Decimal) = {1}", query, s);
+
+            fnameCert = "CarlRSASelf.cer";
+            certBase64 = X509.ReadStringFromFile(fnameCert);
+            Console.WriteLine("X.509 certificate '{0}' as a string=
+{1}", fnameCert, certBase64);
+            Debug.Assert(certBase64.Length > 0, "X509.ReadStringFromFile failed");
+
+            fnameCheck = fnameCert + ".copy.pem.cer";
+            n = X509.SaveFileFromString(fnameCheck, certBase64, true);
+            Console.WriteLine("X509.SaveFileFromString('{0}') returns {1} (expecting 0)", fnameCheck, n);
+            strCheck = X509.ReadStringFromFile(fnameCheck);
+            if (strCheck == certBase64)
+                Console.WriteLine("OK, strings from new and old X.509 files are identical.");
+            else
+                Console.WriteLine("ERROR: Strings from new and old X.509 files do not match");
+            Debug.Assert(strCheck == certBase64, "X509.SaveFileFromString failed");
+
+            s = X509.CertThumb(fnameCert, HashAlgorithm.Sha1);
+            strCheck = X509.CertThumb(fnameCheck, HashAlgorithm.Sha1);
+            Console.WriteLine("Thumbprint('{0}')={1}", fnameCert, s);
+            Console.WriteLine("Thumbprint('{0}')={1}", fnameCheck, strCheck);
+            Debug.Assert(strCheck == s, "X509.CertThumb results failed");
+            s = X509.CertThumb(certBase64, HashAlgorithm.Sha1);
+            Console.WriteLine("Thumbprint('{0}...{1}')={2}",
+              certBase64.Substring(0, 5), certBase64.Substring(certBase64.Length - 5, 5), s);
+
+            prikeyFile = "mykey_epk.bin";
+            n = X509.CertRequest("myreq.txt", prikeyFile,
+              "CN=myuser;O=Test Org;C=AU;L=Sydney;S=NSW", "password", 0);
+            Console.WriteLine("X509.CertRequest returned {0} (expected 0).", n);
+
+            fnameInput = "bob.p7b";
+            n = X509.GetCertFromP7Chain("", fnameInput, 0);
+            Console.WriteLine("X509.GetCertFromP7Chain(0) returns {0} (expected 2).", n);
+            for (i = 1; i  0);
+                Console.WriteLine("Extracted certificate '{0}' ({1} bytes)", fnameCert, r);
+                // check its subject name
+                s = X509.CertSubjectName(fnameCert, "");
+                Console.WriteLine("{0} has subject {1}.", fnameCert, s);
+            }
+
+            fnameCert = "benChina.cer";
+            prikeyFile = "BobPrivRSAEncrypt.epk";
+
+            distname = "CN=#xe69cac;C=#xe4b8ade59c8b;OU=#xe7b8bde5b180";
+            n = X509.MakeCertSelf(fnameCert, prikeyFile, 0x888, 8, distname, "ben@ho.com.cn",
+              X509.KeyUsageOptions.DigitalSignature | X509.KeyUsageOptions.KeyCertSign,
+              "password", X509.Options.UTF8String);
+            Console.WriteLine("X509.MakeCertSelf(chinese) returned {0}", n);
+            Debug.Assert(n == 0, "Failed to create new certificate");
+
+            s = X509.CertSubjectName(fnameCert, "");
+            Console.WriteLine("Subject's name is '{0}'", s);
+            s = X509.QueryCert(fnameCert, "subjectName", X509.Options.Ldap);
+            Console.WriteLine("Subject's name (LDAP) is '{0}'", s);
+            Debug.Assert(s.Length > 0, "Failed to read subjectName");
+            s = X509.QueryCert(fnameCert, "subjectName", X509.Options.Ldap | X509.Options.UTF8String);
+            Console.WriteLine("Subject's name (LDAP+UTF8) is '{0}'", s);
+            Debug.Assert(s.Length > 0, "Failed to read subjectName");
+            issuerCert = "benChina.cer";
+            fnameCert = "mariaMexico.cer";
+            distname = "C=#x4de97869636f;CN=#x4d6172ed61;OU='#xbabe'";
+            n = X509.MakeCert(fnameCert, issuerCert, pubkeyFile, prikeyFile,
+              7, 2, distname, "", 0, "password", X509.Options.UTF8String);
+            Console.WriteLine("X509.MakeCertSelf(mexican) returned {0}", n);
+            Debug.Assert(n == 0, "Failed to create new certificate");
+
+            s = X509.QueryCert("mariaMexico.cer", "subjectName", 0);
+            Console.WriteLine("Subject's name (default) is '{0}'", s);
+            Debug.Assert(s.Length > 0, "Failed to read subjectName");
+            s = X509.QueryCert("mariaMexico.cer", "subjectName", X509.Options.Latin1);
+            Console.WriteLine("Subject's name (Latin-1) is '{0}'", s);
+            Debug.Assert(s.Length > 0, "Failed to read subjectName");
+            s = X509.QueryCert("mariaMexico.cer", "subjectName", X509.Options.Ldap);
+            Console.WriteLine("Subject's name (LDAP) is '{0}'", s);
+            Debug.Assert(s.Length > 0, "Failed to read subjectName");
+            s = X509.QueryCert("mariaMexico.cer", "subjectName", X509.Options.Ldap | X509.Options.UTF8String);
+            Console.WriteLine("Subject's name (LDAP+UTF8) is '{0}'", s);
+            Debug.Assert(s.Length > 0, "Failed to read subjectName");
+            s = X509.QueryCert("mariaMexico.cer", "subjectName", X509.Options.Ldap | X509.Options.Latin1);
+            Console.WriteLine("Subject's name (LDAP+Latin1) is '{0}'", s);
+            Debug.Assert(s.Length > 0, "Failed to read subjectName");
+            s = X509.CertSubjectName("mariaMexico.cer", "", X509.Options.Ldap | X509.Options.Latin1);
+            Console.WriteLine("Subject's name (LDAP+Latin1) is '{0}'", s);
+            Debug.Assert(s.Length > 0, "Failed to read subjectName");
+            pubkeyFile = "AlicePubRSA.pub";
+            sbPublicKey = Rsa.GetPublicKeyFromCert("AliceRSASignByCarl.cer");
+            Debug.Assert(sbPublicKey.Length > 0, "Failed to get public key from cert");
+            r = Rsa.SavePublicKey(pubkeyFile, sbPublicKey.ToString(), Rsa.Format.Default);
+            issuerCert = "CarlRSASelf.cer";
+            prikeyFile = "CarlPrivRSASign.epk";
+            password = "password";
+            dn = "CN=AliceRSA";
+            extns = "rfc822name=AliceRSA@example.com;" +
+              "serialNumber=46346BC7800056BC11D36E2EC410B3B0;" +
+              "subjectKeyIdentifier=77D2B4D1B74C8A8AA3CE459DCEEC3CA03AE3FF50;" +
+              "notBefore=1999-09-19T01:08:47;" +
+              "notAfter=2039-12-31;";
+            X509.KeyUsageOptions kuo = X509.KeyUsageOptions.DigitalSignature | X509.KeyUsageOptions.NonRepudiation;
+            fnameCert = "AliceRSA-dup.cer";
+            r = X509.MakeCert(fnameCert, issuerCert, pubkeyFile, prikeyFile, 0, 0, dn, extns,
+                kuo, password, X509.Options.AuthKeyId);
+            Console.WriteLine("X509.MakeCert returns {0} (expecting 0)", r);
+            Debug.Assert(r == 0, "X509.MakeCert failed");
+            Console.WriteLine("Created cert file {0}", fnameCert);
+            hexDigest = X509.CertThumb(fnameCert, HashAlgorithm.Sha1);
+            Console.WriteLine("{1}=SHA-1({0})", fnameCert, hexDigest);
+            fnameCheck = "AliceRSASignByCarl.cer";
+            strCheck = X509.CertThumb(fnameCheck, HashAlgorithm.Sha1);
+            Console.WriteLine("{1}=SHA-1({0})", fnameCheck, strCheck);
+            Debug.Assert(hexDigest == strCheck, "Digests are not equal");
+            Console.WriteLine("Create a new certificate using a PKCS-10 CSR file...");
+            csrFile = "myreq.txt";
+            X509.TextDump("dump.txt", csrFile);
+            PrintATextFile("dump.txt");
+            fnameCert = "mycert-fromCSR.cer";
+            issuerCert = "CarlRSASelf.cer";
+            prikeyFile = "CarlPrivRSASign.epk";
+            password = "password";
+            extns = "notBefore=2010-01-01T12:00";
+            r = X509.MakeCert(fnameCert, issuerCert, csrFile, prikeyFile, 0x109, 4, "", extns, 0, password, 0);
+            Console.WriteLine("X509.MakeCert returns {0} (expecting 0)", r);
+            Debug.Assert(r == 0, "X509.MakeCert failed");
+            Console.WriteLine("Created cert file {0}", fnameCert);
+            X509.TextDump("dump.txt", fnameCert);
+            PrintATextFile("dump.txt");
+            fname = "bob.p7b";
+            Console.WriteLine("Validate certificate path in file {0}...", fname);
+            r = X509.ValidatePath(fname);
+            Console.WriteLine("X509.ValidatePath returns {0} (expecting 0)", r);
+            Debug.Assert(r == 0, "X509.ValidatePath failed");
+
+            certList = "BobRSASignByCarl.cer;CarlRSASelf.cer";
+            certFile = "CarlRSASelf.cer";
+            Console.WriteLine("Validate certificate path in list '{0}' using trusted cert {1}...", certList, certFile);
+            r = X509.ValidatePath(certList, certFile, false);
+            Console.WriteLine("X509.ValidatePath returns {0} (expecting 0)", r);
+            Debug.Assert(r == 0, "X509.ValidatePath failed");
+            Console.WriteLine("CRL (CERTIFICATE REVOCATION LIST) TESTS:");
+            crlFile = "CarlsNew.crl";
+            issuerCert = "CarlRSASelf.cer";
+            prikeyFile = "CarlPrivRSASign.epk";
+            password = "password";
+            certList = "1,2007-12-31; 2, 2009-12-31T12:59:59Z; 66000,2066-01-01; #x0102deadbeef,2010-02-28T01:01:59";
+            r = X509.MakeCRL(crlFile, issuerCert, prikeyFile, password, certList, "", 0);
+            Console.WriteLine("X509.MakeCRL returns {0} (expecting 0)", r);
+            Debug.Assert(r == 0, "X509.MakeCRL failed");
+            Console.WriteLine("Created CRL file {0}", crlFile);
+            crlFile = "Carl_20100401.crl";
+            extns = "thisUpdate=2010-04-01T12:00;nextUpdate=2010-05-01";
+            r = X509.MakeCRL(crlFile, issuerCert, prikeyFile, password, "", extns, X509.Options.SigAlg_Sha256WithRSAEncryption);
+            Console.WriteLine("X509.MakeCRL returns {0} (expecting 0)", r);
+            Debug.Assert(r == 0, "X509.MakeCRL failed");
+            Console.WriteLine("Created CRL file {0}", crlFile);
+
+            r = X509.VerifyCert(crlFile, issuerCert);
+            Console.WriteLine("X509.VerifyCert returns {0} (expecting 0)", r);
+            Debug.Assert(r == 0, "X509.VerifyCert failed");
+            Console.WriteLine("OK, CRL file {0} was signed by owner of {1}", crlFile, issuerCert);
+            crlFile = "rfc3280bis_CRL.crl";
+            certFile = "rfc3280bis_cert1.cer";
+            Console.WriteLine("CRL ={0}", crlFile);
+            Console.WriteLine("Cert={0}", certFile);
+            r = X509.CheckCertInCRL(certFile, crlFile, "", "");
+            Console.WriteLine("X509.CheckCertInCRL returns {0} (expecting 0)", r);
+            Debug.Assert(r == 0, "X509.CheckCertInCRL failed");
+            if (X509.Revoked == r)
+                Console.WriteLine("CERT HAS BEEN REVOKED");
+            else if (0 == r)
+                Console.WriteLine("Cert has not been revoked");
+            else
+                Console.WriteLine("ERROR: {0}: {1}", General.ErrorLookup(r), General.LastError());
+
+            certFile = "rfc3280bis_cert2.cer";
+            Console.WriteLine("CRL ={0}", crlFile);
+            Console.WriteLine("Cert={0}", certFile);
+            r = X509.CheckCertInCRL(certFile, crlFile, "", "");
+            Console.WriteLine("X509.CheckCertInCRL returns {0} (expecting 0)", r);
+            Debug.Assert(r == 1, "X509.CheckCertInCRL failed");
+            if (X509.Revoked == r)
+                Console.WriteLine("CERT HAS BEEN REVOKED");
+            else if (0 == r)
+                Console.WriteLine("Cert has not been revoked");
+            else
+                Console.WriteLine("ERROR: {0}: {1}", General.ErrorLookup(r), General.LastError());
+
+            certFile = "rfc3280bis_cert2.cer";
+            dateStr = "2004-11-19T15:00Z";
+            Console.WriteLine("CRL ={0}", crlFile);
+            Console.WriteLine("Cert={0}", certFile);
+            Console.WriteLine("Date={0}", dateStr);
+            r = X509.CheckCertInCRL(certFile, crlFile, "", dateStr);
+            Console.WriteLine("X509.CheckCertInCRL returns {0} (expecting 0)", r);
+            Debug.Assert(r == 0, "X509.CheckCertInCRL failed");
+            if (X509.Revoked == r)
+                Console.WriteLine("CERT HAS BEEN REVOKED");
+            else if (0 == r)
+                Console.WriteLine("Cert has not been revoked");
+            else
+                Console.WriteLine("ERROR: {0}: {1}", General.ErrorLookup(r), General.LastError());
+
+            Console.WriteLine("OCSP (ONLINE CERTIFICATE STATUS PROTOCOL) TESTS:");
+            issuerCert = "UTNUSERFirst-Object.cer";
+            certFile = "dims.cer";
+            Console.WriteLine("IssuerFile={0}", issuerCert);
+            Console.WriteLine("CertFile={0}", certFile);
+            s = Ocsp.MakeRequest(issuerCert, certFile, 0);
+            Debug.Assert(s.Length > 0, "Ocsp.MakeRequest failed");
+            Console.WriteLine("OCSPRequest={0}", s);
+
+            snStr = "#x 00 FB C7 23 22 8C 8C 80 22 D8 85 92 23 DE E7 06 60";
+            Console.WriteLine("Cert SerialNumber={0}", snStr);
+            s = Ocsp.MakeRequest(issuerCert, snStr, 0);
+            Debug.Assert(s.Length > 0, "Ocsp.MakeRequest failed");
+            Console.WriteLine("OCSPRequest={0}", s);
+            fname = "ocsp_response_ok_dims.dat";
+            issuerCert = "UTNUSERFirst-Object.cer";
+            Console.WriteLine("ResponseFile={0}", fname);
+            Console.WriteLine("IssuerFile={0}", issuerCert);
+            s = Ocsp.ReadResponse(fname, issuerCert);
+            Debug.Assert(s.Length > 0, "Ocsp.ReadResponse failed");
+            Console.WriteLine("OCSPResponse={0}", s);
+
+
+            Console.WriteLine("CMS (S/MIME OBJECTS) TESTS:");
+            fnameInput = "excontent.txt";
+            MakeATextFile(fnameInput, "This is some sample content.");
+            fnameOutput = "cmsalice2bob.p7m";
+            fnameCert = "BobRSASignByCarl.cer";
+            n = Cms.MakeEnvData(fnameOutput, fnameInput, fnameCert, 0);
+            Console.WriteLine("Cms.MakeEnvData returns {0} (expecting 1)", n);
+            Debug.Assert(1 == n, "Cms.MakeEnvData failed");
+
+            fnameOutput = "cmsalice2bob.p7m.txt";
+            fnameInput = "cmsalice2bob.p7m";
+            sbPrivateKey = Rsa.ReadEncPrivateKey("BobPrivRSAEncrypt.epk", "password");
+            Debug.Assert(sbPrivateKey.ToString().Length > 0, "Unable to read Bob's private key");
+            n = Cms.ReadEnvDataToFile(fnameOutput, fnameInput, "", sbPrivateKey.ToString(), 0);
+            Console.WriteLine("Cms.ReadEnvData returns {0} (expecting 0)", n);
+            Debug.Assert(0 == n, "Cms.ReadEnvData failed");
+            s = ReadATextFile(fnameOutput);
+            Console.WriteLine("MSG={0}", s);
+
+            s = Cms.ReadEnvDataToString(fnameInput, "", sbPrivateKey.ToString(), 0);
+            Console.WriteLine("MSG={0}", s);
+            Debug.Assert(s.Length > 0, "Cms.ReadEnvDataToString failed");
+            if (doBigFile)
+            {
+                fname = "bigfile.txt";
+                flen = MakeALargeTextFile(fname);
+                Console.WriteLine("Created *big* file '{0}' of length {1} bytes", fname, flen);
+                fnameInput = fname;
+                fnameOutput = "cmsalice2bob-big.p7m";
+                fnameCert = "BobRSASignByCarl.cer";
+                Console.WriteLine("About to envelope using BigFile option...");
+                n = Cms.MakeEnvData(fnameOutput, fnameInput, fnameCert, Cms.Options.BigFile);
+                Console.WriteLine("Cms.MakeEnvData returns {0} (expecting 1)", n);
+                Debug.Assert(1 == n, "Cms.MakeEnvData failed");
+                fnameInput = fnameOutput;
+                fnameOutput = fnameInput + ".chk.txt";
+                Console.WriteLine("About to decrypt using BigFile option...");
+                n = Cms.ReadEnvDataToFile(fnameOutput, fnameInput, "", sbPrivateKey.ToString(), Cms.Options.BigFile);
+                Console.WriteLine("Cms.ReadEnvData returns {0} (expecting 0)", n);
+                Console.WriteLine("Decrypted file '{0}' is {1} bytes long.", fnameOutput, FileLength(fnameOutput));
+                Debug.Assert(0 == n, "Cms.ReadEnvData failed");
+            }
+
+            sbPrivateKey = Rsa.ReadEncPrivateKey("AlicePrivRSASign.epk", "password");
+            fnameOutput = "BasicSignByAlice.bin";
+            fnameInput = "excontent.txt";
+            fnameCert = "AliceRSASignByCarl.cer";
+            n = Cms.MakeSigData(fnameOutput, fnameInput, fnameCert, sbPrivateKey.ToString(), 0);
+            Console.WriteLine("Cms.MakeSigData returns {0} (expecting 0)", n);
+            Debug.Assert(0 == n, "Cms.MakeSigData failed");
+
+            s = ReadATextFile(fnameInput);
+            fname = "BasicSignByAlice1.bin";
+            n = Cms.MakeSigDataFromString(fname, s, fnameCert, sbPrivateKey.ToString(), 0);
+            Console.WriteLine("Cms.MakeSigDataFromString returns {0} (expecting 0)", n);
+            Debug.Assert(0 == n, "Cms.MakeSigDataFromString failed");
+
+            b = ReadABinaryFile(fnameOutput);
+            bcheck = ReadABinaryFile(fname);
+            Debug.Assert(CompareByteArrays(b, bcheck) == true, "SigData files are not identical");
+            fnameOutput = "DetSignByAlice.bin";
+            hexDigest = "406aec085279ba6e16022d9e0629c0229687dd48";
+            n = Cms.MakeDetachedSig(fnameOutput, hexDigest, fnameCert, sbPrivateKey.ToString(), 0);
+            Console.WriteLine("Cms.MakeDetachedSig returns {0} (expecting 0)", n);
+            Debug.Assert(0 == n, "Cms.MakeDetachedSig failed");
+
+            fnameOutput = "excontent_chk.txt";
+            fnameInput = "BasicSignByAlice.bin";
+            n = Cms.ReadSigDataToFile(fnameOutput, fnameInput);
+            Console.WriteLine("Cms.ReadSigDataToFile returns {0} (expecting 28)", n);
+            Debug.Assert(n >= 0, "Cms.ReadSigDataToFile failed");
+            strCheck = ReadATextFile(fnameOutput);
+            Console.WriteLine("MSG(file)={0}", strCheck);
+            s = Cms.ReadSigDataToString(fnameInput);
+            Console.WriteLine("MSG(string)={0}", s);
+            Debug.Assert(String.Compare(s, strCheck) == 0, "Contents are different");
+            fnameOutput = "BasicSignByAlice_64.txt";
+            fnameInput = "excontent.txt";
+            fnameCert = "AliceRSASignByCarl.cer";
+            n = Cms.MakeSigData(fnameOutput, fnameInput, fnameCert, sbPrivateKey.ToString(), Cms.Options.FormatBase64);
+            Console.WriteLine("Cms.MakeSigData returns {0} (expecting 0)", n);
+            Debug.Assert(0 == n, "Cms.MakeSigData failed");
+
+            fnameInput = fnameOutput;
+            s = Cms.ReadSigDataToString(fnameInput);
+            Console.WriteLine("MSG(string)={0}", s);
+            Debug.Assert(String.Compare(s, strCheck) == 0, "Contents are different");
+
+            fnameOutput = "BasicSignByAlice_attr.bin";
+            fnameInput = "excontent.txt";
+            fnameCert = "AliceRSASignByCarl.cer";
+            n = Cms.MakeSigData(fnameOutput, fnameInput, fnameCert, sbPrivateKey.ToString(), Cms.Options.IncludeAttributes | Cms.Options.AddSignTime);
+            Console.WriteLine("Cms.MakeSigData returns {0} (expecting 0)", n);
+            Debug.Assert(0 == n, "Cms.MakeSigData failed");
+
+            fnameInput = "BasicSignByAlice.bin";
+            fnameCert = "AliceRSASignByCarl.cer";
+            s = Cms.GetSigDataDigest(fnameInput, fnameCert);
+            Console.WriteLine("DIG={0}", s);
+            Debug.Assert(String.Compare(s, hexDigest) == 0, "Hash digests are different");
+
+            fnameInput = "BasicSignByAlice_64.txt";
+            s = Cms.GetSigDataDigest(fnameInput, "");
+            Console.WriteLine("DIG={0}", s);
+            Debug.Assert(String.Compare(s, hexDigest) == 0, "Hash digests are different");
+
+            fnameInput = "BasicSignByAlice.bin";
+            n = Cms.VerifySigData(fnameInput);
+            Console.WriteLine("Cms.VerifySigData returns {0} (expecting 0)", n);
+            Debug.Assert(0 == n, "Cms.VerifySigData failed");
+            fnameInput = "BasicSignByAlice.bin";
+            n = Cms.GetSigHashAlgorithm(fnameInput, fnameCert);
+            Console.WriteLine("Cms.GetSigHashAlgorithm returns {0} (expecting 0 => SHA-1)", n);
+            Debug.Assert(0 == n, "Cms.GetSigHashAlgorithm failed");
+
+            fnameInput = "BasicSignByAlice.bin";
+            fnameCert = "BobRSASignByCarl.cer";
+            n = Cms.GetSigHashAlgorithm(fnameInput, fnameCert);
+            Console.WriteLine("Cms.GetSigHashAlgorithm returns {0} (expecting -ve error code)", n);
+            Console.WriteLine("{0};{1}", General.ErrorLookup(n), General.LastError());
+            Debug.Assert(n < 0, "Cms.GetSigHashAlgorithm succeeded when should have failed!");
+
+            fnameInput = "CarlRSASelf.cer";
+            fnameCert = "AliceRSASignByCarl.cer";
+            n = Cms.GetSigHashAlgorithm(fnameInput, fnameCert);
+            Console.WriteLine("Cms.GetSigHashAlgorithm returns {0} (expecting -ve error code)", n);
+            Console.WriteLine("{0};{1}", General.ErrorLookup(n), General.LastError());
+            Debug.Assert(n < 0, "Cms.GetSigHashAlgorithm succeeded when should have failed!");
+
+            fnameOutput = "BasicSignByAlice_MD5.txt";
+            fnameInput = "excontent.txt";
+            fnameCert = "AliceRSASignByCarl.cer";
+            n = Cms.MakeSigData(fnameOutput, fnameInput, fnameCert, sbPrivateKey.ToString(),
+              HashAlgorithm.Md5, Cms.SigDataOptions.FormatBase64);
+            Console.WriteLine("Cms.MakeSigData returns {0} (expecting 0)", n);
+            Debug.Assert(0 == n, "Cms.MakeSigData failed");
+
+            fnameInput = fnameOutput;
+            n = Cms.GetSigHashAlgorithm(fnameInput, fnameCert);
+            Console.WriteLine("Cms.GetSigHashAlgorithm returns {0} (expecting 1 => MD5)", n);
+            Debug.Assert(1 == n, "Cms.GetSigHashAlgorithm failed");
+
+            fnameOutput = "BasicSignByAlice_SHA256.bin";
+            fnameInput = "excontent.txt";
+            fnameCert = "AliceRSASignByCarl.cer";
+            n = Cms.MakeSigData(fnameOutput, fnameInput, fnameCert, sbPrivateKey.ToString(), HashAlgorithm.Sha256, 0);
+            Console.WriteLine("Cms.MakeSigData returns {0} (expecting 0)", n);
+            Debug.Assert(0 == n, "Cms.MakeSigData failed");
+
+            fnameInput = fnameOutput;
+            s = Cms.QuerySigData(fnameInput, "digestAlgorithm");
+            Console.WriteLine("digestAlgorithm={0}", s);
+
+            n = Cms.VerifySigData(fnameInput, fnameCert);
+            Console.WriteLine("Cms.VerifySigData returns {0} (expecting 0)", n);
+            Debug.Assert(0 == n, "Cms.VerifySigData failed");
+            s = ReadATextFile("excontent.txt");
+            fname = "BasicSignByAlice_224.bin";
+            n = Cms.MakeSigDataFromString(fname, s, fnameCert, sbPrivateKey.ToString(),
+                HashAlgorithm.Sha224, Cms.SigDataOptions.IncludeAttributes | Cms.SigDataOptions.AddSignTime);
+            Console.WriteLine("Cms.MakeSigDataFromString returns {0} (expecting 0)", n);
+            Debug.Assert(0 == n, "Cms.MakeSigDataFromString failed");
+
+            fnameInput = fname;
+            Console.WriteLine("For file '{0}':", fnameInput);
+            query = "digestAlgorithm";
+            s = Cms.QuerySigData(fnameInput, query);
+            Console.WriteLine("{0}={1}", query, s);
+            query = "HASsignedAttributes";
+            s = Cms.QuerySigData(fnameInput, query);
+            Console.WriteLine("{0}={1}", query, s);
+            query = "signingTime";
+            s = Cms.QuerySigData(fnameInput, query);
+            Console.WriteLine("{0}={1}", query, s);
+
+            n = Cms.VerifySigData(fnameInput);
+            Console.WriteLine("Cms.VerifySigData returns {0} (expecting 0)", n);
+            Debug.Assert(0 == n, "Cms.VerifySigData failed");
+
+            fnameOutput = "Alice_new.p7c";
+            certList = "AliceRSASignByCarl.cer" + ";" + "CarlRSASelf.cer";
+            n = Cms.MakeSigData(fnameOutput, "", certList, "", Cms.Options.CertsOnly);
+            Console.WriteLine("Cms.MakeSigData(certs-only) returns {0} (expecting 0)", n);
+            Debug.Assert(0 == n, "Cms.MakeSigData failed");
+
+            fnameInput = "BasicSignByAlice_attr.bin";
+            query = "version";
+            s = Cms.QuerySigData(fnameInput, query);
+            Console.WriteLine("Cms.QuerySigData('{0}') returns '{1}'", query, s);
+            Debug.Assert(s.Length > 0, "QuerySigData failed");
+            query = "digestAlgorithm";
+            s = Cms.QuerySigData(fnameInput, query);
+            Console.WriteLine("Cms.QuerySigData('{0}') returns '{1}'", query, s);
+            Debug.Assert(s.Length > 0, "QuerySigData failed");
+            query = "signingTime";
+            s = Cms.QuerySigData(fnameInput, query);
+            Console.WriteLine("Cms.QuerySigData('{0}') returns '{1}'", query, s);
+            Debug.Assert(s.Length > 0, "QuerySigData failed");
+
+            Console.WriteLine("HASH DIGEST TESTS:");
+            s = Hash.HexFromString("abc", HashAlgorithm.Sha1);
+            Console.WriteLine("SHA-1('abc')  ={0}", s);
+            s = Hash.HexFromString("abc", HashAlgorithm.Md5);
+            Console.WriteLine("MD5('abc')    ={0}", s);
+            s = Hash.HexFromString("abc", HashAlgorithm.Md2);
+            Console.WriteLine("MD2('abc')    ={0}", s);
+            s = Hash.HexFromString("abc", HashAlgorithm.Sha256);
+            Console.WriteLine("SHA-256('abc')=
+{0}", s);
+            s = Hash.HexFromString("abc", HashAlgorithm.Sha384);
+            Console.WriteLine("SHA-384('abc')=
+{0}", s);
+            s = Hash.HexFromString("abc", HashAlgorithm.Sha512);
+            Console.WriteLine("SHA-512('abc')=
+{0}", s);
+            fnameInput = "hello.txt";
+            MakeATextFile(fnameInput, "hello world
+");
+            s = Hash.HexFromFile(fnameInput, HashAlgorithm.Sha1);
+            Console.WriteLine("SHA1('hello world+CR+LF')={0}", s);
+            s = Hash.HexFromTextFile(fnameInput, HashAlgorithm.Sha1);
+            Console.WriteLine("SHA1('hello world+LF')=   {0}", s);
+            Console.WriteLine("HMAC TESTS:");
+
+            Console.WriteLine("Test case 2 from RFC 2202 and RFC 4231...");
+            arrKey = System.Text.Encoding.Default.GetBytes("Jefe");
+            msg = System.Text.Encoding.Default.GetBytes("what do ya want for nothing?");
+            s = Hmac.HexFromBytes(msg, arrKey, HashAlgorithm.Sha1);
+            Console.WriteLine("HMAC-SHA-1('WDYWFN?','Jefe')={0}", s);
+            strCheck = "effcdf6ae5eb2fa2d27416d5f184df9c259a7c79";
+            Console.WriteLine("CORRECT=                     {0}", strCheck);
+            Debug.Assert(String.Compare(strCheck, s, true) == 0, "HMAC does not match test vector");
+            s = Hmac.HexFromBytes(msg, arrKey, HashAlgorithm.Sha256);
+            Console.WriteLine("HMAC-SHA-256('WDYWFN?','Jefe')=
+{0}", s);
+            strCheck = "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843";
+            Console.WriteLine("CORRECT=
+{0}", strCheck);
+            Debug.Assert(String.Compare(strCheck, s, true) == 0, "HMAC does not match test vector");
+
+            Console.WriteLine("Test case 4 from RFC 2202 and RFC 4231...");
+            arrKey = new byte[25];
+            for (i = 0; i < 25; i++)
+                arrKey[i] = (byte)(i + 1);
+            Console.WriteLine("Key={0}", Cnv.ToHex(arrKey));
+            msg = new byte[50];
+            for (i = 0; i < 50; i++)
+                msg[i] = 0xcd;
+            Console.WriteLine("Msg={0}", Cnv.ToHex(msg));
+            b = Hmac.BytesFromBytes(msg, arrKey, HashAlgorithm.Sha1);
+            Console.WriteLine("HMAC-SHA-1(50(0xcd), 0x0102..19)={0}", Cnv.ToHex(b));
+            strCheck = "4c9007f4026250c6bc8414f9bf50c86c2d7235da";
+            Console.WriteLine("CORRECT=                         {0}", strCheck);
+            Debug.Assert(String.Compare(strCheck, Cnv.ToHex(b), true) == 0, "HMAC does not match test vector");
+            b = Hmac.BytesFromBytes(msg, arrKey, HashAlgorithm.Sha256);
+            Console.WriteLine("HMAC-SHA-256(50(0xcd), 0x0102..19)=
+{0}

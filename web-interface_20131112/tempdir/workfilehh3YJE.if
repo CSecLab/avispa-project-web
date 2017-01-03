@@ -1,0 +1,141 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilehh3YJE
+
+section signature:
+
+state_serviceProvider: agent * agent * agent * public_key * protocol_id * nat * text * text * set(agent) * nat -> fact
+state_identityProvider: agent * agent * agent * public_key * protocol_id * text * nat * nat -> fact
+state_client: agent * agent * agent * public_key * protocol_id * nat * text * text * nat -> fact
+
+
+section types:
+
+MGoal, start: message
+Set_43, Dummy_Set_43: set(agent)
+KIdP, kidp, ki: public_key
+Dummy_State, 3, SID, SID2, 5, SID1, State, 8, 6, 4, 2, 1, 0, 9, 7: nat
+URI, uri_i, uri_sp, c_sp_resource, sp_c_uri, Dummy_URI, dummy_pid: protocol_id
+C, IdP, SP, A2Goal, A1Goal, c, idp, sp, i: agent
+set_107, set_101: set
+Dummy_ID, dummy_nonce, ID, Resource, n, Dummy_Resource: text
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(c).
+ iknows(sp).
+ iknows(idp).
+ iknows(kidp).
+ iknows(ki).
+ iknows(inv(ki)).
+ iknows(n).
+ iknows(uri_i).
+ iknows(uri_sp).
+ iknows(c2i).
+ iknows(i2c).
+ iknows(c2sp).
+ iknows(sp2c).
+ iknows(c2idp_s1).
+ iknows(idp2c_s1).
+ iknows(c2idp_s2).
+ iknows(idp2c_s2).
+ iknows(i).
+ unilateral_conf_auth(c,sp,c2sp,sp2c).
+ link(c2idp_s2,idp2c_s2).
+ confidential(c,idp2c_s2).
+ authentic(idp,idp2c_s2).
+ weakly_authentic(c2idp_s2).
+ confidential(idp,c2idp_s2).
+ unilateral_conf_auth(c,i,c2i,i2c).
+ link(c2idp_s1,idp2c_s1).
+ confidential(c,idp2c_s1).
+ authentic(idp,idp2c_s1).
+ weakly_authentic(c2idp_s1).
+ confidential(idp,c2idp_s1).
+ state_client(c,idp,i,kidp,uri_i,0,dummy_nonce,dummy_nonce,3).
+ state_identityProvider(idp,c,i,kidp,dummy_pid,dummy_nonce,7,5).
+ state_client(c,idp,sp,kidp,uri_sp,0,dummy_nonce,dummy_nonce,7).
+ state_serviceProvider(sp,c,idp,kidp,uri_sp,1,dummy_nonce,dummy_nonce,set_107,8).
+ state_identityProvider(idp,c,sp,kidp,dummy_pid,dummy_nonce,7,9)
+
+
+section rules:
+
+step step_0 (C,IdP,SP,KIdP,URI,ID,Resource,SID) :=
+ state_client(C,IdP,SP,KIdP,URI,0,ID,Resource,SID).
+ iknows(start)
+ =>
+ state_client(C,IdP,SP,KIdP,URI,2,ID,Resource,SID).
+ iknows(Ch_C2SP).
+ witness(C,SP,sp_c_uri,URI)
+
+step step_1 (C,IdP,SP,KIdP,URI,Dummy_ID,Resource,SID) :=
+ state_client(C,IdP,SP,KIdP,URI,2,Dummy_ID,Resource,SID).
+ iknows(Ch_SP2C)
+ =>
+ state_client(C,IdP,SP,KIdP,URI,4,Dummy_ID,Resource,SID).
+ iknows(Ch_C2IdP)
+
+step step_2 (C,IdP,SP,KIdP,URI,Dummy_ID,Resource,SID) :=
+ state_client(C,IdP,SP,KIdP,URI,4,Dummy_ID,Resource,SID).
+ iknows(Ch_IdP2C)
+ =>
+ state_client(C,IdP,SP,KIdP,URI,6,Dummy_ID,Resource,SID).
+ iknows(Ch_C2SP)
+
+step step_3 (C,IdP,SP,KIdP,URI,ID,Dummy_Resource,SID) :=
+ state_client(C,IdP,SP,KIdP,URI,6,ID,Dummy_Resource,SID).
+ iknows(Ch_SP2C)
+ =>
+ state_client(C,IdP,SP,KIdP,URI,8,ID,Dummy_Resource,SID)
+
+step step_4 (IdP,C,SP,KIdP,Dummy_URI,Dummy_ID,SID) :=
+ state_identityProvider(IdP,C,SP,KIdP,Dummy_URI,Dummy_ID,7,SID).
+ iknows(Ch_C2IdP)
+ =>
+ state_identityProvider(IdP,C,SP,KIdP,Dummy_URI,Dummy_ID,9,SID).
+ iknows(Ch_IdP2C)
+
+step step_5 (SP,C,IdP,KIdP,URI,Dummy_ID,Resource,Set_43,SID,ID) :=
+ state_serviceProvider(SP,C,IdP,KIdP,URI,1,Dummy_ID,Resource,Set_43,SID).
+ iknows(Ch_C2SP)
+=[exists ID]=>
+ state_serviceProvider(SP,C,IdP,KIdP,URI,3,ID,Resource,Set_43,SID).
+ iknows(Ch_SP2C)
+
+step step_6 (SP,C,IdP,KIdP,URI,Dummy_ID,Dummy_Resource,Dummy_Set_43,SID,Resource) :=
+ state_serviceProvider(SP,C,IdP,KIdP,URI,3,Dummy_ID,Dummy_Resource,Dummy_Set_43,SID).
+ iknows(Ch_C2SP)
+=[exists Resource]=>
+ state_serviceProvider(SP,C,IdP,KIdP,URI,5,Dummy_ID,Resource,Dummy_Set_43,SID).
+ iknows(Ch_SP2C).
+ request(SP,C,sp_c_uri,URI,SID).
+ contains(C,Dummy_Set_43).
+ contains(SP,Dummy_Set_43)
+
+
+section properties:
+
+property authentication_on_sp_c_uri (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,sp_c_uri,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,sp_c_uri,MGoal))
+     /\ ((request(A1Goal,A2Goal,sp_c_uri,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,sp_c_uri,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state authentication_on_sp_c_uri (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,sp_c_uri,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,sp_c_uri,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_sp_c_uri (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,sp_c_uri,MGoal,SID1).
+ request(A1Goal,A2Goal,sp_c_uri,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

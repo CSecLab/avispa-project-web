@@ -1,0 +1,102 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileSqRhsy
+
+section signature:
+
+state_responder: agent * agent * public_key * public_key * hash_func * nat * text * text * text * text * text * text * text * set(text) * set(text) * set(agent) * nat -> fact
+state_initiator: agent * agent * public_key * public_key * hash_func * nat * text * text * text * text * text * text * set(text) * set(text) * set(agent) * nat -> fact
+
+
+section types:
+
+a_b, b_a, sub2, kab: protocol_id
+start, MGoal: message
+UIDA, SK, TM, TK, TS, R, Kba, Dummy_Kba, Dummy_SK, Dummy_R, Dummy_TS, Dummy_TK, dummy_nonce, uaid: text
+Hash, h: hash_func
+APubKey, BPubKey, aPubKey, bPubKey: public_key
+A, B, a, b, i: agent
+Dummy_Set_51, Dummy_Set_32, Set_32, ASGoal, Set_51: set(agent)
+6, State, 4, SID, Dummy_State, 3, 1, 0, 7: nat
+Set_49, Dummy_Set_50, Dummy_Set_49, Dummy_Set_31, Dummy_Set_29, Set_31, Set_29, Set_50: set(text)
+set_99, set_98, set_96, set_95, set_94, set_87, set_86, set_85, set_73, set_72, set_71, set_100: set
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(h).
+ iknows(uaid).
+ iknows(i).
+ state_initiator(a,b,aPubKey,bPubKey,h,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_71,set_72,set_73,3).
+ state_responder(b,a,aPubKey,bPubKey,h,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_85,set_86,set_87,4).
+ state_initiator(a,b,aPubKey,bPubKey,h,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_94,set_95,set_96,6).
+ state_responder(b,a,aPubKey,bPubKey,h,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_98,set_99,set_100,7)
+
+
+section rules:
+
+step step_0 (A,B,APubKey,BPubKey,Hash,UIDA,SK,Dummy_TK,Dummy_TS,Dummy_R,Kba,Set_29,Set_31,Set_32,SID,TS,R) :=
+ state_initiator(A,B,APubKey,BPubKey,Hash,0,UIDA,SK,Dummy_TK,Dummy_TS,Dummy_R,Kba,Set_29,Set_31,Set_32,SID).
+ iknows(start)
+=[exists TS,R]=>
+ state_initiator(A,B,APubKey,BPubKey,Hash,1,UIDA,SK,pair(Dummy_R,apply(Hash,UIDA)),TS,R,Kba,Set_29,Set_31,Set_32,SID).
+ iknows(crypt(APubKey,pair(Dummy_TS,pair(Dummy_TK,UIDA))))
+
+step step_1 (A,B,APubKey,BPubKey,Hash,UIDA,Dummy_SK,TK,TS,R,Kba,Dummy_Set_29,Dummy_Set_31,Dummy_Set_32,SID) :=
+ state_initiator(A,B,APubKey,BPubKey,Hash,1,UIDA,Dummy_SK,TK,TS,R,Kba,Dummy_Set_29,Dummy_Set_31,Dummy_Set_32,SID).
+ iknows(crypt(APubKey,Kba))
+ =>
+ state_initiator(A,B,APubKey,BPubKey,Hash,1,UIDA,pair(kab,TS),TK,TS,R,Kba,Dummy_Set_29,Dummy_Set_31,Dummy_Set_32,SID).
+ secret(Dummy_Set_29,kab,A).
+ secret(Dummy_Set_31,sub2,Dummy_Set_32).
+ contains(Kba,Dummy_Set_29).
+ contains(pair(kab,TS),Dummy_Set_31).
+ contains(A,Dummy_Set_32).
+ contains(B,Dummy_Set_32)
+
+step step_2 (B,A,APubKey,BPubKey,Hash,UIDA,SK,TM,TK,TS,Dummy_R,Dummy_Kba,Dummy_Set_49,Set_50,Set_51,SID,R) :=
+ state_responder(B,A,APubKey,BPubKey,Hash,0,UIDA,SK,TM,TK,TS,Dummy_R,Dummy_Kba,Dummy_Set_49,Set_50,Set_51,SID).
+ iknows(crypt(APubKey,pair(TS,pair(TK,UIDA))))
+=[exists R]=>
+ state_responder(B,A,APubKey,BPubKey,Hash,1,UIDA,SK,TM,TK,TS,R,pair(Dummy_R,apply(Hash,pair(TK,UIDA))),Dummy_Set_49,Set_50,Set_51,SID).
+ secret(Dummy_Set_49,sub2,B).
+ iknows(crypt(BPubKey,Dummy_Kba)).
+ contains(pair(Dummy_R,apply(Hash,pair(TK,UIDA))),Dummy_Set_49)
+
+step step_3 (B,A,APubKey,BPubKey,Hash,UIDA,Dummy_SK,TM,TK,TS,R,Kba,Set_49,Dummy_Set_50,Dummy_Set_51,SID) :=
+ state_responder(B,A,APubKey,BPubKey,Hash,1,UIDA,Dummy_SK,TM,TK,TS,R,Kba,Set_49,Dummy_Set_50,Dummy_Set_51,SID).
+ iknows(scrypt(TK,kab))
+ =>
+ state_responder(B,A,APubKey,BPubKey,Hash,1,UIDA,pair(kab,TS),TM,TK,TS,R,Kba,Set_49,Dummy_Set_50,Dummy_Set_51,SID).
+ iknows(scrypt(TK,Dummy_SK)).
+ secret(Dummy_Set_50,sub2,Dummy_Set_51).
+ contains(pair(kab,TS),Dummy_Set_50).
+ contains(A,Dummy_Set_51).
+ contains(B,Dummy_Set_51)
+
+
+section properties:
+
+property secrecy_of_sub2 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sub2,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_kab (MGoal,ASGoal) :=
+ [] ((secret(MGoal,kab,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_sub2 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sub2,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_kab (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,kab,ASGoal) &
+ not(contains(i,ASGoal))
+

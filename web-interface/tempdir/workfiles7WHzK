@@ -1,0 +1,124 @@
+role alice (A, S, B: agent,             
+  Kas : symmetric_key,      
+  SND_BA, RCV_BA : channel (dy)) 
+played_by A def=
+
+  local State : nat, 
+    Na, Nb: text,
+    Kab: symmetric_key
+
+  init State := 1
+
+  transition  
+    1.  State   = 1 /\ RCV_BA(start) =|> 
+        State' := 2 /\ Na' := new() 
+                    /\ SND_BA(A.Na'.B.{A.Na'.B}_Kas)
+
+    2.  State   = 2 /\ RCV_BA({Na.Nb'.B.Kab'}_Kas.{Na}_Kab') =|> 
+        State' := 3 /\ SND_BA({Nb'}_Kab')
+                    /\ witness(A, B, auth_nb, Nb')
+                    /\ request(A, B, auth_na, Na)
+
+end role
+
+%%--------------------------------------------------
+
+role server (A, S, B : agent,
+  Kas, Kbs : symmetric_key,
+  SND_BS, RCV_BS: channel(dy))
+played_by S def=
+
+  local State : nat,
+    Na, Nb : text,
+    Kab : symmetric_key
+
+  const sec_kab : protocol_id
+
+  init State := 1
+
+  transition
+    1.  State   = 1 /\ RCV_BS(A.Na'.B.{A.Na'.B}_Kas.{Na'.Nb'.A.B}_Kbs) =|>
+        State' := 2 /\ Kab' := new()
+                    /\ SND_BS({Na'.Nb'.A.Kab'}_Kbs.{Na'.Nb'.B.Kab'}_Kas)
+                    /\ secret(Kab', sec_kab, {A, B, S})
+
+end role
+
+%%--------------------------------------------------
+
+role bob(A, S, B: agent,      
+  Kbs : symmetric_key,      
+  SND_SB, RCV_SB, SND_AB, RCV_AB : channel (dy)) 
+played_by B def=
+
+  local State : nat, 
+    Na, Nb : text,
+    Kab : symmetric_key,
+    X : {agent.text.agent}_symmetric_key,
+    Y : {text.text.agent.symmetric_key}_symmetric_key
+
+  init State := 1
+
+  transition 
+    1.  State   = 1 /\ RCV_AB(A.Na'.B.X') =|> 
+        State' := 2 /\ Nb' := new() 
+                    /\ SND_SB(A.Na'.B.X'.{Na'.Nb'.A.B}_Kbs)
+                    /\ witness(B, A, auth_na, Na')
+
+    2.  State   = 2 /\ RCV_SB({Na.Nb.A.Kab'}_Kbs.Y') =|> 
+        State' := 3 /\ SND_AB(Y'.{Na}_Kab') 
+
+    3.  State   = 3 /\ RCV_AB({Nb}_Kab) =|>
+        State' := 4 /\ request(B, A, auth_nb, Nb)
+
+end role
+
+%%--------------------------------------------------
+
+role session(A, S, B: agent, 
+      Kas, Kbs: symmetric_key) 
+def=
+
+  local SBA, RBA,
+        SBS, RBS,
+        SAB, RAB,
+        SSB, RSB : channel (dy)
+
+  composition 
+    alice (A, S, B, Kas, SBA, RBA)
+    /\ server(A, S, B, Kas, Kbs, SBS, RBS)
+    /\ bob (A, S, B, Kbs, SSB, RSB, SAB, RAB)
+
+end role
+
+%%---------------------------------------------------
+
+role environment() def=
+
+    const a, s, b        : agent,
+      kas, kbs, ki   : symmetric_key,
+      auth_na, auth_nb : protocol_id
+
+    intruder_knowledge = {a, b, s, ki}
+
+    composition
+
+         session(a, s, b, kas, kbs)
+      /\ session(a, s, i, kas, ki)
+      /\ session(i, s, b, ki, kbs)
+
+end role
+
+%%---------------------------------------------------
+
+goal
+
+  secrecy_of sec_kab
+  authentication_on auth_na
+  authentication_on auth_nb
+
+end goal
+
+
+
+environment()

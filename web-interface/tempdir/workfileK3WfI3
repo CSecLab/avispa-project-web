@@ -1,0 +1,121 @@
+role ue(
+	UE,AP: agent,
+	PK_ue,PK_ap: public_key,
+	P: text,
+                  Add,Mul,H2,H3: hash_func,
+	SND,RCV: channel(dy))
+   played_by UE def=
+     local   
+         N_a,N_b: text,
+         T_ue,T_ap: hash(text.text),
+         Kam1,Kma1: hash(hash(inv(public_key).hash(text.text)).
+                                           hash(text.public_key)),
+         Kam2,Kma2: hash(text.hash(text.text)),
+         PTK1,PTK2: hash(agent.agent.hash(text.text).hash(text.text).
+                                         hash(hash(inv(public_key).
+                                                    hash(text.text)).hash(text.public_key)).
+                                         hash(text.hash(text.text))),
+         Aut_ap,Ver_ap,
+         Aut_ue,Ver_ue: hash(hash(agent.agent.hash(text.text).hash(text.text).
+                                                          hash(hash(inv(public_key).hash(text.text)).
+                                                                    hash(text.public_key)).
+                                                           hash(text.hash(text.text))).
+                                               hash(text.text)),
+         State: nat
+    init
+       State :=0
+   transition
+     0. State = 0 /\ RCV(start) =|>
+       State' := 2 /\ N_a' := new()
+                           /\ T_ue':=Mul(N_a'.P)
+                           /\ SND(UE.T_ue')
+     2. State = 2 /\ RCV(AP.T_ap'.Aut_ap')
+                           /\ Aut_ap' =H3(PTK1'.T_ap')
+                           /\ PTK1' =H2(UE.AP.T_ue.T_ap'.Kam1'.Kam2')
+                           /\ Kam1' =Add(Mul(inv(PK_ap).T_ue').Mul(N_b'.PK_ue))
+	        /\ Kam2' =Mul(N_b'.T_ue)=|>
+        State':= 4 /\ Kma1' :=Add(Mul(inv(PK_ue).T_ap).Mul(N_a.PK_ap))
+	        /\ Kma2' :=Mul(N_a.T_ap)
+                           /\ PTK2' :=H2(UE.AP.T_ue.T_ap.Kma1'.Kma2')
+                           /\ Ver_ap' :=H3(PTK2'.T_ap)
+                           /\ secret(PTK2',sec_PTK2,{UE,AP}) 
+                               %% PTK is secret between UE and AP2
+        	         /\ request(UE,AP,ue_ap,Ver_ap') 
+                               %% UE authenticates AP2
+                           /\ Aut_ue' :=H3(PTK2'.T_ue)
+                           /\ SND(Aut_ue') 	
+                           /\ witness(UE,AP,ap_ue,Aut_ue')
+                              %% AP2 authenticates UE
+end role
+role ap(
+	UE,AP: agent,
+	PK_ue,PK_ap : public_key,
+	P: text,
+	Add,Mul,H2,H3: hash_func,
+	SND,RCV :channel(dy))
+   played_by AP def=
+     local   
+         N_a,N_b: text,
+         T_ue,T_ap: hash(text.text),
+         Kam1,Kma1: hash(hash(inv(public_key).hash(text.text)).hash(text.public_key)),
+         Kam2,Kma2: hash(text.hash(text.text)),
+         PTK1,PTK2:hash(agent.agent.hash(text.text).hash(text.text).hash(hash(inv(public_key).hash(text.text)).hash(text.public_key)).hash(text.hash(text.text))),
+         Aut_ap,Ver_ap,Aut_ue,Ver_ue: hash( hash(agent.agent.hash(text.text).hash(text.text).hash(hash(inv(public_key).hash(text.text)).hash(text.public_key)).hash(text.hash(text.text))).hash(text.text)),
+         State: nat
+    init
+        State:=1
+   transition
+     1. State = 1 /\ RCV(UE.T_ue') =|>
+        State':= 3 /\ N_b' := new()
+                         /\ T_ap' :=Mul(N_b'.P) 
+	         /\ Kam1' :=Add(Mul(inv(PK_ap).T_ue).Mul(N_b.PK_ue))
+	         /\ Kam2' :=Mul(N_b'.T_ue)
+                         /\ PTK1' :=H2(UE.AP.T_ue.T_ap'.Kam1'.Kam2')
+                         /\ Aut_ap' :=H3(PTK1'.T_ap')
+                         /\ SND(AP.T_ap'.Aut_ap' )
+                         /\ secret(PTK1',sec_PTK1,{UE,AP})            
+	         /\ witness(AP,UE,ue_ap,Aut_ap')
+     2. State = 3 /\ RCV(Aut_ue')
+                         /\ Aut_ue' =H3(PTK2'.T_ue)
+                         /\ PTK2' =H2(UE.AP.T_ue.T_ap.Kma1'.Kma2')
+                         /\ Kma1' =Add(Mul(inv(PK_ue).T_ap).Mul(N_a.PK_ap))
+	         /\ Kma2' =Mul(N_a.T_ap)=|>
+        State':= 5 /\ Ver_ue' :=H3(PTK1.T_ue)
+                         /\ request(AP,UE,ap_ue,Ver_ue')
+end role
+
+role session(
+	     UE,AP :agent,
+	     PK_ue,PK_ap :public_key,
+	     P :text,
+	     Add,Mul,H2,H3 :hash_func)
+   def=
+    local 
+        SUE,RUE,SAP,RAP:channel(dy)
+    composition
+	ue(UE,AP,PK_ue,PK_ap,P,Add,Mul,H2,H3,SUE,RUE)
+               /\ap(UE,AP,PK_ue,PK_ap,P,Add,Mul,H2,H3,SAP,RAP)
+end role
+
+role environment()
+  def=
+     const 
+        a,b,i:agent,
+        ka,kb,ki :public_key,
+        p:text,
+        add,mul,h2,h3:hash_func,
+        sec_PTK1,sec_PTK2,ap_ue,ue_ap:protocol_id
+        intruder_knowledge={a,b,i,ka,kb,ki,p,add,mul,h2,h3,inv(ki)} 
+  composition
+      session(a,b,ka,kb,p,add,mul,h2,h3) 
+    /\session(a,i,ka,ki,p,add,mul,h2,h3)
+    /\session(i,b,ki,kb,p,add,mul,h2,h3)
+end role
+
+goal
+   secrecy_of sec_PTK1,sec_PTK2
+   authentication_on ap_ue
+   authentication_on ue_ap
+end goal
+
+environment()

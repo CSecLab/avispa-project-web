@@ -1,0 +1,97 @@
+role ue(
+            UE,BS:agent,
+            Auk:symmetric_key,
+            P:text,
+            Mul:hash_func,
+            SND,RCV:channel(dy))
+played_by UE def=
+  local  State :nat,
+           ID:text,
+           N_ue,N_bs:text,
+           PTK1:symmetric_key,
+           P1,P2:hash(text.text),
+           Exd1,Exd2:message,
+           Mac1:{text.hash(text.text).text}_symmetric_key,
+           Mac2:{hash(text.text).text}_symmetric_key
+   init  State :=0
+transition
+   1.State=0/\RCV(start)=|>
+     State':=1/\Exd1':=new()
+                   /\ID':=new()
+                   /\N_ue':=new()
+                   /\P1':=Mul(N_ue'.P)
+                   /\Mac1':={ID'.P1'.Exd1'}_Auk
+                   /\SND(ID'.P1'.Exd1'.Mac1')
+                   /\witness(UE,BS,bs_ue_mac,Mac1')
+                     %%eNodeB2对ue的认证
+   3.State=4/\RCV(P2'.Exd2'.Mac2')
+                   /\Mac2'={P2'.Exd2'}_Auk=|>
+    State':=8/\PTK1':=Mul(N_ue.P2)
+                  /\secret(PTK1',ptk1,{UE,BS})
+                    %%PTK的保密性，只被UE和eNodeB2所知
+                  /\request(UE,BS,ue_bs_mac,Mac2')
+                    %%UE对eNodeB2的认证
+end role
+
+role bs(
+             UE,BS:agent,
+             Auk:symmetric_key,
+             P:text,
+             Mul:hash_func,
+             SND,RCV:channel(dy))
+played_by BS def=
+  local  State :nat,
+           ID:text,
+           N_ue,N_bs:text,
+           PTK2:symmetric_key,
+           P1,P2:hash(text.text),
+           Exd1,Exd2:message,
+           Mac1:{text.hash(text.text).text}_symmetric_key,
+           Mac2:{hash(text.text).text}_symmetric_key
+    init  State :=2
+transition
+   1.State=2/\RCV(ID'.P1'.Exd1'.Mac1')
+                   /\Mac1'={ID'.P1'.Exd1'}_Auk=|>
+    State':=3 /\request(BS,UE,bs_ue_mac,Mac1')
+                  /\Exd2':=new()
+                  /\N_bs':=new()
+                  /\P2':=Mul(N_bs'.P)
+                  /\Mac2':={P2'.Exd2'}_Auk
+                  /\SND(P2'.Exd2'.Mac2')
+                  /\PTK2':=Mul(N_bs'.P1)
+                  /\witness(BS,UE,ue_bs_mac,Mac2')
+                  /\secret(PTK2',ptk2,{UE,BS})
+end role
+
+role session(
+	  UE,BS:agent,
+	  Auk:symmetric_key,
+                  P:text,
+	  Mul:hash_func)
+def=
+  local  S,R:channel(dy)
+  composition
+	   ue(UE,BS,Auk,P,Mul,S,R)
+	/\bs(UE,BS,Auk,P,Mul, S,R)              
+end role
+
+role environment()
+def=
+   const u,b:agent,
+        k,ki:symmetric_key,
+        p:text,
+        m:hash_func,
+        ue_bs_mac,bs_ue_mac, ptk1,ptk2:protocol_id
+        intruder_knowledge={u,b,ki,p,m}
+  composition
+	session(u,b,k,p,m)
+	/\session(i,b,ki,p,m)
+	/\session(u,i,ki,p,m)
+end role
+
+goal
+  authentication_on ue_bs_mac,bs_ue_mac
+  secrecy_of ptk1,ptk2
+end goal
+
+environment()

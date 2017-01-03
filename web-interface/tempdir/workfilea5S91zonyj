@@ -1,0 +1,99 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role gateway (USC,N,GW:agent ,SKU,SKN:symmetric_key, KGW,IDN:text,
+H:hash_func, Snd,Rcv:channel(dy))
+played_by GW
+def=
+local State:nat,IDU,VU,BU,RU,TU,PU,XU,TN,QN,NN,
+RN,CIDU,CIDN,NU,RNnew,RUnew,PhiU,PhiN,ThetaU,
+ThetaN,GammaGW, Start:text ,
+EU,CN,CU,GU,KN,KU, AlphaU,CNnew,CUnew,BetaN,BetaU,DataU:message
+const privKGW,privIDN,privIDU,privKN_CN,privCNnew_RNnew, privCUnew_RUnew,privUSCparam,privPWU,authGW_N,authGW_USC: protocol_id
+init State:=0
+transition
+1. State =0 /\ Rcv(start) =|> State':= 1 /\ KN':=H(IDN.KGW) /\ RN':=new() /\ CN':=H(RN'.H(KGW)) /\ Snd({IDN.KN'.CN'.RN'}_SKN) 
+
+2. State =1 /\ Rcv({IDU'.EU'}_SKU) =|>
+State':=2 /\ RU':=new()/\ KU':=H(IDU'.KGW) /\ VU':=xor(KU',H(IDU'.EU')) /\ BU':=xor(KU',H(H(KGW).EU')) /\ GU':=H(KU') /\ CU':=H(RU'.H(KGW)) /\
+Snd({VU'.BU'.GU'.CU'.RU'}_SKU)
+
+3.State = 2 /\ Rcv(DataU'.QN'.RN'.CIDN'.TN') =|> 
+State':=3 
+
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role node (USC,N,GW:agent, SKN:symmetric_key, H:hash_func, 
+Snd,Rcv:channel(dy))
+played_by N
+def=
+local State:nat,KGW,VU,BU,RU,KSU,TU,PU,XU,TN,IDN,
+IDU,QN,NN,CIDU,CIDN,NU,RN,RNnew,RUnew,PhiU,
+PhiN,ThetaU,ThetaN,GammaGW,Start:text,
+EU,CN,CU,GU,KN,KU, AlphaU,CNnew,CUnew, BetaN,BetaU,KS,DataU:message
+const privKGW,privIDN,privIDU,privKN_CN,privCNnew_RNnew,
+privCUnew_RUnew,privUSCparam,privPWU,authGW_N,authGW_USC: protocol_id
+init State:=0
+transition
+1. State =0 /\ Rcv({IDN'.KN'.CN'.RN'}_SKN) =|> State':=1  /\ Snd(Start)
+ 2. State =1 /\  Rcv(DataU') =|>
+State' :=2 /\
+NN':=new() /\ TN':=new() /\ 
+CIDN':=xor(IDN,H(CN.TN')) /\ QN':=xor(KN,NN') /\ 
+Snd(DataU'.QN'.RN.CIDN'.TN')
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role smartcard (USC,N,GW:agent, SKU:symmetric_key, IDN,IDU,PWU,
+XU:text, H:hash_func, Snd,Rcv:channel(dy))
+played_by USC
+def=
+local State:nat,VU,BU,RU,TU,PU,TN,QN,NN,CIDU,
+CIDN,NU,RNnew,RUnew,PhiU,PhiN,ThetaU,ThetaN,
+GammaGW, KSN,KGW,Start:text, EU,CN,CU,GU,KN,KU, AlphaU,CNnew,CUnew,BetaN,BetaU, KS, DataU:message
+const privKGW,privIDN,privIDU,privKN_CN,privCNnew_RNnew,
+privCUnew_RUnew,privUSCparam,privPWU,authGW_N,authGW_USC: protocol_id
+init State:=0
+transition
+1. State =0 /\ Rcv(Start')=|> State':=1 /\ EU':=H(XU.PWU) /\ Snd({IDU.EU'}_SKU)
+
+2. State =1 /\ Rcv({VU'.BU'.GU'.CU'.RU'}_SKU) =|> State':=2 /\
+EU':=H(XU.PWU) /\ KU':=xor(VU',H(IDU.EU')) /\ 
+GU':=H(KU') /\ NU':=new() /\ TU':=new() /\ 
+CIDU':=xor(EU',H(BU'.CU'.NU'.TU')) /\
+PU':=xor(BU',H(CU'.NU'.IDN)) /\ AlphaU':=H(IDN.KU'.NU'.BU'.TU') /\ DataU':= (CIDU'.PU'.AlphaU'.NU'.RU'.TU') /\
+Snd(DataU')
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session (USC,N,GW:agent,SKU,SKN:symmetric_key,H:hash_func, KGW,IDN,IDU,PWU,XU:text)
+def=
+local Ch1,Ch2,Ch3,Ch4,Ch5,Ch6:channel(dy)
+composition
+gateway (USC,N,GW,SKU,SKN, KGW,IDN,H,Ch1,Ch2) /\
+node (USC,N,GW, SKN, H, Ch3,Ch4) /\
+smartcard (USC,N,GW,SKU, IDN, IDU,PWU,XU, H, Ch5,Ch6)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+const usc,n,gw:agent, sku,skn:symmetric_key,h:hash_func, kgw,
+idn,idu,pwu,xu:text,privKGW,privIDN,privIDU,privKN_CN,
+privCNnew_RNnew,privCUnew_RUnew,privUSCparam,privPWU,authGW_N,
+authGW_USC: protocol_id
+intruder_knowledge ={usc,n,gw,h}
+composition
+session(usc,n,gw,sku,skn,h,kgw,idn,idu,pwu,xu)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+secrecy_of  privKGW
+secrecy_of privPWU
+secrecy_of privIDN
+secrecy_of privIDU
+secrecy_of privCNnew_RNnew
+secrecy_of privCUnew_RUnew
+secrecy_of privUSCparam
+secrecy_of privKN_CN
+authentication_on authGW_USC
+authentication_on authGW_N
+end goal
+environment()
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

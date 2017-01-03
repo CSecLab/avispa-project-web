@@ -1,0 +1,90 @@
+role client(
+	C		:	agent,
+	H		:	hash_func,
+	K		:	text,
+	CS, SC	:	channel(dy)
+	)played_by C
+	def=
+	
+	local
+		State	:	nat,
+		S		:	agent,
+		T		:	text
+	const
+		sec		:	protocol_id
+	init
+		State	:=	0
+	transition
+	1.	State	=	0	/\	SC(start) =|>
+		State'	:=	1	/\	CS(C)
+	2.	State	=	1	/\	SC(T'.S) =|>
+		State'	:=	2	/\	CS(H(K.T'))
+						/\	secret(K, sec, {C, S} )
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role server(
+	S		:	agent,
+	H		:	hash_func,
+	K		:	text,
+	SC, CS	:	channel(dy)
+	)played_by S
+	def=
+	
+	local
+		State	:	nat,
+		C		:	agent,
+		T		:	text
+	const
+		sec		:	protocol_id
+	init
+		State	:=	0
+	transition
+	1.	State	=	0	/\	CS(C') =|>
+		State'	:=	1	/\	T := new()
+						/\	SC(T.S)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(
+	C, S	:	agent,
+	H		:	hash_func,
+	K		:	text
+	)
+	def=
+	
+	local
+		CS, SC	:	channel(dy)
+	
+	composition
+		client(C, H, K, CS, SC)
+	/\	server(S, H, K, SC, CS)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+	def=
+	
+	const
+		c, s	:	agent,
+		h		:	hash_func,
+		k		:	text
+
+	intruder_knowledge = {c, s, i, h}
+	
+	composition
+		session(c, s, h, k)
+	/\	session(i, s, h, k)
+	/\	session(c, i, h, k)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+	secrecy_of sec
+end goal
+
+environment()

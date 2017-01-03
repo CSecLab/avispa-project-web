@@ -1,0 +1,143 @@
+
+
+
+
+role server (User_1, Server_1 : agent,
+SymKey : symmetric_key,
+Hash: hash_func,
+Send, Receive: channel(dy)
+)
+
+
+
+
+played_by Server_1
+def=
+local 
+State : nat,
+PWi,Nb,Na,CID,Bi,HPWi,Ack,Ni, Y,X,Ci: text
+const Su,Us,S1,S2 : protocol_id
+init State := 1
+transition
+1. State = 1 /\Receive({PWi'}_SymKey) =|>
+State':=3
+/\X':=new()
+/\secret(X',S1,{Server_1})
+/\Y':=new()
+/\secret(Y',S2,{User_1,Server_1})
+/\Ni':=xor(PWi',X')
+/\Send({PWi'.Hash.Ni'.Y'}_SymKey)
+2.State=3/\Receive(CID'.Ni'.Ci'.Na')=|>
+State':=5
+/\Nb':=new()
+
+
+
+
+/\request(Server_1,User_1,U_S,Na') 
+
+
+
+end role
+
+
+
+
+role session(User_1, Server_1 : agent)
+def=
+local 
+SymKey : symmetric_key,
+Hash : hash_func,
+SU,SS,RU,RS:channel(dy),
+PWi, X,Y,Ni: text
+const S1,S2 : protocol_id
+composition
+user(User_1,Server_1,SymKey,Hash,SU,RU)
+/\server(User_1,Server_1,SymKey,Hash,SS,RS)
+end role
+
+
+
+
+role environment ()
+def=
+const user_Agent,server_Agent : agent,
+h: hash_func,
+S1,S2,U_S,S_U : protocol_id
+
+
+intruder_knowledge={user_Agent,server_Agent,h}
+composition
+session(user_Agent,server_Agent)
+end role
+
+
+
+
+
+
+
+
+role user (User_1, Server_1 : agent,
+SymKey : symmetric_key,
+Hash : hash_func,
+Send, Receive: channel(dy))
+
+
+
+played_by User_1
+def=
+local State : nat,
+PWi, Ni, Y,Na,CID,Bi,Ci,Nb,Ack,Ni_new,PWi_new: text
+const S1,S2,U_S,S_U : protocol_id
+init 
+State := 0
+
+
+
+transition
+1. State = 0 /\Receive(start) =|>
+State' := 2 /\PWi' := new()
+/\Send({PWi'}_SymKey)
+/\secret({PWi'}, S1, {User_1,Server_1})
+/\secret({SymKey}, S2, {User_1,Server_1})
+
+
+
+2.State = 2 /\Receive({PWi.Hash.Ni'.Y'}_SymKey)
+=|>State':= 4
+
+
+
+3.State=4 /\Receive({PWi'.Hash.Ni'.Y'}_SymKey)=|>
+State':=6
+/\Na':=new()
+/\witness(User_1,Server_1,U_S,Na')  
+/\CID':=xor(Hash(PWi'),Hash(xor(Ni',xor(Y',Na'))))
+/\Bi':=Hash(xor(CID',Hash(PWi)))
+/\Ci':=Hash(xor(Na',xor(Ni',xor(Bi',Y'))))
+/\Send(CID'.Ni'.Ci'.Na')
+
+
+
+4.State=6=|>
+State':=8
+/\PWi_new':=new()
+/\Ni_new':=xor(Ni',xor(Hash(PWi),Hash(PWi_new')))
+/\Ni':=Ni_new'
+end role
+
+
+
+
+
+
+
+goal
+	secrecy_of S1
+	secrecy_of S2
+	authentication_on U_S
+	authentication_on S_U
+end goal
+
+environment()

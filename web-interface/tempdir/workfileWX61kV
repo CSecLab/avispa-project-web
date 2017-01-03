@@ -1,0 +1,89 @@
+role reader (R,T: agent, 
+               ID,B : text,
+			   K: symmetric_key,
+               H,G,Hright,Hleft : hash_func,
+               Snd,Rec: channel(dy))
+    played_by R
+    def=
+      local  State  : nat,
+             Nr, Nt : text,
+            HB, C: message
+      const sec_id1 : protocol_id       
+            init State := 0 
+      transition
+       1. State = 0
+          /\ Rec(start)  =|>  State' := 1
+          /\ Nr' := new() 
+          /\ Snd(Nr') 
+          /\ witness(R,T,aut_reader,Nr')
+       2. State = 1
+          /\ Rec(xor(C,Nt').Hleft(Nr,Nt',K)) 
+          =|>  State' := 2 /\ Snd(Hright(Nr,Nt',K))
+          /\ request(R,T,aut_tag,Nt')
+          /\ secret(ID,sec_id1,{R,T}) 
+3. State=2
+     /\ Rec(xor(Nt,HB))  
+ =|>  State' := 3 
+end role
+    role tag ( T,R: agent, 
+               ID : text, HB, C: message,
+			    K: symmetric_key,
+                 H,G,Hright,Hleft : hash_func,
+               Snd,Rec: channel(dy))
+    played_by T
+    def=
+      local  State  : nat,
+             Nt, Nr : text,
+            B: text  
+      const sec_id2, sec_b: protocol_id 
+      init State := 0
+      transition
+       1. State = 0 /\ Rec(Nr') 
+          =|>
+          State' := 1
+        /\ Nt' := new()   
+        /\ Snd( xor(C,Nt').Hleft(Nr',Nt',K))        
+        /\ witness(T,R,aut_tag,Nt')
+        /\ secret(ID,sec_id2,{T,R}) 
+       2. State = 1 /\ Rec(Hright(Nr,Nt,K))
+          =|> 
+          State' := 2       
+        /\ request(T,R,aut_reader,Nr)      
+           /\ Snd( xor(Nt,HB))  
+ /\ secret(HB,sec_b,{T,R}) 
+end role
+
+role session(T,R : agent, 
+                ID,B : text,
+				C: message,
+				K: symmetric_key,
+                H,G,Hright,Hleft : hash_func) 
+def=
+local Se,Re,Sf,Rf : channel(dy)
+const aut_reader, aut_tag : protocol_id
+composition
+tag(T,R,ID,G(B),C,K,H,G,Hright,Hleft,Se,Re)
+/\ reader(R,T,ID,B,K,H,G,Hright,Hleft,Sf,Rf)
+end role
+
+role environment() def=
+const t,r : agent,
+      id,b,idti,idri,bti,bri : text,
+      h,g,hleft,hright : hash_func,
+	  k: symmetric_key,
+	  kb: public_key
+intruder_knowledge = {t,r,h,g,hleft,hright,idti,idri,bti,bri}
+composition
+session(t,r,id,b,{id}_kb,k,h,g,hright,hleft) 
+/\session(t,r,id,b,{id}_kb,k,h,g,hright,hleft) 
+ /\  session(t,i,idti,bti,{id}_kb,k,h,g,hright,hleft)  
+/\ session(i,r,idri,bri,{id}_kb,k,h,g,hright,hleft)
+end role
+
+    goal
+  %  secrecy_of  sec_id1, sec_id2 ,sec_b
+    authentication_on aut_reader
+    authentication_on aut_tag
+    end goal
+
+    environment()

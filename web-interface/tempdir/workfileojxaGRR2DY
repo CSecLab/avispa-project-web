@@ -1,0 +1,73 @@
+role ud(
+	SM,UD : agent,
+	SMU,DU : public_key,
+	SND,RCV : channel(dy))
+played_by UD def=
+local   
+        REQ_sm,REQ_ud : message,
+        CER_sm,CER_ud : text,
+        State : nat
+init
+    State:=0
+transition
+     0. State = 0 /\ RCV(start) =|>
+        State':= 2 /\ REQ_ud':=new()
+                   /\ SND(REQ_ud')
+     2. State = 2 /\ RCV(REQ_sm') =|>	 
+        State':= 4 /\ CER_ud':=new()
+                   /\ SND({CER_ud'}_SMU)
+				   /\ witness(UD,SM,cer_ud,CER_ud')
+	 4. State = 4 /\ RCV({CER_sm'}_DU) =|>
+        State':= 6 /\ request(UD,SM,cer_sm,CER_sm')
+end role
+
+role sm(
+	SM,UD : agent,
+	SMU,DU : public_key,
+	SND,RCV : channel(dy))
+played_by SM def=
+local   
+        REQ_sm,REQ_ud : message,
+        CER_sm,CER_ud : text,
+        State : nat
+init
+    State:=1
+transition
+     1. State = 1 /\ RCV(REQ_ud') =|>
+        State':= 3 /\ REQ_sm':=new()
+                   /\ SND(REQ_sm') 
+	 3. State = 3 /\ RCV({CER_ud'}_SMU) =|>
+        State':= 5 /\ CER_sm':=new()
+                   /\ SND({CER_sm'}_DU)
+				   /\ witness(UD,SM,cer_sm,CER_sm')	
+				   /\ request(UD,SM,cer_ud,CER_ud')				   
+end role
+
+role session(
+	SM,UD : agent,
+	SMU,DU : public_key)
+def=
+local 
+SUD,RUD,SSM,RSM:channel(dy)
+composition
+	ud(SM,UD,SMU,DU,SUD,RUD)
+	/\ sm(SM,UD,SMU,DU,H,SSM,RSM)
+end role
+
+role environment()
+def=
+   const a,b,i : agent,
+         ka,kb,ki : public_key,
+         cer_ud,cer_sm : protocol_id
+	     intruder_knowledge={a,b,i,ka,kb,ki,inv(ki)} 
+  composition 
+    session(a,b,ka,kb,h) 
+   /\session(a,i,ka,ki,h)
+   /\session(i,b,ki,kb,h)
+end role
+
+goal
+authentication_on cer_ud
+authentication_on cer_sm
+end goal
+environment()

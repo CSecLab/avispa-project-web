@@ -1,0 +1,128 @@
+role alice( A, B, BS    : agent,
+	    KABS      : symmetric_key,
+            Ka, Kb, Kbs: public_key,
+ 	   SND_abs, RCV_abs, SND_ab, RCV_ab : channel(dy))
+
+played_by A def=
+
+  local
+    R, Ca, Cb : message,
+    State  : nat
+ 
+  init State := 0
+
+transition
+
+1. State = 0  /\ RCV_ab(start) =|>
+   State' := 2 /\ R' := new()
+               /\ SND_abs({Ka.A.R'}_KABS)
+               /\ secret(KABS,kabs,{A,BS})
+
+ 2. State = 2  /\ RCV_abs({Ka.A.Ca'}_inv(Kbs)) =|>
+    State' :=6 /\ SND_ab({Ca'.A}_inv(Ka))
+               /\witness(A,B,bob_alice_ca,Ca')
+
+ 2. State = 6  /\ RCV_abs({Cb'.B}_inv(Kb)) =|>
+    State' := 8 /\request(A,B,alice_bob_cb,Cb')
+
+
+ end role
+
+role server ( A, B, BS  : agent,
+	            KABS, KBBS: symmetric_key,
+                    Ka, Kb, Kbs  : public_key,
+ 	            SND_bsa, RCV_bsa, SND_bsb, RCV_bsb : channel(dy))
+
+played_by BS def=
+
+  local
+    State       : nat,
+    R, Ca, Cb   : message
+
+  init
+   State := 1
+
+transition
+ 
+ 1. State = 1   /\ RCV_bsa({Ka.A.R'}_KABS) =|>
+    State' := 4 /\ Ca' := new()
+                /\ SND_bsa(({Ka.A.Ca'}_inv(Kbs)))
+ 	      
+ 2. State = 4  /\ RCV_bsb({Kb.B.R'}_KBBS) =|>
+                  Cb' := new()
+               /\ SND_bsb(({Kb.B.Cb'}_inv(Kbs)))
+
+end role
+
+role bob  ( A, B, BS    : agent,
+	    KBBS        : symmetric_key,
+	    Ka, Kb, Kbs : public_key,
+ 	    SND_ba, RCV_ba, SND_bbs, RCV_bbs : channel(dy))
+
+played_by B def=
+
+  local
+    State       : nat,
+    R, Ca, Cb   : message
+    
+  init
+   State := 3
+
+transition
+ 
+1. State = 3  /\ RCV_ba({Ca'.A}_inv(Ka)) =|>
+   State' := 5 /\ R' := new()
+               /\ SND_bbs({Kb.B.R'}_KBBS)
+               /\ secret(KBBS,kbbs,{B,BS})
+               /\request(B,A,bob_alice_ca,Ca')
+
+ 2. State = 5  /\ RCV_bbs({Kb.B.Cb'}_inv(Kbs)) =|>
+    State' :=7 /\ SND_ba({Cb'.B}_inv(Kb))
+               /\witness(B,A,alice_bob_cb,Cb')
+
+end role
+
+role session ( A, B, BS    : agent,
+	      KBBS, KABS   : symmetric_key,
+              Ka, Kb, Kbs  : public_key)
+
+def=
+ 
+ local SBSA,RBSA,SABS,RABS,SAB,RAB,SBA,RBA,SBSB,RBSB,SBBS,RBBS : channel(dy)
+
+ composition
+  
+   alice(A,B,BS,KABS,Ka,Kb,Kbs,SABS,RABS,SAB,RAB)
+/\server(A,B,BS,KABS,KBBS,Ka,Kb,Kbs,SBSA,RBSA,SBSB,RBSB)
+/\bob(A,B,BS,KBBS,Ka,Kb,Kbs,SBA,RBA,SBBS,RBBS)
+
+end role
+
+role environment()
+
+def=
+
+  const 
+   a,b,bs : agent,
+   k1abs,k1bbs,k1ibs : symmetric_key,
+   ka, kb, ki, kbs   : public_key,
+   kabs, kbbs, alice_bob_cb, bob_alice_ca : protocol_id
+
+ intruder_knowledge={a,bs,b,k1ibs,ka,kb,kbs,ki}
+
+ composition
+
+   session(a,b,bs,k1bbs,k1abs,ka,kb,kbs)
+/\ session(a,i,bs,k1ibs,k1abs,ka,ki,kbs)
+/\ session(i,b,bs,k1bbs,k1ibs,ki,kb,kbs)
+
+end role
+
+goal
+  authentication_on bob_alice_ca
+  authentication_on alice_bob_cb
+  secrecy_of kabs
+  secrecy_of kbbs
+end goal
+
+environment()

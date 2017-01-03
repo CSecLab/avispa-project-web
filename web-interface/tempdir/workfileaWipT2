@@ -1,0 +1,206 @@
+%%HLPSL:
+role client (A,S,B   : agent,
+           	P, Ppub : symmetric_key,
+	   	Union, Pred, Ebilinear : hash_func,               
+           	SND_SA, RCV_SA, SND_BA, RCV_BA: channel(dy))
+played_by A
+def=
+           
+  local State  : nat,
+
+          Ra,Qida2, Wa, Na, Nb, Us, Rs, Authsa, Authba, Ksa, Kab : text,
+
+          Ida, Idb, Ua1, Ua2, Va, Qida1, Authab : message, 
+         
+          Dida1, Dida2, Didb2, Ss, Skab : symmetric_key
+
+  const dida2, ksa, kab, kba:protocol_id
+
+  init  State := 0
+
+  transition
+   1. State   = 0 /\ RCV_SA(start) =|>
+      State' := 1 /\ Ra':= new()
+                  /\ Ua1':= Pred(Ra', P)
+                  /\ Ua2':= Pred(Ra', Qida2)
+                  /\ Wa':= Pred(Ua1', Ua2')
+                  /\ Va':= Union(Pred(Pred(Ra', Dida1), Wa'), Dida2)
+                  /\ SND_SA(Ida.Idb.Ua1'.Ua2'.Va'.Qida1)
+                  /\ secret(Dida1, dida1, {A, S})
+                  /\ secret(Dida2, dida2, {A, S})
+
+   2. State   = 1 /\ RCV_SA(Idb.Na'.Authsa'.Usa1'.Usa2'.Us'.Nb'.Authsb') =|> 
+      State' := 7 %%/\ request(A, S, ksa, Ksa')
+                  /\ Kab':= Ebilinear(Union(Pred(Ra, Ua2), Pred(Ra, Ppub)), Pred(Usa1', Usa2'))
+                  /\ Authab':= Union(Pred(Ida, Idb), Pred(Us', Kab'))
+                  /\ SND_BA(Authab'.Nb'.Authsb')
+                  /\ secret(Kab', kab, {A, B} )
+                  /\ witness(A, B, kab, Kab')
+
+   3. State   = 7 /\ RCV_AB(Authba') =|> 
+      State' := 9 /\ Skab':= Union(Pred(Pred(Ida, Idb), Kab), Pred(Authab, Authba'))
+                  /\ secret(Kab', kab, {A, B, S})
+                  /\ secret(Kba', kba, {A, B, S})
+                  /\ witness(A, B, kab, Kab')
+                  /\ request(A,B,kba,Kba') 
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role authenticationserver (A,S,B : agent,
+                P, Ppub : symmetric_key,
+		Union, Pred, Ebilinear : hash_func,
+                SND_AS, RCV_AS, SND_BS, RCV_BS: channel(dy))
+played_by S
+def=
+           
+  local State  : nat,
+
+        Ua1, Ua2, Va, Qida1, Rs, Ra, Rb, Qida2, Ub1, Ub2, Dids, Qids,   
+        Vb, Qidb1, Qidb2, Ksa, Kab, Kba, Ksb, Authab, Authba, Na, Nb : text,
+
+        Us, Usb1, Usb2, Usa1, Usa2, Hsb, Vsb, Authsa, Authsb  : message,
+        Dida1, Dida2, Didb1, Didb2, Ss, Skab : symmetric_key
+
+  const dida2 : protocol_id,
+        ksa : protocol_id,  
+        dids : protocol_id,
+        didb2 : protocol_id, 
+        ksb : protocol_id                                         
+              
+
+  init  State := 2
+
+  transition
+   1. State   = 2 /\ RCV_AS(Ida.Idb.Ua1'.Ua2'.Va'.Qida1) =|>  
+      State' := 3 /\ Rs':= new()
+                  /\ Us':= Pred(Rs', P)
+                  /\ Usb1':= Pred(Rs', Ua1')
+                  /\ Usb2':= Pred(Rs', Ua2')
+                  /\ Dids:= Pred(Ss, Qids)
+                  /\ Hsb':= Union(Pred(Pred(Us', Usb1'), Usb2'))
+                  /\ Vsb':= Union(Pred(Rs', Ppub), Pred(Hsb', Dids))
+                  /\ SND_BS(Ida.Us'.Usb1'.Usb2'.Vsb')
+                  /\ secret(Dids, dids, {S, B})
+                  /\ secret(Ss, ss, {S, B})
+	          /\ witness(S, B, dids, Dids)
+
+   2. State   = 3 /\ RCV_BS(Idb.Ub1'.Ub2'.Vb'.Qidb1) =|>
+      State' := 6 /\ Usa1':= Pred(Rs, Ub1')
+                  /\ Usa2':= Pred(Rs, Ub2')
+                  /\ Ksa':= Pred(Ss, Ua2')
+                  /\ Ksb':= Pred(Ss, Ub2')
+                  /\ Na':= new()
+                  /\ Nb':= new()
+                  /\ Authsa':= Union(Ida, Idb, Ua1', Ua2', Va', Na', Ksa', Us, Usa1', Usa2')
+                  /\ Authsb':= Union(Ida, Idb, Ub1', Ub2', Vb', Nb', Ksb', Us', Usb1, Usb2)
+                  /\ Skab':= Union(Pred(Pred(Ida, Idb), Kab), Pred(Authab, Authba'))
+                  /\ SND_AS(Idb.Na'.Authsa'.Usa1'.Usa2'.Us.Nb'.Authsb')	      
+		  /\ secret(Ksa', ksa,{A,S})
+                  /\ witness(S, A, ksa, Ksa')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role applicationserver (A,S,B : agent,
+                P, Ppub : symmetric_key,
+		Union, Pred, Ebilinear : hash_func,
+                SND_SB, RCV_SB, SND_AB, RCV_AB: channel(dy))
+played_by B
+def=
+           
+  local State  : nat,
+
+        Ra, Rs, Rb, Us, Wb, Usb1, Usb2, Qidb1, Qidb2, Usa1, Usa2, Hsb, Vsb, Dids, Ksb, Kab, Kba, Authsb, Authab   : text,
+
+        Ub1, Ub2, Vb, Authba : message,
+
+        Didb1, Didb2, Dida2, Ss, Skab : symmetric_key
+
+  const dids : protocol_id,
+        ksb : protocol_id, 
+        didb2 : protocol_id,
+        kab : protocol_id,
+        kba : protocol_id
+
+  init  State := 4
+
+  transition
+   1. State   = 4 /\ RCV_SB(Ida.Us'.Usb1'.Usb2'.Vsb') =|>
+      State' := 5 /\ Rb':= new()
+                  /\ Ub1':= Pred(Rb', P)
+                  /\ Ub2':= Pred(Rb', Qidb2)
+                  /\ Wb':= Pred(Ub1', Ub2')                  
+                  /\ Vb':= Union(Pred(Pred(Rb', Didb1), Wb'), Didb2)
+                  /\ SND_SB(Idb.Ub1'.Ub2'.Vb'.Qidb1)
+                  /\ secret(Didb1, didb1, {B, S})
+                  /\ secret(Didb2, didb2, {B, S})
+	          /\ witness(B, S, didb2, Didb2)
+
+   2. State   = 5 /\ RCV_AB(Authab'.Nb'.Authsb') =|>
+      State' := 8 /\ Kba':= Ebilinear(Union(Pred(Rb, Ub2), Pred(Rb, Ppub)), Pred(Usb1', Usb2'))
+                  /\ Authba':= Union(Pred(Ida, Idb), Pred(Pred(Us', Kba'), Authab')) 
+                  /\ Skab':= Union(Pred(Pred(Ida, Idb), Kab), Pred(Authab, Authba'))
+                  /\ SND_AB(Authba')
+                  /\ request(B, A, kab, Kab')
+	          /\ witness(B,A,kba, Kba') 
+		  /\ secret(Kba', kba,{A,B, S})
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(A,B,S: agent,
+	     P, Ppub: symmetric_key,
+	     Union, Pred, Ebilinear: hash_func)
+def=
+
+  local SSA, RSA, SBA, RBA, SAS, RAS, SAB, RAB, SBS, RBS, SSB, RSB: channel (dy)
+
+  composition
+
+           client(A, B, S, Pred, Union, Ebilinear, Dida1, Dida2, Didb2, P, Ppub, Ksa, Kab, Kba, Skab, SSA, RSA, SBA, RBA)
+       /\  authenticationserver(S,B, A, Pred, Union, Ebilinear, P, Ppub, Dida1, Dida2, Ksa, Didb1, Didb2, Ksb, Dids, Kab, Kba, Skab, SSA, RSA, SBS, RBS)
+       /\  applicationserver(B, S, A, Pred, Union, Ebilinear, P, Ppub, Didb1, Didb2, Dida2, Dids, Ksb, Kab, Kba, Skab, SBA, RBA, SSB, RSB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+
+  const a, b, s          : agent,
+        p, ppub : symmetric_key,
+        union, pred, ebilinear : hash_func,
+        dida2, ksa, dids, didb2, ksb, kab, kba : protocol_id
+
+  intruder_knowledge = {a, b, s, ria, rib, ris, uai1, uai2, vai, qidai1, ubi1, ubi2, vbi, qidbi2, vsbi, usi, hsbi, usai1, usai2, usbi1, usbi2, union, pred, ebilinear, p, ppub}
+
+  composition
+
+	session(a, b, s, pred, union, ebilinear, dida1, dida2, didb1, didb2, dids, p, ppub, ksa, ksb, kab, kba, skab) 
+	/\ session(a, i, s, pred, union, ebilinear, dida1, dida2, didb1, didb2, dids, p, ppub, ksa, ksb, kab, kba, skab) 
+        /\ session(a, b, i, pred, union, ebilinear, dida1, dida2, didb1, didb2, dids, p, ppub, ksa, ksb, kab, kba, skab) 
+        /\ session(i, b, s, pred, union, ebilinear, dida1, dida2, didb1, didb2, dids, p, ppub, ksa, ksb, kab, kba, skab) 
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+
+ secrecy_of dida1, dida2, didb1, didb2, dids, ksa, ksb, kab, kba, skab
+                         
+
+ authentication_on dida2
+ authentication_on ksa
+ authentication_on dids
+ authentication_on didb2 
+ authentication_on ksb
+  
+end goal
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

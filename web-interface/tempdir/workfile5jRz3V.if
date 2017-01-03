@@ -1,0 +1,72 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfile5jRz3V
+
+section signature:
+
+state_bob: agent * agent * public_key * public_key * hash_func * nat * text * nat -> fact
+state_alice: agent * agent * public_key * public_key * hash_func * nat * text * set(agent) * nat -> fact
+
+
+section types:
+
+MGoal, start: message
+a_b_msg: protocol_id
+h, H: hash_func
+set_49, set_59, set_58: set
+pk_a, pk_b, pk_i, PKa, PKb: public_key
+ASGoal, Set_18, Dummy_Set_18: set(agent)
+a, b, A, B, i: agent
+State, 1, 0, 10, 9, 4, SID, Dummy_State, 3: nat
+Msg, Dummy_Msg, dummy_nonce: text
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(pk_a).
+ iknows(pk_b).
+ iknows(pk_i).
+ iknows(inv(pk_i)).
+ iknows(h).
+ iknows(i).
+ state_alice(a,b,pk_a,pk_b,h,0,dummy_nonce,set_49,3).
+ state_bob(a,b,pk_b,pk_a,h,0,dummy_nonce,4).
+ state_alice(a,i,pk_a,pk_i,h,0,dummy_nonce,set_59,9).
+ state_bob(a,i,pk_i,pk_a,h,0,dummy_nonce,10)
+
+
+section rules:
+
+step step_0 (A,B,PKa,PKb,H,Dummy_Msg,Dummy_Set_18,SID,Msg) :=
+ state_alice(A,B,PKa,PKb,H,0,Dummy_Msg,Dummy_Set_18,SID).
+ iknows(start)
+=[exists Msg]=>
+ state_alice(A,B,PKa,PKb,H,1,Msg,Dummy_Set_18,SID).
+ iknows(pair(crypt(PKb,Msg),crypt(inv(PKa),apply(H,crypt(PKb,Msg))))).
+ secret(Msg,a_b_msg,Dummy_Set_18).
+ contains(A,Dummy_Set_18).
+ contains(B,Dummy_Set_18)
+
+step step_1 (B,A,PKa,PKb,H,Msg,SID) :=
+ state_bob(B,A,PKa,PKb,H,0,Msg,SID).
+ iknows(pair(crypt(PKb,Msg),crypt(inv(PKa),apply(H,crypt(PKb,Msg)))))
+ =>
+ state_bob(B,A,PKa,PKb,H,1,Msg,SID)
+
+
+section properties:
+
+property secrecy_of_a_b_msg (MGoal,ASGoal) :=
+ [] ((secret(MGoal,a_b_msg,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_a_b_msg (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,a_b_msg,ASGoal) &
+ not(contains(i,ASGoal))
+

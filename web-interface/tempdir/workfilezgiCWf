@@ -1,0 +1,71 @@
+%%  1. A -> B : A
+%%  2. B -> A : Nb
+%%  3. A -> B : H(Pass,(Na,Nb,A))
+%%  4. B -> A : (Na)_inv(Kb)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role subscriber_Station (A,B : agent,Pass: symmetric_key,Kb:public_key,H:hash_func
+, Snd, Rcv: channel(dy)) played_by A
+def=         
+  local State  : nat,Na, Nb : text
+  const sec_kab1 : protocol_id
+  init  State := 0
+  transition
+   1. State   = 0 /\ Rcv(start) =|>
+      State' := 1 /\ Snd(A)
+
+   2. State   = 1 /\ Rcv(Nb') =|> 
+      State' := 2 /\ Na' := new() /\ Snd(H(Pass.Na'.Nb'.A))
+	          /\ witness(A,B,na,Na') /\ secret(Pass,sec_Pass,{A,B})
+
+   3. State   = 2 /\ Rcv({Na}_inv(kb)) =|> 
+      State' := 3 /\ request(A,B,nb,Nb) 
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%
+role base_station (B,A : agent, Pass : symmetric_key,Kb:public_key,H: hash_func,    Snd, Rcv: channel(dy))
+played_by B def=       
+  local State  : nat,
+        Na, Nb : text
+    init  State := 0
+  transition
+   1. State   = 0 /\ Rcv(A') =|>  
+      State' := 1 /\ Nb' := new() /\ Snd(Nb')
+	          /\ witness(B,A,nb,Nb')
+
+   2. State   = 1 /\ Rcv(H(Pass.Na'.Nb.A)) =|>
+      State' := 2 /\ Snd({Na'}_inv(Kb))
+	          /\ request(B,A,na,Na') 
+		  
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(A,B: agent,Pass: symmetric_key,Kb:public_key,H: hash_func)
+def=
+  local SA, SB, RA, RB: channel (dy)
+  composition
+           subscriber_Station(A, B, Pass,Kb, H, SA, RA)
+       /\  base_station(B, A, Pass, Kb,H, SB, RB)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+  const a, b          : agent,
+        passab, passai, passib : symmetric_key,
+kb,ki:public_key,
+        hab,hai,hib             : hash_func,
+        na, nb        : protocol_id
+
+  intruder_knowledge = {a, b,hai,hib,ki, kai, kbi }
+  composition
+	session(a,b,passab,kb,hab) /\
+	session(a,i,passai,ki,hai) /\
+        session(i,b,passib,kb,hib)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+ %secrecy of the shared key
+ secrecy_of sec_Pass                    
+  authentication_on nb
+  authentication_on na 
+end goal
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5%%%%%
+environment()
+   

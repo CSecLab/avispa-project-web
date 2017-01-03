@@ -1,0 +1,86 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileJoYA3htNGi
+
+section signature:
+
+state_bob: agent * agent * hash_func * public_key * text * text * nat * text * text * nat -> fact
+state_server: agent * agent * hash_func * public_key * text * text * nat * text * text * nat -> fact
+
+
+section types:
+
+msg: protocol_id
+start, MGoal: message
+7, 5, State, 12, 4, 10, 6, 2, SID, 1, 0, Dummy_State, 3: nat
+Msg, Nonce, Tag1, Tag2, Dummy_Nonce, Dummy_Msg, dummy_nonce, tag1, tag2: text
+PK_A, pk_a, pk_b, pk_i: public_key
+Hash, f: hash_func
+B, A, A2Goal, A1Goal, a, i, b: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(f).
+ iknows(pk_a).
+ iknows(pk_b).
+ iknows(pk_i).
+ iknows(inv(pk_i)).
+ iknows(i).
+ state_server(a,b,f,pk_a,tag1,tag2,0,dummy_nonce,dummy_nonce,3).
+ state_bob(b,a,f,pk_a,tag1,tag2,1,dummy_nonce,dummy_nonce,4).
+ state_server(b,a,f,pk_b,tag1,tag2,0,dummy_nonce,dummy_nonce,6).
+ state_bob(a,b,f,pk_b,tag1,tag2,1,dummy_nonce,dummy_nonce,7).
+ state_bob(b,i,f,pk_i,tag1,tag2,1,dummy_nonce,dummy_nonce,10).
+ state_server(a,i,f,pk_a,tag1,tag2,0,dummy_nonce,dummy_nonce,12)
+
+
+section rules:
+
+step step_0 (A,B,Hash,PK_A,Tag1,Tag2,Dummy_Msg,Nonce,SID,Msg) :=
+ state_server(A,B,Hash,PK_A,Tag1,Tag2,0,Dummy_Msg,Nonce,SID).
+ iknows(start)
+=[exists Msg]=>
+ state_server(A,B,Hash,PK_A,Tag1,Tag2,2,Msg,Nonce,SID).
+ iknows(pair(B,pair(crypt(inv(PK_A),pair(Tag1,Msg)),apply(Hash,PK_A)))).
+ witness(A,A,msg,Msg)
+
+step step_1 (A,B,Hash,PK_A,Tag1,Tag2,Msg,Dummy_Nonce,SID,Nonce) :=
+ state_server(A,B,Hash,PK_A,Tag1,Tag2,2,Msg,Dummy_Nonce,SID).
+ iknows(Nonce)
+ =>
+ state_server(A,B,Hash,PK_A,Tag1,Tag2,4,Msg,Nonce,SID).
+ iknows(crypt(inv(PK_A),pair(Tag2,Nonce)))
+
+step step_2 (B,A,Hash,PK_A,Tag1,Tag2,Dummy_Nonce,Dummy_Msg,SID,Nonce,Msg) :=
+ state_bob(B,A,Hash,PK_A,Tag1,Tag2,1,Dummy_Nonce,Dummy_Msg,SID).
+ iknows(pair(B,pair(crypt(inv(PK_A),pair(Tag1,Msg)),apply(Hash,PK_A))))
+=[exists Nonce]=>
+ state_bob(B,A,Hash,PK_A,Tag1,Tag2,5,Nonce,Msg,SID).
+ iknows(Nonce)
+
+step step_3 (B,A,Hash,PK_A,Tag1,Tag2,Nonce,Msg,SID) :=
+ state_bob(B,A,Hash,PK_A,Tag1,Tag2,5,Nonce,Msg,SID).
+ iknows(crypt(inv(PK_A),pair(Tag2,Nonce)))
+ =>
+ state_bob(B,A,Hash,PK_A,Tag1,Tag2,7,Nonce,Msg,SID).
+ wrequest(A,A,msg,Msg,SID)
+
+
+section properties:
+
+property weak_authentication_on_msg (A1Goal,A2Goal,MGoal,SID) :=
+ [] ((wrequest(A1Goal,A2Goal,msg,MGoal,SID)
+      /\ ~ equal(A2Goal,i))
+     => witness(A2Goal,A1Goal,msg,MGoal))
+
+
+section attack_states:
+
+attack_state weak_authentication_on_msg (A1Goal,A2Goal,MGoal,SID) :=
+ wrequest(A1Goal,A2Goal,msg,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,msg,MGoal)) &
+ not(equal(A2Goal,i))
+

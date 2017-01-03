@@ -1,0 +1,61 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfile8LO2Daf97v
+
+section signature:
+
+state_participant2: agent * agent * nat * nat * nat * nat * nat * nat * nat -> fact
+state_participant1: agent * agent * nat * nat * nat * nat -> fact
+
+
+section types:
+
+ASGoal: set(agent)
+protID: protocol_id
+MGoal, start: message
+a, b, P1, P2, i: agent
+Dummy_X, 4, SID, Dummy_State, 3, dummy_nat, g, 2, X, X1, X2, Nonce2, State, G, 1, 0, Nonce1, 9, 7, Dummy_X2, Dummy_X1: nat
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(g).
+ iknows(i).
+ state_participant1(a,b,g,0,dummy_nat,3).
+ state_participant2(b,a,g,1,dummy_nat,dummy_nat,dummy_nat,dummy_nat,4).
+ state_participant2(b,i,g,1,dummy_nat,dummy_nat,dummy_nat,dummy_nat,7).
+ state_participant1(a,i,g,0,dummy_nat,9)
+
+
+section rules:
+
+step step_0 (P1,P2,G,Nonce1,SID) :=
+ state_participant1(P1,P2,G,0,Nonce1,SID).
+ iknows(start)
+ =>
+ state_participant1(P1,P2,G,1,Nonce1,SID).
+ iknows(pair(G,exp(G,Nonce1)))
+
+step step_1 (P2,P1,G,Nonce2,Dummy_X,Dummy_X1,Dummy_X2,SID,X1,X2) :=
+ state_participant2(P2,P1,G,1,Nonce2,Dummy_X,Dummy_X1,Dummy_X2,SID).
+ iknows(pair(X1,X2))
+ =>
+ state_participant2(P2,P1,G,2,Nonce2,pair(X1,X2),X1,X2,SID)
+
+
+section properties:
+
+property secrecy_of_g (MGoal,ASGoal) :=
+ [] ((secret(MGoal,g,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_g (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,g,ASGoal) &
+ not(contains(i,ASGoal))
+

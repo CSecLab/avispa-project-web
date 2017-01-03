@@ -1,0 +1,106 @@
+role rfidserver (S,T: agent,
+% Public keys
+               Xt, Xs: public_key,
+% Sending and receiving channels
+               Snd,Rcv: channel(dy))
+played_by S
+def=
+  local State   : nat,       
+        R1, R11, P, R2, R22, Auth_T, Auth_S: text,
+        F: hash_func
+  const r11, r22, xtt, xss, server_tag_auth_s, 
+  server_tag_r1, tag_server_r2, tag_server_auth_t : protocol_id
+
+  init  State := 0
+  transition
+%Server Authentication Phase
+   1. State = 0 /\ Rcv(start)
+      =|> 
+      State':= 1
+      /\R1' := new()
+      /\R11':= F(R1.P)
+      /\Auth_S':= F(R11'.inv(Xs))
+      /\Snd(R1'.Auth_S')
+      /\secret(inv(Xs), xss, S)
+      /\secret(R11', r11, S) 
+      /\witness(S, T, server_tag_auth_s, Auth_S')
+      /\witness(S, T, server_tag_r1, R1')
+%Tag Authentication Phase
+   2. State = 1
+      /\ Rcv(R2'.Auth_T') 
+      =|> 
+      State':= 2    
+      /\request( T, S, tag_server_r2, R2')          
+      /\request(T, S, tag_server_auth_t, Auth_T')      
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role rfidtag (S,T: agent,
+% Public keys
+               Xt, Xs: public_key,
+% Sending and receiving channels
+               Snd,Rcv: channel(dy))
+played_by T
+def=
+  local State   : nat,       
+        R1, R11, P, R2,R22, Auth_T, Auth_S: text,
+        F: hash_func
+  const r11, r22, xtt, xss, server_tag_auth_s, 
+  server_tag_r1, tag_server_r2, tag_server_auth_t:protocol_id
+
+  init  State := 0
+  transition
+%Server Authentication Phase
+   1. State = 0 /\ Rcv(R1'.Auth_S)
+      =|> 
+      State' := 1       
+      /\request(S, T, server_tag_auth_s, Auth_S)
+      /\request(S, T, server_tag_r1, R1')
+      /\ R2' := new()
+      /\R22' := F(R2'.P)   
+      /\ Auth_T' := F(R22'.inv(Xt))    
+      /\ Snd(R2'.Auth_T') 
+      /\ secret(inv(Xt), xtt, T)
+      /\ secret(R22', r22, T)      
+      /\witness( T, S, tag_server_r2, R2')          
+      /\witness(T, S, tag_server_auth_t, Auth_T')
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role session(S,T: agent,
+	     Xt, Xs: public_key)
+def=
+  local SS, RS, ST, RT: channel (dy)
+composition
+     rfidserver(S,T,Xt,Xs,H,SS,RS)
+    /\rfidtag(S,T,Xt,Xs,H,ST,RT)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role environment()
+def=
+  const s, t   : agent,
+	xt, xs: public_key,
+        f   : hash_func,
+	p : text,
+        r11, r22, xtt, xss, server_tag_auth_s, 
+        server_tag_r1, tag_server_r2, tag_server_auth_t:protocol_id
+
+  intruder_knowledge={s,t,xs,xt,p}
+  composition
+    session(s,t,xs,xt)
+end role
+
+goal
+ secrecy_of r11,r22, xtt, xss
+ authentication_on server_tag_auth_s, 
+ server_tag_r1, tag_server_r2, tag_server_auth_t
+end goal
+
+environment()
+  

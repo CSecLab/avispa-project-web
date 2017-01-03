@@ -1,0 +1,173 @@
+%% PROTOCOL: mvSec-3
+%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%HLPSL:
+
+role alice(A,B:agent,
+	   G: text,
+	   F: hash_func,
+	   Ks: symmetric_key,	%use for simulate weak OOB channel, key for MAC
+	   SND_B, RCV_B: channel (dy))
+played_by A
+def=
+
+  local State: nat,
+	Ea: text,
+	Ga, Gb, Na, Nb, SAS: message,
+	SK: symmetric_key,
+	Hb: hash(message.message),
+	Hb2: hash(symmetric_key.message.message)
+
+  const sec_a : protocol_id
+
+  init  State := 0
+
+  transition
+
+  1.	State = 0  /\ RCV_B(start)
+	=|>
+	State':= 2 /\ Ea' := new()
+	           /\ Ga' := exp(G,Ea')
+		   /\ Na' := new()
+	           /\ SND_B( F(Ga'.Na') )
+
+  2.	State = 2  /\ RCV_B( Hb' )
+	=|>
+	State':= 4 /\ SND_B( Ga.Na )
+
+  3.	State = 4  /\ RCV_B( Gb'.Nb' ) 
+		   /\ Hb = F(Gb'.Nb')
+	=|>
+	State':= 6 /\ SK' := exp(Gb',Ea)
+		   /\ SND_B( xor(Na,Nb').F(Ks.xor(Na,Nb')) )
+		   /\ witness( A,B,nb,xor(Na,Nb') )
+
+  4.	State = 6  /\ RCV_B (SAS'.F(Ks.SAS') )
+		   /\ SAS' = xor(Nb,Na)
+	=|>
+	State':=8  /\ Na' := new()
+		   /\ SND_B ( Na'.F(SK.Na') )
+		   /\ request( A,B,na,xor(Nb,Na) )
+
+  5.	State = 8  /\ RCV_B (Nb'.Hb2')
+		   /\ Hb2' = F(SK.Na.Nb')
+	=|>
+	State':=10 /\ SND_B ( Nb'.F(SK.Nb'))
+		   /\ secret(SK,sec_a,{A,B})
+
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob (B,A:agent,
+	  G: text,
+	  F: hash_func,
+	  Ks: symmetric_key,	% used for simulate OOB channel
+	  SND_A, RCV_A :channel (dy))
+played_by B
+def=
+
+  local State: nat,
+	Eb: text,
+	Ga, Gb, Na, Nb, Nb2, SAS: message,
+	SK: symmetric_key,
+	Ha: hash(message.message), 
+	Ha2: hash(symmetric_key.message)
+
+  const sec_b : protocol_id
+
+  init  State := 1
+
+  transition
+
+  1.	State = 1  /\ RCV_A( Ha' )
+	=|>
+	State':= 3 /\ Eb' := new()
+		   /\ Gb' := exp(G,Eb')
+		   /\ Nb' := new()
+		   /\ SND_A( F(Gb'.Nb') )
+
+  2.	State = 3  /\ RCV_A( Ga'.Na' )
+		   /\ Ha = F(Ga'.Na')  % check mac
+	=|>
+	State':= 5 /\ SK' := exp(Ga',Eb)
+		   /\ SND_A( Gb.Nb )
+
+  3.	State = 5  /\ RCV_A( SAS'.F(Ks.SAS') )
+		   /\ SAS' = xor(Na,Nb)
+	=|>
+	State':=7  /\ SND_A ( xor(Nb.Na).F(Ks.xor(Nb.Na)) )
+		   /\ request( B,A,nb,xor(Na,Nb) )
+		   /\ witness( B,A,na,xor(Nb,Na) )
+
+ 4.	State = 7  /\ RCV_A (Na'.Ha2')
+		   /\ Ha2' = F(SK.Na') %check mac
+	=|>
+	State':= 9 /\ Nb' := new()
+		   /\ SND_A( Nb'.F(SK.Na'.Nb') )
+
+  5.	State = 9  /\ RCV_A( Nb2'.Ha')
+		   /\ Nb2' = Nb
+		   /\ Ha' = F(SK.Nb2')
+	=|>
+	State':= 11/\secret(SK,sec_b,{A,B})
+
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(A,B: agent,
+	     G: text,
+	     H: hash_func,
+	     Kab: symmetric_key)
+def=
+
+  local SA, RA, SB, RB: channel (dy)
+
+  composition
+     alice(A,B,G,H,Kab,SA,RA)
+  /\ bob(B,A,G,H,Kab,SB,RB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role environment()
+def=
+
+  const a, b                : agent,
+	g                   : text,
+	h                   : hash_func,
+        kab,kai,kbi         : symmetric_key,
+        na, nb  	    : protocol_id
+
+  intruder_knowledge={a,b,h,g,kai,kbi}
+
+  composition
+      session(a,b,g,h,kab)
+   /\ session(a,i,g,h,kai)
+   /\ session(i,b,g,h,kbi)
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+ % Confidentiality
+ secrecy_of sec_a, sec_b
+
+ % Message authentication (G2)
+ authentication_on na
+ authentication_on nb
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

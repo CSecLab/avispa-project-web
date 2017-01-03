@@ -1,0 +1,155 @@
+% P -> D : TAC        TAC = genTAC(Kchip, tstamp)
+% D -> KS: PID.TAC    
+% KS -> D: {K}_Kdks          K = h(PID.TAC) xor M  
+% D -> DS: {EHR}_K.PID.TAC
+% Attack model: the doctor/patient might be compromised
+
+%-------- role Patient ---------------------------------------------
+role patient(P, D, KS, DS: agent,
+             Kchip: symmetric_key,
+             GenTAC : hash_func,
+             SND, RCV: channel (dy)) played_by P def=
+  
+  local State : nat,
+        Tstamp : text,
+         TAC :   hash(symmetric_key.text) %message
+  
+  init State := 0
+
+  transition  
+
+    0.  State  = 0 /\ RCV(start) =|> 
+        State':= 2 /\ Tstamp' := new() /\ TAC' := GenTAC(Kchip.Tstamp') /\ SND(P.TAC') /\ SND(TAC')
+   
+
+
+end role 
+
+%-------- role Doctor ---------------------------------------------
+role doctor(P, D, KS, DS: agent,
+             GenTAC : hash_func,
+             EHR : text,
+             Kdks : symmetric_key,
+             SND, RCV: channel (dy)) played_by D def=
+  
+  local State : nat,
+        TAC : hash(symmetric_key.text), 
+        K : message
+  
+  init State := 1
+
+  transition 
+  
+   1.  State  = 1 /\ RCV(TAC') =|> 
+       State':= 3 /\ SND(D.P.TAC')
+       
+   3.  State  = 3 /\ RCV({K'}_Kdks) =|> 
+       State':= 5 /\ SND({EHR}_K') /\ secret(EHR, sec_ehr,{D})
+
+end role
+
+
+%-------- role KeyServer ---------------------------------------------
+
+role keyserver(P, D, KS, DS: agent,
+             M : symmetric_key,
+             H : hash_func,  
+             Attribute:   (agent.agent) set,
+              Kdks : symmetric_key,
+             SND, RCV: channel (dy)) played_by KS def=
+  
+  local State : nat,     
+        TAC, TAC1 :  hash(symmetric_key.text),  
+        K: message
+ 
+  
+  init State := 10
+     
+
+  transition 
+
+    10. State  = 10 /\ RCV(P.TAC')  =|>   
+          State':= 20
+  
+    20. State  = 20 /\ RCV(D.P.TAC)  /\ in(P.D, Attribute) =|> 
+        State':= 30 /\ K' := xor(H(P.TAC), M) /\ SND({K'}_Kdks)  /\ secret(K', sec_k,{KS,D})
+
+end role
+
+
+
+
+
+%-------- role Datastore ---------------------------------------------
+role datastore(P, D, KS, DS: agent,
+             SND, RCV: channel (dy)) played_by DS def=
+  
+  local State : nat,
+        Edata : {text}_message
+     
+  
+  init State := 15
+
+  transition 
+  
+   1.  State  = 15 /\ RCV(Edata') =|> 
+       State':= 25 
+      
+
+end role
+
+%-----------role session-----------
+
+role session(P, D, KS, DS: agent,
+             K_chip, M_m, K_dks: symmetric_key,
+             Gen_TAC, H_h : hash_func,
+             E_HR : text
+             ) def=
+
+  local   Attributes:   (agent.agent) set,
+             SP, RP, SD, RD, SKS, RKS, SDS, RDS: channel (dy)
+
+init   Attributes :=  {p.d}
+
+  composition 
+
+        patient(P, D, KS, DS,K_chip, Gen_TAC, SP,RP)
+     /\ doctor(P, D, KS, DS,Gen_TAC, E_HR, K_dks, SD,RD)
+     /\ keyserver(P, D, KS, DS, M_m, H_h, Attributes, K_dks, SKS,RKS)
+     /\ datastore(P, D, KS, DS,SDS,RDS)
+
+end role
+
+%-------environment()-----------
+
+role environment() def=
+
+    const p, d, ks, ds       : agent,
+          kchip, kichip, m, kdks, kiks : symmetric_key,
+          gentac, h : hash_func,
+          ehr : text,
+          sec_ehr, sec_k : protocol_id 
+
+    intruder_knowledge = {p. d, ks, ds, gentac, kiks, kichip}
+
+    composition
+
+         session(p, d, ks, ds, kchip, m, kdks, gentac, h, ehr)
+    /\   session(p, i, ks, ds, kchip, m, kiks, gentac, h, ehr)
+    /\   session(i, d, ks, ds, kichip, m, kdks, gentac, h, ehr)
+
+
+end role
+
+
+
+goal
+
+  secrecy_of sec_ehr, sec_k
+
+
+end goal
+
+
+
+environment()

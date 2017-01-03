@@ -1,0 +1,107 @@
+role reader 
+        (T,R : agent,
+         Hash,PRNG : hash_func,
+         SND,RCV : channel(dy))
+played_by R
+def=
+local
+    State : nat,
+    S,Nr,Nt,H,Id,V,N,M,U : text
+
+const
+secret_id,identity_tag,hash_identity,tag_prng,interm,final_prng: protocol_id
+
+init
+State := 0
+transition
+1. State = 0   /\ RCV(start) =|>
+   State':= 1  /\ Nr':= new()
+               /\ SND(Nr')
+2. State = 1   /\ RCV(V'.H'.Nt')  =|>
+   State':= 4  /\ H':=Hash(Id)
+               /\ V':= PRNG(xor(xor(S,Nr),Nt'))
+               /\ H':=Hash(Id)
+               /\ secret(S,secret_id,{R,T})
+               /\ secret(Id,identity_tag,{R,T})
+               /\ request(T,R,hash_identity,H')
+               /\ request(R,T,tag_prng,V') 
+               /\ M':=PRNG(S.Nr)
+               /\ N':=PRNG(M')
+               /\ SND(N')
+               /\ secret(M',interm,{T,R}) 
+               /\ witness(R,T,final_prng,N')
+               /\ U':=Hash(S.M')
+               /\ S':=xor(S,U')
+
+end role
+
+% Tag function..........................
+
+role tag (T,R: agent,
+         Hash,PRNG: hash_func,
+         SND, RCV: channel(dy))
+played_by T
+def=
+local
+    State : nat,
+    S,Id,H,Nr,Nt,M,N,V,U  : text
+const
+secret_id,identity_tag,hash_identity,tag_prng,interm,final_prng: protocol_id
+
+init
+State := 2
+transition
+1. State = 2   /\ RCV(Nr') =|>
+   State':= 3  /\ Nt' := new() 
+               /\ H':=Hash(Id)
+               /\ V':= PRNG(xor(xor(S,Nr'),Nt'))
+               /\ SND(V'.H'.Nt')
+               /\ secret(S,secret_id,{R,T})
+               /\ secret(Id,identity_tag,{R,T})
+               /\ witness(T,R,hash_identity,H')
+               /\ witness(T,R,tag_prng,V')
+ 
+       
+2. State =3    /\ RCV(N')  =|>
+   State':=5   /\ M':=PRNG(S.Nr)
+               /\ N':=PRNG(M')
+               /\ secret(M',interm,{T,R}) 
+               /\ request(T,R,final_prng,N')
+               /\ U':=Hash(S.M')
+               /\ S':=xor(S,U')
+
+end role
+             
+role session(
+T,R : agent,
+Hs,Ps: hash_func)
+def=
+local ST, SR, RT, RR : channel (dy)
+composition
+reader (T,R,Hs,Ps,SR,RR)
+/\ tag(T,R,Hs,Ps,ST,RT)
+end role
+
+
+role environment()
+def=
+const
+secret_id,identity_tag,hash_identity,tag_prng,interm,final_prng: protocol_id,
+t,r : agent,
+h,p : hash_func
+intruder_knowledge = {t,r,h,p}
+composition
+session(r,t,h,p)
+/\ session(t,r,h,p)
+end role
+
+goal
+secrecy_of interm
+secrecy_of secret_id
+secrecy_of identity_tag
+authentication_on hash_identity
+authentication_on tag_prng
+authentication_on final_prng
+end goal
+
+environment()

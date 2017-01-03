@@ -1,0 +1,151 @@
+%% PROTOCOL*: ISO2 Public Key Unilateral Authentication Protocol
+%% VARIANT: two-pass unilateral authentication
+%% PURPOSE: Authentication of a client to a server. This protocol models a situation
+%% in which the server wants to verify the client identity and starts the session.
+%% The client answers by sending his digital signature.
+%% REFERENCE:
+%% egin{itemize}
+%% item cite{clark97survey,ISO-IEC-9798-3}
+%% end{itemize}
+%% MODELER:
+%% egin{itemize}
+%% item Haykal Tej, Siemens CT IC 3, 2003 and
+%% item Luca Compagna et al, AI-Lab DIST University of Genova, November 2004
+%% end{itemize}
+%% ALICE_BOB:
+%% egin{verbatim}
+%% 1. B -> A : Rb, Text1
+%% 2. A -> B : {PKa,A}inv(PKs), Ra,Rb, B, Text2,{Ra,Rb,B,Text1}inv(PKa)
+%% end{verbatim}
+%% PROBLEMS: 1
+%% CLASSIFICATION: G1, G2
+%% ATTACKS: None
+%% NOTES:
+%% erb!inv(PKs)! is the private key of the server erb!C!;
+%% erb!{PKa,A}inv(PKs)! is the certificate of agent erb!A!.\
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+%% HLPSL:
+role alice (Ui,Sj    : agent,
+                SKuisj: public_key, 
+                H:hash_func
+                Snd,Rcv: channel(dy))
+played_by Ui
+def=
+
+  local  State     : nat,
+         RPWi, PWi,Bi,Xs,K,IDi,NIDi,
+         TDi,Di,Fi,Ei,Rc,Rs:text
+         M1,M2,M3,M4,M5,M6,M7,M8,M9:message,
+         Inc:hash_func
+  Const alice_bob_rc,bob_alice_rs,
+      Subs1,subs2,subs3:protocol_id      
+
+  init State := 0
+
+
+  transition
+
+   1. State = 0
+      / Rec(start)
+      =|>
+      State' := 1 
+      / Fi' := H(IDi.K.Bi)
+      / RPWi':=H(IDi.K.PWi)
+      / Snd({IDi.Fi'.RPWi'}_SKuisj)
+      / secret({Xs},subs1,Sj)
+      / secret({PWi,Bi,K},subs2,Ui)
+      / secret({IDi},subs3,{Ui,Sj})
+
+   2. State = 1
+      / Rcv({xor(NIDi',H(IDi)).xor(NIDi',H(IDi)).
+         H.H(IDi.K.Bi).H(H(IDi.K.PWi).H(IDi.K.Bi)).
+         xor(H(IDi.Xs),H(H(IDi.K.PWi).H(IDi.K.Bi)))}_SKuisj)  
+      =|> 
+      State' := 2 / Rc':=new()
+               / TDi=xor(NIDi',H(IDi))
+               / M1'=H(IDi.Xs)
+               / M2'=xor(M1',Rc')
+               / Snd(xor(H(IDi),TDi).M2'.H(IDi.Rc'))
+               / witness(Ui,Sj,alice_bob_rc,Rc')
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role iso2_Resp (A,B    : agent,
+                Pka,Pks: public_key,
+                Snd,Rec: channel(dy))
+played_by A
+def=
+
+  local  State     : nat,
+         Ra	   : text,
+         Rb, Text1 : text
+
+  init State := 0
+
+%%%  knowledge(A)={A,B,Pka,Pks,ctext2,inv(Pka),{Pka.A}_inv(Pks)}
+
+  transition
+
+   1. State = 0
+      / Rec(Rb'.Text1')
+      =|> 
+      State' := 2 
+      / Ra' := new()
+      / Snd(Pka.A.{Pka.A}_inv(Pks).Ra'.Rb'.B.ctext2.
+                   {Ra'.Rb'.B.Text1'}_inv(Pka))
+      / witness(A,B,ra,Ra')
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role session (B, A : agent,
+	      Pka  : public_key,
+              Pks  : public_key) def=
+
+  local SA, RA, SB, RB: channel (dy)
+  composition
+
+          iso2_Init(B,A,Pks,SB,RB)
+       / iso2_Resp(A,B,Pka,Pks,SA,RA)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role environment() def=
+
+  const  ctext1,ctext2 : text,
+	 ra	       : protocol_id,
+         a,b,i         : agent,	
+         pkb,pks,pki   : public_key
+  
+  intruder_knowledge={i,a,b,pks,pki,inv(pki),ctext1,ctext2,
+                      {pki.i}_inv(pks)}   %%% 2nd session
+
+  composition
+
+	session(a,b,pkb,pks)
+     /	session(a,i,pki,pks)
+     /	session(i,b,pkb,pks)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+goal
+
+   %ISO2_Init  authenticates ISO2_Resp on ra
+   authentication_on ra % addressess G1 and G2
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+environment()
+ 

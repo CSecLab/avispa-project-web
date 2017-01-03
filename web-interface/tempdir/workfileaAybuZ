@@ -1,0 +1,70 @@
+role role_MR(MR:agent,LRVS:agent,HAAA:agent,KMRHAAA:symmetric_key,KLRVSMR:symmetric_key,SND,RCV:channel(dy))
+played_by MR
+def=
+	local
+		State:nat,IDHAAA:text,HILRVS:public_key,N1:text,IDMR:text,H:function,HIMR:public_key,N2:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ N1':=new() /\ HIMR':=new() /\ IDMR':=new() /\ IDHAAA':=new() /\ HILRVS':=new() /\ SND(H(HIMR').H(HILRVS').IDHAAA'.IDMR'.{N1'}_KMRHAAA.H(N1').{IDMR'.H(HIMR').N1'}_KMRHAAA)
+		6. State=1 /\ RCV(KLRVSMR.{N2'}_KMRHAAA.H(N2').IDMR.H(HIMR).{IDMR.H(HIMR).N1.N2'}_KMRHAAA) =|> State':=2 /\ witness(MR,HAAA,auth_2,N2')
+end role
+
+role role_LRVS(MR:agent,LRVS:agent,VAAA:agent,KLRVSMR:symmetric_key,KVAAALRVS:symmetric_key,SND,RCV:channel(dy))
+played_by LRVS
+def=
+	local
+		State:nat,IDHAAA:text,HILRVS:public_key,KMRHAAA:symmetric_key,N1:text,IDMR:text,H:function,HIMR:public_key,N2:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(H(HIMR').H(HILRVS').IDHAAA'.IDMR'.{N1'}_KMRHAAA'.H(N1').{IDMR'.H(HIMR').N1'}_KMRHAAA') =|> State':=1 /\ SND(H(HIMR').H(HILRVS').IDHAAA'.IDMR'.{N1'}_KMRHAAA'.H(N1').{IDMR'.H(HIMR').N1'}_KMRHAAA')
+		5. State=1 /\ RCV(KVAAALRVS.KLRVSMR.{N2'}_KMRHAAA.H(N2').IDMR.H(HIMR).{IDMR.H(HIMR).N1.N2'}_KMRHAAA) =|> State':=2 /\ SND(KLRVSMR.{N2'}_KMRHAAA.H(N2').IDMR.H(HIMR).{IDMR.H(HIMR).N1.N2'}_KMRHAAA)
+end role
+
+role role_VAAA(VAAA:agent,LRVS:agent,HAAA:agent,KVAAALRVS:symmetric_key,KLRVSMR:symmetric_key,SND,RCV:channel(dy))
+played_by VAAA
+def=
+	local
+		State:nat,IDHAAA:text,HILRVS:public_key,KMRHAAA:symmetric_key,N1:text,IDMR:text,H:function,HIMR:public_key,N2:text
+	init
+		State := 0
+	transition
+		2. State=0 /\ RCV(H(HIMR').H(HILRVS').IDHAAA'.IDMR'.{N1'}_KMRHAAA'.H(N1').{IDMR'.H(HIMR').N1'}_KMRHAAA') =|> State':=1 /\ SND(H(HIMR').H(HILRVS').IDHAAA'.IDMR'.{N1'}_KMRHAAA'.H(N1').{IDMR'.H(HIMR').N1'}_KMRHAAA')
+		4. State=1 /\ RCV(KVAAALRVS.{N2'}_KMRHAAA.H(N2').IDMR.H(HIMR).{IDMR.H(HIMR).N1.N2'}_KMRHAAA) =|> State':=2 /\ SND(KVAAALRVS.KLRVSMR.{N2'}_KMRHAAA.H(N2').IDMR.H(HIMR).{IDMR.H(HIMR).N1.N2'}_KMRHAAA)
+end role
+
+role role_HAAA(HAAA:agent,MR:agent,VAAA:agent,KMRHAAA:symmetric_key,KVAAALRVS:symmetric_key,SND,RCV:channel(dy))
+played_by HAAA
+def=
+	local
+		State:nat,IDHAAA:text,HILRVS:public_key,N1:text,IDMR:text,H:function,HIMR:public_key,N2:text
+	init
+		State := 0
+	transition
+		3. State=0 /\ RCV(H(HIMR').H(HILRVS').IDHAAA'.IDMR'.{N1'}_KMRHAAA.H(N1').{IDMR'.H(HIMR').N1'}_KMRHAAA) =|> State':=1 /\ N2':=new() /\ SND(KVAAALRVS.{N2'}_KMRHAAA.H(N2').IDMR'.H(HIMR').{IDMR'.H(HIMR').N1'.N2'}_KMRHAAA)
+end role
+
+role session1(KLRVSMR:symmetric_key,LRVS:agent,HAAA:agent,MR:agent,VAAA:agent,KMRHAAA:symmetric_key,KVAAALRVS:symmetric_key)
+def=
+	local
+		SND4,RCV4,SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_HAAA(HAAA,MR,VAAA,KMRHAAA,KVAAALRVS,SND4,RCV4) /\ role_VAAA(VAAA,LRVS,HAAA,KVAAALRVS,KLRVSMR,SND3,RCV3) /\ role_LRVS(MR,LRVS,VAAA,KLRVSMR,KVAAALRVS,SND2,RCV2) /\ role_MR(MR,LRVS,HAAA,KMRHAAA,KLRVSMR,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		hash_0:function,kmrhaaa:symmetric_key,mr:agent,lrvs:agent,klrvsmr:symmetric_key,haaa:agent,vaaa:agent,kvaaalrvs:symmetric_key,auth_1:protocol_id,auth_2:protocol_id
+	intruder_knowledge = {mr,lrvs,vaaa,haaa}
+	composition
+		session1(klrvsmr,lrvs,haaa,mr,vaaa,kmrhaaa,kvaaalrvs)
+end role
+
+goal
+	authentication_on auth_1
+	authentication_on auth_2
+end goal
+
+environment()

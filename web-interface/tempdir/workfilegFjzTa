@@ -1,0 +1,80 @@
+role merchant(M, B: agent,
+KPB:public_key
+KPM:public_key,
+KSGM:public_key,
+SND, RCV : channel(dy))
+played_by A
+def=
+local State : nat,
+TREF,IDB,IDM,Tprice : text,
+% const alice_bob_k1ab, alice_bob_na, bob_alice_nb: protocol_id
+init State := 0
+knowledge(A) = { inv(KPM) }
+transition
+0. State = 0 /\ RCV(start) =|>
+State':= 2 /\ TREF' := new()
+/\ SND({{TREF.Tprice.IDM,IDB}_KSGM}_KPB)
+/\ witness(M,B,bob_alice_TREF,TREF')
+/\ witness(M,B,bob_alice_IDM,IDM)
+/\ witness(M,B,bob_alice_IDB,IDB)
+
+
+2. State = 2 /\ RCV({{IDB.IDM.TREF'}_KSGB}_KPM) =|>
+/\ request(M,B,alice_bob_TREF,TREF')
+
+end role
+
+role bank (B, M : agent,
+KPB : public_key,
+KPM: public_key,
+KSGB: public_key,
+SND, RCV : channel(dy))
+played_by B
+def=
+local State : nat,
+TREF,IDB,IDM,Tprice : text,
+init State := 1
+knowledge(B) = { inv(KPB) }
+
+transition
+1. State = 1 /\ RCV({{TREF.Tprice.IDM,IDB}_KSGM}_KPB) =|>
+/\ request(B,M,alice_bob_IDB,IDB)
+/\ request(B,M,alice_bob_IDM,IDM)
+
+State':= 3 /\ SND({{IDB.IDM.TREF'}_KSGB}_KPM)
+/\ witness(B,M,alice_bob_TREF,TREF')
+
+end role
+
+role session (M,B: agent,
+KPM, KPB : public_key) def=
+local SA, RA, SB, RB: channel (dy)
+composition
+Merchant(M,B,KPM,KPB,SA,RA)
+/\ Bank(B,M,KPB,KPM,SB,RB)
+end role
+
+role environment() def=
+const
+m, b, i : agent,
+kpm, kpb, ki : public_key,
+
+alice_bob_TREF,
+alice_bob_IDB,
+alice_bob_IDM,
+
+intruder_knowledge = {m,b,i,kpm,kpb,ki,inv(ki)}
+composition
+session(m,b,kpm,kpb)
+/\ session(m,i,kpm,ki)
+end role
+
+
+goal
+authentication_on alice_bob_TREF
+authentication_on alice_bob_IDB
+authentication_on alice_bob_IDM
+
+end goal
+
+environment()

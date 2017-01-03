@@ -1,0 +1,182 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Avispa-users] A doubt about defining goals
+   </TITLE>
+   <LINK REL="Index" HREF="index.html" >
+   <LINK REL="made" HREF="mailto:avispa-users%40avispa-project.org?Subject=%5BAvispa-users%5D%20A%20doubt%20about%20defining%20goals&In-Reply-To=">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000321.html">
+   <LINK REL="Next"  HREF="000323.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Avispa-users] A doubt about defining goals</H1>
+    <B>Shirlei Chaves</B> 
+    <A HREF="mailto:avispa-users%40avispa-project.org?Subject=%5BAvispa-users%5D%20A%20doubt%20about%20defining%20goals&In-Reply-To="
+       TITLE="[Avispa-users] A doubt about defining goals">shirlei at gmail.com
+       </A><BR>
+    <I>Fri Sep  8 01:25:23 CEST 2006</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000321.html">[Avispa-users] A small problem in security protocol
+</A></li>
+        <LI>Next message: <A HREF="000323.html">[Avispa-users] A doubt about defining goals
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#322">[ date ]</a>
+              <a href="thread.html#322">[ thread ]</a>
+              <a href="subject.html#322">[ subject ]</a>
+              <a href="author.html#322">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hello everyone ! I tried to find a page with previous messages but I didn't
+find. So, please be patient If I me asking some stupid question and I would
+appreciate if you indicate me this kind of page.
+Here is my doubt:
+I have the following situation to solve:
+
+Someone will make reservations for a Theatre, but no one beside who made the
+reservation should know who had made reservations, even the Theatre.
+
+Here is the solution in Alice - Bob Notation:
+
+A:  Generates KS                                  % alice generates a
+symmetric key
+A -&gt; B : EKUb (KS)  || EKS (reservation) % and sends to Bob this symmetric
+key encrypted with Bob's public key, concatenated with the
+                                                            %reservation
+encrypted with the symmetric key
+B -&gt; A   :  SKRb(reservation)                 % The Theatre signs his
+reservation and send it to her
+
+
+Below is a copy of what I especified (espectador -&gt; alice, teatro -&gt; Theatre
+/ bob). I would like to hear from you about my intruder knowledge
+especification and if it's possible to have a goal that indicates that who
+is making the reservation is unknown. Thanks a lot!
+bye
+
+role espectador(
+    E, T : agent,
+    KUt : public_key,
+    SND, RCV : channel (dy))
+
+played_by E def=
+
+    local
+        State : nat,
+        P: text,
+           KS : symmetric_key
+
+init
+
+    State := 0
+
+transition
+
+    1. State  = 0 /\ RCV(start) =|&gt;
+        State' := 2 /\ KS' := new() /\ SND({KS'}_KUt . {P}_KS')
+    2. State  = 2  /\ RCV({P}_inv(KUt)) =|&gt; State' := 4
+
+end role
+
+
+role teatro (
+    E,T : agent,
+    KUt  : public_key,
+    SND, RCV : channel (dy))
+
+played_by T def=
+
+    local
+        State : nat,
+           KS : symmetric_key,
+              P : text
+
+init
+    State := 1
+
+transition
+
+    1. State  = 1 /\ RCV({KS'}_KUt.{P}_KS') =|&gt;
+        State' := 3 /\ SND({P}_inv(KUt))
+
+end role
+
+
+
+role session(
+
+    E, T : agent,
+    KUt : public_key)
+
+def=
+    local
+        ST, SE,
+        RT, RE : channel (dy)
+
+composition
+
+    espectador(E, T, KUt, SE, RE) /\
+    teatro(E, T, KUt, ST, RT)
+
+end role
+
+
+
+role environment()
+
+def=
+
+const
+    e, t, i : agent,
+    kut : public_key,
+    teatro_espectador_p , espectador : protocol_id,
+    ket, kit : symmetric_key
+
+
+intruder_knowledge = {kut, kit, t}
+
+composition
+        session(e,t, kut)
+    /\      session(t,i, kut)
+
+end role
+
+
+
+goal
+    authentication_on teatro_espectador_p
+
+
+end goal
+
+environment()
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: <A HREF="http://carroll.ai.dist.unige.it/pipermail/avispa-users/attachments/20060907/710811d7/attachment.htm">http://carroll.ai.dist.unige.it/pipermail/avispa-users/attachments/20060907/710811d7/attachment.htm</A>
+</PRE>
+
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000321.html">[Avispa-users] A small problem in security protocol
+</A></li>
+	<LI>Next message: <A HREF="000323.html">[Avispa-users] A doubt about defining goals
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#322">[ date ]</a>
+              <a href="thread.html#322">[ thread ]</a>
+              <a href="subject.html#322">[ subject ]</a>
+              <a href="author.html#322">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="http://www.avispa-project.org/mailman/listinfo/avispa-users">More information about the Avispa-users
+mailing list</a><br>
+</body></html>

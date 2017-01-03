@@ -1,0 +1,106 @@
+role client(A, S, B: agent,
+			Ka: symmetric_key,
+			SND_SA, RCV_SA, SND_BA, RCV_BA: channel(dy)) played_by A def=
+			
+	local
+		State: nat,
+		Na,Ns: text,
+		Kab: symmetric_key,
+		X: {symmetric_key.text.text}_symmetric_key
+		
+	init
+		State:=0
+		
+	transition
+	1. State = 0 /\ RCV_BA(start) =|>
+	   State':= 2 /\ Na' := new()
+				   /\ SND_SA(A.B.{Na'}_Ka)
+	
+	2. State = 2 /\ RCV_SA({Na.Kab.B.{Kab.A}_Kbs}_Kas) =|>
+       State':= 4 /\ SND_BA({Kab.A}_Kbs)
+
+	3. State = 4 /\ RCV_BA({Nb}_Kab) =|>
+	   State':= 6 /\ request(A,B,client_service_na,Na)
+	   
+	4. State = 6 /\ RCV_BS({Nb}_Kab) =|>
+	   State':=8 /\ SND_BA({Nb-1}_Kab)
+	   
+end role
+
+
+role server(A, S, B : agent,
+			Ka, Kb, Kab : symmetric_key,
+			SND_AS, RCV_AS: channel(dy)) played_by S def=
+			
+	local
+		State: nat,
+		Ns, Na: text,
+		K, Kas, Kbs: symmetric_key	
+		
+	init	
+		State := 1
+		
+	transition
+	1. State = 1 /\ RCV_AS(A.B.{Na'}_Ka) =|>
+	   State':= 3 /\ Ns':= new() /\ K':= new()
+				   /\ SND_AS({Na.Kab.B.{Kab.A}_Kbs}_Kas)
+				   /\ secret(K',k,{A,B,S})
+end role
+	 
+	 
+role service(A, S, B: agent,
+		 Kb, Kab : symmetric_key,
+		 SND_AB, RCV_AB: channel(dy)) played_by B def=
+
+	local
+		State: nat,
+		Ns, Na: text,
+		K: symmetric_key
+		
+	init
+		State:= 5
+		
+	transition
+	1. State = 5 /\ RCV_AB({Kab.A}_Kbs) =|>
+	   State':= 7 /\ SND_AB({Nb}_Kab)
+				  /\ witness(B,A,client_service_na,Na')
+end role
+
+
+role session(A, S, B: agent,
+			 Ka, Kb: symmetric_key) def=
+			 
+	local
+		SSA, RSA,
+		SBA, RBA,
+		SAS, RAS,
+		SAB, RAB : channel(dy)
+		
+	composition
+		client(A, S, B, Ka, SSA, RSA, SBA, RBA)
+	/\  server(A, S, B, Ka, Kb, SAS, RAS)
+	/\  service(A, S, B, Kb, SAB, RAB)
+end role
+
+role environment() def=
+
+	const a, b, s : agent,
+		  ka, kb, ki :symmetric_key,
+		  client_service_na, k : protocol_id
+		  
+	intruder_knowledge = {a, b, s, ki}
+
+	composition
+	
+	   session(a,s,b,ka,kb)
+	/\ session(a,s,i,ka,ki)
+	/\ session(i,s,b,ki,kb)
+	
+end role
+
+goal
+	secrecy_of k
+	authentication_on client_service_na
+end goal
+
+environment()

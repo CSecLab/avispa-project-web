@@ -1,0 +1,165 @@
+
+%Code HLPS
+%1.Client
+role cardholder(     C,M,P: agent, H : hash_func,
+                   KpubC,  KpubM,  KpubP : public_key,
+     	             SND, RCV: channel (dy) 
+                        )
+ played_by C def=
+local S : nat,IC,IP2 : message,  % IP2 = IP + h (IC) + SD 
+           Resp_pay : message,
+           K1, K2,K4 : symmetric_key
+init S := 0
+transition
+% =|> Purchase Request
+1. S = 0 /\ 
+   RCV(start) 
+   =|>
+   S' := 2 /\
+   K1' := new() /\
+   K2' := new() /\
+   IP2' := new() /\
+   IC' := new() /\
+   SND (
+	{IP2'}_K1'.{K1'}_KpubP.{IC'}_K2'.{K2'}_KpubM.
+	 {H( {IP2'}_K1'.{K1'}_KpubP.{IC'}_K2'.{K2'}_KpubM)}_inv(KpubC)
+            )
+ /\
+  secret(IC',order,{C,M,P}) 	/\
+  secret(IP2',payment,{C,P}) 	/\
+  secret(K1',k1,{C,M}) 		/\
+  secret(K2',k2,{C,M}) 	
+% Purchase Response =|>
+1.	    S =  2 /\
+% retransmission de la reponse de la passerelle vers le client (par le marchand) 
+   RCV   	( 	{Resp_pay'}_K4'.{K4' }_KpubC.	{H({Resp_pay'}_K4'.{K4'}_KpubM)}_inv(KpubP)
+		%%on doit envoyer la sig de M??
+	)
+   =|>
+   S' := 4
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%2.Marchand
+role merchant (C,M,P: agent, H : hash_func,
+               KpubC,  KpubM,  KpubP : public_key,
+               SMC,RMC,SMP, RMP: channel (dy)
+                )
+ played_by M def=
+ local S : nat,
+       IC,IP2,Card_M : message,
+       Resp_pay : message,
+       K1 : symmetric_key,
+       K2 : symmetric_key,
+       K3 : symmetric_key,
+       K4 : symmetric_key 
+ init S := 1
+ transition
+ % Purchase Request =|> Payment  Request
+1.        S = 1
+ /\    RMC  (
+	{IP2'}_K1'.{K1'}_KpubP.{IC'}_K2'.{K2'}_KpubM.
+	 {H( {IP2'}_K1'.{K1'}_KpubP.{IC'}_K2'.{K2'}_KpubM)}_inv(KpubC)
+            ) 
+    =|>
+       S' := 3
+ /\    K3' := new()
+ /\ Card_M' := new()
+ /\    SMP ( {IP2'}_K1'.{K1'}_KpubP.{IC'}_K2'.{K2'}_KpubM.
+          {H({IP2'}_K1'.{K1'}_KpubP.{IC'}_K2'.{K2'}_KpubM)}_inv(KpubC).  
+                    {IC'.Card_M'}_K3'.{K3'}_KpubP.
+                    {H({IC'.Card_M'}_K3'.{K3'}_KpubP)}_inv(KpubM)
+                 )
+  /\   secret(IC',order,{C,M,P}) 
+  /\   secret(IP2',payment,{C,P}) 	
+  /\   secret(K1',k1,{C,P}) 		
+  /\   secret(K2',k2,{C,M}) 
+  /\   secret(K3',k3,{M,P}) 
+  /\   secret(Card_M',card_m,{M,P}) 
+ % Payment Response =|> Response to Client
+2.   S = 3/\
+    RMP  (
+	{Resp_pay'}_K4'.{K4'}_KpubM.
+	{H({Resp_pay'}_K4'.{K4'}_KpubM)}_inv(KpubP)             )
+    =|>
+    S' := 5
+/\    SMC  (
+	{Resp_pay'}_K4'.{K4'}_KpubC.
+	{H({Resp_pay'}_K4'.{K4'}_KpubM)}_inv(KpubP)  %%signature de P seulement
+                ) 
+/\   secret(Resp_pay',resp_pay,{C,M})
+/\   secret(K4',k4,{C,M})
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%3.Payment Gatway
+role paymentgateway   (	C,M,P: agent,H : hash_func,
+KpubC,  KpubM,  KpubP : public_key,
+                        SND, RCV: channel (dy) 
+               	     ) 
+	played_by P
+ def=
+local S : 	nat,
+       	IC,IP2,Card_M : message,
+	Resp_pay : message,
+       	K1 : symmetric_key,
+       	K2 : symmetric_key,
+       	K3 : symmetric_key,
+	K4 : symmetric_key
+ init S := 6
+ transition
+ % Payment Request =|> Payment  Response
+1.	   S  =  6
+/\    RCV (
+	{IP2'}_K1'.{K1'}_KpubP.{IC'}_K2'.{K2'}_KpubM.
+                    { H({IP2'}_K1'.{K1'}_KpubP.{IC'}_K2'.{K2'}_KpubM)}_inv(KpubC).  %signature du client (a envoyer?)
+                    {IC'.Card_M'}_K3'.{K3'}_KpubP.
+	{H({IC'.Card_M'}_K3'.{K3'}_KpubP)}_inv(KpubM)
+       	) 
+    =|>
+      S' := 7 
+/\    K4' := new()
+/\    Resp_pay' := new()
+/\    SND  ( 
+                     {Resp_pay'}_K4'.{K4'}_KpubM.
+	{H({Resp_pay'}_K4'.{K4'}_KpubM)}_inv(KpubP)  
+               )
+ /\   secret(K4',k4,{M,P}) 
+/\   secret(Resp_pay',resp_pay,{M,P})  
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%4.Session
+role session(C,M,P: agent, H : hash_func,KpubC,  KpubM,  KpubP :public_key ) def=
+ local SCM, RCM, SMP, RMP: channel(dy)
+ composition
+ cardholder(C,M,P,H,KpubC,KpubM,KpubP,SCM,RCM) /\
+  merchant  (C,M,P,H,KpubC,KpubM,KpubP,SCM,RCM,SMP,RMP) /\
+  paymentgateway(C,M,P,H,KpubC,KpubM,KpubP,RMP,SMP)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%5.Environnement
+role environment() def= 
+  const h: hash_func, 
+order,payment,resp_pay,k1,k2,k3,k4,card_m : protocol_id,
+        c,m,p: agent,
+        kpub_c,  kpub_m,  kpub_p, kpub_i : public_key
+ intruder_knowledge = {c,m,p,kpub_c,  kpub_m,kpub_i ,inv(kpub_i),  kpub_p, h }
+ composition 
+ 
+session(i,m,p,h,kpub_i,kpub_m,kpub_p)
+
+
+
+ 
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+  secrecy_of card_m
+  secrecy_of  resp_pay
+  secrecy_of  payment
+  secrecy_of order
+  secrecy_of k1
+  secrecy_of k2 
+  secrecy_of k3
+  secrecy_of k4
+end goal
+environment() 

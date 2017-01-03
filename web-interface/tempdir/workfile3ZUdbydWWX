@@ -1,0 +1,97 @@
+role reader (R,T : agent,
+		Hello,K1,K2,IDen : text,
+		P: function,
+		SND,RCV: channel (dy)) played_by R def=
+local
+	IDS :text,
+	A,B :text,
+	Na :text,
+	State:nat
+init State :=0
+	transition
+	 	0.State =0 /\ RCV (start) =|> 
+		State':=2 /\ SND(hello)
+		
+		2.State =2 /\ RCV (IDS') =|> 
+		State':= 4 /\ Na' :=new()
+			/\ A':= xor(Na',K2)
+			/\ B':= P(xor(xor(Na',K1),K2))
+			/\ witness(R,T,authK1,K1)
+			/\ witness(R,T,authK2,K2)
+			/\ SND ( (A').(B'))
+			
+			
+		4. State=4/\ RCV (xor(P(K1'),P(Na')))=|>
+		State':=6/\ secret(IDen,idtag,{R,T})
+			/\ secret(K1,secK1,{R,T})
+			
+			%/\ request(R,T,authid,IDen)
+			%/\ request(R,T,authK1,K1)
+			
+end role				
+
+
+
+role tag (R,T : agent,
+		Hello,K1,K2,IDen,IDS : text,
+		P: function,
+		SND,RCV: channel (dy)) played_by T def=
+local
+	A,B : text,
+	Na :text,
+	State :nat
+init State :=1
+	transition
+		1.State =1 /\ RCV (Hello) =|> 
+		State':=3 /\ SND(IDS)
+				
+		3.State =3 /\RCV ((A').(B')) =|>
+		State':=5 	/\ Na':=xor(A',K2)
+			/\ K1':=new()
+			/\ Na':=new()
+			/\ secret(IDen,idtag,{R,T})
+			/\ secret(K1,secK1,{R,T})
+			/\ request(T,R,authA,A')
+			%/\ witness(T,R,authid,IDen)
+			
+			
+			/\ SND (xor(P(K1'),P(Na')))
+			
+end role
+
+role session(R,T : agent,
+		
+		Hello,K1,K2,IDen,IDS : text,
+		P:function)
+def=
+local SND1, RCV1,SND2, RCV2: channel (dy)
+	 
+composition
+tag(T,R,Hello,K1,K2,IDen,IDS,P, SND2, RCV2)
+/\reader(T,R,Hello,K1,K2,IDen,P, SND1, RCV1)
+end role
+
+
+role environment( ) def=
+const
+r,t : agent,
+idtag,secK1, authA, authid: protocol_id,
+puf:function,
+hello,k1,k2,id,ids: text
+
+intruder_Knowledge = {}
+
+composition
+session(t,r,hello,k1,k2,id,ids,puf)
+%/\session(r,t,hello,k1,k2,id)
+%/\ session(t,i,kis,k2,id)
+%/\ session(i,r,k1,kis,id)
+end role
+
+goal
+secrecy_of idtag
+secrecy_of secK1
+authentication_on authA
+%authentication_on authid
+end goal
+environment()

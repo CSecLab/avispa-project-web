@@ -1,0 +1,50 @@
+PROTOCOL SSLHandshake;
+IMPORTS SSLS;
+TYPES CipherSpec;
+VARIABLES
+    C: PKUser;
+    S: CertServer;
+    Rc,Rs: Nonce, CRYPTO;       /* Client/ServerHello.random */
+    CS: CipherSpec;   
+    SID: Nonce;                 /* session id */
+    PMS: Skey;                  /* pre-master-secret */
+    MS: Skey;                   /* master secret */
+    PKs: Pkey;                  /* Server public key pk(S) */
+CONSTANTS 
+    DH, RSA, DMS: CipherSpec;
+    SSLDH, SSLRSA, SSLDMS: Pspec;
+DENOTES
+    MS = sha({PMS,Rc,Rs});
+ASSUMPTIONS
+    HOLDS C: S, CS;
+MESSAGES
+    ClientHello.       C -> S: C,Rc,CS;
+    ServerHello.       S -> C: S,Rs,CS;
+    ServerCertificate. S -> C: T(S)%{S,PKs}sk(CA); 
+    IF      CS = DH  THEN INCLUDE SSLDH; 
+    ELSE IF CS = RSA THEN INCLUDE SSLRSA; 
+    ELSE IF CS = DMS THEN INCLUDE SSLDMS;   
+/*  ELSE INCLUDE SSLERR; */ ENDIF; 
+    ENDIF; ENDIF;
+GOALS
+    SECRET MS;
+    PRECEDES C: S | MS,Rs,Rc; 
+END;
+
+
+PROTOCOL SSLDH;
+IMPORTS SSLHandshake;
+VARIABLES
+    Yc,Ys: Pval;                /* key agreement public values */
+    Xc,Xs: Skey, FRESH,CRYPTO;  /* key agreement secret values */
+    D: Field;
+MESSAGES
+    ServerKeyExchange. S -> C: kap(Xs)%Ys,({sha(kap(Xs))}sk(S))%D; 
+                       {D}PKs = sha(Ys);
+/*  SeverHelloDone.    S -> C: { } */
+    ClientKeyExchange. C -> S: kap(Xc)%Yc;
+                       PMS = kas(Yc,Xs);/
+                       PMS = kas(Ys,Xc);
+    ClientFinished.    C -> S: sha({MS,C});
+    ServerFinished.    S -> C: sha({MS,S});
+END;

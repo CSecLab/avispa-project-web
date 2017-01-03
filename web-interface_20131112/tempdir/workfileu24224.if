@@ -1,0 +1,99 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileu24224
+
+section signature:
+
+state_bob: agent * agent * symmetric_key * hash_func * text * nat * text * text * nat -> fact
+state_alice: agent * agent * symmetric_key * hash_func * text * nat * pair(text,text) * nat -> fact
+
+
+section types:
+
+reader_to_tag: protocol_id
+MGoal, start: message
+X, Dummy_X: pair(text,text)
+crc, CRC: hash_func
+k, K: symmetric_key
+Na, Nb, Query, Dummy_Nb, Dummy_Na, dummy_nonce: text
+5, 3, 1, State, 4, 2, 9, 7, 0, SID, Dummy_State, SID2, SID1: nat
+a, b, Reader, Tag, A2Goal, i, A1Goal: agent
+ASGoal: set(agent)
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(crc).
+ iknows(i).
+ state_alice(a,b,k,crc,dummy_nonce,0,pair(dummy_nonce,dummy_nonce),3).
+ state_bob(b,a,k,crc,dummy_nonce,1,dummy_nonce,dummy_nonce,4).
+ state_bob(b,i,k,crc,dummy_nonce,1,dummy_nonce,dummy_nonce,7).
+ state_alice(a,i,k,crc,dummy_nonce,0,pair(dummy_nonce,dummy_nonce),9)
+
+
+section rules:
+
+step step_0 (Reader,Tag,K,CRC,Query,X,SID) :=
+ state_alice(Reader,Tag,K,CRC,Query,0,X,SID).
+ iknows(start)
+ =>
+ state_alice(Reader,Tag,K,CRC,Query,2,X,SID).
+ iknows(Query)
+
+step step_1 (Reader,Tag,K,CRC,Query,Dummy_X,SID,X) :=
+ state_alice(Reader,Tag,K,CRC,Query,2,Dummy_X,SID).
+ iknows(X)
+ =>
+ state_alice(Reader,Tag,K,CRC,Query,4,X,SID).
+ iknows(scrypt(K,X))
+
+step step_2 (Tag,Reader,K,CRC,Query,Dummy_Na,Dummy_Nb,SID,Na,Nb) :=
+ state_bob(Tag,Reader,K,CRC,Query,1,Dummy_Na,Dummy_Nb,SID).
+ iknows(Query)
+=[exists Nb,Na]=>
+ state_bob(Tag,Reader,K,CRC,Query,3,Na,Nb,SID).
+ iknows(pair(Na,Nb))
+
+step step_3 (Tag,Reader,K,CRC,Query,Dummy_Na,Dummy_Nb,SID,Na,Nb) :=
+ state_bob(Tag,Reader,K,CRC,Query,3,Dummy_Na,Dummy_Nb,SID).
+ iknows(scrypt(K,pair(Na,Nb)))
+ =>
+ state_bob(Tag,Reader,K,CRC,Query,5,Na,Nb,SID).
+ witness(Tag,Reader,reader_to_tag,Na,Nb)
+
+
+section properties:
+
+property secrecy_of_k (MGoal,ASGoal) :=
+ [] ((secret(MGoal,k,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_reader_to_tag (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,reader_to_tag,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,reader_to_tag,MGoal))
+     /\ ((request(A1Goal,A2Goal,reader_to_tag,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,reader_to_tag,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_k (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,k,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_reader_to_tag (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,reader_to_tag,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,reader_to_tag,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_reader_to_tag (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,reader_to_tag,MGoal,SID1).
+ request(A1Goal,A2Goal,reader_to_tag,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

@@ -1,0 +1,149 @@
+role alice (Ui, CMS, PSj : agent,
+SKuisj : symmetric_key,
+H, Mul: hash_func, Snd, Rcv: channel(dy))
+played_by Ui
+def=
+local State : nat,
+IDi, PWi, PWRi, R, Py, Px, TSi, P, Pub, TIDi, IDpsj, S, A: text,
+Di, Ci, Bi, Bii, M1, M2, M3, M4, Z3, Z1, SKV, SKu: message,
+Inc : hash_func
+const alice_server, server_pserver, 
+pserver_alice, subs1, subs2, subs3, 
+subs4, subs5, subs6, subs7, subs8 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(start) =|>
+State' := 1 /\ PWRi' := xor(PWi,R)
+/\ Snd({IDi.PWRi'}_SKuisj)
+%send registration request message to CMS
+/\ secret({PWi}, subs2, Ui)
+/\ secret({IDi}, subs3, {Ui,CMS,PSj})
+/\ Di' := xor(r,H(IDi.H(Py)))
+2. State = 1 /\ Rcv({Ci'.Bi'.TIDi'}_SKuisj) =|>
+% Receive smart card securely from the MRS
+% Start login phase
+State' := 2 /\ A' := new()
+/\ TSi' := new()
+/\ Bii' :=  {Bi}_Px
+/\ M1' := Mul(A,P)
+/\ M2' := Mul(A,Pub)
+/\ M3' := xor(TIDi, H(M2))
+/\ M4' := H(Bii'.IDi.M2.TSi)
+/\ IDpsj' := new()
+/\ Snd(M1'. M3'. M4'. TSi'. IDpsj') 
+%sends login message to the MRS through public channel
+%/\ witness(Ui, MS, alice_mserver, Rc') 
+%/\secret({Rc'},subs6,{Ui,MS,PS})
+% Receive reply message from the PS
+3. State = 2 /\ Rcv(Z3'.TSj') =|>
+State' := 3 /\  Z1':= {Z3'}_Px
+/\ SKu' := Mul(A.Z1')
+/\ SKV' := H(111.SKu')
+%/\ request(PS, Ui, pserver_alice, Rk')
+/\ Snd(SKV') 
+end role
+role server (CMS, Ui, PSj  : agent,
+SKuisj : symmetric_key,  
+% H is hash function
+H, Mul: hash_func,
+Snd, Rcv: channel(dy) )
+played_by CMS
+def=
+local State : nat,
+IDi, PWRi, R, Py, Px, TSi, P, Pub, TIDi, IDpsj, S, A, TS, Xp, Yp, Xj: text,
+Di, Ci, Bi, Biii, M1, M3, M4, K2, K3, K4, K5, K6, K7: message,
+Inc : hash_func
+const alice_server, server_pserver, 
+pserver_alice, subs1, subs2, subs3, 
+subs4, subs5, subs6, subs7, subs8 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv({IDi.PWRi'}_SKuisj) =|>
+State' := 1 /\ TIDi' := new()
+/\ Ai':= Mul(IDi,P)
+/\ Ci' := H(IDi.PWRi)
+/\ Bi' := {H(IDi.S)}_Px
+/\ Snd({Ci'.Bi'.TIDi'}_SKuisj)
+2. State = 1 /\ Rcv(M1'. M3'. M4'. TSi'. IDpsj') =|> 
+State' := 2 /\ TS' := new()
+/\ Biii' := H(IDi.S)
+/\ K2' := H(IDi.IDpsj.S)
+/\ K3' := Mul(Xj.P)
+/\ K4' := H(TS.Biii')
+/\ K5' := xor(IDi, H(Mul(K4.P)))
+/\ K6' := H(IDpsj.IDi.K4.TS.Yp)
+/\ K7' := {K2.K4.K5}_Xp
+/\ secret({Xj}, subs1, {CMS,PSj})
+/\ Snd(K6'. K7'. M1. TS')
+end role
+role pserver (PSj, Ui, CMS : agent,
+SKuisj : symmetric_key,
+% H is hash function
+H, Mul: hash_func,
+Snd, Rcv: channel(dy) )
+played_by PSj
+def=
+local State : nat,
+IDi, PWRi, R, Py, Px, TSj, P, Pub, TIDi, IDpsj, S, A, B, TS, Xp, Yp: text,
+Di, Ci, Bi, Biii, M1, M3, M4, K2, K3, K4, K5, K6, K7, Z1, Z2, Z3, SKV, SKVj, SKj: message,
+Inc : hash_func
+const alice_server, server_pserver, 
+pserver_alice, subs1, subs2, subs3, 
+subs4, subs5, subs6, subs7, subs8 : protocol_id
+init State :=0
+transition
+% Receive authentication message including secret key from the MS
+1. State = 0 /\ Rcv(K6'. K7'. M1. TS') =|>
+State' := 1 /\ B' := new()
+/\ TSj' := new()
+/\ SKj' := Mul(B,M1)
+/\ K2' := {K7}_Xp
+/\ Z1' := Mul(B,P)
+/\ Z2' := H(K2.Z1.M1.TSj)
+/\ Z3' := {Z1'.Z2'.K2'}_Px
+/\ Snd(Z3'.TSj')
+% send authentication message to the Ui
+%/\ witness(PS,Ui,pserver_alice, Rk')
+%/\ request(Ui, PS, pserver_alice, Rc')
+%/\ secret({Rk'}, subs8, {PS,Ui})
+2. State = 1 /\ Rcv(SKV') =|>
+State' := 2 /\ SKVj' := H(111.SKj)
+end role
+role session(Ui, CMS, PSj: agent,
+SKuisj : symmetric_key,
+H, Mul: hash_func)
+def=
+local SI, SJ, RI, RJ, PI, PJ: channel (dy)
+composition
+alice(Ui, CMS, PSj, SKuisj, H, Mul, SI, RI)
+/\ server(Ui, CMS, PSj, SKuisj, H, Mul, SJ, RJ)
+/\ pserver(Ui, CMS, PSj, SKuisj, H, Mul, PI, PJ)
+end role
+role environment()
+def=
+const ui, cms,psj: agent,
+skuisj : symmetric_key,
+h,mul: hash_func,
+idi, idmsj, pwi, pwri : text,
+alice_server, server_pserver,
+pserver_alice, subs1, subs2, subs3, 
+subs4, subs5, subs6, subs7 : protocol_id
+intruder_knowledge = {ui, cms, psj, h, mul}
+composition
+session( cms, ui, psj, skuisj, h, mul)
+/\ session(ui, cms, psj, skuisj, h, mul)
+/\ session(psj, ui, cms, skuisj, h, mul)
+end role
+goal
+secrecy_of subs1
+secrecy_of subs2
+secrecy_of subs3
+%secrecy_of subs4
+%secrecy_of subs5
+%secrecy_of subs6
+%secrecy_of subs7
+%secrecy_of subs8
+authentication_on alice_mserver_a
+authentication_on mserver_pserver_b
+end goal
+environment()

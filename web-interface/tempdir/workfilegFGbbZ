@@ -1,0 +1,88 @@
+role system(S,T: agent,
+            Ksys: text,
+            H,G: hash_func,
+            SND,RCV: channel(dy)) 
+played_by S def=
+
+local 
+    State: nat,
+    Rsys,Rtag: text
+
+init
+   State:= 0
+
+transition
+
+1. State = 0  /\ RCV(start) =|>
+   State':= 2 /\ Rsys':= new()
+              /\ SND(Rsys')
+
+2. State = 2  /\ RCV(Rtag'.H(Ksys.Rsys.Rtag')) =|>
+   State':= 4 /\ Ksys':= G(Ksys)
+              /\ SND(H(Ksys'.Rsys.Rtag'))
+              /\ witness(S,T,tag_server_rtag,Rtag') 
+              /\ request(S,T,server_tag_rsys,Rsys) 
+end role
+
+
+role tag(S,T: agent,
+         Ktag: text,
+         H,G: hash_func,
+         SND,RCV: channel(dy)) 
+played_by T def=
+
+local
+    State: nat,
+    Rsys,Rtag: text
+
+init
+   State:= 1
+
+transition
+
+1. State = 1 /\ RCV(Rsys') =|>
+   State':=3 /\ Rtag':= new()
+             /\ SND(Rtag'.H(Ktag.Rsys'.Rtag'))
+             /\ witness(T,S,server_tag_rsys,Rsys') 
+
+2. State = 3  /\ RCV(H(G(Ktag).Rsys.Rtag)) =|>
+   State':= 5 /\ request(T,S,tag_server_rtag,Rtag) 
+end role    
+
+role session(S,T: agent,
+             K: text,
+             H,G: hash_func) 
+def=
+
+local SS, ST, RS, RT: channel (dy)
+
+composition
+
+    system(S,T,K,H,G,SS,RS)
+/\  tag(S,T,K,H,G,ST,RT)
+
+end role
+
+role environment()
+def=
+const
+   tag_server_rtag, server_tag_rsys: protocol_id,
+   kst,ksi,kit: text
+   s,t: agent,
+   h,g: hash_func
+
+intruder_knowledge = {s,t,h,g,ksi,kit}
+
+composition
+    session(s,t,kst,h,g)
+/\  session(s,i,ksi,h,g)
+/\  session(i,t,kit,h,g)
+
+end role
+
+goal
+    authentication_on tag_server_rtag
+    authentication_on server_tag_rsys
+end goal
+
+environment()

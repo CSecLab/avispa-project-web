@@ -1,0 +1,191 @@
+role locationRecipient(
+        T, LR, LS       : agent, 
+        K_T_LR          : symmetric_key, 
+        K_LS            : public_key,
+        Snd, Rcv        : channel(dy)) played_by LR def=
+
+local   
+        State           : nat, 
+        N_LR            : text,
+        Psi_LR, PW_LR   : text,
+        K_LR            : symmetric_key, % could also be: public_key
+        Filtered_LI     : message 
+
+init State := 0 
+
+transition
+
+        0. State  = 0 / Rcv(start) 
+       =|> State':= 2 / N_LR' := new()
+                      / Snd(LR.{LR.N_LR'}_K_T_LR)
+                      / witness(LR, T, t_LR_LR, LR)  
+
+        2. State  = 2 / Rcv(Psi_LR'.{PW_LR'.N_LR}_K_T_LR) 
+       =|> State':= 8 / K_LR' := new()
+                      / secret(K_LR', k_LR, {LR, LS})
+                      / Snd(Psi_LR'.{PW_LR'.K_LR'.T}_K_LS)
+                      / witness(LR, LS, ls_LR_PW_LR, PW_LR')
+                      / request(LR, T, lr_T_N_LR, N_LR)                     
+
+        8. State  = 8 / Rcv({Filtered_LI'.T}_K_LR) 
+       =|> State':= 10/ request(LR, LS, lr_LS_filtered_LI, Filtered_LI')
+
+end role 
+
+
+
+role target(
+        T, LS           : agent,
+        K_T_LR          : symmetric_key, % should be determined by a lookup
+        K_T_LS          : symmetric_key,
+        Snd_LR, Snd_LS, Rcv : channel(dy)) played_by T def=
+
+local
+        State   : nat,
+        LR      : agent,
+        N_LR    : text,
+        Psi_LR,
+        PW_LR   : text,
+        PR      : hash_func
+
+init State := 1 
+
+transition
+
+        1. State  = 1 / Rcv(LR'.{LR'.N_LR'}_K_T_LR) 
+       =|> State':= 3 / Psi_LR' := new()
+                      /  PW_LR' := new()
+                      / secret(PW_LR',pw_LR, {T, LR', LS})
+                      / Snd_LR(Psi_LR'.{PW_LR'.N_LR'}_K_T_LR)
+                      / witness(T, LR', lr_T_N_LR, N_LR')
+                      / wrequest(T, LR', t_LR_LR, LR')
+
+                      / PR' := new()  % chooses some privacy (accuracy) rule
+                      / Snd_LS(T.Psi_LR'.{PW_LR'.T.PR'}_K_T_LS)
+                      / witness(T, LS, ls_T_PR, PR')
+
+end role
+
+
+
+role locationServer(
+        LR,      % but LS does not actually use identity of LR 
+        LS       : agent,     
+        K_T_LS   : symmetric_key, % should be determined by a lookup
+        K_LS     : public_key,          
+        Psi_Table: (text.text.agent.hash_func) set,
+        Snd, Rcv : channel(dy)) played_by LS def=
+
+local   State   : nat,
+        T       : agent, 
+        Psi_LR,
+        PW_LR   : text,
+        K_LR    : symmetric_key,
+        LI      : text,
+        PR      : hash_func
+
+init    State := 5 
+
+transition
+        
+        5. State  = 5 / Rcv(T'.Psi_LR'.{PW_LR'.T'.PR'}_K_T_LS) 
+       =|> State':= 7 / Psi_Table':= 
+                            cons(Psi_LR'.PW_LR'.T'.PR', Psi_Table)
+                      / wrequest(LS, T', ls_T_PR, PR') 
+
+        7. State  = 7 / Rcv(Psi_LR'.{PW_LR'.K_LR'.T'}_K_LS)
+                      /   in(Psi_LR'.PW_LR'.T'.PR', Psi_Table)
+        % check the information Psi_LR, PW_LR and T, and look up PR in the table
+        =|>State':= 9 / LI':= new()
+                      / secret(LI', li, {T, LS})
+                      / secret((PR'.LI'),filtered_LI, {T, LR, LS}) 
+                       % in any case, T is allowed to know its own location.
+                      / Snd({(PR'.LI').T}_K_LR') 
+                      / wrequest(LS, LR, ls_LR_PW_LR, PW_LR')               
+                      /  witness(LS, LR, lr_LS_filtered_LI,(PR'.LI')) 
+
+end role 
+
+
+role session(T, LR, LS  : agent,
+             K_T_LR     : symmetric_key,
+             K_T_LS     : symmetric_key,
+             K_LS       : public_key, 
+             Psi_Table  : (text.text.agent.hash_func) set) def=
+
+local SLR, RLR, STLR, STLS, RT, SLS, RLS : channel(dy)
+
+composition
+
+           locationRecipient(T, LR, LS, K_T_LR, K_LS  , SLR, RLR)
+        / target           (T,     LS, K_T_LR, K_T_LS, STLR, STLS, RT)
+        / locationServer   (   LR, LS, K_T_LS, K_LS  , Psi_Table, SLS, RLS)
+
+end role
+
+
+role environment() def=
+
+local 
+        Psi_Table: (text.text.agent.hash_func) set
+        % shared between all instances of LS
+
+const   psi_LR, pw_LR,
+        li, filtered_LI,
+        ls_T_PR, 
+        lr_T_N_LR, 
+        k_LR, t_LR_LR, 
+        ls_LR_PW_LR,
+        lr_LS_filtered_LI       : protocol_id,
+        t, lr, ls               : agent, 
+        k_LS                    : public_key, 
+        k_T_LS, k_i_LS,
+        k_T_LR, k_T_i, k_i_LR   : symmetric_key
+
+init    Psi_Table := {}
+
+intruder_knowledge = {t, lr, ls, k_i_LS, k_LS, k_T_i, k_i_LR} 
+
+composition 
+
+           session(t, lr, ls, k_T_LR, k_T_LS, k_LS, Psi_Table)
+        / session(t, lr, ls, k_T_LR, k_T_LS, k_LS, Psi_Table)
+        % repeat session to check for replay attacks 
+
+%       / session(i, lr, ls, k_i_LR, k_i_LS, k_LS, Psi_Table)
+%       It does not make much sense to let the intruder play the role of T
+%       since then the intruder would know its location information anyway.
+
+%       / session(t, i , ls, k_T_i,  k_T_LS, k_LS, Psi_Table)
+%       It does not make much sense to let the intruder play the role of LR
+%       since then the intruder is allowed to know the (secret) location of T.
+
+
+
+end role
+
+
+
+goal 
+        secrecy_of li, filtered_LI, pw_LR, k_LR % addresses G12
+
+      % strong authentication and integrity of the Location Information,
+      % (including replay protection):
+        authentication_on lr_LS_filtered_LI                % addresses G2 and G3
+
+      % the Location Server (weakly) authenticates the Location Recipient:
+        weak_authentication_on ls_LR_PW_LR                 % addresses G2 and G3
+
+      % weak authentication and integrity of Privacy Rule
+        weak_authentication_on ls_T_PR                     % addresses G1
+
+% additional authentication goals, not in RFC3693:
+        authentication_on lr_T_N_LR                        % addresses G1 and G3
+        weak_authentication_on t_LR_LR                     % addresses G1
+                       % and G20: T authorizes LR to receive the location via LS
+
+end goal
+
+
+
+environment() 

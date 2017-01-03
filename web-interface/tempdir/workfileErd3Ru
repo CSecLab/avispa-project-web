@@ -1,0 +1,152 @@
+%%%% Protocolul specificat se gaseste aici: http://arxiv.org/ftp/arxiv/papers/1401/1401.6121.pdf
+
+
+role user (U, S, RC: agent, ID, Sid, TID, N1, S1, Pw : text, H : hash_func, SND_USP, RCV_USP : channel(dy))
+
+played_by U 
+
+def=
+
+
+local State : nat,
+           A1, A2, SK, NU, Alphau, Betau, Gammau, Alphasec, Betasec : text
+
+
+init State := 0
+
+transition
+
+1. State = 0 /\ RCV_USP(start) =|>
+
+   State' := 2 /\ NU' := new()
+			 /\ A1' := xor(H(xor(ID.Pw,N1)), xor(S1,NU))
+			 /\ A2' := H(xor(NU, TID.Sid))
+             /\ SND_USP(TID.A1'.A2')
+             /\ secret(NU', nu,{U}) 
+			 /\ witness(U,RC,rc_u_alpha2,A2')
+			 
+			 
+2.   State = 2 /\ RCV_USP(Alpha',Gammau') =|>
+   
+ State' := 4 /\ Alphasec' := xor(Alpha',H(NU)
+             /\ SK' :=  H(xor(Alphasec',NU))
+			 /\ secret(SK',sk,{U,S,RC})
+
+end role
+
+
+role registrationCenter (U, S, RC: agent, ID, Sid, TID, H1,H2 : text, H : hash_func, SND_SPRC, RCV_SPRC : channel(dy) )
+
+played_by RC 
+def=
+
+local State : nat,
+          Alpha1,Alpha2, Beta1, Beta2, Nu, Ns, Nr, SK, Alpha, Beta, Gammas, Gammau : text
+ 
+          		 
+      
+
+init State :=1
+
+transition
+
+1. State = 1 /\ RCV_SPRC(TID.Alpha1'.Alpha2'.Sid.Beta1'.Beta2') =|>  
+
+   State' := 3 /\ Nr' := new() 
+               /\ Nu':= xor(Alpha1', H1)
+			   /\ Ns':= xor(Beta1', H2)
+			   /\ SK' := H(xor(Nu',xor(Nr',Ns')))
+			   /\ Alpha' := xor(H(Nu'), xor(Ns',Nr'))
+			   /\ Gammau' := H(xor(SK',H1)) 
+			   /\ Beta' := xor(H(Ns'), xor(Nu',Nr'))
+			   /\ Gammas' := H(xor(H2,SK'))
+			   /\ SND_SPRC(Alpha'.Gammau'.Beta'.Gammas') 
+			   /\ secret(SK', sk, {S,U,RC})
+			   /\ secret(Nr', nr, {RC})
+			   /\ request(RC,U,rc_u_alpha2,Alpha2')
+			   /\ request(RC,S,rc_s_beta2,Beta2')
+			  
+
+
+end role
+
+
+role server (U, S, RC: agent, ID, Sid, TID, KRS, H : hash_func, SND_RCS, RCV_RCS, SND_US, RCV_US : channel(dy) )
+
+played_by S 
+def=
+
+local State : nat,
+          Betasec, Beta2, Alpha, Beta, SK, Alpha1, Alpha2, Gammau, Ns, Gammas  : text
+          
+
+
+init State := 5
+
+transition
+
+1. State = 5 /\ RCV_US(TID'.Alpha1'.Alpha2') =|>
+
+   State' := 7 /\ Ns' := new() 
+			   /\ Beta1' := xor(KRS,Ns')
+			   /\ Beta2' := H(xor(Ns',Sid.TID))
+               /\ SND_RCS(TID.Alpha1.Alpha2.Sid.Beta1'.Beta2')
+			   /\ witness(S,RC,rc_s_beta2, Beta2')
+			   /\ secret(Ns',ns,{S})
+			   
+2.   State = 7 /\ RCV_RCS(Alpha',Gammau', Beta',Gammas')	=|>   
+			   
+   State' := 9 /\ Betasec' := xor(Beta',H(Ns))
+			   /\ SK' := H(xor(Betasec,Ns))
+               /\ SND_US(Alpha,Gammau)
+			   /\ secret(SK',sk,{S,RC,U}) 
+               
+end role
+
+
+role session (U, S, RC : agent, ID, Sid, Tid, N1,S1, Pw, H1, H2, KRS : text, H : hash_func) 
+
+def=
+			  
+local 	S_USP,R_USP, S_SPRC, R_SPRC, S_US, R_US, S_RCS, R_RCS : channel (dy)		  
+			  
+composition 
+
+     user (U, S, RC, ID, Sid, Tid, N1, S1, Pw, H , S_USP, R_USP)
+  /\ registrationCenter (U, S, RC, ID, Sid, Tid, H1,H2, H, S_SPRC, R_SPRC)
+  /\ server (U, S, RC, ID, Sid, Tid, KRS, K1,K2 , H, S_RCS, R_RCS, S_US, R_US)
+  
+end role
+
+
+role environment()
+def=
+
+	const u, rc, s : agent,
+		  id, sid, tid, n1, n2, s1, pw, pwi, h1, h2, ner, krs : text, 
+		  h : hash_func,
+		  rc_u_alpha2, rc_s_beta2, nr, ns, nu, sk  : protocol_id
+		  
+
+	intruder_knowledge = {u, rc, s,pwi}
+
+	composition
+
+	   session(u,rc,s,id, sid, tid, n1, s1, pw,h1, h2, krs ,h)
+	/\ session(i,rc,s,id, sid, tid, n1, s1, pwi, h1, h2, krs, h)
+	/\ session(u,rc,i,id, sid, tid, n1, s1, pw,h1, h2, krs, h)
+
+end role
+
+
+
+goal
+
+secrecy_of nr, ns, nu, sk
+authentication_on rc_u_alpha2
+authentication_on rc_s_beta2
+
+
+end goal
+
+environment()

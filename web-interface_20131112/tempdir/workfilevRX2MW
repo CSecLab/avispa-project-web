@@ -1,0 +1,454 @@
+role mobile (
+M,P,A,B,C,D : agent,
+G1,G2,G3,G4,G5 : function,
+F1,F2,F3,F4 : function,
+K1,Kh : symmetric_key,
+Kpub : public_key,
+SQN : text,
+SND,RCV : channel(dy))
+played_by M def=
+local
+IDSIM : text,
+SQN1,SQN2 : text,
+Ki,IDi : text,
+RAND,RAND3,RAND2 : text,
+Nreauth : text,
+CK,IK : message,
+AUTN : message,
+MACh,MACu : message,
+RES : message,
+LK,LID,HK,HID : message,
+State : nat
+const
+nai : text,
+imsi : text,
+emm_req_attach : text,
+req_inf_auth : text,
+aka_identity : text,
+aka_challenge,
+aka_notification,
+eapoL_req_id,
+eapol_rsp,
+req_authentification,
+rep_authentification,
+eap_success : text,
+sec_ck,sec_k1,
+sec_hid,
+seq2,
+r1 : protocol_id
+init
+State := 0
+transition
+1. State = 0
+/\ RCV(start)
+=|>
+State' := 1
+/\ SND(emm_req_attach)
+2. State = 1
+/\ RCV(IDSIM')
+=|>
+State' := 2
+/\ SND(aka_identity(nai.IDSIM))
+3. State = 2
+/\
+RCV(aka_challenge.RAND'.{SQN}_G5(K1,RAND').G1(K1,SQN,RAND').G1(K1,SQN,RAND'))
+=|>
+State' := 3
+/\ SND(aka_challenge.G2(K1,RAND').G1(K1,SQN,RAND'))
+/\ request(M,A,r1,RAND')
+/\ secret(SQN,seq2,{M,B})
+/\ secret(K1,sec_k1,{M,B})
+5. State = 3
+/\
+RCV(aka_notification.{IDi'}_G3(K1,RAND).{Ki'}_G3(K1,RAND).{RAND3'}_G3(K1,RAND).{Nreauth}_G3(
+K1,RAND))
+=|>
+State' := 4
+/\ LK' := F1(CK,IK,Ki,imsi)
+/\ LID' := F2(CK,IK,IDi,imsi)
+/\ HK' := F3(RAND3,LK',Ki)
+/\ HID' := F4(RAND3,LID',IDi)
+5. State = 4
+/\ RCV(eapol_req_id)
+=|>
+State' := 5
+/\ SND(eapol_rsp.HID')
+6. State = 5
+/\ RCV(req_authentification)
+=|>
+State' := 6
+/\ SND(rep_authentification)
+7. State = 6
+/\ RCV(eap_success)
+=|>
+State ' := 7
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role ap (
+M,P,A,B,C,D : agent,
+G1,G2,G3,G4,G5 : function,
+F1,F2,F3,F4 : function,
+K1,Kh : symmetric_key,
+Kpub : public_key,
+SQN : text,
+SND,RCV : channel(dy))
+played_by P def=
+local
+HK,HID : message,
+State : nat
+const
+aka_notification,
+eapol_req_id,
+eapol_rsp,
+req_authentification,
+rep_authentification,
+req_acces,
+eap_success : text,
+aut1,aut2 : protocol_id
+init
+State := 1
+transition
+1. State = 1
+/\ RCV(start)
+=|>
+State' := 2
+/\ SND(eapol_req_id)
+2. State = 2
+/\RCV(eapol_rsp.HID')
+=|>
+State' := 3
+/\SND(req_acces.HID')
+/\ witness(P,D,aut1,HID')
+3. State = 3
+/\ RCV(req_authentification)
+=|>
+State' := 4
+/\SND(req_authentification)
+4. State = 4
+/\ RCV(rep_authentification)
+=|>
+State' := 5
+/\SND(rep_authentification)
+5. State = 5
+/\ RCV(eap_success.HK')
+=|>
+State' := 6
+/\SND(eap_success)
+/\ witness(P,D,aut2,HK')
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role mme (
+M,P,A,B,C,D : agent,
+G1,G2,G3,G4,G5 : function,
+F1,F2,F3,F4 : function,
+K1,Kh : symmetric_key,
+Kpub : public_key,
+SQN : text,
+SND,RCV : channel(dy))
+played_by A def=
+local
+IDSIM : text,
+SQN1,SQN2 : text,
+Ki,IDi : text,
+RAND,RAND2,RAND3 : text,
+Nreauth : text,
+CK,IK : message,
+AUTN : message,
+MACh,MACu : message,
+RES,XRES : message,
+LK,LID,HK,HID : message,
+State : nat
+const
+nai : text,
+imsi : text,
+emm_req_attach : text,
+req_inf_auth : text,
+aka_identity : text,
+aka_identity,
+aka_challenge,
+aka_notification : text,
+sec_ck,sec_ik,
+sec_hid,
+seq2,
+r1 : protocol_id,
+add : function
+init
+State := 0
+transition
+1. State = 0
+/\ RCV(emm_req_attach)
+=|>
+State' := 1
+/\ SND(req_inf_auth(imsi))
+2. State = 1
+/\ RCV(IDSIM')
+=|>
+State' := 2
+/\ SND(IDSIM')
+3. State = 2
+/\ RCV(aka_identity(nai.IDSIM))
+=|>
+State' := 3
+4. State = 3
+/\
+RCV(RAND'.{SQN}_G5(K1,RAND').G1(K1,SQN,RAND').G3(K1,RAND').G4(K1,RAND').G2(K1,RAND'))
+=|>
+State' := 4
+/\ CK' := G3(K1,RAND')
+/\ IK' := G4(K1,RAND')
+/\ XRES' := G2(K1,RAND')
+/\
+SND(aka_challenge.RAND'.{SQN}_G5(K1,RAND').G1(K1,SQN,RAND').G1(K1,SQN,RAND'))
+/\ witness(A,M,r1,RAND')
+5. State = 4
+/\ RCV(aka_challenge.G2(K1,RAND').G1(K1,SQN,RAND'))
+/\ XRES = G2(K1,RAND')
+=|>
+State' := 5
+/\ SND(aka_identity.nai.imsi)
+/\ SQN' := add(SQN,1)
+6. State = 5
+/\
+RCV(aka_notification.{IDi'}_G3(K1,RAND).{Ki'}_G3(K1,RAND).{RAND3'}_G3(K1,RAND).{Nreauth}_G3(
+K1,RAND))
+=|>
+State' := 6
+/\
+SND(aka_notification.{IDi'}_G3(K1,RAND).{Ki'}_G3(K1,RAND).{RAND3'}_G3(K1,RAND).{Nreauth}_G3(
+K1,RAND))
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role hss (
+M,P,A,B,C,D : agent,
+G1,G2,G3,G4,G5 : function,
+F1,F2,F3,F4 : function,
+K1,Kh : symmetric_key,
+Kpub : public_key,
+SQN : text,
+SND,RCV : channel(dy))
+played_by B def=
+local
+IDSIM : text,
+SQN1,SQN2 : text,
+Ki,IDi : text,
+RAND,RAND1,RAND2,RAND3 : text,
+Nreauth : text,
+CK,IK : message,
+AUTN : message,
+MAC1h,MAC2 : message,
+RES,XRES : message,
+LK,LID,HK,HID : message,
+State : nat
+const
+nai : text,
+imsi : text,
+hssid : text,
+req_inf_auth,
+aka_identity,
+aka_challenge,
+aka_notification : text,
+sec_ck,sec_k1,
+sec_kh,
+sec_hid,
+seq2,seq3,seq4,
+r1 : protocol_id
+init
+State := 0
+transition
+1. State = 0
+/\ RCV(req_inf_auth(imsi))
+=|>
+State' := 1
+/\ IDSIM' := new()
+/\ RAND' := new()
+/\ CK' := G3(K1,RAND')
+/\ IK' := G4(K1,RAND')
+/\ SND(IDSIM')
+/\
+SND(RAND'.{SQN}_G5(K1,RAND').G1(K1,SQN,RAND').G3(K1,RAND').G4(K1,RAND').G2(K1,RAND'))
+/\ secret(SQN,seq2,{B,M})
+/\ secret(K1,sec_k1,{B,M})
+2. State = 1
+/\ RCV(aka_identity.nai.imsi)
+=|>
+State' := 2
+/\ RAND1' := new()
+/\ MAC1h' := SHA_1(RAND1',Kh)
+/\
+SND({nai}_Kh.{hssid}_Kh.{RAND1'}_Kh.{SHA_1(RAND1',Kh)}_Kh.{SQN1}_Kh)
+/\ secret(Kh,sec_kh,{B,C})
+/\ secret(SQN1,seq3,{B,C})
+3. State = 2
+/\ RCV(RAND2'.SHA_1(RAND2',Kh).SQN2.{Ki'}_Kh.{IDi'}_Kh)
+=|>
+State' := 3
+/\ RAND3' := new()
+/\ CK' := G3(K1,RAND3')
+/\ IK' := G4(K1,RAND3')
+/\ LK' := F1(CK',IK',Ki',imsi)
+/\ LID' := F2(CK',IK',IDi',imsi)
+/\ HK' := F3(RAND3',LK',Ki')
+/\ HID' := F4(RAND3',LID',IDi')
+/\SND(hssid.{LK'}_Kpub.{LID'}_Kpub.{HK'}_Kpub.{HID'}_Kpub.{Nreauth}_Kpub)
+/\
+SND(aka_notification.{IDi'}_G3(K1,RAND).{Ki'}_G3(K1,RAND).{RAND3'}_G3(K1,RAND).{Nreauth}_G3(
+K1,RAND))
+/\ secret(SQN2,seq4,{B,C})
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role hiu (M,P,A,B,C,D : agent,
+G1,G2,G3,G4,G5 : function,
+F1,F2,F3,F4 : function,
+K1,Kh : symmetric_key,
+Kpub : public_key,
+SQN : text,
+SND,RCV : channel(dy))
+played_by C def=
+local
+IDSIM : text,
+SQN1,SQN2 : text,
+Ki,IDi : text,
+RAND,RAND1,RAND2 : text,
+Nreauth : text,
+CK,IK : message,
+AUTN : message,
+MAC1h,MAC2 : message,
+RES : message,
+LK,LID,HK,HID : message,
+State : nat
+const
+nai : text,
+hssid : text,
+add : function,
+seq3,seq4,
+sec_kh : protocol_id
+init
+State := 0
+transition
+1. State = 0
+/\ RCV(IDi'.Ki')
+=|>
+State' := 1
+2. State = 1
+/\
+RCV({nai}_Kh.{hssid}_Kh.{RAND1'}_Kh.{SHA_1(RAND1',Kh)}_Kh.{SQN1}_Kh)
+=|>
+State' := 2
+/\ RAND2' := new()
+/\ SND(RAND2'.SHA_1(RAND2',Kh).SQN2.{Ki'}_Kh.{IDi'}_Kh)
+/\ secret(SQN1,seq3,{C,B})
+/\ secret(SQN2,seq4,{C,B})
+/\ secret(Kh,sec_kh,{C,B})
+3. State = 2
+/\ RCV(hssid.{LK'}_Kpub.{LID'}_Kpub.{HK'}_Kpub.{HID'}_Kpub.{Nreauth}_Kpub)
+=|>
+State' := 3
+/\ SND(hssid.{LK'}_Kpub.{LID'}_Kpub.{HK'}_Kpub.{HID'}_Kpub.{Nreauth}_Kpub)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role aaa_wlan (
+M,P,A,B,C,D : agent,
+G1,G2,G3,G4,G5 : function,
+F1,F2,F3,F4 : function,
+K1,Kh : symmetric_key,
+Kpub : public_key,
+SQN : text,
+SND,RCV : channel(dy))
+played_by D def=
+local
+Ki,IDi : text,
+RAND : text,
+Nreauth : text,
+CK,IK : message,
+AUTN : message,
+MAC : message,
+RES : message,
+LK,LID,HK,HID : message,
+State : nat
+const
+hssid : text,
+eapol_req_id,
+eapol_rsp,
+req_authentification,
+eap_success : text,
+sec_ck,sec_ik,
+sec_kh,
+sec_hid,
+sec_hk,
+seq2,
+aut1,aut2,
+r1 : protocol_id
+init
+State := 0
+transition
+1. State = 0
+/\ RCV(start)
+=|>
+State' := 1
+/\ IDi' := new()
+/\ Ki' := new()
+/\ SND(IDi'.Ki')
+2. State = 1
+/\ RCV(hssid.{LK'}_Kpub.{LID'}_Kpub.{HK'}_Kpub.{HID'}_Kpub.{Nreauth}_Kpub)
+=|>
+State' := 2
+3. State = 2
+/\ RCV(req_acces.HID')
+=|>
+State' := 3
+/\ SND(req_authentification)
+4. State = 3
+/\ RCV(rep_authentification)
+=|>
+State' := 4
+/\ SND(eap_success.HK')
+/\ witness(D,P,aut1,HID')
+/\ witness(D,M,aut2,HK')
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session (
+M,P,A,B,C,D : agent,
+G1,G2,G3,G4,G5 : function,
+F1,F2,F3,F4 : function,
+K1,Kh : symmetric_key,
+Kpub : public_key,
+SQN : text)
+def=
+local
+SNDM,RCVM,SNDA,RCVA,SNDB,RCVB,SNDC,RCVC,SNDD,RCVD,SNDP,RCVP : channel(dy)
+composition
+mobile(M,P,A,B,C,D,G1,G2,G3,G4,G5,F1,F2,F3,F4,K1,Kh,Kpub,SQN,SNDM,RCVM)
+/\ ap(M,P,A,B,C,D,G1,G2,G3,G4,G5,F1,F2,F3,F4,K1,Kh,Kpub,SQN,SNDP,RCVP)
+/\ mme(M,P,A,B,C,D,G1,G2,G3,G4,G5,F1,F2,F3,F4,K1,Kh,Kpub,SQN,SNDA,RCVA)
+/\ hss(M,P,A,B,C,D,G1,G2,G3,G4,G5,F1,F2,F3,F4,K1,Kh,Kpub,SQN,SNDB,RCVB)
+/\ hiu(M,P,A,B,C,D,G1,G2,G3,G4,G5,F1,F2,F3,F4,K1,Kh,Kpub,SQN,SNDC,RCVC)
+/\ aaa_wlan(M,P,A,B,C,D,G1,G2,G3,G4,G5,F1,F2,F3,F4,K1,Kh,Kpub,SQN,SNDD,RCVD)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+role environment() def=
+const
+m,p,a,b,c,d : agent,
+g1,g2,g3,g4,g5 : function,
+f1,f2,f3,f4 : function,
+k1,kh,ki,khi : symmetric_key,
+kpub,kpubi : public_key,
+sqn,sqn2,sqni : text,
+r1,aut1,aut2 : protocol_id
+intruder_knowledge = {m,p,a,b,c,d,i,sha_1,g1,g2,g3,g4,g5,f1,f2,f3,f4,ki}
+composition
+session(m,p,a,b,c,d,g1,g2,g3,g4,g5,f1,f2,f3,f4,k1,kh,kpub,sqn)
+% /\ session( m,p,a,b,c,d,sha_1,g1,g2,g3,g4,g5,f1,f2,f3,f4,k1,kh,kpub,sqn2)
+%/\ session(i,p,a,b,c,d,sha_1,g1,g2,g3,g4,g5,f1,f2,f3,f4,ki,khi,kpubi,sqni)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+goal
+secrecy_of sec_k1,sec_kh,seq2,seq3,seq4
+authentication_on r1
+authentication_on aut1
+authentication_on aut2
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

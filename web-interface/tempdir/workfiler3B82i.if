@@ -1,0 +1,63 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfiler3B82i
+
+section signature:
+
+state_bob: agent * agent * symmetric_key * nat * text * text * nat -> fact
+state_alice: agent * agent * symmetric_key * text * nat * nat -> fact
+
+
+section types:
+
+ASGoal: set(agent)
+MGoal, start: message
+Dummy_Msg, dummy_nonce, msg, Ans, Msg: text
+kab, ki, Kab: symmetric_key
+a, b, A, B, i: agent
+6, 4, SID, Dummy_State, 3, State, 2, 0, 7: nat
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(ki).
+ iknows(i).
+ state_alice(a,b,kab,msg,0,3).
+ state_bob(a,b,kab,0,dummy_nonce,dummy_nonce,4).
+ state_alice(a,i,ki,msg,0,6).
+ state_bob(a,i,ki,0,dummy_nonce,dummy_nonce,7)
+
+
+section rules:
+
+step step_0 (A,B,Kab,Msg,SID) :=
+ state_alice(A,B,Kab,Msg,0,SID).
+ iknows(start)
+ =>
+ state_alice(A,B,Kab,Msg,2,SID).
+ iknows(scrypt(Kab,Msg))
+
+step step_1 (B,A,Kab,Ans,Dummy_Msg,SID,Msg) :=
+ state_bob(B,A,Kab,0,Ans,Dummy_Msg,SID).
+ iknows(scrypt(Kab,Msg))
+ =>
+ state_bob(B,A,Kab,2,Ans,Msg,SID).
+ iknows(Dummy_Msg)
+
+
+section properties:
+
+property secrecy_of_msg (MGoal,ASGoal) :=
+ [] ((secret(MGoal,msg,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_msg (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,msg,ASGoal) &
+ not(contains(i,ASGoal))
+

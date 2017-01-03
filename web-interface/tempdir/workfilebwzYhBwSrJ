@@ -1,0 +1,271 @@
+role ue (
+    U,AP,H              : agent,
+    F1,F2,F3,F4,F5,F6,F7,F8,F9   : hash_func,
+    PRF_SHA1         : hash_func,
+    HMAC             : hash_func,
+    KHU            : public_key,
+    K                : symmetric_key,
+    SQN              : text,
+    SND,RCV          : channel (dy))
+played_by U def=
+
+  local
+    RANDh,Q,IDap,IMSI          : text,
+    Su,Sh	   :symmetric_key,
+    CIDu	     :hash(text),
+    NIDu	     :hash(text),
+    MSK              :hash(hash(text.hash(symmetric_key.text).hash(symmetric_key.text).hash(text))),
+    EnMSK            :hash(hash(hash(text.hash(symmetric_key.text).hash(symmetric_key.text).hash(text)))),
+    Pu,Ph            :hash(text),
+    Khaa              :hash(text.hash(text)),
+    CTu,CTh          :hash(text),
+    MACu : hash(hash(symmetric_key.text).hash(symmetric_key.text).text),
+    MACh : hash(hash(symmetric_key.text).hash(text).text),
+    AT_AUTN : message,
+    XRES,RES, IK, CK   : hash(symmetric_key.text),
+    State            : nat 
+
+  const
+    request_id,
+    respond_id,
+    success     : text,
+    sec_ck1, sec_ik1,
+    at_rand,
+    at_rand2    : protocol_id
+ 
+  init 
+    State := 0 
+  
+  transition
+
+  1. State   = 0
+       /\ RCV(IDap)
+     =|>
+     State' := 2
+       /\ IMSI' := new()
+       /\ Q' := new()
+       /\ Pu' := {Q'}_Su
+       /\ Ph' := {Q'}_Sh
+       /\ KHU' := {Ph'}_Su
+       /\ CIDu' := {IMSI'}_KHU'
+       /\ CTu'  := {IDap}_KHU'
+       /\ SND(CIDu'.CTu'.Pu')
+
+  2. State   = 2
+       /\ RCV(RANDh'.MACh'.CTh')
+       /\ RANDh'  = {CTh'}_inv(KHU)
+     =|>
+     State' := 5
+       /\ CK'      := F3(K.RANDh')
+       /\ IK'      := F4(KHU.RANDh')
+       /\ RES'      := F2(KHU.RANDh')
+       /\ MACu' := F1(IK'.RES'.RANDh')
+       /\ MSK' := HMAC(PRF_SHA1(CK'.IK'.CIDu))     
+       /\ SND(RES'.MACu'.MSK')
+       /\ request(U,H,at_rand,IMSI')
+       /\ witness(U,H,at_rand2,IMSI')
+       /\ secret(CK',sec_ck1,{U,H,AP})
+       /\ secret(IK',sec_ik1,{U,H,AP})
+
+  3. State   = 5 /\ RCV(success) =|>
+     State' := 8 
+
+end role
+
+role ap (
+    U,AP,H              : agent,
+    F1,F2,F3,F4,F5,F6,F7,F8,F9   : hash_func,
+    PRF_SHA1         : hash_func,
+    HMAC             : hash_func,
+    KHU            : public_key,
+    K               : symmetric_key, 
+    SQN              : text,
+    SND,RCV          : channel (dy))
+played_by AP def=
+
+  local
+      RANDh,IDap,Q,IMSI           : text,
+    Su,Sh	   :symmetric_key,
+    CIDu	     :hash(text),
+    NIDu	     :hash(text),
+    MSK              :hash(hash(text.hash(symmetric_key.text).hash(symmetric_key.text).hash(text))),
+    EnMSK            :hash(hash(hash(text.hash(symmetric_key.text).hash(symmetric_key.text).hash(text)))),
+    Pu,Ph            :hash(text),
+    Khaa              :hash(text.hash(text)),
+    CTu,CTh          :hash(text),
+    MACu : hash(hash(symmetric_key.text).hash(symmetric_key.text).text),
+    MACh : hash(hash(symmetric_key.text).hash(text).text),
+    AT_AUTN : message,
+    XRES,RES, IK, CK   : hash(symmetric_key.text),
+    State            : nat 
+
+
+  const
+    request_id,
+    respond_id,
+    success     : text,
+    sec_ck1, sec_ik1,
+    at_rand,
+    at_rand2    : protocol_id
+ 
+  init 
+    State := 1 
+  
+  transition
+
+  1. State   = 1
+       /\ RCV(start)
+     =|>
+     State' := 3
+       /\ IDap' := request_id
+       /\ SND(IDap')
+
+  2. State   = 3
+       /\ SND(CIDu'.CTu'.Pu'.IDap')
+     =|>
+     State' := 7
+       /\ RCV(EnMSK')
+       /\ Khaa' :=F5(IDap'.Pu')
+       /\ request(AP,U,at_rand,IDap')
+       /\ witness(AP,U,at_rand2,IDap')
+       /\ secret(CK',sec_ck1,{U,AP,H})
+       /\ secret(IK',sec_ik1,{U,AP,H})
+
+  3. State   = 7 /\ SND(success) =|>
+     State' := 9 
+
+end role
+
+
+role haaa (
+    U,AP,H              : agent,
+    F1,F2,F3,F4,F5,F6,F7,F8,F9   : hash_func,
+    PRF_SHA1         : hash_func,
+    HMAC             : hash_func,
+    KHU            : public_key,
+    K               : symmetric_key, 
+    SQN              : text,
+    SND,RCV          : channel (dy))
+played_by H def=
+
+  local
+    RANDh ,IDap,Q,IMSI          : text,
+    Su,Sh	   :symmetric_key,
+    CIDu	     :hash(text),
+    NIDu	     :hash(text),
+    MSK              :hash(hash(text.hash(symmetric_key.text).hash(symmetric_key.text).hash(text))),
+    EnMSK            :hash(hash(hash(text.hash(symmetric_key.text).hash(symmetric_key.text).hash(text)))),
+    Pu,Ph            :hash(text),
+    Khaa              :hash(text.hash(text)),
+    CTu,CTh          :hash(text),
+    MACu : hash(hash(symmetric_key.text).hash(symmetric_key.text).text),
+    MACh : hash(hash(symmetric_key.text).hash(text).text),
+    AT_AUTN : message,
+    XRES,RES, IK, CK   : hash(symmetric_key.text),
+    State            : nat 
+
+  const
+    request_id,
+    respond_id,
+    success     : text,
+    sec_ck2, sec_ik2,
+    at_rand,
+    at_rand2    : protocol_id
+ 
+
+  init 
+    State := 4 
+
+  transition
+
+  1. State   = 4
+       /\ RCV(CIDu'.CTu'.Pu'.IDap')
+     =|>
+     State' := 6
+       /\ RANDh' := new()
+       /\ NIDu'      := F6(RANDh')
+       /\ CK'      := F3(K.RANDh')
+       /\ IK'      := F4(KHU.RANDh')
+       /\ XRES'      := F2(KHU.RANDh')
+       /\ MACh' := F1(IK'.NIDu'.RANDh')
+       /\ CTh' := {RANDh'}_KHU
+       /\ SND(RANDh'.MACh'.CTh')
+
+  2. State   = 6
+       /\ RCV(RES'.MACu')
+       /\ MACu' = F1(IK'.RES'.RANDh')
+ %     /\ RES' = XRES'
+     =|>
+     State' := 10
+ 
+end role
+
+
+
+role session(
+    U,AP,H              : agent,
+    F1,F2,F3,F4,F5,F6,F7,F8,F9   : hash_func,
+    PRF_SHA1         : hash_func,
+    HMAC             : hash_func,
+    KHU            : public_key,
+    K               : symmetric_key, 
+    SQN              : text)
+def=
+
+local
+    SNDU, RCVU,SNDAP, RCVAP, SNDH, RCVH : channel (dy)
+
+const 
+    at_rand,at_rand2       : protocol_id
+
+  composition
+     ue(U,AP,H,F1,F2,F3,F4,F5,F6,F7,F8,F9,PRF_SHA1,HMAC,KHU,K,SQN,SNDU,RCVU)
+  /\ ap(U,AP,H,F1,F2,F3,F4,F5,F6,F7,F8,F9,PRF_SHA1,HMAC,KHU,K,SQN,SNDAP,RCVAP)
+  /\ haaa(U,AP,H,F1,F2,F3,F4,F5,F6,F7,F8,F9,PRF_SHA1,HMAC,KHU,K,SQN,SNDH,RCVH)
+
+end role
+
+
+
+role environment() def=
+
+  const 
+    u,ap,h                     : agent,
+    kps,kis,kaps                 : symmetric_key, % !!one per user   !!
+    sqnp1, sqnp2,sqnp3, sqni      : text,          % !!one per session!!
+    f1,f2,f3,f4,f5,f6,f7,f8,f9          : hash_func,
+    prf_sha1                : hash_func,
+    hmac                    : hash_func,
+    khu                     :public_key
+
+  intruder_knowledge = {u,ap,h,i,f1,f2,f3,f4,f5,prf_sha1,hmac
+
+                       }
+ 
+  composition
+     session(u,ap,h,f1,f2,f3,f4,f5,f6,f7,f8,f9,prf_sha1,hmac,khu,kps,sqnp1)
+ %   /\ session(u,h,f1,f2,f3,f4,f5,f6,f7,f8,f9,prf_sha1,hmac,khu,kps,sqnp2)
+%    /\ session(ap,h,f1,f2,f3,f4,f5,f6,f7,f8,f9,prf_sha1,hmac,khu,kaps,sqnp3)
+%    /\ session(u,i,f1,f2,f3,f4,f5,f6,f7,f8,f9,prf_sha1,hmac,khu,kis,sqni)
+%  /\ session(p,s,f1,f2,f3,f4,f5,prf_sha1,hmac,kps,sqnp2)
+% /\ session(i,s,f1,f2,f3,f4,f5,prf_sha1,hmac,kis,sqni)
+
+end role
+
+
+
+goal
+
+  %secrecy_of CK, IK
+  secrecy_of sec_ck1, sec_ck2, sec_ik1, sec_ik2
+
+  %Peer authenticates Server on at_rand
+  authentication_on at_rand
+  %Server authenticates Peer on at_rand2
+  authentication_on at_rand2
+
+end goal
+
+
+
+environment()

@@ -1,0 +1,156 @@
+%%%%%%%%%%%%%User Role%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role initiator_User( U, S   : agent,
+				Snd, Rcv   	: channel (dy),
+				H		: hash_func,
+				K_UG    	: symmetric_key)
+
+played_by U
+def=
+	local State : nat,
+	PWi,R,Idi,Ni,Ci,Ci_2,L,J,D,RPW,Y, A, A_1, AID,T_1, T_2, T_3, S1 	: text
+	const k_pw, k_r, k_rpw, k_hash, k_xs, sec_a_pwd,  k_ci, ki_ci_2, k_j,k_l   : protocol_id,
+	session_a, session_b  						: protocol_id,
+	k_hash, sec_K_hash 							: protocol_id 
+	init  State := 0
+	%%%%% REGISTRATION PHASE %%%%%%%
+	transition
+	1. State = 0  /\ Rcv(start) =|> 
+      		State':= 1 /\ IDi' := new() /\ PWi' := new() /\ RPW' := H(IDi.PWi)
+              	/\ Snd(U.RPW)
+				/\ witness(U, k_pw, PWi)
+				/\ witness(U, k_rpw, RPW)
+				/\ witness(U, S, k_hash, Hash) 
+				/\ secret(H,sec_K_hash,{U,S})
+				/\ secret(PWi,sec_a_pwd,{U})
+
+	%%%%%%%LOGIN PHASE %%%%%
+	2. State = 1 /\ Rcv({L'.Y'}_K_UG) =|>
+		State' := 2 /\ T_1' := new() /\R':= new()/\D':=new()/\ RPW':= R.PWi /\ J':= xor(L,RPW) /\ Ci':= T_1.J /\ AID' := xor(IDi,H(Y.T_1.D))
+		/\ Snd(AID.T_1.D.Ci)
+		/\ witness(U, k_j, J) 
+		/\ witness(U, k_r, R) 
+		/\ witness(U, k_l, L)
+
+	%%%%%%%%%%%% AUTHENTICATION PHASE %%%%%%%%%%%%
+	3. State = 2 /\ Rcv(Ci'.T_2')   =|>
+		State' := 3 	/\ Ci_2' := H(xor(xor(Ci,J),T_2))
+		/\ witness(S, k_ci, ci) 
+		/\ witness(S, ki_ci_2, ci_2) 
+	
+	4. State = 3 /\  Ci_2 = Ci   =|>
+		State' := 4 /\ S1':= H(xor(Ci,J)) /\ Snd(U.S1')
+		/\ secret(S1,session_a,{U,S})
+		
+	%Sends Password Changes without server interaction
+	5. State = 4  =|>
+		State' := 5 /\ PWi' := new() /\ RPW' := H(IDi.PWi) /\ J' := xor(L ,RPW)
+		
+	
+ 
+end role
+
+
+%%%%%%%%%%%%Server Role%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role p_Server ( S, U    : agent,
+				Snd, Rcv     	: channel (dy),
+				H	   		: hash_func,	     	
+				K_UG        	: symmetric_key)
+played_by Server
+def=
+	local State 		: nat,
+	IDi, IDU ,Ni,J, L,RPW,T_1,T_2,Y, A,S, AID, D, Ci,Ci_2 : text,
+	K,Xs	   : symmetric_key
+
+	const k_ni, k_pw, k_hash, k_xs,k_rpw: protocol_id,
+	sec_a_K_xs,  k_ci, ki_ci_2, k_j,k_l,sec_k_ni, session_a, session_b,k_hash, sec_K_hash	: protocol_id
+
+	init State := 0
+	%%%%% REGISTRATION%%%%
+	transition
+	1. State = 0 /\ Rcv(U.RPW') =|>
+		State' := 1 /\ Ni' := 0 /\ Xs' := new() /\ IDU' := IDi.Ni
+		/\ J' := H(Xs.IDU)
+		/\ L' := xor(J,RPW)
+		/\ Snd({L.Y}_K_UG)
+		/\ witness(S, k_xs, Xs) 
+		/\ witness(S, k_j, J) 
+		/\ witness(S, k_l, L) 
+		/\ witness(U, k_rpw, RPW)
+		/\ witness(U, S, k_hash, H) 
+		/\ witness(U, S, k_ni, Ni) 
+		/\ secret(H,sec_K_hash,{U,S})
+		/\ secret(Ni,sec_k_ni,{U,S})
+		/\ secret(Xs,sec_a_K_xs,{S})
+
+	%%%%%%%%%%% AUTHENTICATION PHASE %%%%%%%%%%%%%%%%%%%%%
+	2. State = 1 /\ Rcv(AID'.T_1'.D'.Ci') =|>
+		State' := 2 /\ IDi' := xor(AID, H(Y.T_1.D))		
+		/\IDU' := IDi.Ni
+		/\ T_2' := new()
+		/\Ci_2' := H(xor(xor(Ci,J),T_2))
+		/\ Snd(Ci_2.T_2)
+		/\ witness(S, k_ci, ci) 
+		/\ witness(S, ki_ci_2, ci_2) 
+		
+
+	3. State = 2  =|>
+		State' := 3
+
+	4. State = 3 /\ Rcv(U.S1') =|>
+		State' := 4
+		/\ secret(S1,session_b,{U,S})
+end role
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Role of Session between User, Server, SN
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session( U, S	: agent,
+	      H		: hash_func,
+	      K_UG 		: symmetric_key
+	    )
+
+def=
+	local S_User, R_User, S_Server, R_Server : channel (dy)
+
+	composition
+		initiator_User(U, S,  S_User, R_User, H, K_UG)
+	   /\   p_Server(S, U,  S_Server, R_Server, H, K_UG)
+end role
+
+
+%%%%%%%%%%%%%Environment Definition%%%%%%%%%%%%%%%%%%%%%%%
+role environment() def=
+	
+	const u, s	   : agent,
+	      h, hi		   : hash_func,
+	      kug, kia		   : symmetric_key
+	      
+
+	intruder_knowledge = {u, s,  kia}
+
+	composition 
+		session(u, s,  h, kug)
+	  /\	session(s, u, hi, kia)
+
+end role
+
+
+%%%%%%%%...GOALS...%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+  	secrecy_of k_ni, k_pw, k_hash, k_xs, k_rpw, k_ci, ki_ci_2, k_j,k_l, k_r
+	secrecy_of session_a, session_b,sec_K_hash, sec_a_K_xs
+	authentication_on  sec_a_pwd, sec_k_ni, session_a, session_b
+
+	
+	weak_authentication_on k_hash
+	weak_authentication_on k_xs
+	weak_authentication_on k_pw
+	weak_authentication_on k_rpw
+	weak_authentication_on k_ni
+	weak_authentication_on k_r
+
+end goal
+environment()
+

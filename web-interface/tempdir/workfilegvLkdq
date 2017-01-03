@@ -1,0 +1,150 @@
+%% ALICE BOB SERVER:
+%% Macros:
+%% FM1: H(PwA, A, B, exp(G,X),exp(exp(G,P1),Z))
+%% FM2: H(PwB, A, B, exp(G,Y),exp(exp(G,P2),Z))
+%% Key: exp(exp(GY,Z),X) = exp(exp(GX,Z),Y)
+%% GX : exp(G,X)
+%% GY: exp(G,Y)
+%% U: xor(exp(G,X),exp(M, PwA))
+%% V: xor(exp(G,Y),exp(N, PwB))
+%% U' : xor(exp(G,YZ),FM1)
+%% V' : xor(exp(G,XZ),FM2)
+%% alpha : H(B, A, Key)
+%% beta : H(A, B, Key)
+%% Key: exp(exp(GX,Z),Y) = exp(exp(GY,Z),X)
+%% 1. A -> B : A||U||gp1
+%% 2. B -> S : A||UgP1, B||V ||gP2
+%% 3. S  ->  B : (U´||gz ||B), (V´||gz ||A)
+%% 4. B  ->  A : (U´||gz||B||alpha)
+%% 5. A  -> B : beta
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role alice(
+A,B,S : agent,
+PWA : symmetric_key,
+H : hash_func,
+M, G :text,
+SND,RCV : channel(dy))
+played_by A def=
+local
+State : nat,
+GY :message,
+X,Z,P1 : text,
+const sec_m_key : protocol_id
+init State := 0
+transition
+1. State = 0 /\ RCV(start) =|>
+State':= 1 /\ X' := new()
+/\ P1' := new()
+/\ SND(xor(exp(G,X'), exp(M,PWA)). exp(G,P1'))
+2. State = 1 /\ RCV(xor(exp(GY',Z'), H(PWA.A.B.exp(G,X).exp(exp(G,P1),Z'))).exp(G,Z').H(A.B.Key')) =|>
+State':= 2 /\ Key' :=exp(exp(GY',Z'), X)
+/\ SND(H(A.B. Key'))
+/\ witness(A,B,key1,Key')
+/\ request(A,B,key,Key)
+/\ secret(Key,sec_m_Key,A,B)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob( 
+A, B, S : agent,
+PWA,PWB : symmetric_key,
+H : hash_func,
+M,N,G : text,
+SND,RCV : channel(dy))
+played_by B def=
+local 
+State : nat,
+X, Y, Z, P1, P2 : text,
+GX, GY : message,
+FM1, FM2, Key :message,
+sec_v_key,key1  : protocol_id
+init 
+State := 0
+transition
+1.State = 0 /\ RCV(xor(exp(G,X'),exp(M,PWA)).exp(G,P1')) =|>
+State' := 1 /\ Y' := new()
+/\ P2' := new()
+/\ SND(xor(exp(G,X'), exp(M,PWA)).exp(G,P1').xor(exp(G,Y'),
+exp(N,PWB)).exp(G,P2'))
+2. State = 1 /\ RCV(xor(exp(GY,Z'),H(PWA.A.B.exp(G,X').exp(exp(G,P1'),Z'))).exp(G,Z'),
+xor(exp(GX',Z'),H(PWB.B.A.exp(G,Y).exp(exp(G,P2),Z'))).exp(G,Z')) =|>
+State' := 2 /\ FM1' := H(PWA.A.B.exp(G,X').exp(exp(G,P1'),Z'))
+/\ FM2' := H(PWB.B.A.exp(G,Y).exp(exp(G,P2),Z'))
+/\ SND(xor(exp( GY,Z'),FM1').exp(G,Z').H(A.B.exp(exp(GX',Z'),Y)))
+3. State = 2 /\ RCV(H(A.B.exp(exp(GX',Z'),Y)))  =|>
+State' := 3 /\ Key' := exp(exp(GX',Z'),Y)
+/\ request(B,A,key1,Key)
+/\ secret(Key,sec_v_Key,B,A)
+/\ witness(B, A, key, Key')
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role server ( 
+A,B,S : agent,
+PWA,PWB : symmetric_key,
+H : hash_func,
+M, N,G : text,
+SND,RCV : channel(dy))
+played_by S def=
+local 
+State : nat,
+X,Y,Z :text,
+P1,P2 : text,
+GX,GY : message,
+FM1,FM2 : message
+init State := 0
+transition
+1. State = 0 /\ RCV(xor(exp(G,X'),exp(M,PWA).exp(G,P1')).xor(exp(G,Y'),
+exp(N,PWB).exp(G,P2')))  =|>
+State' := 1 /\ Z' := new()
+/\ GY' := new()
+/\ GX' := new()
+/\ FM1' := H(PWA.A.B.exp(G,X').exp(exp(G,P1'),Z'))
+/\ FM2' := H(PWB.B.A.exp(G,Y').exp(exp(G,P2'),Z'))
+/\ SND(xor(exp(GY',Z'),FM1').exp(G,Z'),xor(exp(GX',Z'),FM2').exp(G,Z'))
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session( 
+A,B,S : agent,
+H : hash_func,
+PWA,PWB : symmetric_key,
+M, N, G : text)
+def=
+local SND,RCV : channel (dy)
+composition
+alice(A,B,S,SND,RCV,H,PWA,M,G)
+/\ bob(A,B,S,SND,RCV,H,PWA,PWB,M,N,G)
+/\ server(A,B,S,SND,RCV,H,PWA,PWB,M,N,G)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+const a, b, s : agent,
+h : hash_func,
+key, key1 : protocol_id,
+pwa, pwb, pwi : symmetric_key,
+g, m, n : text
+intruder_knowledge = {a, b, s, g, h, pwi}
+composition
+session(b,a,s,h,pwa,pwb,m,n,g)
+/\ session(i,b,s,h,pwi,pwb,m,n,g)
+/\ session(a,i,s,h,pwa,pwi,m,n,g)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+authentication_on key
+authentication_on key1
+secrecy_of sec_m_Key, sec_v_Key
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+
+
+

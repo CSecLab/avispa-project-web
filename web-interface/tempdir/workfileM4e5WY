@@ -1,0 +1,171 @@
+role client(A, B : agent, H, PRF, KeyGen: hash_func, V: text,Ka, Ks, KaikA,Kca: public_key,
+%% Ks is the public key of a T3P (ie. CA)
+SND, RCV: channel (dy))
+played_by A
+def=
+local Na, Nb, Sid, Pa, Nw: text,
+State: nat,
+Finished: hash(hash(text.text.text).agent.agent.text.text.text),
+ClientK, ServerK: hash(agent.text.text.hash(text.text.text)),
+Kb,KaikB: public_key,% certificates for the private key inv(KaikA)
+CertAikA: {agent.public_key.text}_inv(public_key),
+%% certificates for the private key inv(KaikB)
+CertAikB: {agent.public_key.text}_inv(public_key),
+KaikSetA, KaikSetB:public_key set,
+KcaSet:public_key set,
+SMLa,SMLb:hash(agent.nat.text.text),
+PCRa, PCRb:{hash(agent.nat.text.text)}_inv(public_key),
+M: hash(text.text.text)
+
+constsec_clientk, sec_serverk : protocol_id
+init State := 0
+transition
+1. State = 0
+/ RCV(start)
+=|>
+State' := 2
+/ Na' := new()
+/ Pa' := new()
+/ Sid' := new()
+/ SND(A.Na'.Sid'.Pa')
+2. State = 2
+/ RCV(Nb'.Sid.Pa.{B.Kb'}_(inv(Ks)))
+=|>
+State' := 4
+/ Nw' := new()
+/ M' := PRF(Nw'.Na.Nb')
+/ Finished' := H(PRF(Nw'.Na.Nb').A.B.Na.Pa.Sid)
+/ ClientK' := KeyGen(A.Na.Nb'.PRF(Nw'.Na.Nb'))
+/ ServerK' := KeyGen(B.Na.Nb'.PRF(Nw'.Na.Nb'))
+/ SND({Nw'}_Kb'.
+{A.Ka}_(inv(Ks)).
+{H(Nb'.B.Nw')}_(inv(Ka)).
+{H(PRF(Nw'.Na.Nb').
+A.B.Na.Pa.Sid)
+}_KeyGen(A.Na.Nb'.PRF(Nw'.Na.Nb')))
+/ witness(A,B,na_nb2,Na.Nb')
+3. State = 4
+/ RCV({Finished}_ServerK)
+=|>
+State' := 6
+/ request(A,B,na_nb1,Na.Nb)
+/ secret(ClientK,sec_clientk,{A,B})
+/ secret(ServerK,sec_serverk,{A,B})
+4. State=6
+/ RCV(B.PCRb'.SMLb'.CertAikB'.
+{PRF(PCRa'.SMLb'.CertAikB)}_ClientK)
+/ CertAikB'={B.KaikB'.KaikSetB'}_inv(Kca')
+/ in(Kca',KcaSet)
+/ request(A,B,smlb_verify,SMLb)
+=|>
+State' := 8
+/ SMLa':= new()
+/ PCRa':= {SMLa}_inv(KaikA)
+/ KaikA' := new()
+/ CertAikA':={A.KaikA'.KaikSetA'}_inv(Kca')
+/ SND(A.PCRa'.SMLa'.CertAikA'.
+{PRF(PCRa'.SMLa'.CertAikA')}_ClientK)
+/ witness(A,B,sk_verify,ClientK)
+/ secret(SMLa,sec_smla,{A,B})
+/ witness(A,B,smla_verify,SMLa)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role server(A, B : agent,
+H, PRF, KeyGen: hash_func,
+V: text,
+Kb, Ks,Kca,KaikB: public_key,
+SND, RCV: channel (dy))
+played_by B
+def=
+local Na, Nb, Sid, Pa, Nw: text,
+State:nat,
+Ka,KaikA: public_key,
+ServerK:hash(agent.text.text.hash(text.text.text)),
+% certificates for the private key inv(KaikA)
+CertAikA: {agent.public_key.text}_inv(public_key),
+% certificates for the private key inv(KaikB)
+CertAikB: {agent.public_key.text}_inv(public_key),
+KaikSetA, KaikSetB:public_key set,
+KcaSet:public_key set,
+SMLa, SMLb:hash(agent.nat.text.text),
+PCRa,PCRb:{hash(agent.nat.text.text)}_inv(public_key)
+init State := 1
+transition
+1. State = 1
+/ RCV(A.Na'.Sid'.Pa')
+=|>
+State' := 3
+/ Nb' := new()
+/ SND(Nb'.Sid'.Pa'.{B.Kb}_(inv(Ks)))
+/ witness(B,A,na_nb1,Na'.Nb')
+2. State = 3
+/ RCV({Nw'}_Kb.{A.Ka'}_(inv(Ks)).
+{H(Nb.B.Nw')}_(inv(Ka')).
+{H(PRF(Nw'.Na.Nb).
+A.B.Na.Pa.Sid)
+}_KeyGen(A.Na.Nb.PRF(Nw'.Na.Nb)))
+=|>
+State' := 5
+/ ServerK':=KeyGen(B.Na.Nb.PRF(Nw'.Na.Nb))
+/ SND({H(PRF(Nw'.Na.Nb).
+A.B.Na.Pa.Sid)
+}_KeyGen(B.Na.Nb.PRF(Nw'.Na.Nb)))
+/ request(B,A,na_nb2,Na.Nb)
+3. State = 5
+/ RCV(start)
+=|>
+State' := 7
+/ SMLb':= new()
+/ PCRb':= {SMLb}_inv(KaikB)
+/ CertAikB':={A.KaikB'.KaikSetB'}_inv(Kca')
+/ SND(A.PCRb'.SMLb'.CertAikB.{
+PRF(PCRb'.SMLb'.CertAikB)}_ServerK)
+/ witness(B,A,smlb_verify,SMLb)
+/ secret(SMLb,sec_smlb,{A,B})
+/ request(B,A,sk_verify,ServerK)
+4. State= 7
+/ RCV(A.PCRa'.SMLa'.CertAikA.{
+PRF(PCRa'.SMLa'.CertAikA)}_ServerK)
+/ CertAikA'={A.KaikA'.KaikSetA'}_inv(Kca')
+/ in(Kca',KcaSet)
+=|>
+State' := 9
+/ request(B,A,smla_verify,SMLa)
+end role
+
+role session(A,B: agent, V: text,
+Ka, Kb, Ks, Kca, KaikA, KaikB: public_key,
+H, PRF, KeyGen: hash_func)
+def=
+local SA, SB, RA, RB: channel (dy)
+composition
+client(A,B,H,PRF,KeyGen,V,Ka,Ks,KaikA,Kca,SA,RA)
+/ server(A,B,H,PRF,KeyGen,V,Kb,Ks,KaikB,Kca,SB,RB)
+end role
+
+role environment()
+def=
+const
+na_nb1, na_nb2, sec_smla, sec_smlb,
+smla_verify, smlb_verify, sk_verify: protocol_id,
+h, prf, keygen : hash_func,
+a, b : agent,
+v : text,
+ka, kb, ki, ks, kaika, kaikb, kca: public_key
+intruder_knowledge =
+{ a, b, ka, kb, ks, kca, kaika, kaikb, ki, inv(ki),
+{i.ki}_(inv(ks)), {i.ki}_(inv(kca)) ,v}
+composition
+session(a,b,v,ka,kb,ks,kca, kaika,kaikb,h,prf,keygen)
+/ session(a,i,v,ka,ki,ks,kca,kaika,kaikb,h,prf,keygen)
+/ session(i,b,v,ki,kb,ks,kca,kaika,kaikb,h,prf,keygen)
+end role
+goal
+secrecy_ofsec_clientk,sec_serverk
+authentication_on na_nb1
+authentication_on na_nb2
+authentication_onsk_verify
+secrecy_ofsec_smla, sec_smlb
+authentication_onsmla_verify,smlb_verify
+end goal
+environment() 

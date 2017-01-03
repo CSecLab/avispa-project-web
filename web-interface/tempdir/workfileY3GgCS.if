@@ -1,0 +1,89 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileY3GgCS
+
+section signature:
+
+state_bob: agent * agent * symmetric_key * nat * text * text * nat -> fact
+state_alice: agent * agent * symmetric_key * nat * text * text * nat -> fact
+
+
+section types:
+
+na, nb, bob_alice_na, alice_bob_nb: protocol_id
+kab, kai, kib, Kab: symmetric_key
+Na, Nb, Dummy_Nb, dummy_nonce: text
+start, MGoal: message
+5, 3, 1, State, 4, 2, 0, 10, 6, SID, Dummy_State, SID2, SID1: nat
+A1Goal, a, b, A, B, i, A2Goal: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(kai).
+ iknows(kib).
+ iknows(i).
+ state_alice(a,b,kab,0,dummy_nonce,dummy_nonce,3).
+ state_bob(b,a,kab,1,dummy_nonce,dummy_nonce,4).
+ state_alice(a,i,kai,0,dummy_nonce,dummy_nonce,6).
+ state_bob(b,i,kib,1,dummy_nonce,dummy_nonce,10)
+
+
+section rules:
+
+step step_0 (A,B,Kab,Na,Nb,SID) :=
+ state_alice(A,B,Kab,0,Na,Nb,SID).
+ iknows(start)
+ =>
+ state_alice(A,B,Kab,2,Na,Nb,SID).
+ iknows(A)
+
+step step_1 (A,B,Kab,Na,Nb,SID) :=
+ state_alice(A,B,Kab,2,Na,Nb,SID).
+ iknows(Nb)
+ =>
+ state_alice(A,B,Kab,4,Na,Nb,SID).
+ iknows(scrypt(Kab,Nb)).
+ request(A,B,alice_bob_nb,Nb,SID)
+
+step step_2 (B,A,Kab,Na,Dummy_Nb,SID,Nb) :=
+ state_bob(B,A,Kab,1,Na,Dummy_Nb,SID).
+ iknows(A)
+=[exists Nb]=>
+ state_bob(B,A,Kab,3,Na,Nb,SID)
+
+step step_3 (B,A,Kab,Na,Dummy_Nb,SID,Nb) :=
+ state_bob(B,A,Kab,3,Na,Dummy_Nb,SID).
+ iknows(Nb)
+ =>
+ state_bob(B,A,Kab,5,Na,Nb,SID).
+ iknows(scrypt(Kab,Nb)).
+ witness(B,A,alice_bob_nb,Nb)
+
+
+section properties:
+
+property authentication_on_alice_bob_nb (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,alice_bob_nb,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,alice_bob_nb,MGoal))
+     /\ ((request(A1Goal,A2Goal,alice_bob_nb,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,alice_bob_nb,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state authentication_on_alice_bob_nb (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,alice_bob_nb,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,alice_bob_nb,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_alice_bob_nb (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,alice_bob_nb,MGoal,SID1).
+ request(A1Goal,A2Goal,alice_bob_nb,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

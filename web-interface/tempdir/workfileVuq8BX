@@ -1,0 +1,90 @@
+role masterstation(SM,MS           : agent,
+                  Hsh              : hash_func,
+                  G, Rsm, Pow      : text,
+                          Qsk      : message,
+                          SND, RCV : channel(dy))
+played_by MS
+def=
+local State            : nat,
+      Ri, Qsk, Qsm, Aud: message,
+                    Sk : symmetric_key,
+                  Data: text
+const
+ smartmeter_masterstation_data: protocol_id
+ init State:= 0
+transition
+1. State = 0  /\ RCV(start) =|>
+   State':= 2 /\ Pow':= Hsh(Pow)
+              /\ Ri':= xor(Rsm,Pow)
+              /\ secret(Ri',ri,{SM,MS})
+              /\ Sk':= Hsh(Ri'.Qsk)
+              /\ Data':= new()
+              /\ Aud':= Hsh(Data'.Sk')
+              /\ witness(MS,SM,smartmeter_masterstation_data,Data')
+              /\ SND({Data'}_Sk'.Aud')
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role smartmeter(SM,MS            : agent,
+                  Hsh            : hash_func,
+                   G, Rsm, Pow   : text,
+                           Qsk   : message,
+                        SND, RCV : channel(dy))
+played_by SM
+def=
+local State           : nat,
+      Ri, Qsk,Qms, Aud: message,
+                    Sk: symmetric_key,
+                  Data: text
+const
+ smartmeter_masterstation_data: protocol_id
+ init State := 1
+transition
+1. State = 1  /\ RCV({Data'}_Sk'.Aud') =|>
+   State':= 3 /\ Pow':= Hsh(Pow)
+              /\ Ri':= xor(Rsm,Pow)
+              /\ secret(Ri',ri,{SM,MS})
+              /\ Sk':= Hsh(Ri'.Qsk)
+              /\ request(SM,MS,smartmeter_masterstation_data,Data')
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(MS, SM    : agent,
+           G, Rsm, Pow : text,
+                   Qsk : message,
+                  Hsh  : hash_func)
+def=
+local SMS, RMS,
+SSM, RSM : channel (dy)
+composition
+   masterstation(SM, MS, Hsh, G, Rsm, Pow, Qsk SMS, RMS)
+/\ smartmeter(SM, MS, Hsh, G, Rsm, Pow, Qsk SMS, RMS)
+end role 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+def=
+const
+smartmeter_masterstation_data, ri: protocol_id,
+                        ms, sm       : agent,
+                         ksmi, kims  : symmetric_key,
+                                  hsh: hash_func
+intruder_knowledge = {sm, ms, ksmi, kims, hsh}
+composition
+ session(ms, sm, dsm, dms, g, rsm, pow, qsk, hsh)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+ secrecy_of qsk,ri
+ authentication_on smartmeter_masterstation_data 
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

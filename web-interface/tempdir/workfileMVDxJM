@@ -1,0 +1,132 @@
+
+%% a->t ({a.{Sk.Na}_Pkb}_Pkt)
+%% t->b ({a.t.{Sk.Na}_Pkb}_Pkb)
+%% b->t ({b.{Na}_Sk}Pkt)  
+%% t->a ({b.t.{Na}_Sk}Pka)
+%% a->t ({{a.M.H{M}}_Sk}_Pkt)
+%% t->b ({{a.M.H{M}}_Sk}_Pkb)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% définition du rôle alice, initiant le protocole
+role alice (A, T, B: agent,             
+            Pkb, Pkt, Pka: public_key,
+			H: hash_func,
+			Sk: symmetric_key,
+            SND, RCV: channel (dy)) 
+played_by A def=
+
+  local State : nat, 
+        Na,Nb: text,
+		M: message
+		
+  init State := 0
+
+  transition  
+   
+    1.  State  = 0 /\ RCV(start) =|> 
+	State':= 1 /\ Na' := new() /\ SND({A.{Sk.Na'}_Pkb}_Pkt)/\ secret(Na', na, {A,B})
+
+    2.  State  = 1 /\ RCV(T.{B.{Na'.Nb'}_Sk}_Pka) =|> 
+	State':= 2 /\ SND({{A.M.H(M)}_Sk}_Pkt) /\ request(A, B, alice_bob_nb, Nb')
+	
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% role tiers à écrire
+role tiers (T, A, B: agent,             
+            Pkb, Pkt,Pka: public_key,
+			H: hash_func,
+			Sk:symmetric_key,
+            SND, RCV: channel (dy)) 
+played_by T def=
+
+  local State : nat, 
+        Na, Nb: text,
+		M: message
+
+  init State := 0
+
+  transition  
+   
+    1.  State  = 0 /\ RCV({A.{Sk.Na'}_Pkb}_Pkt) =|> 
+	    State':= 1 /\ SND(T.{A.{Sk.Na'}_Pkb}_Pkb)
+
+    2.  State  = 1 /\ RCV({B.{Na'.Nb'}_Sk}_Pkt) =|>  
+        State':= 2 /\ SND (T.{B.{Na'.Nb'}_Sk}_Pka)
+	
+	3.	State =2 /\ RCV({{A.M.H(M)}_Sk}_Pkt) =|>
+		State':=3 /\ SND(T.{{A.M.H(M)}_Sk}_Pkb)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% role bob à écrire
+role bob (A, B, T: agent,             
+            Pka, Pkb, Pkt: public_key,
+			H: hash_func,
+			Sk:symmetric_key,
+            SND, RCV: channel (dy)) 
+played_by B def=
+
+  local State : nat, 
+        Na, Nb: text,
+		M: message
+
+  init State := 0
+
+  transition  
+   
+    1.  State  = 0 /\ RCV(T.{A.{Sk.Na'}_Pkb}_Pkb) =|> 
+	State':= 1 /\ Nb' := new() /\ SND({B.{Na'.Nb'}_Sk}_Pkt)/\ secret({Na'.Nb'}, nb, {B,A})
+
+    2.  State  = 1 /\ RCV(T.{{A.M.H(M)}_Sk}_Pkb) =|>  
+        State':= 2 
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% définition du rôle caractérisant une session
+role session(
+	A, B, T: agent,
+	Pka, Pkb, Pkt: public_key,
+	H: hash_func,
+	Sk: symmetric_key)
+	def=
+
+  local SND,RCV : channel (dy)
+
+  composition 
+
+	alice(A,T,B,Pka,Pkb,Pkt,H,Sk,SND,RCV)
+     /\ tiers(A,T,B,Pka,Pkb,Pkt,H,Sk,SND,RCV)
+	 /\ bob(A,T,B,Pka,Pkb,Pkt,H,Sk,SND,RCV)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% définition du rôle caractérisant le scenario à exécuter
+role environment() def=
+
+    const a, b, t	: agent,
+	h	: hash_func,
+	ka, kb, kt, ki	: public_key,
+	sk	: symmetric_key,
+	nb,na,alice_bob_nb,alice_bob_na	: protocol_id
+
+    intruder_knowledge = {a, b, t, ka, kb, kt, ki, inv(ki)}
+
+    composition
+
+	session(a,b,t,ka,kb,kt,h,sk)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% pas de section goal ici (donc pas de propriété à vérifier)
+goal
+	secrecy_of nb
+	secrecy_of na
+	authentication_on alice_bob_nb
+	authentication_on alice_bob_na
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% lancement du rôle principal
+environment()

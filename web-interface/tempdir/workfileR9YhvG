@@ -1,0 +1,111 @@
+role alice (Ui,SNj: agent,
+               H : hash_func,
+               Snd,Rcv: channel(dy))
+played_by Ui
+def=
+
+  local State   : nat,
+        Ea, Ca  : public_key,
+         Ep, Cp  : private_key,
+          N,TK : text
+
+  const sub1,sub2 : protocol_id
+
+  init  State := 0
+
+  transition
+
+   1. State = 0
+      /\ Rcv(start) =|> 
+      State' := 1
+      /\ Ea' := new()
+      /\ Cy1':= {Ea'}_ Cp
+      /\ N':= new()
+      /\ Ch':= H(Ea')
+      /\ Cy2':= {N'.Ch'}_Ep   
+      /\ Snd(Ui.SNj.Cy1'.Cy2') 
+
+   2. State = 1
+      /\ Rcv(SNj.Ui.{N'.TK'}_Ea') =|> 
+      State' := 2  /\ secret(TK',sub1,{Ui, SNj})
+                  /\ secret({Ea', Cp},sub2,{Ui, SNj})
+                  /\ secret({Ep',Ca} ,sub1,{Ui, SNj})
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob (Ui,SNj: agent,
+           H : hash_func,
+          Snd,Rcv: channel(dy))
+
+played_by SNj
+def=
+local State  : nat,
+
+  local State   : nat,
+        N,TK : text,
+	Ea ,Ca  : public_key,
+         Ep, Cp  : private_key
+
+  const sub1,sub2 : protocol_id
+
+  init  State := 0
+
+  transition
+
+   1. State = 0 /\ Rcv(Ui.SNj.{Ea'}_ Cp.{N'.Ch'}_Ep)=|> 
+      State' := 1 /\ TK' := new() 
+                  /\ Snd(SNj.Ui.{N'.TK'}_Ea') 
+      		  /\ secret(TK',sub1,{Ui, SNj})
+                  /\ secret({Ea', Cp},sub2,{Ui, SNj})
+                  /\ secret({Ep',Ca} ,sub1,{Ui, SNj})
+
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(Ui,SNj: agent,
+	     Kab: symmetric_key)
+def=
+
+  local SA, RA, SB, RB: channel (dy)
+
+  composition
+     session(Ui,SNj,h,SA,RA)
+  /\ session(SNj,Ui,h,SB,RB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role environment()
+def=
+
+  const ui, snj   : agent,
+         h   : hash_func,
+        sub1, sub2 : protocol_id
+
+  intruder_knowledge={Ui,SNj}
+
+  composition
+      session(a,b,h)
+   /\ session(b,a,h)
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+ secrecy_of sub1
+  secrecy_of sub2
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+

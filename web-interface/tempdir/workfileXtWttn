@@ -1,0 +1,109 @@
+%% PROTOCOL: Ping Pong
+%% 
+%% 
+%% MODELER: Konrad Czyzewski
+%% ALICE_BOB:
+%%\begin{verbatim}
+%% 1. A  - {Na.A}_Kb ----> B
+%% 2. A  B
+%%\end{verbatim}
+%% PROBLEMS: 3
+%% CLASSIFICATION: G1, G3, G12
+%% ATTACKS: Man-in-the-middle attack,
+%% where in the first session Alice talks with the intruder as desired
+%% and in the second session Bob wants to talk with Alice but actually
+%% talks to the intruder. Therefore, also the nonce Nb gets leaked.
+%%\begin{verbatim}
+%% 1.1  A  - {Na.A}_Ki --> i   	
+%% 2.1                     i(A)  - {Na.A}_Kb  -> B   	
+%% 2.2                     i(A)  B
+%%\end{verbatim}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%HLPSL:
+role alice (A, B: agent,                  
+            SND, RCV: channel (dy)) 
+played_by A def=
+
+  local State : nat, 
+        Na, Nb: text
+
+  init State := 0
+
+  transition  
+   
+    0.  State  = 0 /\ RCV(start) =|> 
+	State':= 2 /\ Na' := new() /\ SND(Na'.A) 
+		   
+
+    2.  State  = 2 /\ RCV(Na) =|>
+	State' := 4 /\ request(A,B,alice_bob_na,Na)  
+
+   
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob(A, B: agent,        
+         SND, RCV: channel (dy)) 
+played_by B def=
+
+  local State : nat, 
+	Na, Nb: text
+
+  init State := 1
+
+  transition 
+
+    1.  State  = 1 /\ RCV(Na'.A) =|> 
+	State':= 3 /\ SND(Na')
+		   /\ witness(B,A,alice_bob_na,Na')
+
+    
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(A, B: agent) def=
+
+  local SA, RA, SB, RB: channel (dy)
+
+  composition 
+
+	alice(A,B,SA,RA)
+     /\ bob  (A,B,SB,RB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+    const a, b	       : agent,
+	  na, nb,
+	  alice_bob_nb,
+	  bob_alice_na : protocol_id
+
+    intruder_knowledge = {a, b}
+
+    composition
+
+	session(a,b)
+     /\ session(a,i)
+     /\ session(i,b)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  authentication_on bob_alice_na
+  
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

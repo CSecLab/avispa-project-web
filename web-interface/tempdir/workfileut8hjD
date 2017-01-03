@@ -1,0 +1,56 @@
+role mme(MME, MTCD : agent, GK:symmetric_key,
+F2,F3,F4: hash_func,
+Sqn, Amf, Rhss, Rg  :text,
+SND, RCV: channel (dy))
+
+played_by MME def=
+local
+ Tmme :text,
+ State : nat
+const
+mme_mtcd, mtcd_mme :protocol_id
+init State :=0
+transition
+1. State =0 /\ RCV(MTCD)=|>
+State' :=2
+/\Tmme' := new()
+/\SND(Rhss.Rg.Tmme' .{F2(Sqn.Tmme')}_F4(GK.Rg.Rhss.Amf) .Amf)
+/\witness(MME,MTCD,mtcd_mme,Tmme')
+2. State =2
+/\ RCV({F3(Sqn.Rg)}_F4(GK.Rg.Rhss.Amf))
+=|>
+State' :=4/\request(MME,MTCD,mme_mtcd,Tmme')
+end role
+
+role mtcd(MME, MTCD : agent, GK:symmetric_key,
+Sqn, Amf, Rhss, Rg :text,
+F2,F3,F4: hash_func,
+SND, RCV: channel (dy))
+
+played_by MTCD def=
+local
+ Tmme :text,
+ State : nat
+const
+mme_mtcd, mtcd_mme :protocol_id
+init State :=1
+transition
+1. State =1 /\ RCV(start)=|>
+State' :=2  /\ SND(MTCD)
+
+2. State =2
+/\ RCV(Rhss.Rg.Tmme'.{F2(Sqn.Tmme')}_F4(GK.Rg.Rhss.Amf).Amf)
+=|>
+State' :=3
+/\ SND({F3(Sqn.Rg)}_F4(GK.Rg.Rhss.Amf))
+/\request(MTCD,MME,mtcd_mme,Tmme')
+/\witness(MTCD,MME,mme_mtcd,Tmme')
+end role
+
+goal
+authentication_on mme_mtcd
+authentication_on mtcd_mme
+end goal
+
+environment()
+

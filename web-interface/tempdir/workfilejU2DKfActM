@@ -1,0 +1,154 @@
+
+%    1.   A->B: A
+%    Alice sends to Bob a request.
+%    2.    A MesageServer, Nb'Nb
+%    Alice forwards the key to Bob who can decrypt it with the key he shares with the server, thus authenticating the data.
+%   6. A  B: {NB-1}_KAB
+
+
+role alice	(A,B,S : agent,
+	Kas : symmetric_key,
+	Pred : function,
+	SSA,RSA,SBA,RBA : channel(dy))
+	played_by A def=
+
+	local	State 			: nat,
+			Na,Nb1,Nb 			: text,
+			MesageServer	: {symmetric_key.agent.text}_symmetric_key,
+			MesageFromBob 		: {agent.text}_symmetric_key,
+			Kab				: symmetric_key
+		
+
+	init State := 0
+
+	transition
+% A se identifica  la B si cere deschiderea unei discutii pasul 1
+	1. 	State = 0 /\ RBA(start) =|>
+		State' := 2 /\ SBA(A)
+%B primeste cererea de deschidere a discutiei - pasul 1
+%si trimite la A un mesaj codificat care contine identitatea lu A si un nonce cunoscut numai de B Nb1 totul codificat cu cheia unica a
+%serverului si  B(kbs) pasul 2
+	2.	State = 2 /\ RBA(MesageFromBob') =|>
+		State' := 4 /\ Na':= new()
+			/\ SSA(A.B.Na'.MesageFromBob')			
+%Serverul primeste de la A: nonce lui A,identitatea partenerilor de dicutie si mesajul de la bob - pasul 3
+%deorece S cunoaste Kbs va decodifica mesajul si ii va aduga keya unica de discutie dintre ele(kab) totul va fi cryptat cu kbs
+%A primeste de la S nonce na, identitatea lu B, cheia unica kab, mesajul de la server catre bob si totul e cryptat cu kas ceia ce inseamna ca A poate decripta informatiile -pasul 4
+	3. 	State = 4 /\ RSA({Na.B.Kab'.MesageServer'}_Kas) =|>
+		State' := 6 /\ SBA(MesageServer')
+			/\ secret(Kab',k,{A,B,S})
+			/\ witness(A,B,bob_alice_kab,Kab')
+% Bob primeste de la A MesageServer(kab,a, nb1)kbs pe care A nu l-a putut crypta deorece nu cunoaste kbs -pasul 5
+%Bob trimite lui A un noce nbnb1 cryptat cu cheia de discutie kab pe care A il decripteaza -pasul 6
+	4.	State = 6 /\ RBA({Nb'}_Kab) =|>
+		State' := 8 /\ SBA({Pred(Nb')}_Kab)				
+			/\ request(A,B,alice_bob_nb,Nb') % correct pt alice_bob_nb,
+% A trimite lui B predecesorul lu nb cryptat cu cheia kab ceia il autentifica pe A lui B-pasul 7
+	
+end role
+
+
+role bob	(A,B,S : agent,
+	Kbs : symmetric_key,
+	Pred : function,
+	SAB,RAB : channel(dy))
+
+	played_by B def=
+
+	local 	State : nat,
+			Na,Nb,Nb1 : text,
+			Kab : symmetric_key
+
+	init State := 1
+
+	transition
+% B primeste de la A cererea de incepere a protocolului-pasul 1
+		1.	State = 1 	/\ RAB(A) =|>
+			State' := 3 /\ Nb1' := new()
+				/\ SAB({A.Nb1'}_Kbs)   %MesageFromBob 
+%B trimite la A un mesaj codificat care contine identitatea lu A si un nonce cunoscut numai de B Nb1 totul codificat cu cheia unica a
+%serverului si  B(kbs) pasul 2
+%MesageServer
+%B primeste de la A "MesageServer" care ontine keia kab, identitatea lui A si nb1 totul cryptat cu kbs ceia ce inseamna ca poate decodifica kab-pasul 5
+		2. 	State = 3 	/\ RAB({Kab'.A.Nb1'}_Kbs) =|>    
+			State' := 5 /\ Nb':=new()		/\ SAB({Nb'}_Kab)
+						/\ witness(B, A, alice_bob_nb, Nb') %correct pt alice_bob_nb,
+						/\ secret(Kab',k,{A,B,S})
+					                /\ request(B,A,bob_alice_kab,Kab')
+% B trimite la A nonce nb pe care il crypteaza cu kab-pasul 6
+% A cunoaste kab de la pasul 4 si trimite la B pe predecesorul lui nb cryptat cu kab pe care B il cunoaste, B il autentifica pe A folosind kab
+% B primeste 	predecesorul lui nb cryptat cu kab				-pasul 7	
+		3. 	State = 5	/\ RAB({Pred(Nb')}_Kab) =|>
+			State':= 7
+
+
+end role
+
+role server	(A,B,S : agent,
+			Kas,Kbs : symmetric_key,
+			SAS,RAS : channel(dy))
+	played_by S 
+	def=
+
+	local 	State : nat,
+			Kab : symmetric_key,
+			Na,Nb, Nb1 : text
+
+	const
+		k : protocol_id
+
+	init State := 3
+
+	transition
+% Serverul primeste de la A A, B, Na si mesajul de la bob pe care S il poate decripta deoarece cunoaste ks-pasul 3
+	1. 	State = 3 	/\ RAS(A.B.Na'.{A.Nb1'}_Kbs) =|>
+		State' := 5 /\ Kab' := new()
+			/\ SAS({Na'.B.Kab'.{Kab'.A.Nb1'}_Kbs}_Kas)
+			/\ secret(Kab',k,{A,B,S})
+% Serverul trimite lui A Na,B, kab-cheia de criptare intre a si b , mesajulSever pe care A nu il poate decripta totul criptat cu Kas-pasul 4
+end role
+
+
+role session	(A, B, S : agent,
+	Kas, Kbs : symmetric_key, 
+	Pred :function	)
+	def=
+	local	SSA, RSA, 
+		SBA, RBA, 
+		SAS, RAS, 
+		SAB, RAB : channel (dy)
+
+	composition
+
+        alice (A, B, S, Kas, Pred,   SSA, RSA, SBA, RBA) 
+     /\ server(A, B, S, Kas, Kbs, SAS, RAS)
+     /\ bob   (A, B, S, Kbs, Pred,   SAB, RAB)
+end role
+
+
+role environment()
+	def=
+		const 	a, b, s 	: agent,
+			ka, kb, ki 	: symmetric_key,
+			pred :function,	
+			alice_bob_nb, bob_alice_kab, k,nb1,na,kas,kbs,nb	: protocol_id
+
+	intruder_knowledge = {a, b, s,pred, ki}
+
+	composition
+
+        session(a,b,s,ka,kb,pred)
+     /\ session(a,i,s,ka,ki,pred)
+     /\ session(i,b,s,ki,kb,pred)
+
+end role
+
+
+goal
+	secrecy_of k  %,nb1,na,kbs,kas
+	authentication_on alice_bob_nb
+	authentication_on bob_alice_kab
+end goal
+
+
+environment()

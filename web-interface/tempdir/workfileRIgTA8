@@ -1,0 +1,72 @@
+%Notation ALICE & BOB
+%WSET Protocol:  
+% Purchase Request( demande d’achat)
+%C->M: {IP2}_K1.{K1}_KpubP.{IC}_K2.{K2}_KpubM.%{H( {IP2}_K1.{K1}_KpubP.{IC}_K2.{K2}_KpubM)}_KprivC %signature duclient
+% IP2 = IP.H(IC).SD
+% Payment  Request(demande de paiement)
+%1. M->P: {IP2}_K1.{K1}_KpubP 
+%	   {IC,Card_M}_K3.{K3}_KpubP.% %signature du client	   {H({IC,Card_M}_K3.{K3}_KpubP)}_KprivM  %signature du marchand
+% Payment Authorization Response( réponse de la passerelle)
+%2. P->M: {Resp_pay}_K4.{K4 }_KpubM.
+%	   {H({Resp_pay}_K4.{K4}_KpubM)}_KprivP   %%signature de la passerelle de paiement
+%Retransmission de la reponse de la passerelle vers le client (par le marchand)
+%3.  M->C: {resp_pay}KpubC
+ %        {H({resp_p}KpubM)}KprivM
+
+role cardholder(     C,M,P: agent, H : hash_func,
+                   KpubC,  KpubM,  KpubP : public_key,
+     	             SND RCV: channel (dy),
+                        )
+ played_by C def=
+local S : nat,IC,IP2 : message,  % IP2 = IP + h (IC) + SD 
+           Resp_pay : message,
+           K1, K2,K4 : symmetric_key
+init S := 0
+transition
+% =|> Purchase Request
+1. S = 0 /\ 
+   RCV(start) 
+   =|>
+   S':= 2 /\K1' := new() /\K2' := new() /\ IP2' := new() /\IC' := new() /\
+   SND (	{IP2'}_K1'.{K1'}_KpubP.{IC'}_K2'.{K2'}_KpubM.
+	 {H( {IP2'}_K1'.{K1'}_KpubP.{IC'}_K2'.{K2'}_KpubM)}_inv(KpubC)
+            )
+ /\secret(IC',order,{C,M,P}) /\secret(IP2',payment,{C,P}) 	/\
+  secret(K1',k1,{C,M})/\  secret(K2',k2,{C,M}) 	
+% Purchase Response =|>
+1.	    S =  2 /\
+% retransmission de la réponse de la passerelle vers le client (par le marchand) 
+   RCV   	( 	{Resp_pay'}_K4'.{K4' }_KpubC.	{H({Resp_pay'}_K4'.{K4'}_KpubM)}_inv(KpubP)
+			)   =|>
+   S' := 4
+end role
+%4.Session
+role session(C,M,P: agent, H : hash_func,KpubC,  KpubM,  KpubP :public_key ) def=
+ local SCM, RCM, SMP, RMP: channel(dy)
+ composition
+ cardholder(C,M,P,H,KpubC,KpubM,KpubP,SCM,RCM) /\
+  merchant  (C,M,P,H,KpubC,KpubM,KpubP,SCM,RCM,SMP,RMP) /\
+  paymentgateway(C,M,P,H,KpubC,KpubM,KpubP,RMP,SMP)
+end role
+%5.Environnement
+role environment() def= 
+  const h: hash_func, 
+order,payment,resp_pay,k1,k2,k3,k4,card_m : protocol_id,
+        c,m,p: agent,
+        kpub_c,  kpub_m,  kpub_p, kpub_i : public_key
+ intruder_knowledge = {c,m,p,kpub_c,  kpub_m,kpub_i ,inv(kpub_i),  kpub_p, h }
+ composition 
+  session(c,m,p,h,kpub_c,kpub_m,kpub_p)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+  secrecy_of card_m
+  secrecy_of  resp_pay
+  secrecy_of  payment
+  secrecy_of order
+  secrecy_of k1
+  secrecy_of k2 
+  secrecy_of k3
+  secrecy_of k4
+end goal
+environment() 

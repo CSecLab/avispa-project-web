@@ -1,0 +1,145 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileDVDcNi
+
+section signature:
+
+state_bob: agent * agent * symmetric_key * symmetric_key * symmetric_key * symmetric_key * hash_func * nat * text * text * text * text * text * set(symmetric_key) * set(agent) * set(symmetric_key) * set(agent) * nat -> fact
+state_alice: agent * agent * symmetric_key * symmetric_key * symmetric_key * symmetric_key * hash_func * nat * text * text * text * text * text * set(agent) * set(symmetric_key) * set(agent) * set(symmetric_key) * set(agent) * nat -> fact
+
+
+section types:
+
+MGoal, start: message
+sub1, sub2, sub3, sub4: protocol_id
+h, H: hash_func
+Dummy_State, 3, SID, SID2, SID1, State, 2, 7, 1, 0, 6, 4: nat
+ea, ep, cp, ca, Ea, Ep, Cp, Ca: symmetric_key
+set_92, set_91, set_90, set_89, set_88, set_126, set_125, set_124, set_123, set_121, set_120, set_119, set_118, set_117, set_110, set_109, set_108, set_107: set
+Set_54, Set_52, Set_33, Set_31, Dummy_Set_54, Dummy_Set_52, Dummy_Set_33, Dummy_Set_31: set(symmetric_key)
+A2Goal, A1Goal, ui, snj, Ui, SNj, i: agent
+ASGoal, Set_55, Set_53, Set_34, Set_32, Set_29, Dummy_Set_55, Dummy_Set_53, Dummy_Set_34, Dummy_Set_32, Dummy_Set_29: set(agent)
+Dummy_Ch, Dummy_Cy2, Dummy_Cy1, Dummy_N, dummy_nonce, n, tk, cy1, cy2, ch, N, TK, Cy1, Cy2, Ch, Dummy_TK: text
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(ui).
+ iknows(snj).
+ iknows(i).
+ state_alice(ui,snj,ea,ep,cp,ca,h,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_88,set_89,set_90,set_91,set_92,3).
+ state_bob(ui,snj,ea,ep,cp,ca,h,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_107,set_108,set_109,set_110,4).
+ state_alice(snj,ui,ea,ep,cp,ca,h,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_117,set_118,set_119,set_120,set_121,6).
+ state_bob(snj,ui,ea,ep,cp,ca,h,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_123,set_124,set_125,set_126,7)
+
+
+section rules:
+
+step step_0 (Ui,SNj,Ea,Ep,Cp,Ca,H,Dummy_N,TK,Dummy_Cy1,Dummy_Cy2,Dummy_Ch,Set_29,Set_31,Set_32,Set_33,Set_34,SID,N) :=
+ state_alice(Ui,SNj,Ea,Ep,Cp,Ca,H,0,Dummy_N,TK,Dummy_Cy1,Dummy_Cy2,Dummy_Ch,Set_29,Set_31,Set_32,Set_33,Set_34,SID).
+ iknows(start)
+=[exists N]=>
+ state_alice(Ui,SNj,Ea,Ep,Cp,Ca,H,1,N,TK,scrypt(Cp,Ea),scrypt(Ep,pair(N,apply(H,Ea))),apply(H,Ea),Set_29,Set_31,Set_32,Set_33,Set_34,SID).
+ iknows(pair(Ui,pair(SNj,pair(scrypt(Cp,Ea),scrypt(Ep,pair(N,apply(H,Ea))))))).
+ witness(Ui,SNj,sub3,N)
+
+step step_1 (Ui,SNj,Ea,Ep,Cp,Ca,H,Dummy_N,Dummy_TK,Cy1,Cy2,Ch,Dummy_Set_29,Dummy_Set_31,Dummy_Set_32,Dummy_Set_33,Dummy_Set_34,SID,N,TK) :=
+ state_alice(Ui,SNj,Ea,Ep,Cp,Ca,H,1,Dummy_N,Dummy_TK,Cy1,Cy2,Ch,Dummy_Set_29,Dummy_Set_31,Dummy_Set_32,Dummy_Set_33,Dummy_Set_34,SID).
+ iknows(pair(SNj,pair(Ui,scrypt(Ea,pair(N,TK)))))
+ =>
+ state_alice(Ui,SNj,Ea,Ep,Cp,Ca,H,2,N,TK,Cy1,Cy2,Ch,Dummy_Set_29,Dummy_Set_31,Dummy_Set_32,Dummy_Set_33,Dummy_Set_34,SID).
+ secret(Dummy_Set_31,sub2,Dummy_Set_32).
+ secret(Dummy_Set_33,sub1,Dummy_Set_34).
+ request(SNj,Ui,sub4,TK,SID).
+ contains(Ui,Dummy_Set_29).
+ contains(SNj,Dummy_Set_29).
+ contains(Ea,Dummy_Set_31).
+ contains(Cp,Dummy_Set_31).
+ contains(Ui,Dummy_Set_32).
+ contains(SNj,Dummy_Set_32).
+ contains(Ep,Dummy_Set_33).
+ contains(Ca,Dummy_Set_33).
+ contains(Ui,Dummy_Set_34).
+ contains(SNj,Dummy_Set_34)
+
+step step_2 (SNj,Ui,Ea,Ep,Cp,Ca,H,Dummy_N,Dummy_TK,Cy1,Cy2,Dummy_Ch,Dummy_Set_52,Dummy_Set_53,Dummy_Set_54,Dummy_Set_55,SID,N,TK,Ch) :=
+ state_bob(SNj,Ui,Ea,Ep,Cp,Ca,H,0,Dummy_N,Dummy_TK,Cy1,Cy2,Dummy_Ch,Dummy_Set_52,Dummy_Set_53,Dummy_Set_54,Dummy_Set_55,SID).
+ iknows(pair(Ui,pair(SNj,pair(scrypt(Cp,Ea),scrypt(Ep,pair(N,Ch))))))
+=[exists TK]=>
+ state_bob(SNj,Ui,Ea,Ep,Cp,Ca,H,1,N,TK,Cy1,Cy2,Ch,Dummy_Set_52,Dummy_Set_53,Dummy_Set_54,Dummy_Set_55,SID).
+ iknows(pair(SNj,pair(Ui,scrypt(Ea,pair(N,TK))))).
+ request(Ui,SNj,sub3,N,SID).
+ secret(Dummy_Set_52,sub2,Dummy_Set_53).
+ secret(Dummy_Set_54,sub1,Dummy_Set_55).
+ witness(SNj,Ui,sub4,TK).
+ contains(Ea,Dummy_Set_52).
+ contains(Cp,Dummy_Set_52).
+ contains(Ui,Dummy_Set_53).
+ contains(SNj,Dummy_Set_53).
+ contains(Ep,Dummy_Set_54).
+ contains(Ca,Dummy_Set_54).
+ contains(Ui,Dummy_Set_55).
+ contains(SNj,Dummy_Set_55)
+
+
+section properties:
+
+property secrecy_of_sub1 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sub1,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_sub2 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sub2,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_sub3 (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,sub3,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,sub3,MGoal))
+     /\ ((request(A1Goal,A2Goal,sub3,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,sub3,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_sub4 (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,sub4,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,sub4,MGoal))
+     /\ ((request(A1Goal,A2Goal,sub4,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,sub4,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_sub1 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sub1,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_sub2 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sub2,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_sub3 (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,sub3,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,sub3,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_sub3 (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,sub3,MGoal,SID1).
+ request(A1Goal,A2Goal,sub3,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_sub4 (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,sub4,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,sub4,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_sub4 (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,sub4,MGoal,SID1).
+ request(A1Goal,A2Goal,sub4,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

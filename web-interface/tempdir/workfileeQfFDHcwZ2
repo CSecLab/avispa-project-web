@@ -1,0 +1,112 @@
+% Since this is a key exchange protocol, the secrecy of the generated K must be guaranteed.
+% Furthermore, A must know that they are talking to B and B must know that they are talking
+% to A, with both agreeing on K.
+% This leads to the following three security goals:
+
+% secrecy_of k
+% authentication_on alice_bob_k
+% authentication_on bob_alice_k
+
+% By commenting out specific goals, they can be tested separately.
+
+% The secrecy of K is guaranteed.
+% authentication_on alice_bob_k is also guaranteed.
+% authentication_on bob_alice_k can be broken with this attack:
+%% I -> B : {A.K}_Kb
+%% B -> I : {B.K}_Ka
+% B assumes that they are talking to A which is obviously not true. The problem is that A
+% never actually proves any knowledge of their private key inv(Ka). This could easily be
+% fixed, but that's beyond the scope of this exercise.
+
+%%HLPSL:
+role alice (A, B: agent,             
+            Ka, Kb: public_key,      
+            SND, RCV: channel (dy)) 
+played_by A def=
+
+  local State : nat, 
+	K     : symmetric_key
+
+
+  init State := 0
+
+  transition  
+   
+    0.  State  = 0 / RCV(start) =|> 
+	State':= 2 / K' := new()
+		   / SND({A.K'}_Kb)
+		   / secret(K',k,{A,B})
+		   / witness(A,B,bob_alice_k,K')	% A states that she created K' for B
+    2.  State  = 2 / RCV({B.K}_Ka) =|>
+	State':= 4 / request(A,B,alice_bob_k,K)	% A asserts that she is talking to B and that
+							% they agree on K
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob(A, B: agent,      
+         Ka, Kb: public_key,      
+         SND, RCV: channel (dy)) 
+played_by B def=
+
+  local State : nat, 
+	K     : symmetric_key
+
+  init State := 1
+
+  transition 
+
+    1.  State  = 1 / RCV({A.K'}_Kb) =|> 
+	State':= 3 / SND({B.K'}_Ka)
+		   / request(B,A,bob_alice_k,K')	% B asserts that he is talking to A and that
+							% they agree on K'
+		   / witness(B,A,alice_bob_k,K')	% B states that he sent K'
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(A, B: agent, Ka, Kb: public_key) def=
+
+  local SA, RA, SB, RB: channel (dy)
+
+  composition 
+
+	alice(A,B,Ka,Kb,SA,RA)
+     / bob  (A,B,Ka,Kb,SB,RB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+    const a, b	       : agent,
+	  ka, kb, ki   : public_key,
+	  k,
+	  alice_bob_k,
+	  bob_alice_k  : protocol_id
+
+    intruder_knowledge = {a, b, ka, kb, ki, inv(ki)}
+
+    composition
+
+	session(a,b,ka,kb)
+     / session(a,i,ka,ki)
+     / session(i,b,ki,kb)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of k			% secret key K must be secret
+  authentication_on alice_bob_k % Alice is talking to Bob and they agree on K
+  authentication_on bob_alice_k % Bob is talking to Alice and they agree on K
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+ 

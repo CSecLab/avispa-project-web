@@ -1,0 +1,150 @@
+role user (Ui, SCG, CSj : agent,
+SKey1 : symmetric_key,
+SKey2 : symmetric_key,
+H, MUL, ADD: hash_func,  
+Snd, Rcv: channel(dy))
+played_by Ui
+def=
+local State : nat,
+IDi, PWi, FFi, IDj, PKj, T1: text,
+Fi, A, Kxy, Kx, Ai, Bi, IDKi, Z, PKE, B, Kij, W, K2, Yj, Lj, V: message,
+Inc : hash_func
+const user_smartcard, smartcard_cserver, 
+cserver_user, subs1, subs2, subs3, subs4, subs5, subs6, subs7, 
+subs8 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(start) =|>
+State' := 1 /\ FFi' := new()
+/\ Snd({FFi'}_SKey1)
+%/\ secret({IDi}, subs1, {Ui,GWN,Sj})
+2. State = 1 /\ Rcv({IDj.PKj}_SKey2) =|>    %line # 21
+State' := 2 /\ PKE' := {IDj.PKj}_H(IDi.PWi)
+/\ Fi' := H(IDi.PWi.FFi)
+/\ A' := new()
+/\ T1' := new()
+/\ Kxy' := MUL(A'.MUL(PKj.P))
+/\ Ai' := xor(H(PKj.T1),A')
+/\ Bi' := xor(FFi,H(IDj.T1))
+/\ IDKi' := {IDi}_Kx
+/\ Snd(IDKi'. Ai'. Bi'.T1')
+%/\ secret({PWi}, subs2, {Ui}) 
+%/\ witness(Ui, GWN, user_gateway, Ki') 
+3. State = 2 /\ Rcv(Z') =|>
+State' := 3 /\  B' := new()
+/\ Kij' := exp(Z,B')
+/\ K2' := ADD(MUL(IDi. MUL(B'.P)), MUL(IDi.MUL(H(IDj).MUL(B'.P))))
+/\ W' := H(IDi.IDj.Kij'.A)
+/\ Snd(K2'.W') 
+4. State = 3 /\ Rcv(Yj', Lj') =|>
+State' := 4 /\  V' := ADD(Lj', MUL(H(IDi).MUL(H(IDj).P)))
+/\ Yj' := H(IDi. V'. Kij)
+end role
+
+role smartcard (SCG, Ui, CSj  : agent,
+SKey1 : symmetric_key,  
+SKey2 : symmetric_key,  
+H, MUL, ADD: hash_func,
+Snd, Rcv: channel(dy) )
+played_by SCG
+def=
+local State : nat,
+IDj, S, P, FFi: text,
+Ppub, Sj, PKj: message,
+Inc : hash_func
+const user_smartcard, smartcard_cserver, 
+cserver_user, subs1, subs2, subs3, subs4, subs5, subs6, subs7, 
+subs8 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv({IDj'}_SKey1) =|>
+State' := 1 /\ P' := new()
+/\ Ppub' := Mul(s,P)
+/\ Sj' := MUL(inv(ADD(s,IDj')),P)
+/\ Snd({Sj'}_SKey1)
+%/\ secret({Xgwn}, subs5, {GWN})
+%/\ secret({Xj}, subs6, {GWN,Sj})
+2. State = 1 /\ Rcv({FFi'}_SKey1) =|> 
+State' := 2 /\ PKj' := H(Sj.FFi)
+/\ Snd({IDj.PKj}_SKey2)
+end role
+
+role cserver (CSj, Ui, SCG : agent, 
+SKey1 : symmetric_key,
+SKey2 : symmetric_key,
+% H is hash function
+H,MUL,ADD: hash_func,
+Snd, Rcv: channel(dy) )
+played_by Sj
+def=
+local State : nat,
+IDi, PWi, FFi, IDj, PKj, T1: text,
+Fi, A, Kxy, Kx, Ai, Bi, IDKi, Z, B, C, Kij, W, K2, Yj, Lj, V, AB: message,
+Inc : hash_func
+const user_smartcard, smartcard_cserver, 
+cserver_user, subs1, subs2, subs3, subs4, subs5, subs6, subs7, 
+subs8 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(start) =|>
+State' := 1 /\ IDj' :=new()
+/\ Snd({IDj'}_SKey1)
+/\ Rcv({Sj'}_SKey1)
+%/\ secret({Rshrd}, subs7, {Sj,GWN})
+2. State = 1 /\ Rcv(IDKi'. Ai'. Bi'.T1') =|>
+State' := 2 /\ FFi' := xor(Bi, H(IDj.T1))
+/\ PKj' := H(Sj.FFi')
+/\ A' := xor(Ai,PKj)
+/\ Kxy' := MUL(A',MUL(PKj'.P))
+/\ IDi' := (IDKi)_{Kx}
+/\ AB' := MUL(P,P)
+/\ Z' := exp(AB',MUL(IDi'.A'))
+/\ Snd(Z')
+%/\ witness(Sj, GWN, gateway_sensor, Kj')
+%/\ request(Sj, GWN, gateway_sensor, Kj')
+
+3. State = 2 /\ Rcv(K2'.W') =|>
+State' := 3 /\ Kij' := exp(MUL(K2,Sj)
+/\ C' := new()
+/\ Lj' := ADD(MUL(C'.Ppub), MUL(H(IDi).MUL(H(IDj).P)))
+/\ Yj' := H(IDi.MUL(C'.Ppub).Kij')
+/\ Snd(Yj',Lj')
+end role
+role session(Ui, SCG, CSj: agent,
+SKey1 : symmetric_key,
+SKey2 : symmetric_key,
+H, MUL, ADD: hash_func)
+def=
+local SI, SJ, RI, RJ, PI, PJ: channel (dy)
+composition
+user(Ui, SCG, CSj, SKey1, SKey2, H, SI, RI)
+/\ smartcard(Ui, SCG, CSj, SKey1, SKey2, H, SJ, RJ)
+/\ cserver(Ui, SCG, CSj, SKey1, SKey2, H, PI, PJ)
+end role
+role environment()
+def=
+const ui, scg, csj: agent,
+skey1 : symmetric_key,
+skey2 : symmetric_key,
+h,mul,add: hash_func,
+idi, pwi, ffi, idj, pkj, t1, fi, a, kx, ai, bi, idki, z, b, c, kij, w, k2, yj, lj, v, ab : text, 
+user_cserver_A, cserver_user_B, subs1, subs2, subs3, 
+subs4, subs5, subs6, subs7 : protocol_id
+intruder_knowledge = {ui, scg, csj, h, mul, add, t1, ai, bi, z, k2, yj, lj, ab, idki}
+composition
+session( scg, ui, csj, skey1, skey2, h, mul, add)
+/\ session(ui, scg, csj, skey1, skey2, h, mul, add)
+/\ session(csj, ui, scg, skey1, skey2, h, mul, add)
+end role
+goal
+secrecy_of subs1
+secrecy_of subs2
+secrecy_of subs3
+secrecy_of subs4
+secrecy_of subs5
+secrecy_of subs6
+secrecy_of subs7
+authentication_on user_cserver_A
+authentication_on cserver_user_B
+end goal
+environment()

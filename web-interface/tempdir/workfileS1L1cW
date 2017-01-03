@@ -1,0 +1,105 @@
+%%HLPSL:
+role server (A, B, S: agent,                  
+            SND, RCV: channel (dy)) 
+played_by A def=
+
+  local State : nat, 
+        Challenge, Timer: text
+
+  init State := 0
+
+  transition  
+   
+    0.  State  = 0 / RCV(RequestAccess) =|> 
+	State':= 1 / Challange' := new()
+
+
+    2.  State  = 1 / SND(ChallengeX) =|> 
+	State':= 2 / Timer' := new() 
+
+    4.  State  = 2 / RCV(SentChallenge) =|> 
+  State':= 3 / SND(Done)
+
+end role
+
+role device1 (A, B, S: agent,                  
+            SND, RCV: channel (dy)) 
+played_by A def=
+
+  local State : nat
+
+  init State := 0
+
+  transition  
+   
+    0.  State  = 0 / SND(RequestAccess) =|> 
+  State':= 1
+
+
+    2.  State  = 1 / RCV(ChallengeX) =|> 
+  State':= 2 / request(A,B,S,alice_bob_nb,Challenge')
+
+    4.  State  = 2 / SND(RunningChallenge) =|> 
+  State':= 3 
+
+    6.  State  = 3 / RCV(getChallenge) =|> 
+  State':= 4
+
+    8.  State  = 4 / RCV(Done) =|> 
+  State':= 5
+
+    8.  State  = 5
+
+end role
+
+role device2 (A, B, S: agent,                  
+            SND, RCV: channel (dy)) 
+played_by A def=
+
+  local State : nat
+
+  init State := 0
+
+  transition  
+   
+    0.  State  = 0 / RCV(RunningChallenge) =|> 
+  State':= 1
+
+
+    2.  State  = 1 / SND(getChallenge) =|> 
+  State':= 2 / witness(A,B,S,alice_bob_nb,Challenge')
+
+    4.  State  = 2 / SND(SentChallenge) =|>
+  State':= 3 / request(A,B,S,alice_bob_nb,Challenge')
+
+end role
+
+role environment() def=
+
+    const a, b, s         : agent,
+    ka, kb, ki   : public_key,
+    Challenge,
+    alice_bob_nb : protocol_id
+
+    intruder_knowledge = {a, b, s, ka, kb, ki, inv(ki)}
+
+    composition
+
+  device1(a,b,s, ka,kb)
+     / device2(a,b,s, ka,kb)
+     / server(a,b,s, ka,kb)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of Challenge
+  authentication_on alice_bob_nb
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment() 

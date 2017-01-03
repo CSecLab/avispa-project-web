@@ -1,0 +1,190 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% User
+
+role user(U,BS,SN : agent,
+	MKsj : symmetric_key,
+	MKui : symmetric_key,
+	H : hash_func,
+	Snd, Rcv : channel(dy))
+
+ played_by U
+ def=
+  local State : nat,
+
+  IDi, RPWi, APMi, RMui, Ni, PWi, UKi : text,
+  Rui, Kui, SNj, Si, Zi, Kj, Kbs, GIdi, RNuj :text,
+  T1, T2 :text
+
+  const user_basestation, user_sensornode,
+  subs1, subs2, subs3, subs4, subs5, subs6 : protocol_id
+
+  init State := 0
+  transition
+	1. State = 0 /\ Rcv(start) =|>
+	 State' := 1 /\ RPWi' := H(PWi,Ni)
+		   /\ RMui' := new()
+		   /\ Snd(U.BS.{IDi.RPWi'.GIdi.RMui'}_MKui)
+	2. State = 1 /\ Rcv(BS.U.{IDi.GIdi.H(H(PWi.Ni).GIdi.RMui').H.H(PWi.Ni)}_MKui) =|>
+			%smart card values
+	 State' := 2 
+			/\ secret({Kj},subs1,{SN,BS})
+			/\secret({MKsj},subs2,{SN,BS})
+			/\secret({RMui'},subs3,{U,BS})
+			/\secret({Kbs},subs4,{SN,BS})
+			/\secret({APMi,GIdi},subs5,{U,BS})
+			/\secret({PWi,Ni},subs6,U)
+			
+			/\T1' := new()
+			/\Snd(U.BS.IDi.H(H(H(PWi.Ni).GIdi.RMui).T1').T1')
+			/\witness(U,BS,user_basestation,T1')
+	3. State = 2 /\ Rcv(BS.U.{Si.Zi.SNj.H(SNj.IDi.Kbs.Kj)}_H(H(H(PWi.Ni).GIdi.RMui').IDi.T1'.T2').T2'.T1') =|>
+		State' := 3 /\ UKi' := H(Rui.IDi.T1'.T2')
+			/\ Kui' := H(SNj.IDi.Kbs.Kj)
+			/\ Snd(U.SN.SNj.IDi.Zi.Si.{SNj.IDi.Rui.GIdi.T1'.Si.Zi}_Kui'.H(T1'.Si.Zi))
+			/\ witness(U,SN,user_sensornode,T1')
+end role
+			
+			
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% BS
+
+
+role basestation(BS,SN,U :agent,
+				MKsj : symmetric_key,
+				MKui : symmetric_key,
+				H : hash_func,
+				Snd, Rcv :channel(dy))
+played_by BS
+def=
+
+	local State : nat,
+	RPWi, RMui, Rui, Kbs, Kui, Si, Zi, T2, APMi, GIdi, Ni, PWi, UKi : text,
+	SNj, IDi, Kj, Tj, T1, M3 : text
+	const sensornode_basestation,user_basestation,
+	subs1, subs2, subs3, subs4, subs5, subs6 : protocol_id
+
+init State := 0
+transition
+1. State = 0 /\ Rcv(SN.BS.SNj.Tj.{Kj.SNj.Tj}_MKsj) =|>
+	State' := 1 /\ Kui' := H(SNj.IDi.Kbs.Kj)
+2. State = 1 /\ Rcv(U.BS.{IDi.H(PWi.Ni).GIdi.RMui'}_MKui) =|>
+		%user registration through secure channel
+	State' := 2 /\ Snd(BS.U.{IDi.GIdi.H(H(PWi.Ni).GIdi.RMui').
+		H.H(PWi.Ni)}_MKui)
+		/\secret({Kj},subs1,{SN,BS})
+		/\secret({MKsj},subs2,{SN,BS})
+		/\secret({RMui'},subs3,{U,BS})
+		/\secret({Kbs},subs4,{SN,BS})
+		/\secret({APMi,GIdi},subs5,{U,BS})
+		/\secret({PWi,Ni},subs6,U)
+		/\request(SN,BS,sensornode_basestation,Tj)
+3. State = 2 /\ Rcv(U.BS.IDi.H(H(H(PWi.Ni).
+				GIdi. RMui').T1').T1') =|>
+	State' := 3 /\ M3' := xor(APMi,GIdi)
+					/\T2' := new()
+					/\UKi' := H(Rui.IDi.T1'.T2')
+					/\Snd(BS.U.{Si.Zi.Kui.SNj}_UKi.T2'.T1')
+					/\Snd(BS.SN.SNj.IDi.{SNj.IDi.M3'.Rui.T1'.T2'}_MKsj.
+					{SNj.IDi.GIdi.T1'}_Kj)
+					/\witness(BS,SN,sensornode_basestation,T2')
+					/\request(U,BS,user_basestation,T1')
+end role	
+			
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% SN
+
+role sensornode(SN,BS,U : agent,
+	MKsj : symmetric_key,
+	H : hash_func,
+	Snd,Rcv : channel(dy))
+played_by SN	
+def=
+
+local State : nat,
+SNj, Tj, Kj, Kbs :text,
+IDi, APMi, GIdi, RPWi, RMui, T1,T2,Si,Zi,Rui,Kui,Ni,PWi,UKi : text		
+const sensornode_basestation,sensornode_user,user_sensornode,
+subs1, subs2, subs3, subs4, subs5, subs6 : protocol_id
+
+init State := 0
+ transition
+ 1. State = 0 /\ Rcv(start)=|>
+
+	State' := 1 /\ T1' := new()
+				/\secret({Kj},subs1,{SN,BS})
+				/\secret({MKsj},subs2,{SN,BS})
+				/\secret({RMui},subs3,{U,BS})
+				/\secret({Kbs},subs4,{SN,BS})
+				/\secret({APMi,GIdi},subs5,{U,BS})
+				/\secret({PWi,Ni},subs6,U)
+				/\Snd(SN.BS.SNj.Tj.{Kj.SNj.Tj}_MKsj)
+				/\witness(SN,BS,sensornode_basestation,T1')
+
+ 2. State = 1 /\ Rcv(BS.SN.SNj.IDi.{SNj.IDi.xor(APMi.GIdi).
+					H(H(PWi.Ni).GIdi.RMui').T1'.T2'}_MKsj.
+					{SNj.IDi.GIdi.T1'}_Kj) =|>
+	State' := 2 /\ request(BS,SN,sensornode_basestation,T2')
+ 3. State = 2 /\ Rcv(U.SN.SNj.IDi.Zi.Si.{SNj.IDi.H(H(PWi.Ni).GIdi.RMui').
+					GIdi.T1'.Si.Zi}_H(SNj.IDi.Kbs.Kj).H(T1'.Si.Zi)) =|>
+	State' := 3 /\ request(U,SN,user_sensornode,T1')
+end role					
+				
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% session
+
+role session(SN,BS,U :agent,
+	%H js hash function
+	MKsj : symmetric_key,
+	MKui : symmetric_key,
+	H : hash_func )
+def= 
+local US,UR,SS,SR,VS,VR :channel(dy)
+composition
+    sensornode(SN,BS,U,MKsj,H,US,UR)
+/\  basestation(BS,U,SN,MKsj,MKui,H,SS,SR)
+/\  user(U,BS,SN,MKsj,MKui,H,VS,VR)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% environment
+
+role environment()
+def=
+const sn, bs, u : agent,
+	mksj : symmetric_key,
+	mkui : symmetric_key,
+	h : hash_func,
+
+	rpwi,rui,si,zi,kui,kj,rnui,tj,t1,t2,apmi,gidi,kbs,snj,ui : text,
+
+	sensornode_basestation, sensornode_user, user_basestation, user_sensornode, 
+	subs1, subs2, subs3, subs4, subs5, subs6 : protocol_id 
+	
+intruder_knowledge = {u,bs,sn,h,ui,snj,ui}
+
+composition
+session(sn, u, bs, mksj, mkui, h)/\	
+session(u, sn, bs, mksj, mkui, h)/\	
+session(u, sn, bs, mksj, mkui, h)
+end role
+
+goal
+secrecy_of subs1
+secrecy_of subs2
+secrecy_of subs3
+secrecy_of subs4
+secrecy_of subs5
+secrecy_of subs6	
+			
+authentication_on sensornode_basestation
+authentication_on user_basestation
+authentication_on user_sensornode
+authentication_on sensornode_user	
+end goal		
+			
+environment()			

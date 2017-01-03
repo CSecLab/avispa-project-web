@@ -1,0 +1,141 @@
+role manager (M:agent, NK, Kreader, Kwriter,Kca, Kmanager:public_key , Writer_credentials, Reader_credentials, 
+
+RequestNK:message, SND,RCV:channel(dy))
+played_by M
+def=
+	local
+	State:nat,
+	Write_Right_writer :message, NKdecryption: inv(public_key), W, R: agent
+	const true :bool 
+	init
+		State := 1  
+	transition
+		1. State=1 /RCV( RequestNK.{Writer_credentials'}_Kmanager. {RequestNK.{Writer_credentials'}_Kmanager}_inv
+
+(Kwriter). Kwriter. {Kwriter.W'}_inv(Kca)) 
+			  / Writer_credentials'= Writer_credentials
+		               =|> State':=10  / Write_Right_writer' := true 
+			  / SND(RequestNK.{NK}_Kwriter.{RequestNK.{NK}_Kwriter}_inv(Kmanager). Kmanager.{Kmanager.M}_inv
+
+(Kca).Write_Right_writer')	
+	            10. State=10/RCV(RequestNK.{Reader_credentials'}_Kmanager. {RequestNK.{Reader_credentials'}_Kmanager}
+
+_inv(Kreader). Kreader. {Kreader.R'}_inv(Kca) ) 
+			  /  Reader_credentials' = Reader_credentials
+		              =|> State':=11/  SND(RequestNK.{NKdecryption'}_Kreader.{RequestNK.{NKdecryption'}_Kreader}
+
+_inv(Kmanager). Kmanager.{Kmanager.M}_inv(Kca)) 
+																
+
+	
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role writer(W:agent, RequestNK, Writer_credentials, Name, Data:message,H:hash_func,Kwriter,Kca,Kmanager:public_key,SND, 
+
+RCV:channel(dy))
+played_by W 
+def=
+	local
+		State:nat,M,R:agent, DK:symmetric_key,NK, Kreader:public_key, Write_Right_writer :message, HDK: hash
+
+(symmetric_key), 
+		EncData: {message}_symmetric_key, DKencr: {symmetric_key}_public_key
+		const true :bool, id, sec_cred_writer: protocol_id
+
+	init
+		State := 0
+	transition
+		0. State=0 / RCV(start) 
+		=|> State':=2/ SND(RequestNK.{Writer_credentials}_Kmanager. {RequestNK.{Writer_credentials}_Kmanager}_inv
+
+(Kwriter). Kwriter. {Kwriter.W}_inv(Kca) )
+		                  / secret (Writer_credentials,sec_cred_writer, {W,M})
+
+		2. State=2 / RCV(RequestNK.{NK'}_Kwriter.{RequestNK.{NK'}_Kwriter}_inv(Kmanager).Kmanager.{Kmanager.M'}
+
+_inv(Kca).Write_Right_writer')  / Write_Right_writer'= true
+		=|> State':=4 / DK':= new()  / HDK':= H(DK') / EncData':= {Data}_DK' / DKencr' := {DK'}_NK
+			     / SND(Name.Write_Right_writer')
+			     / witness(W, R, id,NK'.Write_Right_writer')
+			
+		4. State=4 / RCV(Name)  
+		=|> State':=8 / SND(Name.H(Kwriter).HDK. EncData.{Name.H(Kwriter).HDK. EncData}_inv(Kwriter).Kwriter.
+
+{Kwriter.W}_inv(Kca)) 				8. State=8/ RCV(HDK) 
+		=|> State':=13 / SND(H(inv(NK)).{DK}_NK)
+		
+	
+end role
+
+
+role reader (R :agent,Kreader,Kca,Kmanager:public_key,Reader_credentials, RequestNK: message, H:hash_func, SND,RCV:channel
+
+(dy))
+played_by R
+def=
+	local
+	State:nat,
+	Data, Write_Right_writer, Name:message, HDK: hash(symmetric_key),EncData: {message}_symmetric_key, M, W: agent, 
+	DK:symmetric_key, NKdecryption: inv(public_key),
+	Kwriter,NK: public_key
+	const  cred_reader, id : protocol_id
+	init
+		State := 3
+	transition
+		3. State=3 / RCV(Name'.Write_Right_writer')  
+		=|> State':=5/ SND(Name')  
+		5. State=5 / RCV(Name.H(Kwriter').HDK'. EncData'.{Name.H(Kwriter').HDK'. EncData'}_inv
+
+(Kwriter').Kwriter'.{Kwriter'.W'}_inv(Kca)) 
+		=|> State':=11 / SND(RequestNK.{Reader_credentials}_Kmanager. {RequestNK.{Reader_credentials}_Kmanager}
+
+_inv(Kreader). Kreader . {Kreader.R}_inv(Kca) )
+ 			       / secret (Reader_credentials,sec_cred_reader, {R,M})
+		11. State=11/RCV(RequestNK.{NKdecryption'}_Kreader.{RequestNK.{NKdecryption'}_Kreader}_inv(Kmanager). 
+
+Kmanager.{Kmanager.M'}_inv(Kca))  
+		=|> State':=9 / SND(HDK)  	
+		9. State=9 /RCV(H(inv(NK')).{DK'}_NK') / H(inv(NK'))= NKdecryption
+		=|> State':=12 / wrequest(R,W, id, NK.Write_Right_writer)	
+																
+
+	
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(Kreader,Kca, Kmanager,NK:public_key, RequestNK,Name, Data:message,M,W:agent,R:agent,H:hash_func, 
+
+Kwriter:public_key,Writer_credentials,Reader_credentials: message)
+def=
+	local
+		SND3,RCV3, SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+	writer(W,  RequestNK,Writer_credentials,Name, Data,H,Kwriter,Kca,Kmanager, SND2,RCV2) / reader(R, 
+
+Kreader,Kca,Kmanager, Reader_credentials, RequestNK, H,SND1,RCV1) / manager (M, NK, Kreader, Kwriter,Kca, 
+
+Kmanager,Writer_credentials, Reader_credentials, RequestNK, SND3,RCV3) 
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+	const
+	h:hash_func,r,w,m:agent, kreq,kprod,kca,kmng, ki,nk:public_key,requestNK, data,name,datai, namei,write_Right, 
+
+prod_cred,req_cred: message, id, sec_cred_writer,sec_cred_reader:protocol_id
+	intruder_knowledge = {h,r,  inv(ki),w,m,kreq, inv(nk),ki, {ki.i}_inv(kca), kmng, kprod}
+
+
+	composition
+       session(kreq,kca,kmng,nk, requestNK, name, data, m,w,r,h, kprod,prod_cred, req_cred) 	
+ 
+end role
+
+goal
+weak_authentication_on id
+secrecy_of sec_cred_reader, sec_cred_writer
+end goal
+
+environment() 
+
+ 

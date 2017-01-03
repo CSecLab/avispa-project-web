@@ -1,0 +1,96 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileCSYnhm
+
+section signature:
+
+state_server: agent * agent * symmetric_key * nat * text * text * text * nat -> fact
+state_alice: agent * agent * symmetric_key * nat * text * text * text * nat -> fact
+
+
+section types:
+
+alice_server_ncha: protocol_id
+kas, kis, kai, K: symmetric_key
+Nreq, Ncha, Nsuc, Dummy_Nsuc, Dummy_Ncha, Dummy_Nreq, dummy_nonce: text
+start, MGoal: message
+5, State, 6, 3, 4, 2, 9, 1, 7, 0, SID, Dummy_State, SID2, SID1: nat
+a, s, A, S, i, A2Goal, A1Goal: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(s).
+ iknows(kis).
+ iknows(kia).
+ iknows(i).
+ state_alice(a,s,kas,0,dummy_nonce,dummy_nonce,dummy_nonce,3).
+ state_server(s,a,kas,1,dummy_nonce,dummy_nonce,dummy_nonce,4).
+ state_server(s,i,kis,1,dummy_nonce,dummy_nonce,dummy_nonce,7).
+ state_alice(a,i,kai,0,dummy_nonce,dummy_nonce,dummy_nonce,9)
+
+
+section rules:
+
+step step_0 (A,S,K,Dummy_Nreq,Ncha,Nsuc,SID,Nreq) :=
+ state_alice(A,S,K,0,Dummy_Nreq,Ncha,Nsuc,SID).
+ iknows(start)
+=[exists Nreq]=>
+ state_alice(A,S,K,2,Nreq,Ncha,Nsuc,SID).
+ iknows(Nreq)
+
+step step_1 (A,S,K,Nreq,Dummy_Ncha,Nsuc,SID,Ncha) :=
+ state_alice(A,S,K,2,Nreq,Dummy_Ncha,Nsuc,SID).
+ iknows(Ncha)
+ =>
+ state_alice(A,S,K,4,Nreq,Ncha,Nsuc,SID).
+ iknows(scrypt(K,Ncha)).
+ witness(A,S,alice_server_ncha,Ncha)
+
+step step_2 (A,S,K,Nreq,Ncha,Dummy_Nsuc,SID,Nsuc) :=
+ state_alice(A,S,K,4,Nreq,Ncha,Dummy_Nsuc,SID).
+ iknows(Nsuc)
+ =>
+ state_alice(A,S,K,6,Nreq,Ncha,Nsuc,SID)
+
+step step_3 (S,A,K,Dummy_Nreq,Dummy_Ncha,Nsuc,SID,Nreq,Ncha) :=
+ state_server(S,A,K,1,Dummy_Nreq,Dummy_Ncha,Nsuc,SID).
+ iknows(Nreq)
+=[exists Ncha]=>
+ state_server(S,A,K,3,Nreq,Ncha,Nsuc,SID).
+ iknows(Ncha)
+
+step step_4 (S,A,K,Nreq,Dummy_Ncha,Dummy_Nsuc,SID,Ncha,Nsuc) :=
+ state_server(S,A,K,3,Nreq,Dummy_Ncha,Dummy_Nsuc,SID).
+ iknows(scrypt(K,Ncha))
+=[exists Nsuc]=>
+ state_server(S,A,K,5,Nreq,Ncha,Nsuc,SID).
+ request(S,A,alice_server_ncha,Ncha,SID).
+ iknows(Nsuc)
+
+
+section properties:
+
+property authentication_on_alice_server_ncha (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,alice_server_ncha,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,alice_server_ncha,MGoal))
+     /\ ((request(A1Goal,A2Goal,alice_server_ncha,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,alice_server_ncha,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state authentication_on_alice_server_ncha (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,alice_server_ncha,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,alice_server_ncha,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_alice_server_ncha (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,alice_server_ncha,MGoal,SID1).
+ request(A1Goal,A2Goal,alice_server_ncha,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

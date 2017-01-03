@@ -1,0 +1,79 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfile9iPtS0
+
+section signature:
+
+state_stationdebase: agent * agent * hash_func * nat * nat * nat * text * nat * message * nat -> fact
+state_capteur: agent * agent * hash_func * nat * nat * nat * text * nat * message * nat -> fact
+
+
+section types:
+
+ksession, capteur_stationdebase_na: protocol_id
+h, H: hash_func
+X, Dummy_X, dummy_nonce: text
+Ksession, start, Dummy_Ksession, dummy_msg, MGoal: message
+r, Na, Ri, State, R, 2, 1, 4, 0, SID, Dummy_Na, Dummy_Ri, Dummy_State, 3, dummy_nat, SID2, SID1: nat
+a, b, A, B, i, A2Goal, A1Goal: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(h).
+ iknows(i).
+ state_capteur(a,b,h,r,0,dummy_nat,dummy_nonce,dummy_nat,dummy_msg,3).
+ state_stationdebase(a,b,h,r,0,dummy_nat,dummy_nonce,dummy_nat,dummy_msg,4)
+
+
+section rules:
+
+step step_0 (A,B,H,R,Dummy_Ri,Dummy_X,Dummy_Na,Dummy_Ksession,SID,Ri,Na,Ksession) :=
+ state_capteur(A,B,H,R,0,Dummy_Ri,Dummy_X,Dummy_Na,Dummy_Ksession,SID).
+ iknows(start)
+=[exists Ri,Na,Ksession]=>
+ state_capteur(A,B,H,R,1,Ri,xor(Ksession,apply(H,Na)),Na,Ksession,SID).
+ iknows(pair(scrypt(apply(H,R),pair(xor(Ksession,apply(H,Na)),Na)),scrypt(apply(H,Ksession),Ri))).
+ witness(A,B,capteur_stationdebase_na,Na)
+
+step step_1 (A,B,H,R,Ri,X,Na,Ksession,SID) :=
+ state_capteur(A,B,H,R,1,Ri,X,Na,Ksession,SID).
+ iknows(scrypt(apply(H,Ksession),inv(R)))
+ =>
+ state_capteur(A,B,H,R,2,Ri,X,Na,Ksession,SID)
+
+step step_2 (A,B,H,R,Dummy_Ri,Dummy_X,Dummy_Na,Dummy_Ksession,SID,Ri,X,Na,Ksession) :=
+ state_stationdebase(A,B,H,R,0,Dummy_Ri,Dummy_X,Dummy_Na,Dummy_Ksession,SID).
+ iknows(pair(scrypt(apply(H,R),pair(X,Na)),scrypt(apply(H,Ksession),Ri)))
+ =>
+ state_stationdebase(A,B,H,R,1,Ri,X,Na,Ksession,SID).
+ request(B,A,capteur_stationdebase_na,Na,SID).
+ iknows(scrypt(apply(H,Dummy_Ksession),inv(R)))
+
+
+section properties:
+
+property authentication_on_capteur_stationdebase_na (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,capteur_stationdebase_na,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,capteur_stationdebase_na,MGoal))
+     /\ ((request(A1Goal,A2Goal,capteur_stationdebase_na,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,capteur_stationdebase_na,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state authentication_on_capteur_stationdebase_na (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,capteur_stationdebase_na,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,capteur_stationdebase_na,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_capteur_stationdebase_na (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,capteur_stationdebase_na,MGoal,SID1).
+ request(A1Goal,A2Goal,capteur_stationdebase_na,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

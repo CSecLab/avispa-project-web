@@ -1,0 +1,220 @@
+role domain(
+      A, CA1, C, CA2, ILS1 : agent,
+      Ka, Kca1 : public_key,
+      S_ACA1, R_ACA1, S_AC, R_AC : channel(dy))
+      
+      played_by A def=
+      local
+      State : nat,
+      IUpReq : message,
+	ARCert : {agent.public_key}_inv(public_key),
+Accept2 : {{{message}_inv(public_key)}_inv(public_key)}_inv(public_key)
+%knowledge(A) = { inv(Ka) }
+
+      init
+      State := 0
+      
+      
+      transition
+	1. State = 0 & R_ACA1(start) =|>
+	State':= 2 & S_ACA1(A.ka)
+
+      2. State = 2 & R_ACA1(ARCert') =|>
+      State':= 4 & IUpReq' := ({ARCert'.CA1.CA2.ILS1}_inv(Ka))
+      & S_ACA1(IUpReq') 
+      & secret(ARCert',k1,{A,CA1})
+      
+
+      3. State = 11 & R_ACA1(Accept2') =|>
+      State':= 13 & S_AC(ARCert.Accept2')
+                                      
+end role
+
+
+role cert_agency1(
+      CA1, CA2, A, ILS1 : agent,
+      Kca1, Kca2, Ka : public_key,
+S_CA1A, R_CA1A, S_CA1ILS1, R_CA1ILS1, S_CA1CA2, R_CA1CA2 : channel(dy))
+      
+      played_by CA1 def=
+      local
+      State : nat,
+	ARCert : {agent.public_key}_inv(public_key),
+      UpReq : {message.agent.agent.agent}_inv(public_key),
+      Accept1 : {{message}_inv(public_key)}_inv(public_key),
+      	SynAck : {message}_inv(public_key)
+      	%knowledge(CA1) = { inv(Kca1) }
+      init
+      State := 1
+      
+      transition
+	1. State = 1 & R_CA1A(A.ka) =|>
+	State':=3 & S_CA1A({A.ka}_inv(kca1))
+
+      2. State = 3 & R_CA1A(UpReq') =|>
+      State' := 5 & S_CA1ILS1(UpReq')
+      & secret(ARCert,k2,{CA1,ILS1})
+
+      3. State = 10 & R_CA1CA2({Accept1'.SynAck'}_inv(Kca2)) =|>
+      State':= 12 & S_CA1A({Accept1'}_inv(Kca1))
+                                      
+end role
+
+
+role int_log_server1(
+      ILS1, ILSN, CA1, CA2 : agent,
+      Kils1, Kilsn, Kca1, Kca2 : public_key,
+      H : hash_func,
+      S_ILS1CA1, R_ILS1CA1, S_ILS1ILSN, R_ILS1ILSN, S_ILS1CA2, R_ILS1CA2 : channel(dy))
+
+      
+      played_by ILS1 def=
+      local
+      State : nat,
+	ARCert : {agent.public_key}_inv(public_key),
+      UpReq : {message.agent.agent.agent}_inv(public_key)
+      %knowledge(ILS1) = { inv(Kils1) }
+      
+      init
+      State := 4
+      
+      transition
+      1. State = 4 & R_ILS1CA1(UpReq') =|>
+      State' := 6 & S_ILS1ILSN({UpReq'}_inv(Kils1))
+      & secret(ARCert,k3,{ILS1,ILSN})
+
+      2. State = 6 & R_ILS1ILSN({H(UpReq')}_inv(Kilsn)) =|>
+      State':= 8 & S_ILS1ILSN({H(UpReq')}_inv(Kils1))
+      
+      3. State = 8 & R_ILS1ILSN({H(UpReq')}_inv(Kilsn)) =|>
+State':= 10 & S_ILS1CA2({{H(ARCert')}_inv(Kils1).UpReq'.{H(UpReq')}_inv(Kilsn)}_inv(Kils1))
+& secret(ARCert,k4,{ILS1,CA2})
+      
+                                      
+end role	
+	
+
+
+role int_log_server_n(
+      ILSN, ILS1 : agent,
+      Kilsn, Kils1 : public_key,
+      H : hash_func, 
+      S_ILSNILS1, R_ILSNILS1 : channel(dy))
+
+      
+      played_by ILSN def=
+      local
+      State : nat, 
+	ARCert : {agent.public_key}_inv(public_key),
+      UpReq : {message.agent.agent.agent}_inv(public_key)
+      %knowledge(ILSN) = { inv(Kilsn) }
+      
+      
+      init
+      State := 5
+      
+      transition
+      1. State = 5 & R_ILSNILS1({UpReq'}_inv(Kils1)) =|>
+      State' := 7 & S_ILSNILS1({H(UpReq')}_inv(Kilsn))
+
+      2. State = 7 & R_ILSNILS1({H(UpReq')}_inv(Kils1)) =|>
+      State':= 9 & S_ILSNILS1({H(UpReq')}_inv(Kilsn))
+      
+end role
+
+
+role cert_agency2(
+      CA2, CA1, ILS1 : agent,
+      Kca2, Kca1, Kils1, Kilsn : public_key,
+	H : hash_func,
+S_CA2CA1, R_CA2CA1, S_CA2ILS1, R_CA2ILS1 : channel(dy))
+      
+      played_by CA2 def=
+      local
+      State : nat,
+	ARCert : {agent.public_key}_inv(public_key),
+      Accept : {message}_inv(public_key),
+      UpReq : {message.agent.agent.agent}_inv(public_key)
+      %knowledge(CA2) = { inv(Kca2) }
+      
+      
+      init
+      State := 9
+      
+      transition
+1. State = 9 & R_CA2ILS1({Accept'.UpReq'.{H(UpReq')}_inv(Kilsn)}_inv(Kils1))=|>
+      State' := 11 & S_CA2CA1({Accept'}_inv(Kca2). {{H(UpReq')}_inv(Kilsn)}_inv(Kca2))
+      & secret(ARCert,k5,{CA2,CA1})
+
+                                      
+end role	
+
+
+role session(
+      A, CA1, ILS1, ILSN, CA2, C : agent,
+      Ka, Kca1, Kils1, Kilsn, Kca2 : public_key,
+      H : hash_func)
+      
+      def=
+      local 
+      S_ACA1, R_ACA1, 
+      S_AC, R_AC, 
+      S_CA1A, R_CA1A, 
+      S_CA1ILS1, R_CA1ILS1, 
+      S_CA1CA2, R_CA1CA2, 
+      S_ILS1CA1, R_ILS1CA1, 
+      S_ILS1ILSN, R_ILS1ILSN, 
+      S_ILS1CA2, R_ILS1CA2,
+      S_ILSNILS1, R_ILSNILS1, 
+      S_CA2CA1, R_CA2CA1, 
+      S_CA2ILS1, R_CA2ILS1: channel (dy)
+
+composition
+	domain(A, CA1, C, CA2, ILS1, Ka, Kca1, S_ACA1, R_ACA1, S_AC, R_AC)
+& cert_agency1(CA1, CA2, A, ILS1, Kca1, Kca2, Ka, S_CA1A, R_CA1A, S_CA1ILS1, R_CA1ILS1, S_CA1CA2, R_CA1CA2)
+& int_log_server1(ILS1, ILSN, CA1, CA2, Kils1, Kilsn, Kca1, Kca2, H, S_ILS1CA1, R_ILS1CA1, S_ILS1ILSN, R_ILS1ILSN, S_ILS1CA2, R_ILS1CA2)
+& int_log_server_n(ILSN, ILS1, Kilsn, Kils1, H, S_ILSNILS1, R_ILSNILS1)
+& cert_agency2(CA2, CA1, ILS1, Kca2, Kca1, Kils1, kilsn, H, S_CA2CA1, R_CA2CA1, S_CA2ILS1, R_CA2ILS1)
+ 
+end role
+
+
+role environment()
+      def=
+      const
+      k1, k2, k3, k4, k5 : protocol_id,
+      ka, kca1, kils1, kilsn, kca2, ki : public_key,
+      a, ca1, ils1, ilsn, ca2, c : agent,
+      h : hash_func
+intruder_knowledge = {a, ca1, ils1, ilsn, ca2, h, ki}
+
+      composition
+      session(a, ca1, ils1, ilsn, ca2, c, ka, kca1, kils1, kilsn, kca2, h)
+       & session(i, ca1, ils1, ilsn, ca2, c, ki, kca1, kils1, kilsn, kca2, h)
+      %& session(a, i, ils1, ilsn, ca2, c, ka, ki, kils1, kilsn, kca2, h)
+      %& session(a, ca1, i, ilsn, ca2, c, ka, kca1, ki, kilsn, kca2, h)
+      %& session(a, ca1, ils1, ilsn, i, c, ka, kca1, kils1, kilsn, ki, h)
+      
+      
+            
+
+end role
+
+goal
+      secrecy_of k1
+      secrecy_of k2
+      secrecy_of k3
+      secrecy_of k4
+      secrecy_of k5
+      
+      
+end goal
+
+
+environment()
+	
+
+
+
+
+

@@ -1,0 +1,171 @@
+%% PROTOCOL: A Novel Three-Factor User Authentication Scheme for Large-Scale Heterogeneous Wireless Sensor Networks
+%% PURPOSE: Authentication between the user U_i and sensor node S_j for accessing real-time data inside WSN
+%%HLPSL:
+
+
+%%%%%%% Role specification for the user U_i
+
+role alice (U, BS, Sj : agent, MKsj : symmetric_key,                                                        
+H : hash_func, F : hash_func, IDi, PWi, Bi, S : text,
+Snd, Rcv: channel(dy))
+
+played_by U
+
+def=     
+
+  local State  : nat,
+     IDsj, RNui :  text
+     const  alice_server, server_bob, 
+     bob_server, alice_bob, subs1, subs2 : protocol_id
+   
+  init  State := 0
+  
+transition
+
+   1. State   = 0 /\ Rcv(start) =|>
+% Login phase
+      State' := 1  /\ RNui' := new()
+              /\ secret({PWi,Bi},subs1,U)
+              /\ secret(S, subs2, BS)
+% Ui sends the login message  to the BS
+              /\ Snd(U.BS.IDi.IDsj.{xor(H(IDi.PWi.F(Bi)),RNui')
+                     .H(xor(H(IDi.PWi.F(Bi)),H(S)).RNui').RNui'}_H(MKsj
+                     .IDsj.IDi.S))
+% Ui has freshly generated the value RNui for Sj and BS
+              /\ witness (U,Sj,alice_bob, RNui')
+              /\ witness (U,BS,alice_server, RNui')
+   
+% Authentication phase
+% Ui receives the acknowledgment from Sj via BS
+   2. State = 1 /\ Rcv(BS.U.IDi.IDsj.{RNui'}_H(IDi.IDsj.RNui'
+                       .xor(H(IDi.PWi.F(Bi)),RNui'))) =|> 
+      State' := 3 	  
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role server (BS,Sj, U : agent, MKsj : symmetric_key,                                                   
+H : hash_func, F : hash_func, PWi, Bi, S : text,
+Snd, Rcv: channel(dy))
+played_by BS
+def=        
+  local State  : nat,
+       IDi, IDsj, RNui, RNbs  : text
+       const  alice_server, server_bob, bob_server, 
+       subs1, subs2 : protocol_id 
+  init  State := 0
+  transition
+% Login phase
+% BS receives the login message  from Ui
+   1. State   = 0 /\ Rcv(U.BS.IDi.IDsj.{xor(H(IDi.PWi.F(Bi)),RNui')
+   .H(xor(H(IDi.PWi.F(Bi)),H(S)).RNui').RNui'}_H(MKsj.IDsj.IDi.S))=|>  
+      State' := 1 /\ RNbs' := new( )
+% BS sends the authentication message  to Sj
+                  /\ Snd(BS.Sj.IDsj.IDi.{xor(H(IDi.PWi.F(Bi)),RNui')
+                         .H(xor(H(IDi.PWi.F(Bi)),RNui').IDsj.RNui'
+                         .RNbs').RNui'.RNbs'}_MKsj)
+                  /\ witness (BS, Sj, server_bob, RNbs')
+% Authentication phase
+% BS receives an acknowledgment from Sj
+   2. State   = 1 /\ Rcv(BS.U.IDi.IDsj.{RNui'}_H(IDi.IDsj.RNui'
+     .xor(H(IDi.PWi.F(Bi)),RNui'))) =|>  
+% BS forwards the acknowledgment to Ui
+      State' := 3 /\ Snd(BS.U.IDi.IDsj.{RNui'}_H(IDi.IDsj.RNui'
+                        .xor(H(IDi.PWi.F(Bi)),RNui')))
+                  /\ secret({PWi,Bi},subs1,U)
+                  /\ secret(S, subs2, BS)
+% BS's acceptance of the value RNui generated for BS by Ui
+                  /\ request(U, BS, alice_server, RNui) 		  
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role bob (Sj,BS, U : agent, MKsj : symmetric_key, H : hash_func,
+F : hash_func, IDsj, PWi, Bi, S : text, Snd, Rcv: channel(dy))
+played_by Sj
+def=    
+  local State  : nat,
+       IDi, RNui, RNbs  : text
+       const  alice_server, server_bob, bob_server, subs1, 
+              subs2 : protocol_id
+    init  State := 0
+  transition
+% Authentication phase
+% Sj receives the authentication message  from BS
+   1. State   = 0 /\ Rcv(BS.Sj.IDsj.IDi.{xor(H(IDi.PWi.F(Bi)),RNui')
+                         .H(xor(H(IDi.PWi.F(Bi)),RNui').IDsj.RNui'
+                         .RNbs').RNui'.RNbs'}_MKsj)  =|> 
+% Sj sends an acknowledgement to the BS 
+      State' := 1 /\ Snd(BS.U.IDi.IDsj.{RNui'}_H(IDi.IDsj.RNui'.
+                         xor(H(IDi.PWi.F(Bi)),RNui'))) 
+                  /\ secret({PWi,Bi},subs1,U)
+                  /\ secret(S, subs2, BS) 
+% Sj's acceptance of the value RNbs generated for Sj by BS
+                 /\ request(BS, Sj, server_bob, RNbs) 
+% Sj's acceptance of the value RNui generated for BS by Ui
+                 /\ request(U, Sj, alice_bob, RNui) 		  
+end role
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(U,BS,Sj: agent,
+	     MKsj : symmetric_key,  
+             % H is hash function                                                         
+             H     : hash_func,
+             F     : hash_func,
+             PWi, Bi, S : text,
+             IDi, IDsj, RNui, RNbs :text)
+def=
+  local  US, UR, SS, SR, VS, VR: channel (dy)
+  composition
+           alice(U, BS, Sj, MKsj, H, F, IDi, PWi, Bi, S, US, UR)
+        /\ server(BS, Sj, U, MKsj, H, F, PWi, Bi, S, SS, SR)
+        /\  bob(Sj, BS, U, MKsj, H, F, IDsj, PWi, Bi, S, VS, VR)
+end role
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+  const u, bs, sj  : agent,
+        mksj : symmetric_key,
+        h    : hash_func, f : hash_func,
+        pwi, bi, s, idi, idsj, rnui, rnbs : text,
+       alice_server, server_bob,  bob_server, 
+       alice_bob, subs1, subs2 : protocol_id
+
+  intruder_knowledge = {u, bs, sj, h, f, idi, idsj}
+
+  composition
+	session(u, bs, sj, mksj, h, f, pwi, bi, s, 
+                idi, idsj, rnui, rnbs) /\
+	session(u, bs, sj, mksj, h, f, pwi, bi, s,
+                idi, idsj, rnui, rnbs) /\
+        session(u, bs, sj, mksj, h, f, pwi, bi, s,
+                idi, idsj, rnui, rnbs) 
+end role
+
+
+goal
+% subs1 represents that the password PWi and personal biometrics Bi are kept
+% secret to the user Ui only.
+
+  secrecy_of subs1
+
+% subs2 represents that the secret information S is kept secret to the BS only.
+
+   secrecy_of subs2
+
+% Ui (the smart card) generates a random nonce RN_ui, where RN_ui is only known to the user Ui.
+% When the BS receives RN_ui from the messages from U_i, the BS authenticates U_i.
+% Similarly for other protocols ids.
+  authentication_on alice_bob
+  authentication_on alice_server
+  authentication_on server_bob
+  authentication_on bob_server
+end goal
+environment()
+        
+

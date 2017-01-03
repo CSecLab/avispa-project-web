@@ -1,0 +1,174 @@
+role user(
+	U, H, B				: agent,
+	Ku, Kh, Kb			: public_key,
+	Hash				: hash_func,
+	U2h, U2b, H2u, B2u	: channel(dy)
+	)
+	played_by U
+	def=
+	local
+		State	:	nat,
+		Nuh		:	nat,
+		Nub		:	nat,
+		Nuhb	:	nat,
+		Uhoa	:	text,
+		Rh		:	{{text.text}_inv(public_key)}_public_key,
+		Rb		:	{{text.text}_inv(public_key)}_public_key,
+		Ra		:	{{text.text}_inv(public_key)}_public_key.{{text.text}_inv(public_key)}_public_key,
+		Sig		:	{hash_func}_inv(public_key)
+	init
+		State	:=	1
+	transition
+	1.	State	=	1	/\ B2u(start) =|>
+		State'	:=	3	/\ Uhoa'	:= new()
+						/\ Nuh'		:= new()
+						/\ Nub'		:= new()
+						/\ Nuhb'	:= new()
+						/\ Rh'		:= {{Uhoa'.Nuh'}_inv(Ku)}_Kh
+						/\ Rb'		:= {{Nuhb'.Nub'}_inv(Ku)}_Kb
+						/\ Ra'		:= Rh'.Rb'
+						/\ secret(Uhoa', uhoa, {U, H})
+						/\ secret(Nuh', nuh, {U, H})
+						/\ secret(Nub', nub, {U, B})
+						/\ secret(Nuhb', nuhb, {U, H, B})
+						/\ witness(U, H, uh_nuh, Nuh')
+						/\ witness(U, H, uh_nuhb, Nuhb')
+						/\ witness(U, B, ub_nub, Nub')
+						/\ witness(U, B, ub_nuhb, Nuhb')
+						/\ U2b(Ra')
+	3.	State	=	3	/\ B2u(Sig') =|>
+		State'	:=	4	/\ request(U, H, hu_nuh, Nuh)
+						/\ U2h({{Nuh.Nuhb}_inv(Ku)}_Kh)
+end role
+
+
+
+
+role board(
+	U, H, B				: agent,
+	Ku, Kh, Kb			: public_key,
+	Hash				: hash_func,
+	B2h, B2u, H2b, U2b	: channel(dy)
+	)
+	played_by B
+	def=
+	local
+		State	:	nat,
+		Nbh		:	nat,
+		Nub		:	nat,
+		Nuhb	:	nat,
+		Rh		:	{{text.text}_inv(public_key)}_public_key,
+		Rb		:	{{text.text}_inv(public_key)}_public_key,
+		Ra		:	{{text.text}_inv(public_key)}_public_key.{{text.text}_inv(public_key)}_public_key,
+		Hr		:	hash_func,
+		Sig		:	{hash_func}_inv(public_key)
+	init
+		State	:=	2
+	transition
+	2.	State	=	2	/\ U2b(Rh'.{{Nuhb'.Nub'}_inv(Ku)}_Kb) =|>
+		State'	:=	3	/\ request(B, U, ub_nuhb, Nuhb')
+						/\ request(B, U, ub_nub, Nub')
+						/\ witness(B, H, bh_nuhb, Nuhb')
+						/\ Rb'		:= {{Nuhb'.Nub'}_inv(Ku)}_Kb
+						/\ Ra'		:= Rh'.Rb'
+						/\ Hr'		:= Hash(Ra')
+						/\ Sig'		:= {Hr'}_inv(Kb)
+						/\ B2h(Ra'.Sig')
+						/\ B2u(Sig')
+end role
+
+
+
+
+
+role host(
+	U, H, B				: agent,
+	Ku, Kh, Kb			: public_key,
+	Hash				: hash_func,
+	H2u, H2b, U2h, B2h	: channel(dy)
+	)
+	played_by H
+	def=
+	local
+		State	:	nat,
+		Nbh		:	nat,
+		Nuh		:	nat,
+		Nuhb	:	nat,
+		Uhoa	:	text,
+		Rh		:	{{text.text}_inv(public_key)}_public_key,
+		Rb		:	{{text.text}_inv(public_key)}_public_key,
+		Ra		:	{{text.text}_inv(public_key)}_public_key.{{text.text}_inv(public_key)}_public_key,
+		Hr		:	hash_func,
+		Sig		:	{hash_func}_inv(public_key)
+	init
+		State	:=	3
+	transition
+	3.	State	=	3	/\ B2h({{Uhoa'.Nuh'}_inv(Ku)}_Kh.Rb'.Sig') =|>
+		State'	:=	3	/\ witness(H, U, hu_nuh, Nuh')
+	3.	State	=	3	/\ U2h({{Nuh'.Nuhb'}_inv(Ku)}_Kh) =|>
+		State'	:=	4	/\ request(H, U, uh_nuhb, Nuhb')
+						/\ request(H, U, uh_nuh, Nuh')
+						/\ request(H, B, bh_nuhb, Nuhb')
+end role
+
+
+
+
+
+role session(
+	U, H, B				: agent,
+	Ku, Kh, Kb			: public_key,
+	Hash				: hash_func,
+	U2h, U2b,
+	H2u, H2b,
+	B2h, B2u			: channel(dy)
+	)
+	def=
+	composition
+			user(U, H, B, Ku, Kh, Kb, Hash, U2h, U2b, H2u, B2u)
+		/\	board(U, H, B, Ku, Kh, Kb, Hash, B2h, B2u, H2b, U2b)
+%		/\	host(U, H, B, Ku, Kh, Kb, Hash, H2u, H2b, U2h, B2h)
+end role
+
+
+
+
+
+role environment() def=
+	const
+		u, h, b, i			: agent,
+		ku, kh, kb, ki		: public_key,
+		hf					: hash_func,
+		u2h, u2b,
+		h2u, h2b,
+		b2h, b2u			: channel(dy),
+		uhoa,
+		nuh, nub, nuhb,
+		uh_nuh, uh_nuhb,
+		ub_nub, ub_nuhb,
+		hu_nuh, bh_nuhb		:	protocol_id
+	intruder_knowledge	=	{u, h, b, i, hf, ku, kh, kb, ki, inv(ki)}
+	composition
+			session(u, h, b, ku, kh, kb, hf, u2h, u2b, h2u, h2b, b2h, b2u)
+		/\	session(u, i, b, ku, ki, kb, hf, u2h, u2b, h2u, h2b, b2h, b2u)
+		/\	session(u, h, i, ku, kh, ki, hf, u2h, u2b, h2u, h2b, b2h, b2u)
+		/\	session(i, h, b, ki, kh, kb, hf, u2h, u2b, h2u, h2b, b2h, b2u)
+end role
+
+
+
+
+
+goal
+	secrecy_of	uhoa
+	secrecy_of	nuh
+	secrecy_of	nub
+	secrecy_of	nuhb
+	authentication_on uh_nuh
+	authentication_on uh_nuhb
+	authentication_on ub_nub
+	authentication_on ub_nuhb
+	authentication_on bh_nuhb
+	authentication_on hu_nuh
+end goal
+environment()

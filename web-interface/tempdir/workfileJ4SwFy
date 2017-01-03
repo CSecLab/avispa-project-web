@@ -1,0 +1,86 @@
+role capteur1 (A,B: agent, Mac:hash_func,H:hash_func, Snd,Rcv: channel(dy))
+played_by A
+def=
+
+local State : nat,
+No: text,
+Key:message,
+Coeff:text set,
+Chaff:text set
+ 
+
+init State := 0 % initialisation
+transition
+
+1. State = 0 /\ Rcv(start)
+=|>State' := 1
+			/\ No' := new()
+			/\ Coeff'  := new()
+			/\ Chaff'  := new()
+			/\ Key':=H(Coeff')
+			/\ Snd(A.B.No'.Coeff'.Chaff'.Mac(Key',Coeff'.Chaff'.No'.A))
+			/\ witness(A,B,capteur1_capteur2_coeff,Coeff')
+			%%/\ Key':=H(Q')
+			%%/\ secret(Key',key,{A,B})
+2. State = 1 
+            /\ Rcv(Mac(Key,No.A.B))
+			
+=|> State' := 2
+            %%/\ request(A,B,capteur1_capteur2_index,Index')
+			
+		   
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role capteur2(A,B: agent, Mac:hash_func,H:hash_func, Snd,Rcv: channel(dy))
+played_by B
+def=
+
+local State : nat,
+No: text,
+Key:message,
+Coeff:text set,
+Chaff:text set 
+init State := 0
+transition
+1. State = 0/\ Rcv(A.B.No'.Coeff'.Chaff'.Mac(Key',Coeff'.Chaff'.No'.A))
+=|>
+State' := 1 /\ request(B,A,capteur1_capteur2_coeff,Coeff')
+		/\ Snd(Mac(Key,No.A.B))
+		
+
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%ù
+
+role session(A,B: agent, Mac:hash_func,H:hash_func)
+def=
+local SA, RA, SB, RB: channel (dy)
+composition
+capteur1(A,B,Mac,H,SA,RA)
+/\ capteur2(A,B,Mac,H,SB,RB)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+def=
+const a, b, i : agent,
+mac:hash_func,
+h:hash_func,
+key, capteur1_capteur2_coeff: protocol_id
+intruder_knowledge={a,b,mac,h}
+composition
+session(a,b,mac,h)
+ /\ session(a,i,mac,h) 
+ /\session(i,b,mac,h)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+secrecy_of key
+
+authentication_on capteur1_capteur2_coeff
+
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

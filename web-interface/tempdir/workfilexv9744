@@ -1,0 +1,117 @@
+%% ---------------------------------------------------
+
+%%\begin{verbatim}
+%% 1. Reader  - Start ----> Tag
+%% 2. Reader <- a.b.(k[a] xor k[b]) ---  Tag
+%% 3. Reader  - {a.b}_k ------> Tag
+%% 4. Reader  - EPC data <------ Tag
+%% 5. Reader  - ReqRN ------> Tag
+%% 6. Reader  - RN16 <------ Tag
+%% 7. Reader  - command.RN16 ------> Tag
+%%\end{verbatim}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%HLPSL:
+role alice (
+		Reader, Tag	:	agent,             
+          				 K	: 	symmetric_key,      
+            			CRC	:	hash_func,
+            		Query	:	text,
+            SND, RCV	: 	channel (dy)) 
+played_by Reader def=
+
+  local 
+  				State	: 	nat, 
+  					X	:	text.text        				   			   
+
+  init State := 0
+
+  transition  
+    
+    0.	State = 0 /\ RCV(start)  =|>
+    		State':= 2 /\  SND(Query)
+          
+    2.  State  = 2 /\ RCV(X') =|> 
+	State':= 4 /\  SND({X'}_K)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob(
+		Reader, Tag	:	agent,             
+          				 K	: 	symmetric_key,      
+            			CRC	:	hash_func,
+            		Query	:	text,
+            SND, RCV	: 	channel (dy)) 
+played_by Tag def=
+
+  local
+  				State	: 	nat, 
+  				Na,Nb	:	text        				   
+
+  init State := 1
+
+  transition 
+
+    1.  State  = 1 /\ RCV(Query) =|> 
+	State':= 3 /\ Na' := new() 
+					/\ Nb' := new()
+					/\ SND(Na'.Nb')
+
+    3.  State  = 3 /\ RCV({Na'.Nb'}_K) =|> 
+	State':= 5 /\ witness(Tag, Reader, reader_to_tag, Na', Nb')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(
+Reader, Tag: agent, 
+K: symmetric_key,
+CRC	:	hash_func) 
+def=
+
+  local 
+  
+  		Query : text,
+  		SA, RA, SB, RB: channel (dy)
+
+  composition 
+
+	alice(Reader, Tag, K, CRC, Query, SA,RA)
+     /\ bob  (Reader, Tag, K, CRC, Query, SB,RB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() 
+def=
+
+    const a, b         : agent,
+	  k   : symmetric_key,	  
+	  crc : hash_func,
+	  reader_to_tag	: protocol_id
+
+    intruder_knowledge = {a, b, crc}
+
+    composition
+
+		session(a,b,k,crc)
+	/\ session(i,b,k,crc)
+	/\ session(a,i,k,crc)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of k
+  authentication_on reader_to_tag
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

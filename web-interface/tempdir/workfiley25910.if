@@ -1,0 +1,93 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfiley25910
+
+section signature:
+
+state_bob: agent * agent * hash_func * symmetric_key * text * apply(hash_func,message) * nat * set(agent) * nat -> fact
+state_alice: agent * agent * hash_func * symmetric_key * text * apply(hash_func,message) * nat * set(agent) * nat -> fact
+
+
+section types:
+
+h, auth_a: protocol_id
+AUTH_A, Dummy_AUTH_A: apply(hash_func,message)
+IPDATAGRAM, Dummy_IPDATAGRAM, dummy_nonce: text
+kab, kai, kib, PSK, psk: symmetric_key
+set_75, set_74, set_73, set_71, set_67, set_58: set
+3, State, 10, 6, 4, SID, 2, 1, Dummy_State, 0, SID2, SID1: nat
+Set_32, Dummy_Set_32, Set_19, Dummy_Set_19, ASGoal: set(agent)
+a, b, B, A, A2Goal, A1Goal, i: agent
+start, dummy_msg, MGoal: message
+F, f: hash_func
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(f).
+ iknows(a).
+ iknows(b).
+ iknows(kai).
+ iknows(kib).
+ iknows(i).
+ state_alice(a,b,f,psk,dummy_nonce,dummy_msg,0,set_58,3).
+ state_bob(b,a,f,psk,dummy_nonce,dummy_msg,1,set_67,4).
+ state_alice(a,i,f,kai,dummy_nonce,dummy_msg,0,set_71,6).
+ state_bob(b,i,f,kib,dummy_nonce,dummy_msg,1,set_75,10)
+
+
+section rules:
+
+step step_0 (A,B,F,PSK,Dummy_IPDATAGRAM,Dummy_AUTH_A,Dummy_Set_19,SID,IPDATAGRAM) :=
+ state_alice(A,B,F,PSK,Dummy_IPDATAGRAM,Dummy_AUTH_A,0,Dummy_Set_19,SID).
+ iknows(start)
+=[exists IPDATAGRAM]=>
+ state_alice(A,B,F,PSK,IPDATAGRAM,apply(F,IPDATAGRAM),2,Dummy_Set_19,SID).
+ iknows(pair(A,pair(IPDATAGRAM,scrypt(PSK,apply(F,IPDATAGRAM))))).
+ secret(PSK,psk,Dummy_Set_19).
+ contains(A,Dummy_Set_19).
+ contains(B,Dummy_Set_19)
+
+step step_1 (B,A,F,PSK,Dummy_IPDATAGRAM,Dummy_AUTH_A,Dummy_Set_32,SID,IPDATAGRAM) :=
+ state_bob(B,A,F,PSK,Dummy_IPDATAGRAM,Dummy_AUTH_A,1,Dummy_Set_32,SID).
+ iknows(pair(A,pair(IPDATAGRAM,scrypt(PSK,AUTH_A))))
+ =>
+ state_bob(B,A,F,PSK,IPDATAGRAM,apply(F,IPDATAGRAM),3,Dummy_Set_32,SID).
+ secret(PSK,psk,Dummy_Set_32).
+ contains(A,Dummy_Set_32).
+ contains(B,Dummy_Set_32)
+
+
+section properties:
+
+property secrecy_of_psk (MGoal,ASGoal) :=
+ [] ((secret(MGoal,psk,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_auth_a (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,auth_a,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,auth_a,MGoal))
+     /\ ((request(A1Goal,A2Goal,auth_a,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,auth_a,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_psk (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,psk,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_auth_a (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,auth_a,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,auth_a,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_auth_a (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,auth_a,MGoal,SID1).
+ request(A1Goal,A2Goal,auth_a,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

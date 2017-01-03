@@ -1,0 +1,82 @@
+role mn(MN,HA,CN: agent,  
+	MNPUK,CNPUK: public_key,
+	MNPK: symmetric_key,
+	                  
+               SND,RCV: channel(dy)) 
+
+	played_by MN def= 
+	local MNHOA,CNCOA,CNPUKREQ: text, State: nat  
+	init State :=0 
+	transition   
+    	0.State = 0 /\ RCV(start)  =|>
+                 State' := 4/\ MNHOA' :=new() /\ CNPUKREQ':=new()/\SND(MNHOA'.CNPUKREQ'.{MNPUK}_MNPK)/\secret(MNPUK,puk,{MN,HA,CN})
+
+	4.State = 4/\ RCV(CNPUK)  =|>
+                State' :=  6 /\ CNCOA' :=new() /\ SND({{CNCOA'.MNHOA}_CNPUK}_MNPK)
+end role 
+
+role ha(MN,HA,CN: agent,  
+	MNPUK,CNPUK: public_key,
+	MNPK: symmetric_key,
+	                  
+               SND,RCV: channel(dy)) 
+	played_by HA def= 
+	local MNHOA,CNCOA,CNPUKREQ: text , State: nat
+	init State := 1 
+	transition 
+	1.State = 1 /\ RCV(MNHOA'.CNPUKREQ'.{MNPUK}_MNPK)
+	    =|>State' := 3  /\SND(MNHOA'.CNPUKREQ'.{MNPUK}_MNPK)
+	3.State = 3/\RCV(CNPUK)
+	     =|>State':=7/\SND(CNPUK)
+end role 
+
+role cn(MN,HA,CN: agent,
+	MNPUK,CNPUK: public_key,
+	MNPK: symmetric_key,
+                
+               SND,RCV: channel(dy)) 
+	played_by HA def= 
+	local MNHOA,CNCOA,CNPUKREQ: text , State: nat 
+                 
+	init State := 2 
+	transition
+	2.State = 2 /\ RCV(MNHOA'.CNPUKREQ'.{MNPUK}_MNPK) 
+	   =|>State':=  5/\  SND(CNPUK)
+	5.State = 5 /\ RCV({{CNCOA'.MNHOA}_CNPUK}_MNPK) 
+	   =|>State':= 8
+end role
+role session( MN,HA,CN: agent,MNPUK,CNPUK: public_key,MNPK: symmetric_key)
+def= 
+	local SMN,RMN,SCN,RCN,SHA,RHA: channel(dy) 
+
+	composition 
+	mn( MN,HA,CN,  MNPUK, CNPUK,MNPK,SMN,RMN) 
+                /\cn(MN,HA,CN, MNPUK, CNPUK,MNPK,SCN,RCN) 
+ /\ ha(MN,HA,CN, MNPUK, CNPUK,MNPK,SHA,RHA)
+             
+	 
+end role 
+
+
+role environment() 
+def= 
+
+const  mn1,ha1,cn1: agent,
+           mnpuk,cnpuk:  public_key,
+           mnpk: symmetric_key,
+  puk:protocol_id
+           
+       
+   composition 
+	session(mn1,ha1,cn1,mnpuk,cnpuk,mnpk) 
+
+end role 
+goal
+	secrecy_of puk
+end goal
+
+environment() 
+
+
+
+

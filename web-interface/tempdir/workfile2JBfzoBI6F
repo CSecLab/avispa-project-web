@@ -1,0 +1,181 @@
+%%Xue et al. 2014
+%%smart card includes: Ci,Di,b,hash_func   %%arbitay number usei choose : b->B
+%%user's id pass : IDi, PWi
+
+role useri(U,S,CS: agent,
+			Ci, Di,IDi, B :text,  
+		    Ha : hash_func,
+            Snd, Rcv: channel(dy))
+played_by U def=
+
+local State : nat, 
+		Ni1 ,Fi,Gi,Tsi,Ni2xNi3 ,Bi,CIDi ,PIDi , Pij, Ri , Vi, SIDj, SharedKey: text
+
+init State := 0
+	
+transition
+	1. State = 0 /\ Rcv(start) =|> 
+		State':= 1
+		/\ Ni1':= new() 
+		/\ Tsi' := new() 
+		/\ PIDi':= Ha(IDi.B) 
+		/\ Bi':= xor(Di,Ci) 
+		/\ Fi':=xor(Bi',Ni1')
+		/\ Pij' := Ha(xor(Bi',Ha(Ni1'.SIDj.PIDi'.Tsi'))) 
+		/\ CIDi' := xor(IDi,Ha(Bi'.Ni1'.Tsi'.00))
+		/\ Gi' := xor(B,Ha(Bi'.Ni1'.Tsi'.11))		
+		/\ witness(U,CS, cs_u_ni1 , Ni1')
+		/\ secret(B,sec_b,{U,CS})		
+		/\ Snd(Fi'.Pij'.CIDi'.Gi'.PIDi'.Tsi') 
+	    /\ secret(Ni1', sec_ni1 , {U,CS})
+		/\ secret(IDi, sec_idi , {U,CS})
+	 
+		
+	5. State = 1 /\ Rcv(Ri'.Ha(xor(Ri', Ha(IDi.Ni1.Bi)))) =|> 
+		State' := 2 
+		/\ Ni2xNi3' := xor(Ri', Ha(IDi.Ni1.Bi))		
+		/\ SharedKey' := Ha(xor(Ni1 , Ni2xNi3').Tsi)
+		/\ secret(SharedKey',sec_sk , {U,S,CS})
+		
+	
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role serverj(U, S,CS: agent,
+					BSj, SIDj,D : text,
+					Ha : hash_func,
+					Snd, Rcv: channel(dy))
+played_by S def=
+local State : nat,	
+		Fi, Pij,CIDi,Gi,PIDi,Tsi ,Ni2 ,Ji,Ki,Mi, Li,PSIDj,Pi,Ri,Vi, Ni1xNi3,SharedKey  :text
+		
+
+				
+init State :=0
+
+transition	
+	2. State = 0 /\ Rcv(Fi'.Pij'.CIDi'.Gi'.PIDi'.Tsi') =|> 
+		State' := 1 
+		/\ Ni2':=new() 
+		/\ PSIDj' := Ha(SIDj.D) 
+		/\ Ji' := xor(BSj,Ni2') 
+		/\ Ki' := Ha(Ni2'.BSj.Pij'.Tsi')  
+		/\ Li' := xor(SIDj,Ha(BSj.Ni2'.Tsi'.00))
+		/\ Mi' := xor(D,Ha(BSj.Ni2'.Tsi'.11))
+        /\ Snd(Fi'.Pij'.CIDi'.Gi'.PIDi'.Tsi'.Ji'.Ki'.Li'.Mi'.PSIDj') 		
+		/\ secret(D,sec_d,{S,CS})		
+		/\ witness(S,CS, cs_s_ni2, Ni2')		
+		/\ secret(Ni2', sec_ni2 , {S,CS})
+		/\ secret(SIDj, sec_sidj , {U,S,CS})
+		
+		
+	4. State = 1 /\ Rcv(Pi'.Ha(xor(Pi',Ha(SIDj.Ni2.BSj))).Ri'.Vi') =|>
+	   State' := 2
+	   /\ Ni1xNi3' := xor(Pi',Ha(SIDj.Ni2.BSj))
+	   /\ SharedKey' := Ha(xor(Ni2 ,Ni1xNi3').Tsi)
+	   /\ secret(SharedKey',sec_sk , {U,S,CS})
+	   /\ Snd(Ri'.Vi') 
+	   
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role controlserver(U, S,CS: agent,
+					X,Y : text,
+					Ha : hash_func,
+					Snd, Rcv: channel(dy))				
+			
+played_by CS def=
+local State : nat,	
+	Fi, Pij,CIDi,Gi,PIDi,Tsi, Bi , B,IDi,BSj, SIDj,D,Ni1, Ni2 ,Ni3,Ki,Pi, Qi, Ri, Vi,Li,Mi,Ji ,PSIDj,SharedKey : text
+		
+%%Ki' := Ha(Ni2'.BSj'.Pij'.Tsi')
+%%Ni2':=xor(Ji',BSj') 
+%%Ni1' := xor(Fi',Bi')
+%%Bi':= Ha(PIDi'.X)
+%%SIDj' := xor(Li',Ha(BSj'.Ni2'.Tsi'.00))
+%%Pij' := Ha(xor(Bi',Ha(Ni1'.SIDj'.PIDi'.Tsi')))
+%%BSj':= Ha(PSIDj'.Y)
+%%B' := xor(Gi',Ha(Bi'.Ni1'.Tsi'.11))
+%%D':= xor(Mi',Ha(BSj'.Ni2'.Tsi'.11))
+%%PIDi':=Ha(IDi'.B') 
+%%PSIDj' := Ha(SIDj'.D')
+%%secret(D',sec_d,{S,CS})
+%%secret(B',sec_b,{U,CS})	
+	
+	init State := 0
+transition	
+	3. State = 0 /\ Rcv(Fi'.Ha(xor(Ha(PIDi'.X),Ha(xor(Fi',Ha(PIDi'.X)).xor(Li',Ha(Ha(PSIDj'.Y).xor(Ji',Ha(PSIDj'.Y)).Tsi'.00)).PIDi'.Tsi'))).CIDi'.Gi'.PIDi'.Tsi'.Ji'.Ha(xor(Ji',Ha(PSIDj'.Y)).Ha(PSIDj'.Y).Ha(xor(Ha(PIDi'.X),Ha(xor(Fi',Ha(PIDi'.X)).xor(Li',Ha(Ha(PSIDj'.Y).xor(Ji',Ha(PSIDj'.Y)).Tsi'.00)).PIDi'.Tsi'))).Tsi').Li'.Mi'.PSIDj') =|> 	
+	State' := 1
+		/\ BSj':= Ha(PSIDj'.Y) 
+		/\ Ni2':=xor(Ji',BSj') 
+		/\ Bi':= Ha(PIDi'.X)
+		/\ Ni1' := xor(Fi',Bi')
+		/\ IDi' := xor(CIDi',Ha(Bi'.Ni1'.Tsi'.00))
+		/\ SIDj' := xor(Li',Ha(BSj'.Ni2'.Tsi'.00))
+		/\ Ni3' := new()
+		/\ Pi' := xor(Ni1',xor(Ni3',Ha(SIDj'.Ni2'.BSj')))
+		/\ Qi' := Ha(xor(Ni1',Ni3'))
+		/\ Ri' := xor(Ni2',xor(Ni3',Ha(IDi'.Ni1'.Bi')))
+		/\ Vi' := Ha(xor(Ni2',Ni3'))	
+	    /\ SharedKey' := Ha(xor(Ni1',xor(Ni2',Ni3')).Tsi')
+	    /\ secret(SharedKey',sec_sk ,{U,S,CS})
+		/\ secret(X,sec_x ,{CS})
+		/\ secret(Y,sec_y ,{CS})
+		/\ Snd(Pi'.Qi'.Ri'.Vi')			
+		/\ request(U,CS,cs_u_ni1 , Ni1')
+		/\ request(S,CS, cs_s_ni2, Ni2')
+		/\ secret(Ni3', sec_ni3 , {CS})
+			
+
+end role
+
+%%%%%%%%%
+role session (U, S,CS: agent, X , Y , BSj, SIDj,D , Ai, Di,IDi, B :text, Ha : hash_func)
+def=
+	local Su, Ru , SS,RS , SCS, RCS  : channel(dy)
+	
+	composition 
+	useri( U, S,CS ,Ai, Di,IDi, B , Ha , Su , Ru ) 	
+	/\ serverj(U,S, CS,BSj, SIDj,D,Ha, SS, RS) 
+	/\ controlserver(U,S, CS,X , Y, Ha, SCS, RCS ) 
+	 
+end role
+%%%%%%%%%%%%%%%
+role environment() def=
+	const 
+	u1,s1, cs, i:agent,
+	x , y , bs1, sid1,ds1 , c1, du1,id1, b1 :text,
+	xi , yi , bsi, sidi,di,ci, di,idi, bi :text,
+	sec_b , sec_d ,sec_x , sec_y, sec_sk , cs_u_ni1 , cs_s_ni2,
+	sec_ni3,sec_ni2,sec_ni1,
+	sec_idi,sec_sidj: protocol_id,
+	ha : hash_func
+	
+	intruder_knowledge = {u1,s1,cs,i,ha,xi , yi , bsi, sidi,di,ci, di,idi, bi }
+	
+	composition
+		session(u1,s1, cs,x , y , bs1, sid1,ds1 , c1, du1,id1, b1,ha) 
+		/\ session(u1,s1, cs,x , y , bs1, sid1,ds1 , c1, du1,id1, b1,ha) 
+		/\ session(i,s1,cs,x , y , bs1, sid1,ds1 , ci, di,idi, bi,ha)
+		/\ session(u1,i,cs,x ,y  , bsi, sidi,di , c1, du1,id1, b1,ha)  Ts
+		/\ session(u1,s1,i,xi , yi , bs1, sid1,ds1 , c1, du1,id1, b1,ha)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%
+goal
+
+  secrecy_of sec_b , sec_d ,sec_x , sec_y 
+  secrecy_of sec_ni3,sec_ni1,sec_ni2
+  secrecy_of sec_idi,sec_sidj
+  secrecy_of sec_sk
+  authentication_on cs_u_ni1
+  authentication_on cs_s_ni2
+
+
+end goal
+%%%%%%%%%%%
+
+environment()

@@ -1,0 +1,67 @@
+role a(A,B:agent,K:symmetric_key, G:text, SND, RCV:channel(dy)) played_by A def=
+
+local
+	Na,Nb,Kb,Pa,Pb,Xa,Xb,Kljuc:text,
+	State:nat
+init
+	State := 0
+transition
+	0.	State = 0 /\ RCV(start) =|>
+		State':= 2 /\ Pa' := new() /\ Xa' := exp(G,Pa') /\ SND(Xa') /\ secret(Pa',pa,{A,B})
+	2.	State = 2 /\ RCV(Xb') =|>
+		State' := 4 /\ Na' := new() /\ Kljuc' := exp(Xb',Pa) /\ SND({Na'}_Kljuc') /\ witness(A,B, b_a_na, Na')
+	4.	State = 4 /\ RCV({Nb'}_Kljuc) =|>
+		State' := 6 /\ Kb' := Nb'.Na /\ K' := new() /\ SND({K'}_Kb') /\ secret(K',k, {A,B})
+	6.	State = 6 /\ RCV(hf(K)) =|>
+		State':= 8 /\ request(A,B, a_b_nb, Nb)
+end role
+
+role b(A,B:agent, K:symmetric_key,G:text, SND, RCV:channel(dy)) played_by B def=
+
+local	
+	Na,Nb,Kb,Pb,Xa,Xb,Kljuc:text,
+	State:nat
+init
+	State := 1
+transition
+	1.	State = 1 /\ RCV(Xa') =|>
+		State' := 3 /\ Pb' := new() /\ Xb' := exp(G, Pb') /\ SND(Xb') /\ secret(Pb',pb,{A,B})
+	3.	State = 3 /\ RCV({Na'}_Kljuc') =|>
+		State' := 5 /\ Nb' := new() /\ SND({Nb'}_Kljuc') /\ witness(B,A,a_b_nb,Nb')
+	5.	State = 5 /\ RCV({K'}_Kb') =|>
+		State' := 7 /\ SND(hf(K')) /\ request(B,A,b_a_na,Na)
+end role
+
+role session(A, B: agent, K: symmetric_key, G: text) def=
+
+	local
+		SA, RA, SB, RB: channel(dy)		
+	composition
+		a(A, B, K, G, SA, RA)
+		/\
+		b(A, B, K, G, SB, RB)
+end role
+
+role environment() def=
+
+	const
+		a, b: agent,
+		k: symmetric_key,
+		g,pa,pb: text,
+		hf:hash_func,
+		b_a_na, a_b_nb: protocol_id
+	
+	intruder_knowledge = {a,b,hf,g}
+	
+    composition
+		session(a, b, k, g)
+end role
+
+goal
+
+	secrecy_of k
+	authentication_on a_b_nb
+	authentication_on b_a_na
+end goal
+
+environment()

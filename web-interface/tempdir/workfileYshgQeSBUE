@@ -1,0 +1,130 @@
+role bClient (C,BC,S:   agent,
+              Kbc,Ks:   public_key,
+              H:        hash_func,
+              SND,RCV:  channel(dy))
+played_by BC def=
+
+  local State: nat,
+        M0:    text,
+        M: hash(text),
+        SSM: message
+
+  init State := 0
+
+  transition
+    1.      State = 0
+            /\ RCV(start)
+        =|>
+            State' := 1
+            /\ M0' := new()
+            /\ M'  := H(M0')                    % using   hashed message
+            %/\ M' := M0'                       % using unhashed message
+            /\ SND(M'.{M'}_inv(Kbc))
+
+    2.      State = 1
+            /\ RCV(SSM')
+            /\ SSM' = {{M}_inv(Kbc)}_inv(Ks)
+        =|>
+            State' := 2
+            /\ SND(M.SSM')
+
+end role
+
+
+
+role consumer(C,BC,S:   agent,
+              Kbc,Ks:   public_key,
+              H:        hash_func,
+              SND,RCV:  channel(dy))
+played_by C def=
+
+  local State: nat,
+        M: hash(text),
+        SSM: message
+
+  const m:     protocol_id
+
+  init State := 0
+
+  transition
+    1.      State = 0
+            /\ RCV(M'.SSM')
+            /\ SSM' = {{M'}_inv(Kbc)}_inv(Ks)
+        =|>
+            State':= 1
+            /\ wrequest(C,S,m,M')
+
+end role
+
+
+
+role server (C,BC,S:  agent,
+             Kbc,Ks:  public_key,
+             H:       hash_func,
+             SND,RCV: channel(dy))
+played_by S def=
+
+  local State: nat,
+        M: hash(text),
+        SM: message
+
+  const m:     protocol_id
+
+  init State := 0
+
+  transition
+
+    1.     State = 0
+           /\ RCV(M'.SM')
+           /\ SM' = {M'}_inv(Kbc)
+       =|>
+           State' := 1
+           /\ SND({SM'}_inv(Ks))
+           /\ witness(S,C,m,M')
+
+end role
+
+
+
+role session(C,BC,S: agent,
+             Kbc,Ks: public_key,
+             H:      hash_func)
+def=
+
+  local
+        CS, SC : channel (dy)
+  
+  composition
+           bClient( C, BC, S, Kbc,Ks, H, CS, SC)
+        /\ consumer(C, BC, S, Kbc,Ks, H, CS, SC)
+        /\ server(  C, BC, S, Kbc,Ks, H, SC, CS)
+end role
+
+
+
+
+role environment() def=
+
+  const c,bc,s    : agent,
+        kbc,ks,ki : public_key,
+        h         : hash_func
+
+  intruder_knowledge = {c,bc,s,h,kbc,ks,ki,inv(ki)}
+
+  composition
+     session(c,bc,s,kbc,ks,h)
+  /\ session(c,bc,s,kbc,ks,h)
+  /\ session(c,i, s,ki, ks,h)
+
+end role
+
+
+
+goal
+  %Consumer weakly authenticates Server on m
+  weak_authentication_on m
+end goal
+
+
+
+environment()

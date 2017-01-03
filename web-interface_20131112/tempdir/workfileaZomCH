@@ -1,0 +1,135 @@
+role alice (Ui, Sj   : agent,
+            SKuisj : symmetric_key,
+            % H is hash function
+            H : hash_func,
+            Snd, Rcv: channel(dy))
+
+played_by Ui
+def=
+ local State  : nat,
+       P, Q, N : text, 
+       IDi, RIDi, PWi, RPWi, Ni, SNi : text,
+       % e = public key
+       % d = private key (inv_e)
+       E : public_key,
+       RNi, RNj, Ai, Bi, Hi, Xi, H2 : text,
+       MUL : hash_func 
+ const alice_bob_rni,  bob_alice_rnj, 
+       subs1, subs2 : protocol_id
+
+init  State := 0
+
+transition
+% Registration phase
+ 1. State = 0 /\ Rcv(start) =|>
+    State' := 1 /\ RIDi' := H(IDi.Ni)
+                /\ RPWi' := H(PWi.Ni)
+                /\ Snd({IDi.RIDi'.RPWi'}_SKuisj)
+		/\ secret({P, Q}, subs1, Sj)
+                /\ secret({PWi, Ni}, subs2, Ui)
+	  
+ 2. State = 1 /\ Rcv({MUL(P.Q).E.H(H(IDi.Ni).H(PWi.Ni)).
+                xor(H(IDi.inv_E), H(PWi.Ni))}_SKuisj) =|>
+% Login phase
+    State' := 2 /\ Bi' := xor(xor(H(IDi.inv_E),
+                   H(PWi.Ni)), h(PWi.Ni))
+                /\ RNi' := new()
+                /\ Hi' := H(Bi'.RNi')
+                /\ Xi' := exp( (IDi.Hi'.RNi'.SNi), E)
+                /\ Snd(Xi'.N)
+                /\ witness(Ui, Sj, alice_bob_rni, RNi')
+% Authentication phase
+3. State = 2 /\ Rcv(H(IDi.RNi'.RNj'.SNi).
+                    xor(RNi', RNj'). H(RNj')) =|> 
+   State' := 3 /\ Snd(H(H(IDi.RNi'.RNj'.SNi.xor(xor(H(IDi.inv_E),
+                   H(PWi.Ni)), h(PWi.Ni)))))
+               /\ request(Sj, Ui, bob_alice_rnj, RNj')
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%% 
+role  bob (Ui, Sj   : agent,
+           SKuisj : symmetric_key,
+           % H is hash function
+           H : hash_func,
+           Snd, Rcv: channel(dy) )
+
+played_by Sj
+def=
+ local State  : nat,
+       P, Q, N : text, 
+       IDi, RIDi, PWi, RPWi, Ni, SNi : text,
+       % e = public key
+       % d = private key (inv_e)
+       E : public_key,
+       RNi, RNj, Ai, Bi, Hi, Xi, H2 : text,
+       MUL : hash_func 
+ const alice_bob_rni,  bob_alice_rnj, 
+       subs1, subs2 : protocol_id
+
+init  State := 0
+
+ transition
+% Registration phase
+1. State  = 0 /\ Rcv({IDi.H(IDi.Ni).H(PWi.Ni)}_SKuisj)  =|>  
+  State' := 1 /\ secret({P, Q}, subs1, Sj)
+              /\ secret({PWi, Ni}, subs2, Ui)
+              /\ Snd({MUL(P.Q).E.H(H(IDi.Ni).H(PWi.Ni)).
+                     xor(H(IDi.inv_E), H(PWi.Ni))}_SKuisj)
+% Login phase
+2. State = 1 /\ Rcv(exp((IDi.H(xor(xor(H(IDi.inv_E),
+                   H(PWi.Ni)), h(PWi.Ni)).RNi').
+                   RNi'.SNi), E).N) =|> 
+% Authentication phase
+ State' := 2 /\ RNj' := new()
+             /\ H2' := H(IDi.RNi'.RNj'.SNi)
+             /\ Snd(H2'.xor(RNi', RNj'). H(RNj'))
+             /\ witness(Sj, Ui, bob_alice_r2, RNj')             
+3. State = 2 /\ Rcv(H(H(IDi.RNi'.RNj'.SNi.H(IDi.inv_E)))) =|> 
+ State' := 3 /\ request(Ui, Sj, alice_bob_rni, RNi)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(Ui, Sj: agent,
+             SKuisj : symmetric_key,
+             H : hash_func)
+def=
+
+  local  SI, SJ, RI, RJ: channel (dy)
+  
+  composition
+            alice(Ui, Sj, SKuisj, H, SI, RI)
+        /\  bob(Ui, Sj, SKuisj, H, SJ, RJ)
+end role 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role environment()
+def=
+
+  const ui, sj: agent,
+        skuisj : symmetric_key,
+        h   : hash_func,
+        pwi, idi, ni, sni, n :  text,
+        e: public_key,
+        alice_bob_rni,  bob_alice_rnj,
+        subs1, subs2 : protocol_id
+
+
+  intruder_knowledge = {ui, sj, h}
+
+  composition
+	   session(ui, sj, skuisj, h) 
+	/\ session(ui, sj, skuisj, h) 
+end role
+
+goal
+  secrecy_of subs1
+  secrecy_of subs2
+  authentication_on alice_bob_rni
+  authentication_on bob_alice_rnj 
+end goal
+environment()
+

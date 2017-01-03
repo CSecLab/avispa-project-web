@@ -1,0 +1,112 @@
+role mn(MN,HA,CN,KGC: agent, 
+                          Kcn: public_key, 
+	            Hashv: hash_func, 
+               SND,RCV,SND1,RCV1: channel(dy)) 
+	played_by MN def= 
+	local CoA, HAA, HoA, OldCoA, CNA,RPP,Dcn,KGCA, Blt, N0,BA,BU, Msglen, Type, DcnReq, SIDCN, K1, N1, N2: text , State: nat  
+	init State := 0 
+	transition   
+    	0.State = 0 /\ RCV(start) =|>
+     	  State' := 6 /\N0' :=new() /\CoA':=new()/\HAA':=new()
+		/\OldCoA':=new()/\CNA':=new()/\HoA':=new()/\KGCA':=new()/\SND(CoA'.HAA'.HoA'.OldCoA'.CNA'.{N0'.HoA'.CoA'}_Kcn.KGCA') /\SND1(CoA'.CNA'.OldCoA'.{ N0'.CoA'}_Kcn.KGCA')/\secret(N0',n0,{MN,HA,CN})
+				
+	 
+                6.State = 6 /\ RCV(CNA'.CoA'.xor(N0,N1')) =|> State' := 8 /\BU':=new()/\SND(CoA'.CNA'.{N1'.BU'}_Kcn) /\request(MN,CN,mn_cn_n0,N0)/\witness(MN,CN,cn_mn_n1,N1')/\secret(BU',bu,{MN,CN})
+
+	    8.State = 8 /\ RCV(CNA.CoA.BA') 	=|> State' := 10  /\ SND(CNA.CoA)
+  
+	 
+	end role 
+
+role ha(MN,HA,CN,KGC:agent, 
+                      Kcn: public_key, 
+	           Hashv: hash_func, 
+              SND,RCV: channel(dy)) 
+	played_by HA def= 
+	local State: nat, CoA, HAA, HoA, OldCoA, CNA, RPP, KGCA, Blt, N0, Msglen, Type,Dcn, DcnReq, SIDCN, K1,BU,BA, N1, N2: text 
+	 
+
+	init State := 1 
+	transition 
+	1.State = 1 /\ RCV(CoA'.HAA'.HoA'.OldCoA'.CNA'.{N0'.HoA'.CoA'}_Kcn.KGCA')
+	=|>State' := 3 /\ SND(HoA'.CNA'.OldCoA'.{N0'.HoA'.CoA'}_Kcn.KGCA') 
+		      
+
+	end role 
+
+role cn(MN,HA,CN,KGC: agent, 
+                   Kcn: public_key, 
+                   Hashv: hash_func, 
+                   SND,RCV,SND1,RCV1: channel(dy)) 
+               played_by CN def= 
+				local State: nat, CoA, HAA, HoA, OldCoA, CNA, Dcn, RPP, KGCA, Blt, N0, Msglen, Type,  DcnReq, SIDCN,BU,BA, K1, N1, N2: text 
+	       
+	init State := 2 
+	transition 
+	2.State = 2 /\ RCV(HoA'.CNA'.OldCoA'.{N0'.HoA'.CoA'}_Kcn.KGCA')
+	=|>State' := 3
+	
+	3.State=3/\RCV1(CoA'.CNA'.OldCoA'.{N0'.CoA'}_Kcn.KGCA')
+	=|>State':=5/\SND(CNA'.KGCA'.DcnReq)
+	/\witness(CN,MN,mn_cn_n0,N0')  
+
+	5.State=5/\RCV(KGCA.CNA.Dcn)  
+	=|>State':=7/\N1':=new()/\CNA':=new()/\CoA':=new()/\SND(CNA.CoA.xor(N0,N1'))/\secret(N1',n1,{MN,CN})
+			      
+	7.State = 7 /\ RCV(CoA.CNA.{N1.BU'}_Kcn) 
+	=|>State' := 9 /\BA':=new()/\ SND(CNA.CoA.BA')
+	/\request(CN,MN,cn_mn_n1,N1)
+			          
+	end role 
+
+role kgc(MN,HA,CN,KGC:agent,
+	Hashv: hash_func,
+	SND,RCV : channel(dy)) 
+	played_by KGC def= 
+	local State: nat, CoA, HAA, HoA,OldCoA, CNA, RPP, KGCA, Blt, N0, Msglen, Type,Dcn, DcnReq, SIDCN, K1, N1, BU,BA,N2: text 
+	init State := 4 
+	transition 
+ 	  4.State = 4 /\ RCV(CNA'.KGCA'.DcnReq) 
+	=|>State' := 6 /\ SND(KGCA'.CNA'.Dcn) 
+
+	end role 
+
+role session( MN,HA,CN,KGC: agent, Kcn: public_key,  Hashv: hash_func)
+	 
+def= 
+
+	local SMN,SCN,SKGC,SHA,RMN,RCN,RKGC,RHA: channel(dy) 
+
+	composition 
+	mn(MN,HA,CN,KGC,Kcn,Hashv,SMN,SCN,RMN,RCN) /\ ha(MN,HA,CN,KGC,Kcn,Hashv,SMN,SCN)
+/\cn(MN,HA,CN,KGC,Kcn,Hashv,SMN,SCN,RMN,RCN) /\ kgc(MN,HA,CN,KGC,Hashv,SMN,SCN) 
+	 
+	end role 
+
+
+role environment() 
+def= 
+
+const  mn1,ha1,cn1,kgc1: agent, 
+        kcn: public_key,
+	n0,n1,bu,
+	mn_cn_n0,
+	cn_mn_n1:protocol_id,
+	has:hash_func
+	
+
+composition 
+	session(mn1,ha1,cn1,kgc1,kcn,has) 
+	
+
+
+end role 
+goal
+	secrecy_of n0,n1,bu
+	%%authentication_on mn_cn_n0
+	%%authentication_on cn_mn_n1
+end goal
+
+
+environment() 
+

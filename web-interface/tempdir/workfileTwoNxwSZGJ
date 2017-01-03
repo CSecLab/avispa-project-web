@@ -1,0 +1,83 @@
+
+
+
+% Role of the key server:
+role keyserver (D, KS: agent,             
+            K: symmetric_key,  
+            Profession: (text) set,
+            City: (text) set,
+            Snd, Rcv: channel(dy))
+played_by KS def=
+
+  local State : nat,
+        Prof, Area : text 
+
+  init State := 0
+
+  transition
+
+   10. State  = 0 /\ Rcv(Prof'.Area') /\ in(Prof', Profession) /\ in(Area', City)
+       =|> State':= 1 /\ Snd(K)
+
+end role
+
+
+% Role of the doctor:
+role doctor(D, KS: agent,      
+         Prf, Ar: text,  
+         Snd, Rcv: channel(dy))
+played_by D def=
+
+  local State: nat,
+        K: symmetric_key
+
+  init State := 2
+
+  transition 
+
+   15.    State  = 2 /\ Rcv(start) 
+       =|> State':= 3 /\ Snd(Prf.Ar)
+
+   25.  State  = 3 /\ Rcv(K')
+       =|> State':= 4 
+
+ end role
+
+
+
+
+
+% The main role:
+role environment() def=
+
+  local  Profession: (text) set,
+         City: (text) set,
+         Snd, Rcv: channel(dy)
+
+  const d, ks, i: agent,
+        k : symmetric_key,
+        Doctor, Professor, Nurse, Dhaka, Chittagong, Rajshahi : text
+       
+
+  init Profession := {Doctor, Professor, Nurse},
+       City := {Dhaka, Chittagong, Rajshahi}
+
+  intruder_knowledge = {d, ks}
+
+  composition
+        keyserver (d, ks, k, Profession, City, Snd, Rcv)
+     /\ doctor(d, ks, Doctor, Dhaka, Snd, Rcv)   
+        
+end role
+
+
+% Description of goal properties:
+goal
+
+
+end goal
+
+
+% Call of the main role:
+environment()
+

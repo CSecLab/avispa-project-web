@@ -1,0 +1,90 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfile8lvc0J
+
+section signature:
+
+state_msr_Mobile: agent * agent * text * nat * public_key * symmetric_key * set(agent) * nat -> fact
+state_msr_Base: agent * agent * public_key * text * nat * symmetric_key * nat -> fact
+
+
+section types:
+
+secx, x: protocol_id
+MGoal, start: message
+set_67, set_66, set_59: set
+scm1, scm2, scm3, SCm: text
+kb, ki, PKb, Dummy_PKb, dummy_pk: public_key
+X, Dummy_X, dummy_sk: symmetric_key
+State, 10, 2, 6, 1, 0, 4, SID, Dummy_State, 3: nat
+b, m, B, M, A2Goal, i, A1Goal: agent
+Set_30, Dummy_Set_30, ASGoal: set(agent)
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(b).
+ iknows(m).
+ iknows(scm2).
+ iknows(scm3).
+ iknows(ki).
+ iknows(inv(ki)).
+ iknows(i).
+ state_msr_Base(b,m,kb,scm1,0,dummy_sk,3).
+ state_msr_Mobile(m,b,scm1,0,dummy_pk,dummy_sk,set_59,4).
+ state_msr_Base(b,i,kb,scm2,0,dummy_sk,6).
+ state_msr_Mobile(m,i,scm3,0,dummy_pk,dummy_sk,set_67,10)
+
+
+section rules:
+
+step step_0 (B,M,PKb,SCm,X,SID) :=
+ state_msr_Base(B,M,PKb,SCm,0,X,SID).
+ iknows(start)
+ =>
+ state_msr_Base(B,M,PKb,SCm,1,X,SID).
+ iknows(pair(B,PKb))
+
+step step_1 (B,M,PKb,SCm,Dummy_X,SID,X) :=
+ state_msr_Base(B,M,PKb,SCm,1,Dummy_X,SID).
+ iknows(pair(crypt(PKb,X),scrypt(X,pair(M,SCm))))
+ =>
+ state_msr_Base(B,M,PKb,SCm,2,X,SID).
+ wrequest(B,M,x,X,SID)
+
+step step_2 (M,B,SCm,Dummy_PKb,Dummy_X,Dummy_Set_30,SID,PKb,X) :=
+ state_msr_Mobile(M,B,SCm,0,Dummy_PKb,Dummy_X,Dummy_Set_30,SID).
+ iknows(pair(B,PKb))
+=[exists X]=>
+ state_msr_Mobile(M,B,SCm,1,PKb,X,Dummy_Set_30,SID).
+ iknows(pair(crypt(PKb,X),scrypt(X,pair(M,SCm)))).
+ witness(M,B,x,X).
+ secret(X,secx,Dummy_Set_30).
+ contains(B,Dummy_Set_30).
+ contains(M,Dummy_Set_30)
+
+
+section properties:
+
+property secrecy_of_secx (MGoal,ASGoal) :=
+ [] ((secret(MGoal,secx,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property weak_authentication_on_x (A1Goal,A2Goal,MGoal,SID) :=
+ [] ((wrequest(A1Goal,A2Goal,x,MGoal,SID)
+      /\ ~ equal(A2Goal,i))
+     => witness(A2Goal,A1Goal,x,MGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_secx (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,secx,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state weak_authentication_on_x (A1Goal,A2Goal,MGoal,SID) :=
+ wrequest(A1Goal,A2Goal,x,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,x,MGoal)) &
+ not(equal(A2Goal,i))
+

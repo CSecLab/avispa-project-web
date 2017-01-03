@@ -1,0 +1,104 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileiKCXZm
+
+section signature:
+
+
+
+section types:
+
+aliceid, bobid, tid: protocol_id
+2, State, 1, 0, SID2, SID1, SID: nat
+ASGoal: set(agent)
+H, Conc, Union, Pred: hash_func
+U, Sigma, M, start, MGoal: message
+R, P, r, p: text
+Xa, Xb, xa, xb, xi: symmetric_key
+Pa, Pb: public_key
+B, A, A2Goal, A1Goal, a, b, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(r).
+ iknows(p).
+ iknows(xi).
+ iknows(i)
+
+
+section rules:
+
+
+section properties:
+
+property secrecy_of_aliceid (MGoal,ASGoal) :=
+ [] ((secret(MGoal,aliceid,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_bobid (MGoal,ASGoal) :=
+ [] ((secret(MGoal,bobid,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_tid (MGoal,ASGoal) :=
+ [] ((secret(MGoal,tid,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_aliceid (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,aliceid,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,aliceid,MGoal))
+     /\ ((request(A1Goal,A2Goal,aliceid,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,aliceid,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_bobid (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,bobid,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,bobid,MGoal))
+     /\ ((request(A1Goal,A2Goal,bobid,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,bobid,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_aliceid (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,aliceid,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_bobid (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,bobid,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_tid (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,tid,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_aliceid (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,aliceid,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,aliceid,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_aliceid (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,aliceid,MGoal,SID1).
+ request(A1Goal,A2Goal,aliceid,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_bobid (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,bobid,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,bobid,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_bobid (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,bobid,MGoal,SID1).
+ request(A1Goal,A2Goal,bobid,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

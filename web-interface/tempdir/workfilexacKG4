@@ -1,0 +1,52 @@
+role
+ispeke_Init (MS,BS: agent,
+Kmb: symmetric_key,
+Snd,Rcv: channel(dy))
+played_by MS
+def=
+local State: nat,
+Na,Nb: text,
+Ca, Cb : text,
+K,X : message
+const ca,cb, sec_i_Cb : protocol_id
+init State := 0
+transition
+1. State = 0 /\ Rcv(start) =|>
+State':= 1/\ Snd(MS.Ca'.exp(Kmb, Na'))
+2. State = 1 /\ Rcv(X'.{Ca.Cb'}_exp(X',Na)) =|>
+State':= 2 /\ Snd({Cb'}_K')
+/\ secret(Cb',sec_i_Cb,{MS,BS})
+/\ witness(MS,BS,cb,Cb')
+/\ request(MS,BS,ca,Ca)
+end role
+role ispeke_Resp (BS,MS: agent,
+Kmb: symmetric_key,
+Snd,Rcv: channel(dy))
+played_by BS
+def=
+local State: nat,
+Nb,Cb: text,
+Ca : text,
+Y,K : message
+const ca,cb,sec_r_Cb : protocol_id
+init State := 0
+transition
+1. State = 0 /\ Rcv(MS.Ca'.Y') =|>
+State':= 1 /\ Snd(exp(Kmb, Nb').{Ca'.Cb'}_K')
+/\ secret(Cb',sec_r_Cb,{MS,BS})
+/\ witness(BS,MS,ca,Ca')
+2. State = 1 /\ Rcv({Cb}_K) =|>
+State':=2 /\ request(BS,MS,cb,Cb)
+end role
+role environment()
+def=
+const i, ms, bs : agent,
+kmb, kmi, kbi: symmetric_key,
+ca, cb : protocol_id
+intruder_knowledge = {ms, bs, kmi, kbi}
+goal
+secrecy_of sec_i_Cb, sec_r_Cb
+authentication_on cb
+authentication_on ca
+end goal
+environment()

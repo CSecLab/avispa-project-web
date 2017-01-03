@@ -1,0 +1,161 @@
+role user(
+U,S : agent,
+K,Ea : symmetric_key,
+Hash :hash_func,
+SND,RCV : channel(dy))
+played_by U def=
+
+local
+
+State :nat,
+Id1,Pass1,Ni,Fi,Ri,Gi,Ck,Exp_t,P1,Nk,Ti,P2,Otp,Ui,Bi,P4d  : text,
+Yi,Hi,P3,Cp  : text
+const e_m,g_m,h_m,p_m :protocol_id
+init
+State := 0
+
+transition
+1.State = 0 /\RCV(start) =|>
+   State' := 2 /\Id1' := new()
+	    /\ Pass1' := new() /\Ni' := new()
+	    /\ Fi' := xor(Ni',Hash(Pass1'))
+	    /\ SND({Id1'.Fi'}_Ea)
+	     /\secret(Fi',g_m,{U,S})
+	    /\secret(Id1',h_m,{U,S})
+
+2.State = 2/\RCV({Ck'.Exp_t'}_K) =|>
+   State' := 4   /\Id1' := new()
+	    /\Pass1' :=new()
+	    /\Ri':= new() /\Gi' := new()
+	    /\ P1' := exp(Ri',Gi') 
+	    /\Nk' := new() /\Ni':= new()
+	    /\Ti' :=xor(Nk',Hash(Pass1'))
+	    /\P2' := exp(Ri',Ck')
+	    /\SND({Id1'.Ni'.Hash(Pass1').P1'.P2'.Ti'}_Ea)
+	    /\secret(Id1'.Ni'.Hash(Pass1').P1'.P2'.Ti',e_m,{U,S})
+	    /\witness(U,S,seq1,Id1'.Ni'.Hash(Pass1').P1'.P2'.Ti')
+	    /\request(U,S,req1,Ck'.Exp_t')
+
+3.State =4  /\ RCV({Yi'.Hi'.P3'.Cp'}_K)=|>
+    State' :=6/\Ri':= new()
+            	 /\Otp':= new()
+	 /\Ui':= exp(exp(Otp',Ri'),P3')
+	 /\Bi' :=xor(Otp',Hi')
+	 /\P4d' :=exp(Otp',Cp')
+	 /\SND({Hash(Bi'.Otp'.P4d')}_Ea)
+	 /\secret(Hash(Bi'.Otp'.P4d'),p_m,{U,S})
+	 /\witness(U,S,seq2,Hash(Bi'.Otp'.P4d'))
+	 /\request(U,S,req2,Yi'.Hi'.P3'.Cp')
+end role
+
+
+
+role server(
+U,S : agent,
+K,Ea,X : symmetric_key,
+Hash :hash_func,
+SND,RCV : channel(dy))
+played_by S def=
+
+local
+
+State :nat,
+Id1,Fi,Di,Gi,Exp_t,Ck,Ns,P2d,Ci,Otp,Hi,Yi,Wi,P3,P4,Cp,Cv,Ni,P1,P2,Ti,Pass1,Bi,P4d,Nk : text
+const  f_n,z_k,p_p : protocol_id
+init
+State := 1
+
+transition
+1.State = 1 /\RCV({Id1'.Fi'}_Ea) =|>
+  State' := 3 /\ Di' :=xor(Fi',Hash(X.Id1'))
+	  /\Ns' := new() /\Gi' := new()
+	  /\Exp_t' := new()
+	  /\Ck' := exp(Hash(Fi'.Ns'.Exp_t'),Gi')
+                      /\SND({Ck'.Exp_t'}_K)
+	  /\secret(Ck',f_n,{U,S}) 
+	  /\secret(Exp_t',z_k,{U,S})
+	  /\witness(U,S,seq3,Ck'.Exp_t')
+	  /\request(U,S,req3,Id1'.Fi')
+	  
+
+2.State = 3 /\ RCV({Id1'.Ni'.Hash(Pass1').P1'.P2'.Ti'}_Ea) =|>
+  State' := 5/\Fi' := xor(Ni',Hash(Pass1'))
+	/\Di' :=xor(Fi',Hash(X.Id1'))
+	/\Ns' := new() /\Gi' := new()
+	/\Exp_t' := new() /\Nk' := new()
+	/\Ck' := exp(Hash(Fi'.Ns'.Exp_t'),Gi')
+	/\P2d' :=exp(P1',Ck')
+	/\Ci' := xor(Ni',Hash(Pass1'))
+	/\Otp' := new()  /\Gi' := new()
+	/\Hi' := xor(Ci',Otp')
+	/\Yi' :=xor(Ni',Nk')
+	/\Wi' := new()
+	/\P3' := exp(Wi',Gi')
+	/\P4' := exp(Wi',P1')
+	/\Cp' :=exp(Otp',P4')
+	/\SND({Yi'.Hi'.P3'.Cp'}_K)
+	/\secret(Yi'.Hi'.P3'.Cp',p_p,{U,S})
+	/\witness(U,S,seq4,Yi'.Hi'.P3'.Cp')
+	/\request(U,S,req4,Id1'.Ni'.Hash(Pass1').P1'.P2'.Ti')
+
+2.State = 5 /\ RCV({Hash(Bi'.Otp'.P4d')}_Ea) =|>
+  State' := 7/\Cv' := Hash(Bi'.Otp'.P4d')
+
+end role
+
+role session(
+U,S : agent,
+K,K4,K2,P : symmetric_key,
+Hash :hash_func)
+
+def=
+local SA,SB,RA,RB :channel(dy)
+
+composition
+user(U,S,K,P,Hash,SA,RA) /\ server(U,S,K,K4,K2,Hash,SB,RB)
+
+end role
+
+
+role environment()
+def=
+const
+bob_alice_nb,
+k1,e_m,g_m,h_m, f_n,y_k,z_k,m_k,p_p :protocol_id,
+seq1,seq2,seq3,seq4,req1,req2,req3,req4:protocol_id,
+kab,kai,kib,k11,k12,k13,k14,k15,k16,k17,k18,k19 : symmetric_key,
+u,s : agent,
+h : hash_func
+
+intruder_knowledge={u,s,h,kai,kib}
+
+composition
+session(u,s,kab,k11,k12,k13,h)
+/\session(u,i,kai,k14,k15,k16,h)
+/\session(i,s,kib,k17,k18,k19,h)
+
+
+end role
+
+goal
+
+secrecy_of  e_m,g_m,h_m, f_n,z_k,p_p
+
+authentication_on seq1
+authentication_on seq2
+authentication_on seq3
+authentication_on seq4
+
+authentication_on req1
+authentication_on req2
+authentication_on req3
+authentication_on req4
+
+end goal
+
+environment()
+
+
+
+
+         

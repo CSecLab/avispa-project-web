@@ -1,0 +1,139 @@
+role alice (Ui, GW, SNj  : agent,
+           %H is the ome-way hash function
+           H  : hash_func,
+	SKj : symmetric_key,		
+	   Snd, Rcv : channel(dy))
+played_by Ui
+def=
+local State  : nat,
+IDi,PWi,HPWi,Ri,R1,R2,R3, Regi, Ci, K, T1, Ai, Bi, CIDi, M1, M2, M8, IDSNj, TIDi, TIDii, M9, M10, M11, SK: text       
+const alice_bob, bob_alice, alice_bob, bob_sensor, sensor_bob, scrt0, scrt1, scrt2, scrt3, scrt4,scrt5 : protocol_id
+init  State := 0
+transition
+ 1. State = 0   /\ Rcv(start)=|>
+    State' := 1 /\ HPWi' :=  H(xor(IDi,PWi))
+		/\ secret({PWi}, scrt0, {Ui})
+		/\ secret({IDi}, scrt1, {Ui,GW})
+		/\ Snd({IDi. HPWi'}_SKj)
+2. State = 1 /\ Rcv(TIDi',Regi',Ai',Ci')=|> 
+State':=2 /\ R1' := new()
+	/\ T1' := new()             
+	/\ Ri' := xor(Ai,HPWi)
+	/\ Bi' := xor(Ci, H(xor(IDi,Ri',HPWi)))
+	/\ CIDi' := xor(IDi, H(TIDi.Ri'.T1'))                              % line 24
+	/\ M1' := H(IDi.Bi'.R1'.T1')
+	/\ M2' := xor(H(Ri'.T1'),R1')
+        /\ Snd(TIDi,IDSNj,CIDi',M1',M2',T1')
+	/\ secret({R1', Ri}, scrt3, {Ui,GW})
+	/\ witness(Ui, GW, alice_bob, R1')
+3. State = 2 /\ Rcv(M8', M9', M10', M11') =|> 
+State' := 3 /\ R2' := xor(M9, H(IDi.R1))
+	/\ R3' := xor(M8, H(R2'))
+	/\ TIDii' := xor(M11, H(xor(R2'.R3')))
+	/\ SK' := H(H(IDi.R1.R2').R2'.R3') 
+	/\secret({SK'}, scrt4, {Ui,GW,SNj})	 
+end role
+role bob ( Ui, GW, SNj   : agent,
+            %H is the ome-way hash function
+            H  : hash_func,
+           SKj : symmetric_key,
+            Snd, Rcv : channel(dy))
+played_by GW
+def= 
+local State  : nat,
+IDi,PWi,HPWi,Ri,R1,R2,R3, Regi, Ci, K, Di, T1, Ai, Bi, CIDi, M1, M2, IDSNj, TIDi, TIDii, M9, M10, M11, SK, SKGSN, M3, M4, M5, M7, M8: text
+const alice_bob, bob_alice, alice_bob, bob_sensor, sensor_bob, scrt0, scrt1, scrt2, scrt3, scrt4,scrt5 : protocol_id
+init  State := 0
+transition
+1. State   = 0 /\ Rcv({IDi. HPWi'}_SKj)=|>
+   State' := 1 /\ Ri' :=new() 
+	       /\ TIDi' := new()             
+                     /\ Regi' := H(IDi.Ri'.HPWi)  % line 53
+	/\ Ai' := xor(Ri', HPWi)
+	/\ Bi' := H(IDi.Ri'.K)
+	/\ Ci' := xor(Bi', H(xor(IDi,Ri',HPWi)))
+	/\ Di' := xor(Ri', H(TIDi'.K))
+        /\ Snd(TIDi',Regi',Ai',Ci')         
+2. State = 1 /\ Rcv(TIDi,IDSNj,CIDi',M1',M2',T1') =|> 
+State' := 2 /\ R2' := new()
+	/\Ri' := xor(Di, H(TIDi.K))	   
+	/\ R1' := xor(M2,H(Ri',T1))
+	/\ SKGSN' := H(IDSNj.K)
+	/\ M3' := H(H(H(IDi.R1'.R2').1).SKGSN'.R2')
+	/\ M4' := xor(H(IDi.R1'.R2'), SKGSN)
+	/\ M5' := xor(R2',H(SKGSN))
+      /\Snd(M3', M4', M5')
+	/\witness(GW, SNj, bob_sensor, R2')
+	/\ secret({SKGSN}, scrt5, {GW,SNj})
+        /\request(Ui, GW, alice_bob, R1)	  
+3. State = 2 /\ Rcv(M7', M8') =|>
+State' := 3 /\ R3' := xor(M8, H(R2))
+	/\ SK' := H(H(IDi.R1.R2).R2.R3')   %Line 77
+	/\ TIDii' := new()
+	/\ M9' := xor(R2, H(IDi.R1))
+	/\ M10' := H(IDi.SK'.R3')
+	/\ M11' := xor(TIDii', H(xor(R2,R3')))
+	/\ Snd(M8', M9', M10', M11')
+	/\ request(SNj, GW, sensor_bob, R3)
+end role
+role sensor ( Ui, GW, SNj   : agent,
+                        H  : hash_func,
+	    SKj : symmetric_key,
+            Snd, Rcv : channel(dy))
+played_by SNj
+def= 
+local State  : nat,
+IDi,R1,R2,R3, K, IDSNj, SK, SKGSN, M3, M4, M5, M6, M7, M8: text
+  %SKj: symmetric_key   
+const alice_bob, bob_alice, alice_bob, bob_sensor, sensor_bob, scrt0, scrt1, scrt2, scrt3, scrt4,scrt5 : protocol_id
+init  State := 0
+ transition
+1. State=0/\ Rcv(M3', M4', M5') =|>
+State':=1 /\ R3' := new()
+	/\ M6' := xor(M4,SKGSN)
+	/\ R2' := xor(M5, H(SKGSN))
+	/\ SK' := H(M6'.R2'.R3')
+	/\ M7' := H(SK'.R3'.SKGSN)
+	/\ M8' := xor(H(R2'),R3)
+	/\ witness(SNj, GW, sensor_bob, R3')
+             /\ request(GW, SNj, bob_sensor, R2)	     
+/\ Snd(M7', M8')
+end role
+role session(Ui, GW, SNj: agent,
+             H : hash_func,
+	    SKj : symmetric_key)		             
+def=
+  local  S1, S2, S3, P1, P2, P3: channel (dy)
+  composition
+     alice(Ui, GW, SNj, H, SKj, S1, P1)
+ /\  bob  (Ui, GW, SNj, H, SKj, S2, P2)
+ /\  sensor(Ui, GW, SNj, H, SKj, S3, P3) 
+end role 
+role environment()
+def=
+  const ui, gw, snj: agent,
+        h: hash_func,
+	skj: symmetric_key,
+        idi,pwi,hpwi,ai,bi,ci,k,ri,r1,r2,r3,m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,skgsn,idsnj,tidi,tidii,di,sk: text,
+        alice_bob, bob_alice, alice_bob, bob_sensor, sensor_bob, scrt0, scrt1, scrt2, scrt3, scrt5 : protocol_id
+	intruder_knowledge = {ui, gw, snj, h}
+  composition
+	   session(ui, gw, snj, h, skj) 
+	/\ session(ui, gw, snj, h, skj)
+	/\ session(ui, gw, snj, h, skj)
+end role
+goal
+  secrecy_of scrt0
+  secrecy_of scrt1
+  secrecy_of scrt2
+  secrecy_of scrt3
+  secrecy_of scrt4
+  secrecy_of sucrt5
+    
+  authentication_on alice_bob_R1 
+  authentication_on bob_sensor_R2   
+  authentication_on sensor_bob_R3 
+end goal
+environment()
+
+

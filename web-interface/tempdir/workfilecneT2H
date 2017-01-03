@@ -1,0 +1,194 @@
+role client(A, B : agent,  
+		H, PRF, KeyGen, SHA_1: hash_func,
+		SharedKey: symmetric_key,
+	        Ka, Ks: public_key, 
+	        SND, RCV: channel (dy))
+played_by A
+
+	def=
+	local
+		Na, Sid, Pa, Xt, PMS: text,
+		MethAuth : text.text.text,	%MétohdeAuthentification(HOTP|TOTP|Certificat)
+		UserId : text.text,	%IdentifiantUtilisateur (Tél|E-Mail)
+	        Nb: text,
+        	State, NewState: nat,
+		Challenge, Time: text, % le time c'est à initialisé current time + challengeTime
+		Hotp: hash(symmetric_key.text.hash(symmetric_key.text.text)),
+		Totp: hash(symmetric_key.text.hash(symmetric_key.text.text)),
+        	Finished: hash(hash(text.text.text).agent.agent.text.text.text),
+		%Finished' := H(PRF(PMS'.Na.Nb').A.B.Na.Pa.Sid)
+        	ClientK, ServerK: hash(agent.text.text.hash(text.text.text)),
+        	Kb: public_key,
+        	M: hash(text.text.text)
+
+	const
+		sec_clientk, sec_serverk : protocol_id,
+		hotp, totp, certificat, null, error_message, opad, ipad: text
+	init
+		State := 0
+	transition
+		1. State = 0 /\ RCV(start) =|>
+						State' := 2
+          					/\ Na' := new()
+           					/\ Pa' := new()
+	   					/\ Xt' := new()
+						/\ MethAuth' := new()
+						/\ UserId' := new()
+           					/\ Sid' := new()
+           					/\ SND(A.Na'.Sid'.Pa'.Xt'.MethAuth'.UserId')
+
+       % Since we abstract away from the negotiation
+       % of cryptographic algorithms, here I simply assume
+       % that the server must send back Pa.  (Essentially 
+       % modelling that the client makes only one offer.)
+
+		2.  State = 2 /\ RCV(Nb'.Sid.Pa.Xt'.MethAuth'.{B.Kb'}_inv(Ks)) /\ Xt = error_message =|> State' := 10 % Arrêt du Handshake
+
+
+       		3.  State = 2 /\ RCV(Nb'.Sid.Pa.Xt'.MethAuth'.{B.Kb'}_inv(Ks)) /\ MethAuth = hotp.null.null =|>
+						State' := 9
+						/\ NewState' := 4
+						/\ PMS' := new()
+						/\ M' := PRF(PMS'.Na.Nb')
+						/\ Hotp':= SHA_1(SharedKey.opad.SHA_1(SharedKey.ipad.Challenge))
+						/\ Finished' := H(PRF(PMS'.Na.Nb').A.B.Na.Pa.Sid.Xt)
+						/\ ClientK' := KeyGen(A.Na.Nb'.PRF(PMS'.Na.Nb'))
+						/\ ServerK' := KeyGen(B.Na.Nb'.PRF(PMS'.Na.Nb'))
+/\ SND(NewState.{PMS'}_Kb'.{A.Hotp}_Kb'.{H(Nb'.B.PMS')}_inv(Ka).{H(PRF(PMS'.Na.Nb').A.B.Na.Pa.Sid.Xt)}_KeyGen(A.Na.Nb'.PRF(PMS'.Na.Nb')) )
+						/\ witness(A,B,na_nb2,Na.Nb')
+						/\ request(B,A,hotp_id,Hotp) 
+						
+		
+		4.  State = 2 /\ RCV(Nb'.Sid.Pa.Xt'.MethAuth'.{B.Kb'}_inv(Ks)) /\ MethAuth = null.totp.null =|>
+						State' := 9						
+						/\ NewState' := 5
+						/\ PMS' := new()
+						/\ M' := PRF(PMS'.Na.Nb')
+						/\ Totp':= SHA_1(SharedKey.opad.SHA_1(SharedKey.ipad.Time))
+						/\ Finished' := H(PRF(PMS'.Na.Nb').A.B.Na.Pa.Sid.Xt)
+						/\ ClientK' := KeyGen(A.Na.Nb'.PRF(PMS'.Na.Nb'))
+						/\ ServerK' := KeyGen(B.Na.Nb'.PRF(PMS'.Na.Nb'))
+/\ SND( NewState.{PMS'}_Kb'.{A.Totp}_Kb'.{H(Nb'.B.PMS')}_inv(Ka).{H(PRF(PMS'.Na.Nb').A.B.Na.Pa.Sid.Xt)}_KeyGen(A.Na.Nb'.PRF(PMS'.Na.Nb')) )
+						/\ witness(A,B,na_nb2,Na.Nb')
+						/\ request(B,A,totp_id,Totp)
+
+		5.  State = 2 /\ RCV(Nb'.Sid.Pa.Xt'.MethAuth'.{B.Kb'}_(inv(Ks))) /\ MethAuth = null.null.certificat =|>
+						State' := 9
+						/\ NewState' := 6
+						/\ PMS' := new()
+						/\ M' := PRF(PMS'.Na.Nb')
+						/\ Finished' := H(PRF(PMS'.Na.Nb').A.B.Na.Pa.Sid.Xt)
+						/\ ClientK' := KeyGen(A.Na.Nb'.PRF(PMS'.Na.Nb'))
+						/\ ServerK' := KeyGen(B.Na.Nb'.PRF(PMS'.Na.Nb'))
+/\ SND( NewState.{PMS'}_Kb'.{A.Ka}_inv(Ks).{H(Nb'.B.PMS')}_inv(Ka).{H(PRF(PMS'.Na.Nb').A.B.Na.Pa.Sid.Xt)}_KeyGen(A.Na.Nb'.PRF(PMS'.Na.Nb')) )
+						/\ witness(A,B,na_nb2,Na.Nb')
+		
+		
+
+       7.  State = 3
+           /\ RCV({Finished}_ServerK)
+           =|>
+           State' := 5
+           /\ request(A,B,na_nb1,Na.Nb)
+           /\ secret(ClientK,sec_clientk,{A,B})
+           /\ secret(ServerK,sec_serverk,{A,B})
+
+    end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role server(A, B : agent,
+		H, PRF, KeyGen, SHA_1: hash_func,
+		SharedKey: symmetric_key,
+		Kb, Ks: public_key,
+		SND, RCV: channel (dy))
+	played_by B
+    	def=
+	local
+		Na, Nb, Sid, Pa, Xt, PMS: text,
+		MethAuth: text.text.text,
+		UserId: text.text,
+		State, NewState: nat,
+		Challenge, Time: text, % le time c'est à initialisé current time + challengeTime
+		Hotp: hash(symmetric_key.text.hash(symmetric_key.text.text)),
+		Totp: hash(symmetric_key.text.hash(symmetric_key.text.text)),
+        	Ka: public_key
+	const	
+		hotp, totp, certificat, null, error_message, opad, ipad: text
+	init
+		 State := 1
+	transition
+		1. State = 1 /\ RCV(A.Na'.Sid'.Pa'.Xt'.MethAuth',UserId') =|>
+						State' := 3
+           					/\ Nb' := new()
+           					/\ SND(Nb'.Sid'.Pa'.Xt'.MethAuth'.{B.Kb}_inv(Ks))	
+					%	/\ witness(B,A,na_nb1,Na'.Nb')
+					%	/\ envoyer un mail|message
+/\  Totp':= SHA_1(SharedKey.opad.SHA_1(SharedKey.ipad.Time)) \/  Hotp':= SHA_1(SharedKey.opad.SHA_1(SharedKey.ipad.Challenge)) 
+			
+		
+2. State = 3 /\ RCV( NewState.{PMS'}_Kb.{A.Hotp}_Kb.{H(Nb.B.PMS')}_inv(Ka').{H(PRF(PMS'.Na.Nb).A.B.Na.Pa.Sid.Xt)}_KeyGen(A.Na.Nb.PRF(PMS'.Na.Nb)) /\ NewState = 4 ) /\ Hotp /= Hotp' =|> 
+           		%State' := 5
+			
+           		/\ SND({H(PRF(PMS'.Na.Nb).A.B.Na.Pa.Sid)}_KeyGen(B.Na.Nb.PRF(PMS'.Na.Nb)))
+			/\ request(B,A,na_nb2,Na.Nb)
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(A,B: agent,
+		Ka, Kb, Ks: public_key,
+		H, PRF, KeyGen, SHA_1: hash_func,
+		SharedKey: symmetric_key)
+	def=
+	local  SA, SB, RA, RB: channel (dy)
+	composition
+		client(A,B, H, PRF, KeyGen, SHA_1, SharedKey, Ka, Ks, SA, RA)
+		/\ server(A, B, H, PRF, KeyGen, SHA_1, SharedKey, Kb, Ks, SB, RB)
+ 
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+	def=
+	const na_nb1, na_nb2, htop_id, totp_id : protocol_id,
+		h, prf, keygen,sha_1 : hash_func,
+		sharedKey: symmetric_key,
+             a, b           : agent,
+             ka, kb, ki, ks : public_key
+
+       intruder_knowledge = { a, b, ka, kb, ks, ki, inv(ki),
+                              {i.ki}_(inv(ks)) }  
+
+       composition
+            session(a,b,ka,kb,ks,h,prf,keygen,sha_1,sharedKey)
+        /\  session(a,i,ka,ki,ks,h,prf,keygen,sha_1,sharedKey)
+        /\  session(i,b,ki,kb,ks,h,prf,keygen,sha_1,sharedKey)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+	secrecy_of sec_clientk,sec_serverk  % Addresses G7
+	%Alice authenticates Bob on na_nb1
+	authentication_on na_nb1  % Addresses G1, G2, G3, G7, G10
+	%Bob authenticates Alice on na_nb2
+	authentication_on na_nb2  % Addresses G1, G2, G3, G7, G10
+	%Alice demande son authentification par Bob en utilisant le hotp 	
+	authentication_on hotp_id
+	%Alice demande son authentification par Bob en utilisant le totp 	
+	authentication_on totp_id	
+	
+
+    end goal
+
+
+
+
+    environment()
+
+

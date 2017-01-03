@@ -1,0 +1,120 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role reader (R, T: agent,
+            Hello, K1, K2, K3, K4, IDen: text,          
+            SND, RCV: channel (dy)) 
+played_by R def=
+
+local
+    IDS : text,
+    A, B, C, D, E : message, 
+    N1, N2 : message,
+    State : nat
+    
+init State := 0 
+
+  transition  
+   
+    0.  State  = 0 /\ RCV(start) =|> 
+    State':= 2 /\ SND(Hello)
+    
+    2. State = 2 /\ RCV(IDS') =|> 
+    State':= 4 /\ N1' := new() /\ N2' := new()
+               /\ A' := xor(xor(IDS', K1), N1')
+               /\ B' := xor(xor(IDS', K2), N1')
+               /\ C' := xor(xor(IDS', K3), N2')
+               /\  SND( (A').(B').(C'))    
+             % /\ witness(R, T, authk1, K1)
+          
+    4. State = 4 /\ RCV(xor(xor(IDS, K4), N2).xor(xor(IDS, IDen), N1)) =|>
+       State':= 6 % /\ secret(IDen, idtag, {R, T})
+                  /\ request(R, T, authid, IDen)
+                   
+                           
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role tag(R, T: agent,
+            Hello, K1, K2, K3, K4, IDen, IDS: text,         
+            SND, RCV: channel (dy)) 
+played_by T def=
+
+local
+    A, B, C, D, E : message,
+    N1, N2: message,
+    State : nat
+    
+init State := 1  
+
+ transition  
+   
+    1.  State  = 1 /\ RCV(Hello) =|> 
+    State':= 3 /\ SND(IDS)  
+    
+     3. State = 3 /\ RCV(xor(xor(IDS, K1), N1').xor(xor(IDS, K2), N1').xor(xor(IDS, K3), N2'))  =|> 
+    State':= 5 /\  D' := xor(xor(IDS, K4),xor(xor(xor(xor(IDS, K3), N2'),IDS),K3) )
+			   /\ E' := xor(xor(IDS, IDen), xor(xor(xor(xor(IDS, K1), N1'),IDS),K1))
+			  /\ SND ((D').(E'))
+              %  /\ secret(IDen, idtag, {R, T}) 
+              % /\ request(T, R, authk1, K1)
+                /\ witness(T, R, authid, IDen)
+   
+    
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(R, T : agent,
+         Helo, Key1, Key2, Key3, Key4, Iden, Ids: text) def=
+
+   local Rsnd, Rrcv, Tsnd, Trcv : channel(dy)
+
+   composition
+
+      reader (R, T, Helo, Key1, Key2, Key3, Key4, Iden, Rsnd, Rrcv)  
+   /\ tag (R, T, Helo, Key1, Key2, Key3, Key4, Iden, Ids, Tsnd, Trcv)
+  
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+ const idtag, authid, authk1 : protocol_id,
+       r, t, i : agent,
+       hello, k1, k2, k3, k4, ident, ids : text
+       
+ intruder_knowledge={r, t, hello}
+
+
+ composition
+
+       session(r, t, hello, k1, k2, k3, k4, ident, ids)
+   %   /\ session(r, t, hello, k1, k2, k3, k4, ident, ids)
+    %  /\ session(r, i, hello, k1, k2, k3, k4, ident, ids)
+      /\ session(i, t, hello, k1, k2, k3, k4, ident, ids)
+ 
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of idtag
+
+  % Reader authenticates Tag on IDen
+  authentication_on authid
+
+  %Tag authenticates Reader on K1
+  authentication_on authk1 
+  
+  
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

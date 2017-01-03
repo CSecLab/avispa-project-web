@@ -1,0 +1,224 @@
+
+
+%% 2-7-Kerberos
+
+%% A-B Notation:
+
+%%  1. A --> KAS : A, TGS, Na1                              |   Authentication part
+%%  2. KAS --> A : A, {AuthK,A}_Ktgs, {AuthK,Na1,TGS}_Ka    |
+
+%%  3. A --> TGS : {AuthK,A}_Ktgs, {A}_AuthK, A, B, Na2     |   Authorisation part
+%%  4. TGS --> A : A, {ServK,A}_Kb, {ServK,Na2,B}_AuthK     |   
+ 
+%%  5. A --> B : {ServK,A}_Kb, {A,Na3}_ServK                |   Service Part 
+%%  6. B --> A : {Na3-1}_ServK                              |   
+
+
+%%% New formalization according to Clark/Jacob 
+%%% (correcting the mistake in their presentation):
+%
+% C: Client
+% A: Authentication Server
+% G: Ticket Granting Server
+% S: Server (that the client wants to talk to)
+%
+% K_AB: key shared or intended to be shared between A and B
+%       Initially shared: K_CA, K_AG, K_GS
+%       Established during protocol: K_CG, K_CS
+%
+% All things marked * are timestamp-related and will be simply replaced
+% with fresh text. 
+% 
+% Macros:
+% Ticket_1 := { C,G, K_CG, Tstart*, Texpire* }K_AG
+% Ticket_2 := { C,S, K_CS, Tstart2*, Texpire2* }K_GS
+%
+% 1. C -> A : C,G,Lifetime_1*,N_1
+% 2. A -> C : C, Ticket_1, { G, K_CG, Tstart*, Texpire*, N_1 }K_CA
+%
+% 3. C -> G : S,Lifetime_2*,N_2,Ticket_1, { C,T* }K_CG
+% 4. G -> C : C, Ticket_2, { S, K_CS, Tstart2*, Texpire2*, N_2 }K_CG
+%
+% 5. C -> S : Ticket_2, { C, T2* }K_CS
+% 6. S -> C : { T2* }K_CS
+
+
+%% --------------------------Nhlpsl-spec ---------------------
+role Kerberos_C (C,A,G,S: agent,
+                    Snd,Rcv: channel(dy),
+                    K_CA: symmetric_key) played_by C def=
+
+  exists St: nat,
+         K_CG, K_CS: symmetric_key,
+	 N1,N2,Lifetime_1,Lifetime_2,T,T2: text(fresh),
+	 Tstart, Texpire, Tstart2, Texpire2 : text,
+         Ticket_1,Ticket_2: message
+
+  owns Snd
+  init St= 0
+
+  knowledge(A) = { C,A,G,S,K_CA }
+
+  transition
+
+
+   1. St=0 /\ Rcv(start) =|> 
+	Snd(C.G.Lifetime_1'.N1') 
+    /\ 	St'=1
+
+   2. St=1 /\ Rcv(C.Ticket_1'.{G.K_CG'.Tstart'.Texpire'.N1}K_CA) =|> 
+		Snd(S.Lifetime_2'.N2'.Ticket_1'.{C.T'}K_CG') 
+		/\ St'=2
+		/\ wrequest(C,A,kcg,K_CG')
+
+   3. St=2 /\ Rcv(S.Ticket_2'.{S.K_CS'.Tstart2'.Texpire2'.N2}K_CG)  =|>
+		Snd(Ticket_2'.{C.T2'}K_CS') 
+		/\ St'=3
+                /\ wrequest(C,G,kcs,K_CS')
+		/\ witness(C,S,t2,T2')
+
+   4. St=3 /\ Rcv({T2}K_CS) =|> St'=4 /\ wrequest(C,S,t2,T2)
+
+   
+
+end role
+
+%%  (*------------------------------------------------------*)
+role Kerberos_A (A,C,S,G: agent,
+                  Snd,Rcv: channel(dy),
+                  K_CA,K_AG: symmetric_key) played_by A def=
+
+  exists St: nat,
+         K_CG: symmetric_key (fresh),
+         N1: text,
+	 Lifetime_1: text,
+	 Tstart,Texpire : text(fresh)
+
+
+  owns Snd
+  init St = 0
+
+  knowledge(A)={A,C,S,G,K_CA,K_AG}
+
+
+  transition
+
+   1. St=0 /\ Rcv(C.G.Lifetime_1'.N1') =|> 
+	Snd(C.{C.G.K_CG'.Tstart'.Texpire'}K_AG.
+	      {G.K_CG'.Tstart'.Texpire'.N1'}K_CA) 
+        /\ St'=1 
+	/\ witness(A,C,kcg,K_CG') 
+	/\ secret(K_CG',C)
+        /\ secret(K_CG',S)
+
+end role
+
+%% (*------------------------------------------------------*)
+
+role Kerberos_G (G,A,S,C: agent,
+                  Snd, Rcv: channel(dy),
+                  K_AG,K_GS: symmetric_key) played_by G def=
+
+  exists St: nat,
+	 K_CG: symmetric_key,
+	 K_CS: symmetric_key(fresh),
+         Lifetime_2,Tstart,Texpire,T: text,
+	 Tstart2,Texpire2: text(fresh),
+         N2: text
+
+  owns Snd
+  init St = 0
+
+  knowledge(G)={A,C,G,S,K_AG,K_GS}
+
+  transition
+
+   1. St=0 /\ Rcv(S.Lifetime_2'.N2'.{C.G.K_CG'.Tstart'.Texpire'}K_AG.
+				    {C.T'}K_CG')
+            =|> Snd(S.{C.S.K_CS'.Tstart'.Texpire'}K_GS.
+                      {S.K_CS'.Tstart2'.Texpire2'.N2'}K_CG') 
+                /\ St'=1
+                /\ witness(G,C,kcs,K_CS') 
+		/\ secret(K_CS',C)
+		/\ secret(K_CS',S)
+
+end role
+
+%%(*------------------------------------------------------*)
+
+role Kerberos_S (S,G,C: agent,
+                 Snd,Rcv: channel(dy),
+                 K_GS: symmetric_key) played_by S def=
+
+  exists St: nat,
+         Tstart2,Texpire2,T2: text,
+	 K_CS : symmetric_key
+
+  owns Snd  
+
+  init St = 0
+
+  knowledge(S)={S,G,C,K_GS}
+
+  transition
+
+   1. St=0 /\ Rcv({C.S.K_CS'.Tstart2'.Texpire2'}K_GS.{C.T2'}K_CS')
+                       =|> Snd({T2'}K_CS')
+                        /\ St'=1
+	/\ witness(S,C,t2,T2')
+        /\ wrequest(S,C,t2,T2')
+
+end role
+
+%%  (*------------------------------------------------------*)
+
+role Session(C,A,G,S: agent,
+	     K_CA,K_AG,K_GS: symmetric_key,
+	     S_C, R_C, S_A, R_A, S_G, R_G, S_S, R_S: channel (dy)) def=
+
+   composition
+
+           Kerberos_C(C,A,G,S,S_C,R_C,K_CA)  /\
+
+           Kerberos_A(A,C,S,G,S_A,R_A,K_CA,K_AG) /\
+
+           Kerberos_G(G,A,S,C,S_G,R_G,K_AG,K_GS) /\
+
+           Kerberos_S(S,G,C,S_S,R_S,K_GS)
+
+end role
+
+
+%%  (*------------------------------------------------------*)
+
+
+role Environment() def=
+
+  knowledge(i) = { c,a,g,s }
+
+  composition
+	Session(c,a,g,s,kca,kag,kgs,s1,r1,s2,r2,s3,r3,s4,r4)
+%    /\	Session(c,a,g,s,kca,kag,kgs,s1,r1,s2,r2,s3,r3,s4,r4)
+    /\	Session(i,a,g,s,kia,kag,kgs,s1,r1,s2,r2,s3,r3,s4,r4)
+%    /\  Session(c,a,g,i,kca,kag,kgi,s1,r1,s2,r2,s3,r3,s4,r4)
+
+end role
+
+goal
+
+  secrecy_of K_CG, K_CS 
+
+  Kerberos_C weakly authenticates Kerberos_A on K_CG
+  Kerberos_C weakly authenticates Kerberos_G on K_CS
+
+  Kerberos_C weakly authenticates Kerberos_S on T2
+  Kerberos_S weakly authenticates Kerberos_C on T2
+
+  
+end goal
+
+Environment()
+
+  
+
+  

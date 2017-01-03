@@ -1,0 +1,116 @@
+%% IF specification of C:/Users/taher sima/Desktop/hh.hlpsl
+
+section signature:
+
+state_role_T: agent * agent * symmetric_key * text * nat * text * text * text * text * text * text * hash_func * nat -> fact
+state_role_R: agent * agent * symmetric_key * text * nat * text * text * text * text * text * text * hash_func * nat -> fact
+
+
+section types:
+
+start, MGoal: message
+State, 4, SID, 2, 3, 1, Dummy_State, 0, SID2, SID1: nat
+auth_2, auth_1: protocol_id
+K, key: symmetric_key
+ID, Nt, RID, Si, IDS, Hello, Nr, Dummy_Nr, Dummy_ID, Dummy_Nt, Dummy_RID, Dummy_Si, Dummy_IDS, Dummy_Hello, dummy_nonce, const_1: text
+H, dummy_hash, hash_0: hash_func
+R, T, A2Goal, A1Goal, tag, reader, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(i).
+ state_role_R(reader,tag,key,const_1,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_hash,3).
+ state_role_T(tag,reader,key,const_1,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_hash,4)
+
+
+section rules:
+
+step step_0 (R,T,K,Nr,Dummy_Hello,IDS,Si,RID,Nt,ID,H,SID,Hello) :=
+ state_role_R(R,T,K,Nr,0,Dummy_Hello,IDS,Si,RID,Nt,ID,H,SID).
+ iknows(start)
+=[exists Hello]=>
+ state_role_R(R,T,K,Nr,1,Hello,IDS,Si,RID,Nt,ID,H,SID).
+ iknows(Hello)
+
+step step_1 (R,T,K,Nr,Hello,Dummy_IDS,Dummy_Si,Dummy_RID,Nt,ID,H,SID,IDS,Si,RID) :=
+ state_role_R(R,T,K,Nr,1,Hello,Dummy_IDS,Dummy_Si,Dummy_RID,Nt,ID,H,SID).
+ iknows(IDS)
+=[exists Si,RID]=>
+ state_role_R(R,T,K,Nr,2,Hello,IDS,Si,RID,Nt,ID,H,SID).
+ iknows(pair(xor(apply(H,Si),RID),pair(xor(apply(H,xor(RID,K)),Nr),apply(H,xor(Nr,RID)))))
+
+step step_2 (R,T,K,Nr,Hello,IDS,Si,RID,Dummy_Nt,Dummy_ID,H,SID,Nt,ID) :=
+ state_role_R(R,T,K,Nr,2,Hello,IDS,Si,RID,Dummy_Nt,Dummy_ID,H,SID).
+ iknows(pair(xor(apply(H,xor(ID,Nr)),K),pair(xor(Nt,K),xor(Nt,apply(H,xor(Si,K))))))
+ =>
+ state_role_R(R,T,K,Nr,3,Hello,IDS,Si,RID,Nt,ID,H,SID).
+ iknows(apply(H,xor(xor(xor(ID,Nt),Nr),RID)))
+
+step step_3 (T,R,K,Nt,Dummy_Hello,Dummy_IDS,Si,RID,ID,Nr,H,SID,Hello,IDS) :=
+ state_role_T(T,R,K,Nt,0,Dummy_Hello,Dummy_IDS,Si,RID,ID,Nr,H,SID).
+ iknows(Hello)
+=[exists IDS]=>
+ state_role_T(T,R,K,Nt,1,Hello,IDS,Si,RID,ID,Nr,H,SID).
+ iknows(IDS)
+
+step step_4 (T,R,K,Nt,Hello,IDS,Dummy_Si,Dummy_RID,Dummy_ID,Dummy_Nr,H,SID,Si,RID,ID,Nr) :=
+ state_role_T(T,R,K,Nt,1,Hello,IDS,Dummy_Si,Dummy_RID,Dummy_ID,Dummy_Nr,H,SID).
+ iknows(pair(xor(apply(H,Si),RID),pair(xor(apply(H,xor(RID,K)),Nr),apply(H,xor(Nr,RID)))))
+=[exists ID]=>
+ state_role_T(T,R,K,Nt,2,Hello,IDS,Si,RID,ID,Nr,H,SID).
+ witness(T,R,auth_2,Nr).
+ iknows(pair(xor(apply(H,xor(ID,Nr)),K),pair(xor(Nt,K),xor(Nt,apply(H,xor(Si,K))))))
+
+step step_5 (T,R,K,Nt,Hello,IDS,Si,RID,ID,Nr,H,SID) :=
+ state_role_T(T,R,K,Nt,2,Hello,IDS,Si,RID,ID,Nr,H,SID).
+ iknows(apply(H,xor(xor(xor(ID,Nt),Nr),RID)))
+ =>
+ state_role_T(T,R,K,Nt,3,Hello,IDS,Si,RID,ID,Nr,H,SID)
+
+
+section properties:
+
+property authentication_on_auth_1 (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,auth_1,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,auth_1,MGoal))
+     /\ ((request(A1Goal,A2Goal,auth_1,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,auth_1,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_auth_2 (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,auth_2,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,auth_2,MGoal))
+     /\ ((request(A1Goal,A2Goal,auth_2,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,auth_2,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state authentication_on_auth_1 (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,auth_1,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,auth_1,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_auth_1 (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,auth_1,MGoal,SID1).
+ request(A1Goal,A2Goal,auth_1,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_auth_2 (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,auth_2,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,auth_2,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_auth_2 (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,auth_2,MGoal,SID1).
+ request(A1Goal,A2Goal,auth_2,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

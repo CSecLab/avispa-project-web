@@ -1,0 +1,106 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%HLPSL:
+role alice (A, B, C: agent,             
+            Ka, Kb, Kc: public_key,      
+            SND, RCV: channel (dy)) 
+played_by A def=
+
+  local State : nat, 
+        Na: text
+
+  init State := 0
+
+  transition  
+   
+    0.  State  = 0 /\ RCV(start) =|> 
+	State':= 3 /\ Na' := new() /\ SND({B.Na'}_inv(Ka))
+		   /\ secret(Na',na,{A,B,C}) 
+		   /\ witness(A,C,charles_alice_na,Na')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob(A, B, C: agent,      
+         Ka, Kb, Kc: public_key,      
+         SND, RCV: channel (dy)) 
+played_by B def=
+
+  local State : nat, 
+	Na: text
+
+  init State := 2
+
+  transition 
+
+    1.  State  = 2 /\ RCV(({B.Na'}_inv(Ka))_inv(Kc)) =|> 
+	State':= 5
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role charles(A, B, C: agent,      
+         Ka, Kb, Kc: public_key,      
+         SND, RCV: channel (dy)) 
+played_by B def=
+
+  local State : nat, 
+	Na: text
+
+  init State := 1
+
+  transition 
+
+    1.  State  = 1 /\ RCV({B.Na'}_inv(Ka)) =|> 
+	State':= 4 /\ SND(({B.Na'}_inv(Ka))_inv(Kc))
+		   /\ secret(Na',na,{A,B,C}) 
+		   /\ witness(A,B,bob_charles_na,Na')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(A, B, C: agent, Ka, Kb, Kc: public_key) def=
+
+  local SA, RA, SB, RB: channel (dy)
+
+  composition 
+
+	alice  (A,B,C,Ka,Kb,Kc,SA,RA)
+     /\ bob    (A,B,C,Ka,Kb,Kc,SB,RB)
+     /\ charles(A,B,C,Ka,Kb,Kc,SB,RB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+    const a, b, c       : agent,
+	  ka, kb, kc, ki: public_key,
+	  na,
+	  bob_alice_na, bob_charles_na : charles_alice_na
+
+    intruder_knowledge = {a, b, c, ka, kb, kc, ki, inv(ki)}
+
+    composition
+
+	session(a,b,c,ka,kb,kc)
+     /\ session(i,b,c,ki,kb,kc)
+     /\ session(a,i,c,ka,ki,kc)
+     /\ session(a,b,i,ka,kb,ki)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  authentication_on bob_alice_na
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

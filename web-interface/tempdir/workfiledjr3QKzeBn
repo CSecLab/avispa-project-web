@@ -1,0 +1,77 @@
+role tag (T,R: agent, ID,Rand: text,
+Fg,Right: hash_func,
+PKG: public_key,
+Snd,Rec: channel(dy))
+played_by T
+def=
+local State: nat,
+Nr, E, Randp: text
+init State:= 0
+transition
+1. State = 0 / Rec(Nr') =|> State':= 1
+/ E':= new()
+/ Snd({{ID.Rand}_PKG}_E'.Fg(ID.Nr'.E'))
+/ witness(T,R,tag_auth,E')
+/ secret({ID},sec_id, {T,R})
+/ secret({Rand},sec_rand, {T,R})
+2. State = 1 /
+Rec(xor(Randp',Right(E)).Fg(ID.Nr.Randp'))
+=|> State' := 2
+/ request(T,R,reader_auth,Nr)
+/ Rand':=Randp'
+end role
+role reader ( R,T: agent,
+ID,Rnew,Rold: text,
+Fg,Right : hash_func,
+PKG: public_key,
+Snd,Rec: channel(dy))
+played_by R
+def=
+local State: nat,
+Nr, E, Randp: text
+init State:= 0
+transition
+1. State = 0 / Rec(start) =|>
+State':= 1 / Nr':= new() / Snd(Nr')
+/ witness(R,T,reader_auth,Nr')
+2. State = 1 /
+Rec({{ID.Rnew}_PKG}_E'.Fg(ID.Nr.E'))
+=|> State': = 2 / Randp':= new()
+/ request(R,T,tag_auth,E') / Snd(xor(Randp',Right(E')).Fg(ID.Nr.Randp'))
+/ Rold':=Rnew / Rnew':=Randp'
+/ secret({Randp'},sec_randp, {R,T})
+2. State = 1 /
+Rec({{ID.Rold}_PKG}_E'.Fg(ID.Nr.E'))
+=|> State': = 2 / Randp':= Rnew
+/ request(R,T,tag_auth,E') /
+Snd(xor(Randp',Right(E')).Fg(ID.Nr.Randp'))
+/ secret({Randp'},sec_randp, {R,T})
+end role
+role session(R,T: agent, ID,Rand: text,
+Fg,Right: hash_func,
+PKG: public_key)
+def=
+local Se,Re,Sf,Rf: channel(dy)
+const reader_auth, tag_auth, sec_id,
+sec_rand,sec_randp: protocol_id
+composition
+tag(T,R,ID,Rand,Fg,Right,PKG, Se,Re)
+/ reader(R,T,ID,Rand,Rand,Fg,Right,PKG,Sf,Rf)
+end role
+role environment() def=
+const t,r,i: agent, id,rand: text,
+g,right: hash_func,
+pkG: public_key
+intruder_knowledge = {t,r,i,g,right,pkG}
+composition
+session(r,t,id,rand,g,right,pkG)
+/ session(r,t,id,rand,g,right,pkG)
+end role
+goal
+secrecy_of sec_id
+secrecy_of sec_rand
+secrecy_of sec_randp
+authentication_on reader_auth
+authentication_on tag_auth
+end goal
+environment()    

@@ -1,0 +1,153 @@
+role alice (A, S, B: agent, 
+			Ka: symmetric_key, 
+			SND_SA, RCV_SA, SND_BA, RCV_BA: channel(dy))
+played_by A
+def= 
+	
+	local State  : nat,
+		  Na,Ns  : text,
+		  K      : symmetric_key, 
+		  X      : {symmetric_key.text.text}_symmetric_key
+	
+	const alice_na, alice_nb:protocol_id
+	
+	init State := 0
+	
+	transition
+	
+	1. State   = 0 /\ RCV_BA(start)	=|>
+	   State' := 2 /\ Na' := new()
+	   			   /\ SND_SA(A.B.{Na'}_Ka)
+	   			   /\ witness(A,S, alice_na,Na')
+	   			 
+	4. State   = 4  /\ RCV_SA(A.B.{K'.Na.Ns'}_Ka.X') =|>
+	   State' := 6 /\ SND_BA(A.B.X'.{Na.Ns'}_K')
+	   	   			/\ witness(A,B, alice_nb,Na.Ns')
+
+	8. State   = 8 /\ RCV_BA(A.B.{Ns.Nb}_K) =|>
+	   State' := 10 /\ request(A,B,alice_bob_nb,Nb) %% agent A accepts the value Nb and now relies on the guarantee that agent B exists and agrees with her on 							this value
+	
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role server (A, S, B : agent, 
+			 Ka, Kb  : symmetric_key, 
+			 SND_AS, RCV_AS, RCV_BS: channel(dy))
+			 
+played_by S
+def= 
+
+		local State  : nat,
+			  Ns, Na : text, 
+			  K      : symmetric_key
+			  
+		init State   := 1
+		
+		transition
+		
+		1. State   = 1 /\ RCV_AS(A.B.{Na'}_Ka) =|>
+		   State' := 3 /\ Ns' := new() 
+					  /\ K' := new()
+
+		2. State  = 3 /\ RCV_BS(A.B.{Nb'}_Kb) =|>
+			State':= 5 /\ SND_AS(A.B.{K'.Na'.Ns'}_Ka.{K'.Nb'.Ns'}_Kb)
+		   			  /\ secret(K', k, {A, B, S})
+	
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role bob (A, S, B : agent, 
+		  Kb	  : symmetric_key,
+		  SND_AB, RCV_AB, SND_SB : channel(dy))
+		  
+played_by B
+def= 
+
+		local State  : nat,
+			  Ns, Nb : text, 
+			  K		 : symmetric_key
+			  
+		const alice_nb:protocol_id
+
+
+		init State := 2
+		
+		transition
+
+
+
+
+
+
+
+
+
+		2. State = 2   /\ Nb' := new()
+				   	   /\ SND_SB(A.B.{Nb'}_Kb)
+	   			       /\ witness(B,S, alice_nb, Nb')
+		
+		6. State   = 6 	/\ RCV_AB(A.B.{K'.Nb’.Ns'}_Kb.{Na'.Ns'}_K') =|>
+		   State' := 8  /\ SND_AB(A.B.{Ns'.Nb’}_K')
+		   				/\ witness(B,A,alice_bob_nb,Nb')
+		   				
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role session (A, S, B : agent, 
+			  Ka, Kb  : symmetric_key)
+			  
+def= 
+
+	local
+		SSA, RSA,
+		SBA, RBA,
+		SAS, RAS,
+		SAB, RAB,
+		RBS, SBS : channel(dy)
+
+	composition
+	
+		alice (A, S, B, Ka, SSA, RSA, SBA, RBA) 
+	 /\ server (A, S, B, Ka, Kb, SAS, RAS, RBS)
+	 /\ bob (A, S, B, Kb, SAB, RAB, SSB)
+	
+end role	
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role environment()
+def= 
+
+	const a, b, s	 : agent, 
+		  ka, kb, ki : symmetric_key, 
+		  alice_bob_na, k : protocol_id
+		  
+	intruder_knowledge = {a, b, s, ki}
+	
+	composition
+		
+		session (a, s, b, ka, kb)
+	 /\ session (a, s, b, ka, ki)
+	 /\ session (a, s, b, ki, kb)
+		
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+goal
+
+	authentication_on alice_bob_na
+	secrecy_of k
+	
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+environment()
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+		

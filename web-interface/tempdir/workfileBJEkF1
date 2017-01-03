@@ -1,0 +1,132 @@
+%% ISO/IEC 9798 mutual auth with PKI
+%%
+%% Described in RFC 3163
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% S: server  (KS: public_key)
+% C: client  (KC: public_key)
+% RA,RB: random numbers (nonces)
+
+% 1. S -> C : S.RB
+% 2. C -> S : TokenAB
+%    where TokenAB = C.RA.ClientCert.{RA.RB}_inv(KC)
+%          ClientCert = {C.KC}_inv(PkCert)
+% 3. S -> C : TokenBA
+%    where TokenBA = S.RC.ServerCert.{RA.RB.RC}_inv(KS)
+%          ServerCert = {S.KS}_inv(PkCert)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role iso9798_server (S,C: agent,             % server, client identifiers
+		     ServerCert: message,    % server's key cert
+		     PkCert: public_key,     % public key of the certificate service
+		     KC,KS: public_key,
+                     Snd,Rcv: channel(dy))
+     played_by S def=
+
+local State: nat,
+      RA,RB,RC: text
+
+const server_client_rab,client_server_rabc: protocol_id
+
+init State:=0
+
+transition
+
+  1. State=0
+     /\ Rcv(start)
+     =|>
+     State':=1
+     /\ RB':=new()
+     /\ Snd(S.RB')
+	    
+  2. State=1
+     /\ Rcv(C.RA'.{C.KC}_inv(PkCert).{RA'.RB}_inv(KC))
+     =|>
+     State':=2
+     /\ RC':=new()
+     /\ Snd(S.RC'.ServerCert.{RA'.RB.RC'}_inv(KS))
+     /\ wrequest(S,C,server_client_rab,RA'.RB)
+     /\ witness(S,C,client_server_rabc,RA'.RB.RC')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role iso9798_client (C,S: agent,
+	             ClientCert: message,   % client's public key cert
+		     PkCert: public_key,    % pub key of the certificate service
+	             KC,KS: public_key,
+                     Snd,Rcv: channel(dy))
+     played_by C def=
+
+local State: nat,
+      RA,RB,RC: text
+
+init State:=0
+
+transition
+
+  1. State=0
+     /\ Rcv(S.RB')
+     =|>
+     State':=1
+     /\ RA':=new()
+     /\ Snd(C.RA'.ClientCert.{RA'.RB'}_inv(KC))
+     /\ witness(C,S,server_client_rab,RA'.RB')
+
+  2. State=1
+     /\ Rcv(S.RC'.{S.KS}_inv(PkCert).{RA.RB.RC'}_inv(KS))
+     =|>
+     State':=2
+     /\ wrequest(C,S,client_server_rabc,RA.RB.RC')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session (C,S: agent,
+              PkCert,KC,KS: public_key,
+              Snd,Rcv: channel(dy))
+     def=              
+
+composition
+
+  iso9798_server(S,C,{S.KS}_inv(PkCert),PkCert,KC,KS,Snd,Rcv)
+  /\ iso9798_client(C,S,{C.KC}_inv(PkCert),PkCert,KC,KS,Snd,Rcv)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+local Snd,Rcv: channel(dy)
+
+const c,s: agent,
+      pkcert: public_key,
+      kc,ks,ki: public_key
+      
+intruder_knowledge={c,s,pkcert,kc,ks,ki,inv(ki)}
+
+composition 
+  % Normal session:
+  session(c,s,pkcert,kc,ks,Snd,Rcv)
+
+  % Session where the Intruder impersonates a server:
+  /\ session(c,i,pkcert,kc,ki,Snd,Rcv)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+   % The server authenticates the client on RA.RB:
+   weak_authentication_on server_client_rab
+
+   % The client authenticates the server on RA.RB.RC:
+   weak_authentication_on client_server_rabc
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

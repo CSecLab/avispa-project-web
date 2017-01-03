@@ -1,0 +1,90 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfile4YkvjC
+
+section signature:
+
+state_serviceprovider: agent * agent * hash_func * nat * symmetric_key * text * nat * nat * text * text * text * nat -> fact
+state_sensor: agent * agent * hash_func * nat * symmetric_key * text * text * nat * nat * text * text * nat -> fact
+
+
+section types:
+
+pw: protocol_id
+6, 4, Rp, Rs, State, 3, 2, 1, 0, SID, Dummy_Rs, Dummy_Rp, Dummy_State, dummy_nat: nat
+Passwd, Msg, Username, Hello, dummy_nonce: text
+Sk, Dummy_Sk, dummy_sk: symmetric_key
+ASGoal: set(agent)
+start, MGoal: message
+H, h: hash_func
+SP, S, i, s, sp: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(s).
+ iknows(sp).
+ iknows(i).
+ state_sensor(s,sp,h,0,dummy_sk,dummy_nonce,dummy_nonce,dummy_nat,dummy_nat,dummy_nonce,dummy_nonce,3).
+ state_serviceprovider(sp,s,h,0,dummy_sk,dummy_nonce,dummy_nat,dummy_nat,dummy_nonce,dummy_nonce,dummy_nonce,4)
+
+
+section rules:
+
+step step_0 (S,SP,H,Sk,Username,Hello,Rp,Rs,Msg,Passwd,SID) :=
+ state_sensor(S,SP,H,0,Sk,Username,Hello,Rp,Rs,Msg,Passwd,SID).
+ iknows(start)
+ =>
+ state_sensor(S,SP,H,1,Sk,Username,Hello,Rp,Rs,Msg,Passwd,SID).
+ iknows(Hello)
+
+step step_1 (S,SP,H,Sk,Username,Hello,Dummy_Rp,Dummy_Rs,Msg,Passwd,SID,Rp,Rs) :=
+ state_sensor(S,SP,H,1,Sk,Username,Hello,Dummy_Rp,Dummy_Rs,Msg,Passwd,SID).
+ iknows(Rp)
+=[exists Rs]=>
+ state_sensor(S,SP,H,2,Sk,Username,Hello,Rp,Rs,Msg,Passwd,SID).
+ iknows(pair(Username,pair(Rs,scrypt(Passwd,apply(H,pair(Rs,Rp))))))
+
+step step_2 (S,SP,H,Dummy_Sk,Username,Hello,Rp,Rs,Msg,Passwd,SID,Sk) :=
+ state_sensor(S,SP,H,2,Dummy_Sk,Username,Hello,Rp,Rs,Msg,Passwd,SID).
+ iknows(scrypt(Passwd,Sk))
+ =>
+ state_sensor(S,SP,H,3,Sk,Username,Hello,Rp,Rs,Msg,Passwd,SID).
+ iknows(scrypt(Sk,pair(Msg,apply(H,Msg))))
+
+step step_3 (SP,S,H,Sk,Hello,Dummy_Rp,Rs,Username,Msg,Passwd,SID,Rp) :=
+ state_serviceprovider(SP,S,H,0,Sk,Hello,Dummy_Rp,Rs,Username,Msg,Passwd,SID).
+ iknows(Hello)
+=[exists Rp]=>
+ state_serviceprovider(SP,S,H,2,Sk,Hello,Rp,Rs,Username,Msg,Passwd,SID).
+ iknows(Rp)
+
+step step_4 (SP,S,H,Dummy_Sk,Hello,Dummy_Rp,Dummy_Rs,Username,Msg,Passwd,SID,Sk,Rp,Rs) :=
+ state_serviceprovider(SP,S,H,2,Dummy_Sk,Hello,Dummy_Rp,Dummy_Rs,Username,Msg,Passwd,SID).
+ iknows(pair(Username,pair(Rs,scrypt(Passwd,apply(H,pair(Rs,Rp))))))
+=[exists Sk]=>
+ state_serviceprovider(SP,S,H,4,Sk,Hello,Rp,Rs,Username,Msg,Passwd,SID).
+ iknows(scrypt(Passwd,Sk))
+
+step step_5 (SP,S,H,Dummy_Sk,Hello,Rp,Rs,Username,Msg,Passwd,SID,Sk) :=
+ state_serviceprovider(SP,S,H,4,Dummy_Sk,Hello,Rp,Rs,Username,Msg,Passwd,SID).
+ iknows(scrypt(Sk,pair(Msg,apply(H,Msg))))
+ =>
+ state_serviceprovider(SP,S,H,6,Sk,Hello,Rp,Rs,Username,Msg,Passwd,SID).
+ secrecy(SP,S,pw,Dummy_Sk)
+
+
+section properties:
+
+property secrecy_of_pw (MGoal,ASGoal) :=
+ [] ((secret(MGoal,pw,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_pw (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,pw,ASGoal) &
+ not(contains(i,ASGoal))
+

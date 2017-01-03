@@ -1,0 +1,143 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%Paper 2
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role networkmanager(NM,C,AP: agent,
+		    Snd,Rcv: channel(dy))
+played_by NM
+def=
+	local State:nat,
+	Q,P,R:text,
+	Q1,S1,Q2,S2,C,I1,I2:text,
+	E:(text,text) set,
+	Small_h,Big_h:hash_func,
+	const qnm,snm:text
+
+init State := 0 /\ E := {}
+
+
+transition
+
+step1.
+  State=0 /\Rcv(C'.Q1') =|>
+  State' := 1 /\S2':=snm.Q2
+	     /\Snd(S2') 
+	     /\Q2':=Big_h(C'.Q1')
+	     /\S2':=snm.Q2'
+	     /\E':=cons((Q2',Q1'),E)
+	     /\I1':=E'.P
+	     /\Snd(I1')
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role client(C,NM,AP: agent,
+	    Snd,Rcv: channel(dy))
+played_by C
+def=
+	Q1,S1,Q2,S2:text,
+	K,T,R,TC,C,T1,T2,P,V,U,I1,I2,KEY:text,
+	Small_h,Big_h:hash_func,
+	MAC: (text,text) set
+	const qap,sap:text
+	      secret_key:protocol_id
+
+init State:=0 /\ e := {}
+
+transition
+
+step1.
+	
+
+	State=0/\Snd(C.Q1) =|>
+	State':= 1 
+
+step2.
+
+	State=1/\Rcv(S2')
+	       /\Rcv(I1') =|>
+	State':= 2 /\ T1':=T.P
+		   /\ V' :=Small_h(TC.R,T1')
+		   /\ U' :=K.S2'-V'.S1.Q2
+		   /\ T2':=T.qap
+		   /\ I2':=I1'.T1'
+		   /\ KEY' :=Small_h(V',T1')
+       		   /\secret(KEY',Secret_key,{C,AP})
+		   /\ Snd(V'.U'.TC.T2'.I2')
+
+step3.
+   
+	State=2 /\ Rcv(MAC')=|>
+	State':=3
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role applicationprovider(AP,C,NM: agent,
+			Snd,Rcv: channel(dy))
+played_by AP
+def=
+	Q1,S1,Q2,S2:text,
+	K,T,R,TC,C,T1,T2,P,V,U,I1,I2,KEY:text,
+	Small_h,Big_h:hash_func,
+	MAC: (text,text) set	
+	const qap,sap:text
+		secret_key:protocol_id
+
+init State:=0 /\ E := {}
+
+transition
+
+step1.
+	State=1/\Rcv(I1') =|>
+	State':=2
+
+step2.
+	State=2/\Rcv(V'.U'.TC.T2'.I2')  =|>
+	State'=3/\T1':=sap.T2'
+		/\I1' := I2'-T1'
+		/\E' :=cons((U,P),E)
+		/\E' :=cons((Q2,Q1),E')
+		/\R':=E'
+		/\KEY':=Small_h(V',T1')
+		/\secret(KEY',Secret_key,{C,AP})
+		/\MAC' := cons((V',KEY'),MAC)
+    		/\Snd(MAC')
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(C,AP,NM,Q1,Q2,Small_h,Big_h,qap,qnm:agent
+	    )
+def=
+
+local   SndC,RcvC,SndA,RcvA,SndN,RcvN: channel(dy),	
+	Q1,S1,Q2,S2:text,
+	K,T,R,TC,C,T1,T2,P,V,U,I1,I2,KEY:text,
+	Small_h,Big_h:hash_func,
+	MAC: (text,text) set
+	const qap,sap:text
+
+composition
+	   networkmanager(NM,C,AP,SndN,RcvN)
+	/\ applicationprovider(NM,C,AP,SndN,RcvN)
+	/\ client(NM,C,AP,SndN,RcvN)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+
+	const c,ap,nm:agent,
+		q1,s1,q2,s2:text,
+		k,t,r,tc,c,t1,t2,p,v,u,i1,i2,key,qap,sap,qnm,snm:text,
+		small_h,big_h:hash_func,
+		mac: (text,text) set
+
+intruder_knowledge={q1,q2,small_h,big_h,qap,qnm}
+
+composition
+		session(c,ap,nm,q1,q2,small_h,big_h,qap,qnm)
+	     /\ session(c,i,nm,q1,q2,small_h,big_h,qap,qnm)
+	     /\ session(c,ap,i,q1,q2,small_h,big_h,qap,qnm)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+ secrecy-of secret_key
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

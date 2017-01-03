@@ -1,0 +1,155 @@
+role reader 
+        (R,T,BS: agent,
+         Hash: hash_func,
+         SND_RT,RCV_RT: channel (dy),
+         SND_RS,RCV_RS: channel(dy))
+played_by R
+def=
+local
+    State : nat,
+    Nr,Nt,Ns,Tid,TSec,Rid,Rpwd : text,
+    Hr,Vr,Ht,Vt:message
+    
+State := 0
+transition
+1. State = 0   /\ RCV_RT(start) =|>
+   State':= 1  /\ Nr':= new()
+               /\ SND_RT(Nr')
+2. State = 1   /\ RCV_RT(Ht'.Vt')  =|>
+   State':= 4  /\ Ns':=new()
+               /\ Hr':=xor(Hash(Rid.Nr),Ns')
+               /\ Vr':=Hash(Rid.Rpwd.Ns')
+               /\ SND_RS(Hr'.Vr'.Ht'.Vt'.Nr)
+               /\ secret(Rid,Reader_identity,{R,BS}) 
+               /\ secret(Rpwd,Reader_password,{R,BS}) 
+               %/\ witness(R,BS,Reader_iden,Hr')
+               /\ witness(R,BS,verify_reader,Vr')
+3. State = 4  /\ RCV_RS(Tor'.Tot') =|>
+   State':=7  /\ tor':=Hash(xor(xor(Rpwd,Rid),Ns))
+              /\ request(R,BS,server_verify_r,Tor')
+              /\ SND_RT(Tot')
+              /\ Rid':=xor(Rid,Ns)
+              /\ Rpwd':=xor(Rpwd,Ns)
+
+          
+end role
+
+%.....................................
+
+role tag (R,T,BS: agent,
+          Hash: hash_func, 
+          SN,RC: channel(dy))
+
+played_by T
+def=
+local
+    State : nat,
+    Nr,Nt,Tid,TSec: text,
+    Ht,Vt : message
+init
+State := 2
+transition
+1. State = 2   /\ RC(Nr') =|>
+   State':= 3  /\ Nt' := new() 
+               /\ Ht':= xor(Hash(Tid.Nr'),Nt')
+               /\ Vt':= Hash(Tid.TSec.Nt')
+               /\ SN(Ht'.Vt')
+               /\ secret(Tid,tag_identity,{T,BS}) 
+               /\ secret(TSec,tag_secret,{T,BS}) 
+               %/\ witness(T,BS,iden_info,Ht')
+               /\ witness(T,BS,verify_tag,Vt') 
+               
+2. State = 3   /\ RC(Tot')  =|>
+   State':=8   /\ Tot':=Hash(xor(xor(Tsec,Tid),Nt))
+               /\ request(T,BS,server_verify_t,Tot')
+               /\ Tid':=xor(Tid,Nt)
+               /\ Tsec':=xor(Tsec,Nt)
+end role
+
+
+% Role of the server.....................
+
+role server( R,T,BS : agent,
+             Hash:hash_func,
+             SND,RCV: channel(dy))
+played_by BS
+def=
+local
+     State : nat,
+     Nr,Nt,Ns,Tid,TSec,Rid,Rpwd : text,
+     Ht,Vt,Hr,Vr : message
+init
+State := 5
+transition
+1. State = 5  /\ RCV(Hr'.Vr'.Ht'.Vt'.Nr)=|>
+   State':= 6 /\ Hr':= Hash(Rid)
+              /\ Ns':=xor(Hr',Hash(Rid.Rpwd))
+              /\ Vr':= Hash(Rid.Rpwd.Nt')
+              /\ secret(Rid,Reader_identity,{R,BS}) 
+              /\ secret(Rpwd,Reader_password,{R,BS}) 
+              %/\ request(BS,R,Reader_iden,Hr')
+              /\ request(BS,R,verify_reader,Vr')
+              /\ Nt':=xor(Ht',Hash(Tid.Tsec))
+              /\ Vt':= Hash(Tid.Tsec.Nt')
+              /\ secret(Tid,tag_identity,{T,BS}) 
+              /\ secret(TSec,tag_secret,{T,BS}) 
+              %/\ request(BS,T,iden_info,Hv')
+              /\ request(BS,T,verify_tag,Vt')
+              /\ Tor':=Hash(xor(xor(Rpwd,Rid),Ns'))
+              /\ Tot':=Hash(xor(xor(Tsec,Tid),Nt'))
+              /\ witness(BS,R,server_verify_r,Tor')
+              /\ witness(BS,T,server_verify_t,Tot')
+              /\ SND(Tor'.Tot')
+              /\ Rid':=xor(Rid,Ns)
+              /\ Rpwd':=xor(Rpwd,Ns)
+              /\ Tid':=xor(Tid,Nt)
+              /\ Tsec':=xor(Tsec,Nt)
+                         
+end role        
+
+role session(
+R,T,BS : agent,
+Hash: hash_func)
+def=
+local 
+      SRS,RRS,SSR,RSR : channel(dy),
+      SRT,RRT,STR,RTR : channel(dy)
+composition
+
+reader (R,T,BS,Hash,SRT,RRT,SRS,RRS)
+/\ tag(R,T,BS,Hash,STR,RTR)
+/\ server(R,T,BS,Hash,SSR,RSR)
+end role
+
+
+role environment()
+def=
+const
+Reader_identity, Reader_password, verify_reader ,server_verify_r, tag_identity,tag_secret, verify_tag, server_verify_t : protocol_id,
+r,t,bs : agent,
+h: hash_func,
+intruder_knowledge = {r,t,bs,h}
+composition
+  session(r,t,b,h)
+
+
+end role
+
+goal
+secrecy_of tag_identity
+secrecy_of tag_secret
+Sececy_of Reader_identity
+secrecy_of Reader_password
+authentication_on verify_tag
+authentication_on verify_reader
+authentication_on server_verify_r
+authentication_on server_verify_t
+
+end goal
+
+environment()
+
+
+
+
+

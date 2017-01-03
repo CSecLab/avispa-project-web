@@ -1,0 +1,128 @@
+role user ( U, T, S : agent,
+			P, RP : symmetric_key,
+			KDF : hash_func,
+			SND_TU, RCV_TU, RCV_SU: channel(dy))
+played_by U 
+def= 
+
+local	State : nat,
+		Time, PIN : text,
+		KS : hash_func(symmetric_key.text),
+		OTAC : {text.text.symmetric_key}_hash_func(symmetric_key.text)
+init	State := 1
+
+transition
+	1. State = 1	/ RCV_SU(Time') =|>
+	
+	   State' := 3	/ KS':= KDF(P.Time')
+					/ PIN' := new()
+					/ OTAC' := {PIN'.Time'.RP}_KS'
+					/ SND_TU(U.OTAC'.Time')
+	   				/ witness(U,S,server_user_rp,RP)
+					/ secret(RP,sec_rp,{U,S})
+					/ witness(U,S,server_user_p,P)
+					/ secret(P,sec_p,{U,S})
+
+					
+	2. State = 3	/ RCV_TU(PIN) =|>
+	   State' :=5	/ request(U,S,user_server_pin,PIN)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role terminal ( U, T, S : agent,
+				SND_UT, RCV_UT, SND_ST, RCV_ST: channel(dy))
+played_by T 
+def= 
+
+local	State : nat,
+		PIN, Time : text,
+		OTAC :  {text.text.symmetric_key}_message
+
+init	State := 7
+
+transition
+	1. State = 7	/ RCV_UT(U.OTAC'.Time') =|>
+	
+	   State' := 9	/ SND_ST(U.OTAC'.Time')
+					
+	2. State = 9	/ RCV_ST(PIN') =|>
+					
+	   State' :=11	/ SND_UT(PIN')
+	   				
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role server ( U, T, S : agent,
+			P, RP : symmetric_key,
+			KDF : hash_func,
+			SND_TS, RCV_TS, SND_US: channel(dy))
+played_by S 
+def= 
+
+local	State : nat,
+		Time, PIN : text,
+		KS : hash_func(symmetric_key.text),
+		OTAC : {text.text.symmetric_key}_hash_func(symmetric_key.text)
+init	State := 0
+
+transition
+	1. State = 0	/ RCV_US(start) =|>
+	
+	   State' := 2	/ Time':= new()
+					/ SND_US(Time')
+					
+	2. State = 2	/ RCV_TS(U.{PIN'.Time'.RP'}_KS'.Time') =|>
+	   State' :=4	/ KS' = KDF(P.Time')
+	   				/ SND_TS(PIN')
+					/ witness(S,U,user_server_pin,PIN’)
+					/ request(S,U,server_user_rp,RP')
+					/ request(S,U,server_user_p,P)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(U, T, S : agent,
+			P,RP : symmetric_key,
+			KDF : hash_func)
+def=
+
+local
+SND_UT, RCV_UT, SND_ST, RCV_ST, SND_TU, RCV_TU, RCV_SU, SND_TS, RCV_TS, SND_US : channel(dy)
+
+composition
+   user(U,T,S,P,RP,KDF,SND_TU, RCV_TU, RCV_SU)
+/ terminal(U,T,S,P,SND_UT, RCV_UT, SND_ST, RCV_ST)
+/ server(U,T,S,P,RP,KDF,SND_TS, RCV_TS, SND_US)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+def=
+
+const	u, t, s : agent,
+		p, rp : symmetric_key,
+		kdf : hash_func,
+		server_user_rp, server_user_p, sec_p, sec_rp, user_server_pin : protocol_id
+
+intruder_knowledge = {u, t, s, kdf}
+composition
+	session(u,t,s,p,rp,kdf)
+/ session(u,i,s,p,rp,kdf)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+secrecy_of sec_p
+secrecy_of sec_rp
+authentication_on server_user_rp
+authentication_on server_user_p
+authentication_on user_server_pin
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%55
+environment() 

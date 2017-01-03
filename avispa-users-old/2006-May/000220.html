@@ -1,0 +1,237 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Avispa-users] OFMC: exponentiation support question
+   </TITLE>
+   <LINK REL="Index" HREF="index.html" >
+   <LINK REL="made" HREF="mailto:avispa-users%40avispa-project.org?Subject=%5BAvispa-users%5D%20OFMC%3A%20exponentiation%20support%20question&In-Reply-To=1146489269.8544.48.camel%40riset-a-s1-112.riset.cs.ui.ac.id">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000210.html">
+   <LINK REL="Next"  HREF="000230.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Avispa-users] OFMC: exponentiation support question</H1>
+    <B>Sebastian Alexander Moedersheim</B> 
+    <A HREF="mailto:avispa-users%40avispa-project.org?Subject=%5BAvispa-users%5D%20OFMC%3A%20exponentiation%20support%20question&In-Reply-To=1146489269.8544.48.camel%40riset-a-s1-112.riset.cs.ui.ac.id"
+       TITLE="[Avispa-users] OFMC: exponentiation support question">moedersheim at inf.ethz.ch
+       </A><BR>
+    <I>Tue May  9 19:57:18 CEST 2006</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000210.html">[Avispa-users] OFMC: exponentiation support question
+</A></li>
+        <LI>Next message: <A HREF="000230.html">[Avispa-users] OFMC: exponentiation support question
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#220">[ date ]</a>
+              <a href="thread.html#220">[ thread ]</a>
+              <a href="subject.html#220">[ subject ]</a>
+              <a href="author.html#220">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Dear Ilham and Laurent,
+
+ &gt; I have been trying to verify the authentication protocol B proposed by
+ &gt; European Telecommunications Standard Institute and used in
+ &gt; authentication part of Horn-Preneel UTMSPayment protocol. 
+ &gt; 
+ &gt; The protocol uses exponentiation as shown in Alice-Bob model below:
+...
+ &gt; When I tested my complete model using OFMC as backend with sessco option
+ &gt; on, the following message appeared. 
+ &gt; 
+ &gt;   ofmc: OFMC can't see how the protocol can be executed.
+ &gt;   See manual for more information.
+ &gt; 
+ &gt; I have reduced the HLPSL file (attached) to a model of which this
+ &gt; behaviour is still observable. 
+ &gt; 
+ &gt; Have I used the exponentiation function incorrectly such that OFMC
+ &gt; rejects my specification?
+
+
+I have just had a look at it and I found a few minor problems (I am
+using a newer, not yet released version of HLPSL2IF which gives out
+more warnings):
+
+- exp is declared as a function in the main call. As exp is
+&quot;built-in&quot; in HLPSL, this is not allowed.
+
+- For some reason the HLPSL2IF compiler seems to have trouble with
+translating calling a role with a term that involves the exp function
+symbol, i.e. I get an error for 
+   user(..., exp(g,kv), ...)
+but not for
+   user(..., g.kv, ...)
+
+  [of course, this is not a mistake of yours!]
+
+- the same problem appears in the initial intruder knowledge 
+
+It is quite difficult to work around this, so I would like to ask
+Laurent (who wrote HLPSL2IF) to maybe have a look at it. 
+
+Anyway, I have attached a specification that now goes through HLPSL2IF
+and is executable in OFMC. (However I have removed the certificates for
+the user and the intruder which I couldn't work around.)
+
+
+Ciao,
+Sebastian
+
+
+New spec:
+
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: b.hlpsl
+Type: application/octet-stream
+Size: 3107 bytes
+Desc: not available
+Url : <A HREF="http://carroll.ai.dist.unige.it/pipermail/avispa-users/attachments/20060509/2cc87c5a/b.obj">http://carroll.ai.dist.unige.it/pipermail/avispa-users/attachments/20060509/2cc87c5a/b.obj</A>
+-------------- next part --------------
+
+Original spec:
+
+
+role user(U, V : agent,
+          H1, H2, H3 : function,
+          F : function,
+          G : text,               % Generator g
+          Kv : message,           % public key of V, from exp(g,v)
+          Ku : public_key,        % dummy for signature
+          Kca : public_key,       % Certificate authority public key
+          Kpriv_v : text,
+          Cert_u : {message}_inv(public_key),
+          Snd, Rcv : channel(dy))
+played_by U def= 
+          
+local State: nat, 
+      Random_u : text,   % randomly generated number
+      Timestamp : text,
+      Random_r : text, 
+      Cert_v : {message}_inv(public_key),
+      Random_u_exp : message,
+      Session_key : text,
+      Hash2 : message
+      
+init State := 0
+transition
+
+0.     State   = 0 /\ Rcv(start)
+   =|&gt; State' := 2 /\ 
+       Random_u' := new() /\ 
+       Random_u_exp' := exp(G,Random_u') /\ 
+       Snd(Random_u_exp')
+       
+2.     State   = 2 /\ 
+       Rcv(Random_r'.H2(H1(exp(Kv,Random_u).Random_r').Random_r'.V).Timestamp'.{V.Kv}_inv(Kca))  
+
+   =|&gt; State' := 4 
+       /\ Session_key' := H1(exp(Kv,Random_u).Random_r')
+       /\ secret(Session_key',session_key,{U,V})
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role vasp(U, V : agent,
+          H1, H2, H3 : function,
+          Ku : public_key,
+          Kca : public_key,       % certificate authority public key
+          Kpriv_v : text,
+          Cert_v : {message}_inv(public_key),
+          Snd, Rcv : channel(dy))
+played_by V def=
+
+local State: nat,
+      Random_u_exp : message, 
+      Random_r : text, 
+      Timestamp : text, 
+      Session_key : message
+      
+const session_key : protocol_id
+      
+init State := 1
+transition
+
+1.     State   = 1 /\ Rcv(Random_u_exp')
+   =|&gt; State' := 3 /\ 
+       Timestamp' := new() /\ 
+       Random_r' := new() /\
+       Session_key' := H1(exp(Random_u_exp',Kpriv_v).Random_r') /\
+       Snd(Random_r'.H2(Session_key'.Random_r'.V).Timestamp'.Cert_v) 
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(U, V : agent, 
+             H1, H2, H3, F : function,
+             G, T : text,
+             Kpriv_v : text,       % V's private key
+             Ku, Kca : public_key, 
+             Cert_u, Cert_v : {message}_inv(public_key))
+def= 
+            
+  local Su, Ru, Sv, Rv : channel(dy)
+
+  composition
+      user(U, V, H1, H2, H3, F, G, exp(G,Kpriv_v), Ku, Kca, Kpriv_v, Cert_u, Su, Ru) 
+   /\ vasp(U, V, H1, H2, H3, Ku, Kca, Kpriv_v, Cert_v, Sv, Rv)
+   
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+  const u, v, a, i : agent,
+        h1, h2, h3, f, exp : function,
+        g, t, kv, ki : text,
+        ku, ka, kca, kpi : public_key
+        
+  intruder_knowledge = {u,v,a,i,h1,h2,h3,f,g,t,exp(g,kv),{v.exp(g,kv)}_inv(kca),{u.ku}_inv(kca),kca,ku,ki,exp(g,ki),kpi,ka}
+
+  composition 
+        session(u,v,h1,h2,h3,f,g,t,kv,ku,kca,{u.ku}_inv(kca),{v.exp(g,kv)}_inv(kca))
+    
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+  
+  secrecy_of session_key
+  
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+
+</PRE>
+
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000210.html">[Avispa-users] OFMC: exponentiation support question
+</A></li>
+	<LI>Next message: <A HREF="000230.html">[Avispa-users] OFMC: exponentiation support question
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#220">[ date ]</a>
+              <a href="thread.html#220">[ thread ]</a>
+              <a href="subject.html#220">[ subject ]</a>
+              <a href="author.html#220">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="http://www.avispa-project.org/mailman/listinfo/avispa-users">More information about the Avispa-users
+mailing list</a><br>
+</body></html>

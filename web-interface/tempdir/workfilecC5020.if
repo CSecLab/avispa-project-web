@@ -1,0 +1,266 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilecC5020
+
+section signature:
+
+state_callee: agent * agent * text * nat * text * hash_func * text * text * text * message * message * agent * nat -> fact
+state_proxy: agent * set(pair(agent,text)) * text * nat * text * text * text * message * message * agent * agent * text * text * nat -> fact
+
+
+section types:
+
+set_152, Keyring: set(pair(agent,text))
+in_proxy_md, in_client_md, secr, try, ringing, proxy_md, ok, client_md, ack, auth, invite: protocol_id
+MdP, MdC, Dummy_MdP, Dummy_MdC, dummy_msg, MGoal, start: message
+Algorithm, Dummy_Algorithm, dummy_hash, md5: hash_func
+Cnonce, Realm, Nonce, CallID, Bpasswd, Dummy_Realm, Dummy_Cnonce, Dummy_PasswdY, Dummy_PasswdX, Dummy_CallID, Dummy_Nonce, PasswdY, PasswdX, dummy_nonce, caller_passwd, i_passwd, realm, null, Apasswd: text
+X, B, P, Dummy_Y, Dummy_X, dummy_agent, Y, A2Goal, A1Goal, a, b, p, c, A, i: agent
+42, 32, 22, 12, State, 161, 151, 141, 131, 111, 121, 3, 61, SID, 51, 41, 31, 101, 21, Dummy_State, 11, 2, SID2, SID1, 40, 30, 20, 10, 0, 72, 62, 52: nat
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(p).
+ iknows(c).
+ iknows(invite).
+ iknows(try).
+ iknows(ringing).
+ iknows(ok).
+ iknows(ack).
+ iknows(auth).
+ iknows(i).
+ state_proxy(p,set_152,realm,11,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_agent,dummy_agent,dummy_nonce,dummy_nonce,2).
+ state_callee(a,p,caller_passwd,12,dummy_nonce,dummy_hash,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_agent,3).
+ contains(pair(a,caller_passwd),set_152)
+
+
+section rules:
+
+step step_0 (P,Keyring,Realm,Dummy_Nonce,Cnonce,Dummy_CallID,MdC,MdP,Dummy_X,Dummy_Y,Dummy_PasswdX,PasswdY,SID,Nonce,CallID,X,Y,PasswdX) :=
+ state_proxy(P,Keyring,Realm,11,Dummy_Nonce,Cnonce,Dummy_CallID,MdC,MdP,Dummy_X,Dummy_Y,Dummy_PasswdX,PasswdY,SID).
+ iknows(pair(X,pair(invite,pair(Y,CallID)))).
+ contains(pair(X,PasswdX),Keyring)
+=[exists Nonce]=>
+ state_proxy(P,Keyring,Realm,21,Nonce,Cnonce,CallID,MdC,MdP,X,Y,PasswdX,PasswdY,SID).
+ iknows(pair(Y,pair(CallID,pair(auth,pair(md5,pair(Realm,Nonce)))))).
+ contains(pair(X,PasswdX),Keyring)
+
+step step_1 (P,Keyring,Realm,Nonce,Cnonce,Dummy_CallID,MdC,MdP,Dummy_X,Dummy_Y,Dummy_PasswdX,Dummy_PasswdY,SID,CallID,X,Y,PasswdY) :=
+ state_proxy(P,Keyring,Realm,11,Nonce,Cnonce,Dummy_CallID,MdC,MdP,Dummy_X,Dummy_Y,Dummy_PasswdX,Dummy_PasswdY,SID).
+ iknows(pair(X,pair(invite,pair(Y,CallID)))).
+ contains(pair(Y,PasswdY),Keyring) &
+ not(contains(pair(X,PasswdX),Keyring))
+ =>
+ state_proxy(P,Keyring,Realm,101,Nonce,Cnonce,CallID,MdC,MdP,X,Y,Dummy_PasswdX,PasswdY,SID).
+ iknows(pair(X,pair(invite,pair(Y,CallID)))).
+ contains(pair(Y,PasswdY),Keyring)
+
+step step_2 (P,Keyring,Realm,Nonce,Cnonce,CallID,MdC,MdP,X,Y,PasswdX,PasswdY,SID) :=
+ state_proxy(P,Keyring,Realm,21,Nonce,Cnonce,CallID,MdC,MdP,X,Y,PasswdX,PasswdY,SID).
+ iknows(pair(X,pair(Y,pair(CallID,ack))))
+ =>
+ state_proxy(P,Keyring,Realm,31,Nonce,Cnonce,CallID,MdC,MdP,X,Y,PasswdX,PasswdY,SID)
+
+step step_3 (P,Keyring,Realm,Nonce,Dummy_Cnonce,CallID,Dummy_MdC,MdP,X,Y,PasswdX,PasswdY,SID,Cnonce) :=
+ state_proxy(P,Keyring,Realm,31,Nonce,Dummy_Cnonce,CallID,Dummy_MdC,MdP,X,Y,PasswdX,PasswdY,SID).
+ iknows(pair(X,pair(invite,pair(Y,pair(CallID,pair(md5,pair(Realm,pair(Nonce,pair(apply(md5,pair(apply(md5,pair(X,pair(Realm,PasswdX))),pair(Nonce,pair(Cnonce,apply(md5,pair(invite,Y)))))),Cnonce)))))))))
+ =>
+ state_proxy(P,Keyring,Realm,41,Nonce,Cnonce,CallID,apply(md5,pair(apply(md5,pair(X,pair(Realm,PasswdX))),pair(Nonce,pair(Cnonce,apply(md5,pair(invite,Y)))))),MdP,X,Y,PasswdX,PasswdY,SID).
+ iknows(pair(X,pair(invite,pair(Y,CallID)))).
+ request(P,X,client_md,apply(md5,pair(apply(md5,pair(X,pair(Realm,PasswdX))),pair(Nonce,pair(Cnonce,apply(md5,pair(invite,Y)))))),SID)
+
+step step_4 (P,Keyring,Realm,Nonce,Cnonce,CallID,MdC,Dummy_MdP,X,Y,PasswdX,PasswdY,SID) :=
+ state_proxy(P,Keyring,Realm,41,Nonce,Cnonce,CallID,MdC,Dummy_MdP,X,Y,PasswdX,PasswdY,SID).
+ iknows(pair(Y,pair(CallID,ok)))
+ =>
+ state_proxy(P,Keyring,Realm,51,Nonce,Cnonce,CallID,MdC,apply(md5,pair(apply(md5,pair(X,pair(Realm,PasswdX))),pair(Nonce,pair(Cnonce,apply(md5,Y))))),X,Y,PasswdX,PasswdY,SID).
+ iknows(pair(Y,pair(CallID,pair(apply(md5,pair(apply(md5,pair(X,pair(Realm,PasswdX))),pair(Nonce,pair(Cnonce,apply(md5,Y))))),ok)))).
+ witness(P,X,proxy_md,apply(md5,pair(apply(md5,pair(X,pair(Realm,PasswdX))),pair(Nonce,pair(Cnonce,apply(md5,Y))))))
+
+step step_5 (P,Keyring,Realm,Nonce,Cnonce,CallID,MdC,MdP,X,Dummy_Y,PasswdX,Dummy_PasswdY,SID) :=
+ state_proxy(P,Keyring,Realm,51,Nonce,Cnonce,CallID,MdC,MdP,X,Dummy_Y,PasswdX,Dummy_PasswdY,SID).
+ iknows(pair(X,pair(Dummy_Y,pair(CallID,ack)))) &
+ not(contains(pair(Y,PasswdY),Keyring))
+ =>
+ state_proxy(P,Keyring,Realm,61,Nonce,Cnonce,CallID,MdC,MdP,X,Dummy_Y,PasswdX,Dummy_PasswdY,SID).
+ iknows(pair(X,pair(Dummy_Y,pair(CallID,ack))))
+
+step step_6 (P,Keyring,Realm,Nonce,Cnonce,CallID,MdC,MdP,X,Dummy_Y,PasswdX,Dummy_PasswdY,SID,Y,PasswdY) :=
+ state_proxy(P,Keyring,Realm,51,Nonce,Cnonce,CallID,MdC,MdP,X,Dummy_Y,PasswdX,Dummy_PasswdY,SID).
+ iknows(pair(X,pair(Dummy_Y,pair(CallID,ack)))).
+ contains(pair(Y,PasswdY),Keyring)
+ =>
+ state_proxy(P,Keyring,Realm,121,Nonce,Cnonce,CallID,MdC,MdP,X,Y,PasswdX,PasswdY,SID).
+ iknows(pair(X,pair(Dummy_Y,pair(CallID,ack)))).
+ contains(pair(Y,PasswdY),Keyring)
+
+step step_7 (P,Keyring,Realm,Nonce,Cnonce,CallID,MdC,MdP,X,Y,PasswdX,PasswdY,SID) :=
+ state_proxy(P,Keyring,Realm,101,Nonce,Cnonce,CallID,MdC,MdP,X,Y,PasswdX,PasswdY,SID).
+ iknows(pair(Y,pair(CallID,ok)))
+ =>
+ state_proxy(P,Keyring,Realm,111,Nonce,Cnonce,CallID,MdC,MdP,X,Y,PasswdX,PasswdY,SID).
+ iknows(pair(Y,pair(CallID,ok)))
+
+step step_8 (P,Keyring,Realm,Nonce,Cnonce,CallID,MdC,MdP,X,Y,PasswdX,PasswdY,SID) :=
+ state_proxy(P,Keyring,Realm,111,Nonce,Cnonce,CallID,MdC,MdP,X,Y,PasswdX,PasswdY,SID).
+ iknows(pair(X,pair(Y,pair(CallID,ack))))
+ =>
+ state_proxy(P,Keyring,Realm,121,Nonce,Cnonce,CallID,MdC,MdP,X,Y,PasswdX,PasswdY,SID).
+ iknows(pair(X,pair(Y,pair(CallID,ack))))
+
+step step_9 (P,Keyring,Realm,Dummy_Nonce,Cnonce,CallID,MdC,MdP,X,Y,PasswdX,PasswdY,SID,Nonce) :=
+ state_proxy(P,Keyring,Realm,121,Dummy_Nonce,Cnonce,CallID,MdC,MdP,X,Y,PasswdX,PasswdY,SID).
+ iknows(pair(Y,pair(invite,pair(X,CallID))))
+=[exists Nonce]=>
+ state_proxy(P,Keyring,Realm,131,Nonce,Cnonce,CallID,MdC,MdP,X,Y,PasswdX,PasswdY,SID).
+ iknows(pair(X,pair(CallID,pair(auth,pair(md5,pair(Realm,Nonce))))))
+
+step step_10 (P,Keyring,Realm,Nonce,Cnonce,CallID,MdC,MdP,X,Y,PasswdX,PasswdY,SID) :=
+ state_proxy(P,Keyring,Realm,131,Nonce,Cnonce,CallID,MdC,MdP,X,Y,PasswdX,PasswdY,SID).
+ iknows(pair(Y,pair(X,pair(CallID,ack))))
+ =>
+ state_proxy(P,Keyring,Realm,141,Nonce,Cnonce,CallID,MdC,MdP,X,Y,PasswdX,PasswdY,SID)
+
+step step_11 (P,Keyring,Realm,Nonce,Dummy_Cnonce,CallID,Dummy_MdC,MdP,X,Y,PasswdX,PasswdY,SID,Cnonce) :=
+ state_proxy(P,Keyring,Realm,141,Nonce,Dummy_Cnonce,CallID,Dummy_MdC,MdP,X,Y,PasswdX,PasswdY,SID).
+ iknows(pair(Y,pair(invite,pair(X,pair(CallID,pair(md5,pair(Realm,pair(Nonce,pair(apply(md5,pair(apply(md5,pair(Y,pair(Realm,PasswdY))),pair(Nonce,pair(Cnonce,apply(md5,pair(invite,X)))))),Cnonce)))))))))
+ =>
+ state_proxy(P,Keyring,Realm,151,Nonce,Cnonce,CallID,apply(md5,pair(apply(md5,pair(Y,pair(Realm,PasswdY))),pair(Nonce,pair(Cnonce,apply(md5,pair(invite,X)))))),MdP,X,Y,PasswdX,PasswdY,SID).
+ iknows(pair(Y,pair(invite,pair(X,CallID)))).
+ request(P,Y,in_client_md,apply(md5,pair(apply(md5,pair(Y,pair(Realm,PasswdY))),pair(Nonce,pair(Cnonce,apply(md5,pair(invite,X)))))),SID)
+
+step step_12 (P,Keyring,Realm,Nonce,Cnonce,CallID,MdC,Dummy_MdP,X,Y,PasswdX,PasswdY,SID) :=
+ state_proxy(P,Keyring,Realm,151,Nonce,Cnonce,CallID,MdC,Dummy_MdP,X,Y,PasswdX,PasswdY,SID).
+ iknows(pair(X,pair(CallID,ok)))
+ =>
+ state_proxy(P,Keyring,Realm,161,Nonce,Cnonce,CallID,MdC,apply(md5,pair(apply(md5,pair(Y,pair(Realm,PasswdY))),pair(Nonce,pair(Cnonce,apply(md5,X))))),X,Y,PasswdX,PasswdY,SID).
+ iknows(pair(X,pair(CallID,pair(apply(md5,pair(apply(md5,pair(Y,pair(Realm,PasswdY))),pair(Nonce,pair(Cnonce,apply(md5,X))))),ok)))).
+ witness(P,Y,in_proxy_md,apply(md5,pair(apply(md5,pair(Y,pair(Realm,PasswdY))),pair(Nonce,pair(Cnonce,apply(md5,X))))))
+
+step step_13 (B,P,Bpasswd,Dummy_CallID,Algorithm,Realm,Nonce,Cnonce,MdC,MdP,Dummy_X,SID,CallID,X) :=
+ state_callee(B,P,Bpasswd,12,Dummy_CallID,Algorithm,Realm,Nonce,Cnonce,MdC,MdP,Dummy_X,SID).
+ iknows(pair(X,pair(invite,pair(B,CallID))))
+ =>
+ state_callee(B,P,Bpasswd,22,CallID,Algorithm,Realm,Nonce,Cnonce,MdC,MdP,X,SID).
+ iknows(pair(B,pair(CallID,ok)))
+
+step step_14 (B,P,Bpasswd,CallID,Algorithm,Realm,Nonce,Cnonce,MdC,MdP,X,SID) :=
+ state_callee(B,P,Bpasswd,22,CallID,Algorithm,Realm,Nonce,Cnonce,MdC,MdP,X,SID).
+ iknows(pair(X,pair(B,pair(CallID,ack))))
+ =>
+ state_callee(B,P,Bpasswd,32,CallID,Algorithm,Realm,Nonce,Cnonce,MdC,MdP,X,SID)
+
+step step_15 (B,P,Bpasswd,CallID,Algorithm,Realm,Nonce,Cnonce,MdC,MdP,X,SID) :=
+ state_callee(B,P,Bpasswd,32,CallID,Algorithm,Realm,Nonce,Cnonce,MdC,MdP,X,SID).
+ iknows(start)
+ =>
+ state_callee(B,P,Bpasswd,42,CallID,Algorithm,Realm,Nonce,Cnonce,MdC,MdP,X,SID).
+ iknows(pair(B,pair(invite,pair(X,CallID))))
+
+step step_16 (B,P,Bpasswd,CallID,Dummy_Algorithm,Dummy_Realm,Dummy_Nonce,Cnonce,MdC,MdP,X,SID,Algorithm,Realm,Nonce) :=
+ state_callee(B,P,Bpasswd,42,CallID,Dummy_Algorithm,Dummy_Realm,Dummy_Nonce,Cnonce,MdC,MdP,X,SID).
+ iknows(pair(X,pair(CallID,pair(auth,pair(Algorithm,pair(Realm,Nonce))))))
+ =>
+ state_callee(B,P,Bpasswd,52,CallID,Algorithm,Realm,Nonce,Cnonce,MdC,MdP,X,SID).
+ iknows(pair(B,pair(X,pair(CallID,ack))))
+
+step step_17 (B,P,Bpasswd,CallID,Algorithm,Realm,Nonce,Dummy_Cnonce,Dummy_MdC,MdP,X,SID,Cnonce) :=
+ state_callee(B,P,Bpasswd,52,CallID,Algorithm,Realm,Nonce,Dummy_Cnonce,Dummy_MdC,MdP,X,SID).
+ iknows(start)
+=[exists Cnonce]=>
+ state_callee(B,P,Bpasswd,62,CallID,Algorithm,Realm,Nonce,Cnonce,apply(Algorithm,pair(apply(Algorithm,pair(B,pair(Realm,Bpasswd))),pair(Nonce,pair(Cnonce,apply(Algorithm,pair(invite,X)))))),MdP,X,SID).
+ iknows(pair(B,pair(invite,pair(X,pair(CallID,pair(Algorithm,pair(Realm,pair(Nonce,pair(apply(Algorithm,pair(apply(Algorithm,pair(B,pair(Realm,Bpasswd))),pair(Nonce,pair(Cnonce,apply(Algorithm,pair(invite,X)))))),Cnonce))))))))).
+ witness(B,P,in_client_md,apply(Algorithm,pair(apply(Algorithm,pair(B,pair(Realm,Bpasswd))),pair(Nonce,pair(Cnonce,apply(Algorithm,pair(invite,X)))))))
+
+step step_18 (B,P,Bpasswd,CallID,Algorithm,Realm,Nonce,Cnonce,MdC,Dummy_MdP,X,SID) :=
+ state_callee(B,P,Bpasswd,62,CallID,Algorithm,Realm,Nonce,Cnonce,MdC,Dummy_MdP,X,SID).
+ iknows(pair(X,pair(CallID,pair(apply(Algorithm,pair(apply(Algorithm,pair(B,pair(Realm,Bpasswd))),pair(Nonce,pair(Cnonce,apply(Algorithm,X))))),ok))))
+ =>
+ state_callee(B,P,Bpasswd,72,CallID,Algorithm,Realm,Nonce,Cnonce,MdC,apply(Algorithm,pair(apply(Algorithm,pair(B,pair(Realm,Bpasswd))),pair(Nonce,pair(Cnonce,apply(Algorithm,X))))),X,SID).
+ request(B,P,in_proxy_md,apply(Algorithm,pair(apply(Algorithm,pair(B,pair(Realm,Bpasswd))),pair(Nonce,pair(Cnonce,apply(Algorithm,X))))),SID)
+
+
+section properties:
+
+property authentication_on_proxy_md (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,proxy_md,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,proxy_md,MGoal))
+     /\ ((request(A1Goal,A2Goal,proxy_md,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,proxy_md,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_client_md (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,client_md,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,client_md,MGoal))
+     /\ ((request(A1Goal,A2Goal,client_md,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,client_md,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_in_proxy_md (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,in_proxy_md,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,in_proxy_md,MGoal))
+     /\ ((request(A1Goal,A2Goal,in_proxy_md,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,in_proxy_md,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_in_client_md (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,in_client_md,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,in_client_md,MGoal))
+     /\ ((request(A1Goal,A2Goal,in_client_md,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,in_client_md,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state authentication_on_proxy_md (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,proxy_md,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,proxy_md,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_proxy_md (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,proxy_md,MGoal,SID1).
+ request(A1Goal,A2Goal,proxy_md,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_client_md (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,client_md,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,client_md,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_client_md (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,client_md,MGoal,SID1).
+ request(A1Goal,A2Goal,client_md,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_in_proxy_md (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,in_proxy_md,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,in_proxy_md,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_in_proxy_md (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,in_proxy_md,MGoal,SID1).
+ request(A1Goal,A2Goal,in_proxy_md,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_in_client_md (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,in_client_md,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,in_client_md,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_in_client_md (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,in_client_md,MGoal,SID1).
+ request(A1Goal,A2Goal,in_client_md,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

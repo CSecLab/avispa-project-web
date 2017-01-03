@@ -1,0 +1,118 @@
+% ***********************************************************
+% *   The user Party role of the OpenID Connect protocol    *
+% ***********************************************************
+role user(U, R : agent, 		%the End-User Agent, a client third-party, and an IdP Provider (an Operator)
+		RCV_RU, SND_RU : channel(dy),
+		Ku: public_key,		% the public key of the user, used in its SSL certificate
+		Kca: public_key, 	% SSL certificate authority
+		Kru: symmetric_key, % imitate SSL between end-user and the other parties
+		Certificate: message,
+		ResourceID: nat)	% the id of the protected resource to request
+	played_by U	def=
+	local State : nat, 		% internal state 
+		CACertificate : message,
+		Kcertificate : public_key,
+		AgentCertificate : agent,
+		Nb : text, 		%nonce for auth simulation
+		Secret, SignedNonce : message,		% protected resource
+		SessionID: nat
+	init State := 0
+	transition
+		% 1. first transition, send certificate:
+		% correspond to a request of a protected resource
+	1. State = 0 /\ RCV_RU(start) =|>
+	State' := 2 /\ SND_RU({U.R.Certificate}_Kru)
+		% 2. Receives Nonce from the server, to decrypt with the private key
+		% Receives also the IdP certificate signed by the CA.
+	2. State = 2 /\ RCV_RU({SignedNonce'.{AgentCertificate'.Kcertificate'}_inv(Kca)}_Kru) /\ 
+	SignedNonce' = {Nb'}_inv(Kcertificate') =|>
+		% authenticate and ask for a protected resource
+	State' := 4 /\ SND_RU({{Nb'}_inv(Ku)}_Kru) /\ witness(U,R,op_user_authentication, Nb')
+		% Receives "ok" and request resource
+	3. State = 4 /\ RCV_RU({SessionID'}_Kru)  =|>
+	State' := 6 /\ SND_RU({U.R.ResourceID.SessionID}_Kru)
+		% 3. Asks for private resource
+	4. State = 6 /\ RCV_RU({Secret'}_Kru) =|>
+	State' := 8
+end role
+
+
+% ***********************************************************
+% *    The IdP Party role of the OpenID Connect protocol    *
+% ***********************************************************	
+role idp(R : agent, 
+		SND_UR, RCV_UR : channel(dy),
+		Kroot: public_key,
+		Kca: public_key,
+		Kru: symmetric_key,
+		ProtectedResource: message,
+		ResourceIDs: nat set,
+		CACertificate: message)
+	played_by R	def=
+	local State : nat,
+		U : agent, 		% the requesting client, and a aser to authenticate
+		Nb : text, 		% for auth simulation
+		Kcert : public_key, 	% public key used by any party
+		ResourceID, SessionID: nat,
+		Sessions: (nat.agent) set
+	init State := 1 /\ Sessions := {}
+	transition
+		% first transition:
+		% authentication request (with the certificate of the user)
+	1. State = 1 /\ RCV_UR({U'.R.{U'.Kcert'}_inv(Kca)}_Kru) 
+		% sends its own certificate and perform mutual authentication: sends nonce signed with the IdP's private key
+		% Expect the same nonce signed with the private key of the user
+	=|> State' := 3 /\ Nb' := new() /\ SND_UR({{Nb'}_inv(Kroot).CACertificate}_Kru)
+		%First transition, 2nd possibility: request a protected resource
+	2. State = 1 /\ RCV_UR({U'.R.ResourceID'.SessionID'}_Kru) /\ in(SessionID'.U', Sessions) /\ in(ResourceID', ResourceIDs) =|>
+	State' := 5 /\ SND_UR({ProtectedResource}_Kru) /\ secret(ProtectedResource, test, {U,R})
+	% Receive the signature and the request for a protected resource
+	3. State = 3 /\ RCV_UR({{Nb}_inv(Kcert)}_Kru)  =|>
+	State' := 1 /\ request(R, U, op_user_authentication, Nb) /\  SessionID' := new() /\ 
+	Sessions' := cons(SessionID'.U, Sessions) /\  SND_UR({SessionID'}_Kru)
+end role
+
+%The session role binds the different parts of the OpenID protocol together
+role session(R, U : agent,
+	Kroo : symmetric_key,
+	Kca, Kroot, Kca_idp, Ko : public_key,
+	Resource: message,
+	ResourceID: nat)
+def=
+local SND_UR, RCV_UR,	
+	SND_CU, SND_RU, RCV_CU, RCV_RU,
+	SND_RC, RCV_RC : channel(dy),
+	ResourcesMapping: nat -> message,
+	ResourceIDs: nat set
+init ResourceIDs := {ResourceID}
+
+composition
+%The different roles bound together.
+user(U, R, SND_RU, RCV_RU, Ko, Kca, Kroo,{U.Ko}_inv(Kca), resourceID)
+/\ idp(R, SND_UR, RCV_UR, Kroot, Kca, Kroo, Resource, ResourceIDs, {R.Kroot}_inv(Kca_idp))
+end role
+
+role environment()
+def=
+const u,r : agent,
+op_user_authentication, test : protocol_id,
+kru, kiro, koi, kri : symmetric_key,
+resourceID: nat,
+protectedResource: message,
+kca, ku, ki_o, kca_fake, kidp : public_key
+intruder_knowledge = {u,r,kca,ku,ki_o,i, resourceID}
+composition
+session(r, u, kru, kca, kidp, kca, ku, protectedResource, resourceID)
+%/\ session(r, i, kri, kca, kidp, kca, ki_o, protectedResource, resourceID)
+%/\ session(i, u, kri, kca, kidp, kca_fake, ku, protectedResource, resourceID)
+end role
+
+goal
+% The authentication goal of the OpenID protocol - user to IdP
+authentication_on op_user_authentication
+secrecy_of test
+end goal
+
+environment()
+
+

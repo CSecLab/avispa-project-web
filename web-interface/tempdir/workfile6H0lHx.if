@@ -1,0 +1,76 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfile6H0lHx
+
+section signature:
+
+state_u1: agent * agent * agent * agent * public_key * public_key * public_key * public_key * public_key * hash_func * nat * nat * nat * text * nat * text * text * text * text * symmetric_key * nat -> fact
+
+
+section types:
+
+Set_76: set
+ASGoal: set(agent)
+start, MGoal: message
+session_key, session_key1: protocol_id
+Ks, dummy_sk: symmetric_key
+Bye, ServReq, InviteAB, UserAC, ServRes, dummy_nonce: text
+H, h: hash_func
+Ku1, Kam, Kca, Ku2, Ksm, ku1, kam, kca, ku2, ksm, ki: public_key
+U1, AM, SM, U2, u2, sm, am, u1, i: agent
+TOKENID, Nonce, UaT, UserbID, UseraID, S, 4, Dummy_Nonce, Dummy_S, 3, SID, dummy_nat, 2, 1, 0, 9, 6: nat
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(u1).
+ iknows(am).
+ iknows(sm).
+ iknows(u2).
+ iknows(ku1).
+ iknows(ku2).
+ iknows(kam).
+ iknows(ksm).
+ iknows(ki).
+ iknows(i).
+ state_u1(u1,am,sm,u2,ku1,kam,kca,ku2,ksm,h,0,dummy_nat,dummy_nat,dummy_nonce,dummy_nat,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,3)
+
+
+section rules:
+
+step step_0 (U1,AM,SM,U2,Ku1,Kam,Kca,Ku2,Ksm,H,UseraID,UaT,UserAC,Dummy_Nonce,InviteAB,ServReq,ServRes,Bye,Ks,SID,Nonce) :=
+ state_u1(U1,AM,SM,U2,Ku1,Kam,Kca,Ku2,Ksm,H,0,UseraID,UaT,UserAC,Dummy_Nonce,InviteAB,ServReq,ServRes,Bye,Ks,SID).
+ iknows(start)
+=[exists Nonce]=>
+ state_u1(U1,AM,SM,U2,Ku1,Kam,Kca,Ku2,Ksm,H,1,UseraID,UaT,UserAC,Nonce,InviteAB,ServReq,ServRes,Bye,Ks,SID).
+ iknows(crypt(Kam,pair(UseraID,pair(UserAC,pair(Nonce,crypt(inv(Ku1),apply(H,pair(UseraID,Nonce))))))))
+
+step step_1 (U1,AM,SM,U2,Ku1,Kam,Kca,Ku2,Ksm,H,UseraID,UaT,UserAC,Dummy_Nonce,InviteAB,ServReq,ServRes,Bye,Ks,SID,Nonce) :=
+ state_u1(U1,AM,SM,U2,Ku1,Kam,Kca,Ku2,Ksm,H,1,UseraID,UaT,UserAC,Dummy_Nonce,InviteAB,ServReq,ServRes,Bye,Ks,SID).
+ iknows(crypt(inv(Kam),pair(UaT,pair(crypt(inv(Kca),pair(SM,Ksm)),Nonce))))
+ =>
+ state_u1(U1,AM,SM,U2,Ku1,Kam,Kca,Ku2,Ksm,H,2,UseraID,UaT,UserAC,Nonce,InviteAB,ServReq,ServRes,Bye,Ks,SID).
+ iknows(pair(InviteAB,crypt(Ksm,pair(UseraID,pair(ServReq,pair(UaT,Dummy_Nonce))))))
+
+step step_2 (U1,AM,SM,U2,Ku1,Kam,Kca,Ku2,Ksm,H,UseraID,UaT,UserAC,Dummy_Nonce,InviteAB,ServReq,ServRes,Bye,Ks,SID,Nonce) :=
+ state_u1(U1,AM,SM,U2,Ku1,Kam,Kca,Ku2,Ksm,H,2,UseraID,UaT,UserAC,Dummy_Nonce,InviteAB,ServReq,ServRes,Bye,Ks,SID).
+ iknows(crypt(Ku1,pair(UseraID,pair(ServRes,pair(Ks,pair(crypt(inv(Ksm),apply(H,pair(UseraID,pair(ServRes,pair(Ks,Nonce))))),Nonce))))))
+ =>
+ state_u1(U1,AM,SM,U2,Ku1,Kam,Kca,Ku2,Ksm,H,3,UseraID,UaT,UserAC,Nonce,InviteAB,ServReq,ServRes,Bye,Ks,SID).
+ iknows(crypt(inv(Ku1),pair(UseraID,pair(Bye,Nonce))))
+
+
+section properties:
+
+property secrecy_of_session_key (MGoal,ASGoal) :=
+ [] ((secret(MGoal,session_key,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_session_key (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,session_key,ASGoal) &
+ not(contains(i,ASGoal))
+

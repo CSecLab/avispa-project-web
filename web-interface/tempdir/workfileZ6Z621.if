@@ -1,0 +1,94 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileZ6Z621
+
+section signature:
+
+state_role_P: agent * agent * hash_func * agent * nat * text * public_key * public_key * text * text * hash_func * text * text * nat -> fact
+state_role_Ca: agent * agent * agent * nat * text * public_key * text * text * nat -> fact
+state_role_S: agent * agent * hash_func * hash_func * agent * nat * public_key * text * text * text * text * nat -> fact
+
+
+section types:
+
+MGoal, start: message
+auth_1: protocol_id
+Kca, Dummy_Kca, Ks, Dummy_Ks, dummy_pk: public_key
+State, 5, SID, 4, Dummy_State, 3, SID2, 2, SID1, 1, 0: nat
+dummy_hash, H, F, const_1, hash_0: hash_func
+P, S, Ca, A2Goal, A1Goal, certif, serveur, proxy, i: agent
+IdS, CertS, Lifetime, Dummy_CertS, SSPs, Nonce1, Dummy_Lifetime, Dummy_IdS, Dummy_SSPs, Dummy_Nonce1, dummy_nonce: text
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(proxy).
+ iknows(certif).
+ iknows(serveur).
+ iknows(i).
+ state_role_S(serveur,proxy,const_1,const_1,certif,0,dummy_pk,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,3).
+ state_role_Ca(certif,serveur,proxy,0,dummy_nonce,dummy_pk,dummy_nonce,dummy_nonce,4).
+ state_role_P(proxy,serveur,const_1,certif,0,dummy_nonce,dummy_pk,dummy_pk,dummy_nonce,dummy_nonce,dummy_hash,dummy_nonce,dummy_nonce,5)
+
+
+section rules:
+
+step step_0 (S,P,F,H,Ca,Dummy_Ks,Dummy_Nonce1,Dummy_SSPs,Dummy_IdS,Dummy_Lifetime,SID,Ks,Nonce1,SSPs,IdS,Lifetime) :=
+ state_role_S(S,P,F,H,Ca,0,Dummy_Ks,Dummy_Nonce1,Dummy_SSPs,Dummy_IdS,Dummy_Lifetime,SID).
+ iknows(Nonce1)
+=[exists SSPs,IdS,Lifetime,Ks]=>
+ state_role_S(S,P,F,H,Ca,1,Ks,Nonce1,SSPs,IdS,Lifetime,SID).
+ iknows(pair(SSPs,pair(apply(H,SSPs),pair(IdS,pair(Nonce1,pair(Lifetime,crypt(inv(Ks),apply(F,pair(apply(H,SSPs),pair(IdS,pair(Nonce1,Lifetime)))))))))))
+
+step step_1 (Ca,S,P,Dummy_CertS,Dummy_Kca,Dummy_IdS,Dummy_Nonce1,SID,CertS,Kca,IdS,Nonce1) :=
+ state_role_Ca(Ca,S,P,0,Dummy_CertS,Dummy_Kca,Dummy_IdS,Dummy_Nonce1,SID).
+ iknows(CertS)
+=[exists Nonce1,IdS,Kca]=>
+ state_role_Ca(Ca,S,P,1,CertS,Kca,IdS,Nonce1,SID).
+ iknows(crypt(inv(Kca),IdS)).
+ iknows(Nonce1)
+
+step step_2 (P,S,F,Ca,Dummy_CertS,Kca,Ks,Nonce1,SSPs,H,IdS,Lifetime,SID,CertS) :=
+ state_role_P(P,S,F,Ca,0,Dummy_CertS,Kca,Ks,Nonce1,SSPs,H,IdS,Lifetime,SID).
+ iknows(start)
+=[exists CertS]=>
+ state_role_P(P,S,F,Ca,1,CertS,Kca,Ks,Nonce1,SSPs,H,IdS,Lifetime,SID).
+ iknows(CertS)
+
+step step_3 (P,S,F,Ca,CertS,Dummy_Kca,Ks,Nonce1,SSPs,H,Dummy_IdS,Lifetime,SID,Kca,IdS) :=
+ state_role_P(P,S,F,Ca,1,CertS,Dummy_Kca,Ks,Nonce1,SSPs,H,Dummy_IdS,Lifetime,SID).
+ iknows(crypt(inv(Kca),IdS))
+ =>
+ state_role_P(P,S,F,Ca,2,CertS,Kca,Ks,Nonce1,SSPs,H,IdS,Lifetime,SID)
+
+step step_4 (P,S,F,Ca,CertS,Kca,Dummy_Ks,Dummy_Nonce1,Dummy_SSPs,H,IdS,Dummy_Lifetime,SID,Ks,Nonce1,SSPs,Lifetime) :=
+ state_role_P(P,S,F,Ca,2,CertS,Kca,Dummy_Ks,Dummy_Nonce1,Dummy_SSPs,H,IdS,Dummy_Lifetime,SID).
+ iknows(pair(SSPs,pair(apply(H,SSPs),pair(IdS,pair(Nonce1,pair(Lifetime,crypt(inv(Ks),apply(F,pair(apply(H,SSPs),pair(IdS,pair(Nonce1,Lifetime)))))))))))
+ =>
+ state_role_P(P,S,F,Ca,3,CertS,Kca,Ks,Nonce1,SSPs,H,IdS,Lifetime,SID)
+
+
+section properties:
+
+property authentication_on_auth_1 (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,auth_1,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,auth_1,MGoal))
+     /\ ((request(A1Goal,A2Goal,auth_1,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,auth_1,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state authentication_on_auth_1 (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,auth_1,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,auth_1,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_auth_1 (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,auth_1,MGoal,SID1).
+ request(A1Goal,A2Goal,auth_1,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

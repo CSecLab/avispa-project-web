@@ -1,0 +1,124 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileeOuetY
+
+section signature:
+
+state_outstation: agent * agent * symmetric_key * hash_func * symmetric_key * symmetric_key * text * nat * nat * text * nat -> fact
+state_master: agent * agent * symmetric_key * hash_func * symmetric_key * symmetric_key * text * nat * nat * text * set(agent) * set(agent) * nat -> fact
+
+
+section types:
+
+outstation_master_prcd, kc, km: protocol_id
+set_88, set_87, set_85, set_84, set_68, set_67: set
+5, Status, State, 10, 6, 4, SID, 3, Dummy_Status, Dummy_State, dummy_nat, 2, 1, 0, SID2, SID1: nat
+KSQ, PRCD, Dummy_PRCD, Dummy_KSQ, dummy_nonce: text
+Dummy_Set_26, Dummy_Set_23, Set_26, Set_23, ASGoal: set(agent)
+start, MGoal: message
+Km, Kc, K, Dummy_Kc, Dummy_Km, dummy_sk, kmo, kio, kmi: symmetric_key
+H, h: hash_func
+M, O, A2Goal, A1Goal, m, o, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(m).
+ iknows(o).
+ iknows(h).
+ iknows(kmi).
+ iknows(kio).
+ iknows(i).
+ state_master(m,o,kmo,h,dummy_sk,dummy_sk,dummy_nonce,dummy_nat,0,dummy_nonce,set_67,set_68,3).
+ state_outstation(o,m,kmo,h,dummy_sk,dummy_sk,dummy_nonce,dummy_nat,1,dummy_nonce,4).
+ state_master(m,i,kmi,h,dummy_sk,dummy_sk,dummy_nonce,dummy_nat,0,dummy_nonce,set_84,set_85,6).
+ state_outstation(o,i,kio,h,dummy_sk,dummy_sk,dummy_nonce,dummy_nat,1,dummy_nonce,10)
+
+
+section rules:
+
+step step_0 (M,O,K,H,Km,Kc,KSQ,Status,PRCD,Set_23,Set_26,SID) :=
+ state_master(M,O,K,H,Km,Kc,KSQ,Status,0,PRCD,Set_23,Set_26,SID).
+ iknows(start)
+ =>
+ state_master(M,O,K,H,Km,Kc,KSQ,Status,2,PRCD,Set_23,Set_26,SID).
+ iknows(M)
+
+step step_1 (M,O,K,H,Dummy_Km,Dummy_Kc,Dummy_KSQ,Dummy_Status,Dummy_PRCD,Dummy_Set_23,Dummy_Set_26,SID,Km,Kc,KSQ,Status,PRCD) :=
+ state_master(M,O,K,H,Dummy_Km,Dummy_Kc,Dummy_KSQ,Dummy_Status,2,Dummy_PRCD,Dummy_Set_23,Dummy_Set_26,SID).
+ iknows(pair(KSQ,pair(M,pair(Status,PRCD))))
+=[exists Kc,Km]=>
+ state_master(M,O,K,H,Km,Kc,KSQ,Status,4,PRCD,Dummy_Set_23,Dummy_Set_26,SID).
+ secret(Km,km,Dummy_Set_23).
+ secret(Kc,kc,Dummy_Set_26).
+ iknows(pair(KSQ,pair(M,scrypt(K,pair(Kc,pair(Km,pair(KSQ,pair(M,pair(Status,PRCD))))))))).
+ witness(M,O,outstation_master_prcd,PRCD).
+ contains(M,Dummy_Set_23).
+ contains(O,Dummy_Set_23).
+ contains(M,Dummy_Set_26).
+ contains(O,Dummy_Set_26)
+
+step step_2 (M,O,K,H,Km,Kc,Dummy_KSQ,Dummy_Status,Dummy_PRCD,Set_23,Set_26,SID,KSQ,Status,PRCD) :=
+ state_master(M,O,K,H,Km,Kc,Dummy_KSQ,Dummy_Status,4,Dummy_PRCD,Set_23,Set_26,SID).
+ iknows(pair(KSQ,pair(M,pair(Status,pair(PRCD,apply(H,scrypt(Km,pair(Dummy_KSQ,pair(M,scrypt(K,pair(Kc,pair(Km,pair(Dummy_KSQ,pair(M,pair(Dummy_Status,Dummy_PRCD)))))))))))))))
+ =>
+ state_master(M,O,K,H,Km,Kc,KSQ,Status,6,PRCD,Set_23,Set_26,SID)
+
+step step_3 (O,M,K,H,Km,Kc,Dummy_PRCD,Dummy_Status,Dummy_KSQ,SID,PRCD) :=
+ state_outstation(O,M,K,H,Km,Kc,Dummy_PRCD,Dummy_Status,1,Dummy_KSQ,SID).
+ iknows(M)
+=[exists PRCD]=>
+ state_outstation(O,M,K,H,Km,Kc,PRCD,2,3,1,SID).
+ iknows(pair(1,pair(M,pair(2,PRCD))))
+
+step step_4 (O,M,K,H,Dummy_Km,Dummy_Kc,Dummy_PRCD,Dummy_Status,Dummy_KSQ,SID,Km,Kc,PRCD) :=
+ state_outstation(O,M,K,H,Dummy_Km,Dummy_Kc,Dummy_PRCD,Dummy_Status,3,Dummy_KSQ,SID).
+ iknows(pair(Dummy_KSQ,pair(M,scrypt(K,pair(Kc,pair(Km,pair(Dummy_KSQ,pair(M,pair(Dummy_Status,Dummy_PRCD)))))))))
+=[exists PRCD]=>
+ state_outstation(O,M,K,H,Km,Kc,PRCD,1,5,2,SID).
+ iknows(pair(2,pair(M,pair(1,pair(PRCD,apply(H,scrypt(Dummy_Km,pair(Dummy_KSQ,pair(M,scrypt(K,pair(Kc,pair(Km,pair(Dummy_KSQ,pair(M,pair(Dummy_Status,Dummy_PRCD))))))))))))))).
+ request(O,M,outstation_master_prcd,Dummy_PRCD,SID)
+
+
+section properties:
+
+property secrecy_of_kc (MGoal,ASGoal) :=
+ [] ((secret(MGoal,kc,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_km (MGoal,ASGoal) :=
+ [] ((secret(MGoal,km,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_outstation_master_prcd (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,outstation_master_prcd,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,outstation_master_prcd,MGoal))
+     /\ ((request(A1Goal,A2Goal,outstation_master_prcd,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,outstation_master_prcd,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_kc (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,kc,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_km (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,km,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_outstation_master_prcd (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,outstation_master_prcd,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,outstation_master_prcd,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_outstation_master_prcd (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,outstation_master_prcd,MGoal,SID1).
+ request(A1Goal,A2Goal,outstation_master_prcd,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

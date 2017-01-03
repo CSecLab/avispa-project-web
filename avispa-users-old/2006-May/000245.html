@@ -1,0 +1,552 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+ <HEAD>
+   <TITLE> Fwd: Re: [Avispa-users] Question on Needham-Schroeder
+	protocol(Denning Sacco attack)
+   </TITLE>
+   <LINK REL="Index" HREF="index.html" >
+   <LINK REL="made" HREF="mailto:avispa-users%40avispa-project.org?Subject=Fwd%3A%20Re%3A%20%5BAvispa-users%5D%20Question%20on%20Needham-Schroeder%0A%09protocol%28Denning%20Sacco%20attack%29&In-Reply-To=44744BC1.7080101%40IRISA">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000244.html">
+   <LINK REL="Next"  HREF="000246.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>Fwd: Re: [Avispa-users] Question on Needham-Schroeder
+	protocol(Denning Sacco attack)</H1>
+    <B>Kostas Ch.</B> 
+    <A HREF="mailto:avispa-users%40avispa-project.org?Subject=Fwd%3A%20Re%3A%20%5BAvispa-users%5D%20Question%20on%20Needham-Schroeder%0A%09protocol%28Denning%20Sacco%20attack%29&In-Reply-To=44744BC1.7080101%40IRISA"
+       TITLE="Fwd: Re: [Avispa-users] Question on Needham-Schroeder
+	protocol(Denning Sacco attack)">kchad1979 at yahoo.com
+       </A><BR>
+    <I>Wed May 24 14:27:47 CEST 2006</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000244.html">Fwd: Re: [Avispa-users] Question on Needham-Schroeder
+	protocol(Denning Sacco attack)
+</A></li>
+        <LI>Next message: <A HREF="000246.html">[Avispa-users] Can AVISPA verify Chaum's Dining Cryptographers
+	protocol?
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#245">[ date ]</a>
+              <a href="thread.html#245">[ thread ]</a>
+              <a href="subject.html#245">[ subject ]</a>
+              <a href="author.html#245">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Dear Yann,
+   
+  an attack is indeed found but it is not correct. When bob uses the predicate witness the role B should be the first argument of the predicate witness with A being the second such as B declares he is the peer to A generating the nonce Nb for the authentication of the bob_alice_nb. A possible mistake - if any - should be somewhere else. Still I guess that Avispa should be able to find the Denning Sacco attack. 
+   
+  Regards,
+Kostas
+
+Yann Glouche &lt;<A HREF="http://www.avispa-project.org/mailman/listinfo/avispa-users">glouche at irisa.fr</A>&gt; wrote:
+  ok,
+Try this specification, I change the witness function in the bob role. 
+And OFMC and ATSE find an attack.
+But I don't know if is the attack you want to find ?
+
+Yann
+
+role alice(A,B,S : agent,
+Kas : symmetric_key,
+Pred : function,
+Snd_SA,Rcv_SA,Snd_BA,Rcv_BA : channel(dy))
+played_by A def=
+
+local
+State : nat,
+Na,Nb : text,
+Msg : {symmetric_key.agent}_symmetric_key,
+Kab : symmetric_key
+
+init State := 0
+
+transition
+0. State = 0 /\ Rcv_BA(start) =|&gt;
+State' := 2 /\ Na' := new()
+/\ Snd_SA(A.B.Na')
+
+1. State = 2 /\ Rcv_SA({Na.B.Kab'.Msg'}_Kas) =|&gt;
+State' := 4 /\ Snd_BA(Msg')
+/\ secret(Kab',k,{A,B,S})
+
+2. State = 4 /\ Rcv_BA({Nb'}_Kab) =|&gt;
+State' := 6 /\ Snd_BA({Pred(Nb')}_Kab)
+/\ request(A,B,bob_alice_nb,Nb')
+
+end role
+
+role bob(A,B,S : agent,
+Kbs : symmetric_key,
+Pred : function,
+Snd_AB,Rcv_AB : channel(dy))
+played_by B def=
+
+local
+State : nat,
+Na,Nb : text,
+Kab : symmetric_key
+
+init State := 5
+
+transition
+0. State = 5 /\ Rcv_AB({Kab'.A}_Kbs) =|&gt;
+State' := 7 /\ Nb' := new()
+/\ Snd_AB({Nb'}_Kab')
+/\ witness(A,B,bob_alice_nb,Nb')
+
+end role
+
+role server(A,B,S : agent,
+Kas,Kbs : symmetric_key,
+Snd_AS,Rcv_AS : channel(dy))
+played_by S def=
+
+local
+State : nat,
+Kab : symmetric_key,
+Na : text
+
+const
+k : protocol_id
+
+init State := 1
+
+transition
+1. State = 1 /\ Rcv_AS(A.B.Na') =|&gt;
+State' := 3 /\ Kab' := new()
+/\
+Snd_AS({Na'.B.Kab'.{Kab'.A}_Kbs}_Kas)
+/\ secret(Kab',k,{A,B,S})
+
+end role
+
+role session(A,B,S : agent,
+Kas,Kbs : symmetric_key,
+Pred : function)
+def=
+
+local
+SSA,RSA,SBA,RBA,SAS,RAS,SAB,RAB : channel(dy)
+
+composition
+alice(A,B,S,Kas,Pred,SSA,RSA,SBA,RBA)
+/\ bob(A,B,S,Kbs,Pred,SAB,RAB)
+/\ server(A,B,S,Kas,Kbs,SAS,RAS)
+
+end role
+
+role environment()
+def=
+
+const
+a,b,s : agent,
+kas,kbs,kis : symmetric_key,
+pred : function,
+bob_alice_nb : protocol_id, %% Authentication on nonce Nb
+k : protocol_id %% Keep the key Kab secret
+
+intruder_knowledge = {a,b,s,pred,kis}
+
+composition
+session(a,b,s,kas,kbs,pred)
+/\ session(a,b,s,kas,kbs,pred)
+/\ session(i,b,s,kis,kbs,pred)
+/\ session(a,i,s,kas,kis,pred)
+
+end role
+
+goal
+authentication_on bob_alice_nb
+secrecy_of k
+end goal
+
+environment()
+
+
+Kostas Ch. wrote:
+
+&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> Note: forwarded message attached.
+</I>&gt;<i>
+</I>&gt;<i> ------------------------------------------------------------------------
+</I>&gt;<i> Yahoo! Messenger with Voice. 
+</I>&gt;<i> 
+</I>&gt;<i> PC-to-Phone calls for ridiculously low rates.
+</I>&gt;<i> ------------------------------------------------------------------------
+</I>&gt;<i>
+</I>&gt;<i> Subject:
+</I>&gt;<i> Re: [Avispa-users] Question on Needham-Schroeder protocol(Denning 
+</I>&gt;<i> Sacco attack)
+</I>&gt;<i> From:
+</I>&gt;<i> &quot;Kostas Ch.&quot; 
+</I>&gt;<i> Date:
+</I>&gt;<i> Wed, 24 May 2006 04:52:27 -0700 (PDT)
+</I>&gt;<i> To:
+</I>&gt;<i> Yann Glouche 
+</I>&gt;<i>
+</I>&gt;<i> To:
+</I>&gt;<i> Yann Glouche 
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> Dear Yann,
+</I>&gt;<i> I have changed the Msg variable to that of type message but still the 
+</I>&gt;<i> attack is not found. My specification is similar to the example 2 in 
+</I>&gt;<i> the Tutorial which should work. My main problem is if my way of 
+</I>&gt;<i> modelling the authentication goals is correct or if I have made 
+</I>&gt;<i> somewhere else a mistake.
+</I>&gt;<i> Any more suggestions would be very helpful. Thank you for you time.
+</I>&gt;<i> Kostas
+</I>&gt;<i>
+</I>&gt;<i> */Yann Glouche /* wrote:
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> Dear Kostas,
+</I>&gt;<i>
+</I>&gt;<i> You have a problem in your specification. In the alice role, the
+</I>&gt;<i> type of
+</I>&gt;<i> local variable &quot;Msg&quot; is Message.
+</I>&gt;<i> I developp a tool for testinng HLPSL sp&#233;cification. This tool produce
+</I>&gt;<i> interactively with the user a MSC (Message Sequence Short) which
+</I>&gt;<i> can be
+</I>&gt;<i> seen like an &quot;alice&amp;bob&quot; trace from an HLPSL specification. And your
+</I>&gt;<i> previous specification is not correct.
+</I>&gt;<i>
+</I>&gt;<i> Yann
+</I>&gt;<i>
+</I>&gt;<i> The correction :
+</I>&gt;<i>
+</I>&gt;<i> role alice(A,B,S : agent,
+</I>&gt;<i> Kas : symmetric_key,
+</I>&gt;<i> Pred : function,
+</I>&gt;<i> Snd_SA,Rcv_SA,Snd_BA,Rcv_BA : channel(dy))
+</I>&gt;<i> played_by A def=
+</I>&gt;<i>
+</I>&gt;<i> local
+</I>&gt;<i> State : nat,
+</I>&gt;<i> Na,Nb : text,
+</I>&gt;<i> Msg : message,
+</I>&gt;<i> Kab : symmetric_key
+</I>&gt;<i>
+</I>&gt;<i> init State := 0
+</I>&gt;<i>
+</I>&gt;<i> transition
+</I>&gt;<i> 0. State = 0 /\ Rcv_BA(start) =|&gt;
+</I>&gt;<i> State' := 2 /\ Na' := new()
+</I>&gt;<i> /\ Snd_SA(A.B.Na')
+</I>&gt;<i>
+</I>&gt;<i> 1. State = 2 /\ Rcv_SA({Na.B.Kab'.Msg'}_Kas) =|&gt;
+</I>&gt;<i> State' := 4 /\ Snd_BA(Msg')
+</I>&gt;<i> /\ secret(Kab',k,{A,B,S})
+</I>&gt;<i>
+</I>&gt;<i> 2. State = 4 /\ Rcv_BA({Nb'}_Kab) =|&gt;
+</I>&gt;<i> State' := 6 /\ Snd_BA({Pred(Nb')}_Kab)
+</I>&gt;<i> /\ request(A,B,bob_alice_nb,Nb')
+</I>&gt;<i>
+</I>&gt;<i> end role
+</I>&gt;<i>
+</I>&gt;<i> role bob(A,B,S : agent,
+</I>&gt;<i> Kbs : symmetric_key,
+</I>&gt;<i> Pred : function,
+</I>&gt;<i> Snd_AB,Rcv_AB : channel(dy))
+</I>&gt;<i> played_by B def=
+</I>&gt;<i>
+</I>&gt;<i> local
+</I>&gt;<i> State : nat,
+</I>&gt;<i> Na,Nb : text,
+</I>&gt;<i> Kab : symmetric_key
+</I>&gt;<i>
+</I>&gt;<i> init State := 5
+</I>&gt;<i>
+</I>&gt;<i> transition
+</I>&gt;<i> 0. State = 5 /\ Rcv_AB({Kab'.A}_Kbs) =|&gt;
+</I>&gt;<i> State' := 7 /\ Nb' := new()
+</I>&gt;<i> /\ Snd_AB({Nb'}_Kab')
+</I>&gt;<i> /\ witness(B,A,bob_alice_nb,Nb')
+</I>&gt;<i>
+</I>&gt;<i> end role
+</I>&gt;<i>
+</I>&gt;<i> role server(A,B,S : agent,
+</I>&gt;<i> Kas,Kbs : symmetric_key,
+</I>&gt;<i> Snd_AS,Rcv_AS : channel(dy))
+</I>&gt;<i> played_by S def=
+</I>&gt;<i>
+</I>&gt;<i> local
+</I>&gt;<i> State : nat,
+</I>&gt;<i> Kab : symmetric_key,
+</I>&gt;<i> Na : text
+</I>&gt;<i>
+</I>&gt;<i> const
+</I>&gt;<i> k : protocol_id
+</I>&gt;<i>
+</I>&gt;<i> init State := 1
+</I>&gt;<i>
+</I>&gt;<i> transition
+</I>&gt;<i> 1. State = 1 /\ Rcv_AS(A.B.Na') =|&gt;
+</I>&gt;<i> State' := 3 /\ Kab' := new()
+</I>&gt;<i> /\
+</I>&gt;<i> Snd_AS({Na'.B.Kab'.{Kab'.A}_Kbs}_Kas)
+</I>&gt;<i> /\ secret(Kab',k,{A,B,S})
+</I>&gt;<i>
+</I>&gt;<i> end role
+</I>&gt;<i>
+</I>&gt;<i> role session(A,B,S : agent,
+</I>&gt;<i> Kas,Kbs : symmetric_key,
+</I>&gt;<i> Pred : function)
+</I>&gt;<i> def=
+</I>&gt;<i>
+</I>&gt;<i> local
+</I>&gt;<i> SSA,RSA,SBA,RBA,SAS,RAS,SAB,RAB : channel(dy)
+</I>&gt;<i>
+</I>&gt;<i> composition
+</I>&gt;<i> alice(A,B,S,Kas,Pred,SSA,RSA,SBA,RBA)
+</I>&gt;<i> /\ bob(A,B,S,Kbs,Pred,SAB,RAB)
+</I>&gt;<i> /\ server(A,B,S,Kas,Kbs,SAS,RAS)
+</I>&gt;<i>
+</I>&gt;<i> end role
+</I>&gt;<i>
+</I>&gt;<i> role environment()
+</I>&gt;<i> def=
+</I>&gt;<i>
+</I>&gt;<i> const
+</I>&gt;<i> a,b,s : agent,
+</I>&gt;<i> kas,kbs,kis : symmetric_key,
+</I>&gt;<i> pred : function,
+</I>&gt;<i> bob_alice_nb : protocol_id, %% Authentication on nonce Nb
+</I>&gt;<i> k : protocol_id %% Keep the key Kab secret
+</I>&gt;<i> intruder_knowledge = {a,b,s,pred,kis}
+</I>&gt;<i>
+</I>&gt;<i> composition
+</I>&gt;<i> session(a,b,s,kas,kbs,pred)
+</I>&gt;<i> /\ session(a,b,s,kas,kbs,pred)
+</I>&gt;<i> /\ session(i,b,s,kis,kbs,pred)
+</I>&gt;<i> /\ session(a,i,s,kas,kis,pred)
+</I>&gt;<i>
+</I>&gt;<i> end role
+</I>&gt;<i>
+</I>&gt;<i> goal
+</I>&gt;<i> authentication_on bob_alice_nb
+</I>&gt;<i> secrecy_of k
+</I>&gt;<i> end goal
+</I>&gt;<i>
+</I>&gt;<i> environment()
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> Kostas Ch. wrote:
+</I>&gt;<i>
+</I>&gt;<i> &gt;Hi all,
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt;As part of a research on the AVISPA tool I am trying
+</I>&gt;<i> &gt;to evaluate the Needham-Schroeder protocol with
+</I>&gt;<i> &gt;symmetric keys with the server so that I will be able
+</I>&gt;<i> &gt;to conclude if the tool finds the known Denning-Sacco
+</I>&gt;<i> &gt;attack on this protocol. My protocol specification is
+</I>&gt;<i> &gt;as such:
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt;A -&gt; S : A,B,na
+</I>&gt;<i> &gt;S -&gt; A : {na,B,Kab,{Kab,A}_Kbs}_Kas
+</I>&gt;<i> &gt;A -&gt; B : {Kab,A}_Kbs
+</I>&gt;<i> &gt;B -&gt; A : {nb}_Kab
+</I>&gt;<i> &gt;A -&gt; B : {nb-1}_Kab
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt;where Kas and Kbs are the keys shared between A and S
+</I>&gt;<i> &gt;and B and S respectively, Kab is the generated key
+</I>&gt;<i> &gt;from the server and na,nb are nonces. I would like to
+</I>&gt;<i> &gt;ask you if there is a specific way to model the
+</I>&gt;<i> &gt;protocol so that this attack is found (using a
+</I>&gt;<i> &gt;compromised key Kab from a previous session).
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt;Here is my HLSPL file:
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt;role alice(A,B,S : agent,
+</I>&gt;<i> &gt; Kas : symmetric_key,
+</I>&gt;<i> &gt; Pred : function,
+</I>&gt;<i> &gt; Snd_SA,Rcv_SA,Snd_BA,Rcv_BA : channel(dy))
+</I>&gt;<i> &gt;played_by A def=
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; local
+</I>&gt;<i> &gt; State : nat,
+</I>&gt;<i> &gt; Na,Nb : text,
+</I>&gt;<i> &gt; Msg : {symmetric_key.text}_symmetric_key,
+</I>&gt;<i> &gt; Kab : symmetric_key
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; init State := 0
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; transition
+</I>&gt;<i> &gt; 0. State = 0 /\ Rcv_BA(start) =|&gt;
+</I>&gt;<i> &gt; State' := 2 /\ Na' := new()
+</I>&gt;<i> &gt; /\ Snd_SA(A.B.Na')
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; 1. State = 2 /\ Rcv_SA({Na.B.Kab'.Msg'}_Kas) =|&gt;
+</I>&gt;<i> &gt; State' := 4 /\ Snd_BA(Msg')
+</I>&gt;<i> &gt; /\ secret(Kab',k,{A,B,S})
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; 2. State = 4 /\ Rcv_BA({Nb'}_Kab) =|&gt;
+</I>&gt;<i> &gt; State' := 6 /\ Snd_BA({Pred(Nb')}_Kab)
+</I>&gt;<i> &gt; /\ request(A,B,bob_alice_nb,Nb')
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt;end role
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt;role bob(A,B,S : agent,
+</I>&gt;<i> &gt; Kbs : symmetric_key,
+</I>&gt;<i> &gt; Pred : function,
+</I>&gt;<i> &gt; Snd_AB,Rcv_AB : channel(dy))
+</I>&gt;<i> &gt;played_by B def=
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; local
+</I>&gt;<i> &gt; State : nat,
+</I>&gt;<i> &gt; Na,Nb : text,
+</I>&gt;<i> &gt; Kab : symmetric_key
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; init State := 5
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; transition
+</I>&gt;<i> &gt; 0. State = 5 /\ Rcv_AB({Kab'.A}_Kbs) =|&gt;
+</I>&gt;<i> &gt; State' := 7 /\ Nb' := new()
+</I>&gt;<i> &gt; /\ Snd_AB({Nb'}_Kab')
+</I>&gt;<i> &gt; /\ witness(B,A,bob_alice_nb,Nb')
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt;end role
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt;role server(A,B,S : agent,
+</I>&gt;<i> &gt; Kas,Kbs : symmetric_key,
+</I>&gt;<i> &gt; Snd_AS,Rcv_AS : channel(dy))
+</I>&gt;<i> &gt;played_by S def=
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; local
+</I>&gt;<i> &gt; State : nat,
+</I>&gt;<i> &gt; Kab : symmetric_key,
+</I>&gt;<i> &gt; Na : text
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; const
+</I>&gt;<i> &gt; k : protocol_id
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; init State := 1
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; transition
+</I>&gt;<i> &gt; 1. State = 1 /\ Rcv_AS(A.B.Na') =|&gt;
+</I>&gt;<i> &gt; State' := 3 /\ Kab' := new()
+</I>&gt;<i> &gt; /\
+</I>&gt;<i> &gt;Snd_AS({Na'.B.Kab'.{Kab'.A}_Kbs}_Kas)
+</I>&gt;<i> &gt; /\ secret(Kab',k,{A,B,S})
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt;end role
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt;role session(A,B,S : agent,
+</I>&gt;<i> &gt; Kas,Kbs : symmetric_key,
+</I>&gt;<i> &gt; Pred : function)
+</I>&gt;<i> &gt;def=
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; local
+</I>&gt;<i> &gt; SSA,RSA,SBA,RBA,SAS,RAS,SAB,RAB : channel(dy)
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; composition
+</I>&gt;<i> &gt; alice(A,B,S,Kas,Pred,SSA,RSA,SBA,RBA)
+</I>&gt;<i> &gt; /\ bob(A,B,S,Kbs,Pred,SAB,RAB)
+</I>&gt;<i> &gt; /\ server(A,B,S,Kas,Kbs,SAS,RAS)
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt;end role
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt;role environment()
+</I>&gt;<i> &gt;def=
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; const
+</I>&gt;<i> &gt; a,b,s : agent,
+</I>&gt;<i> &gt; kas,kbs,kis : symmetric_key,
+</I>&gt;<i> &gt; pred : function,
+</I>&gt;<i> &gt; bob_alice_nb : protocol_id, %% Authentication on
+</I>&gt;<i> &gt;nonce Nb
+</I>&gt;<i> &gt; k : protocol_id %% Keep the key Kab secret
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; intruder_knowledge = {a,b,s,pred,kis}
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt; composition
+</I>&gt;<i> &gt; session(a,b,s,kas,kbs,pred)
+</I>&gt;<i> &gt; /\ session(a,b,s,kas,kbs,pred)
+</I>&gt;<i> &gt; /\ session(i,b,s,kis,kbs,pred)
+</I>&gt;<i> &gt; /\ session(a,i,s,kas,kis,pred)
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt;end role
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt;goal
+</I>&gt;<i> &gt; authentication_on bob_alice_nb
+</I>&gt;<i> &gt; secrecy_of k
+</I>&gt;<i> &gt;end goal
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt;environment()
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt;I tried to run it both with OFMC and CL-Atse but no
+</I>&gt;<i> &gt;attack is found. Is there a problem with my
+</I>&gt;<i> &gt;specification? Any help would be very much
+</I>&gt;<i> &gt;appreciated.
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt;Best regards to all,
+</I>&gt;<i> &gt;Konstantinos Chadolias
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt;__________________________________________________
+</I>&gt;<i> &gt;Do You Yahoo!?
+</I>&gt;<i> &gt;Tired of spam? Yahoo! Mail has the best spam protection around
+</I>&gt;<i> &gt;<A HREF="http://mail.yahoo.com">http://mail.yahoo.com</A>
+</I>&gt;<i> &gt;_______________________________________________
+</I>&gt;<i> &gt;Avispa-users mailing list
+</I>&gt;<i> &gt;<A HREF="http://www.avispa-project.org/mailman/listinfo/avispa-users">Avispa-users at avispa-project.org</A>
+</I>&gt;<i> &gt;<A HREF="http://www.avispa-project.org/mailman/listinfo/avispa-users">http://www.avispa-project.org/mailman/listinfo/avispa-users</A>
+</I>&gt;<i> &gt;
+</I>&gt;<i> &gt;
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> ------------------------------------------------------------------------
+</I>&gt;<i> How low will we go? Check out Yahoo! Messenger&#146;s low PC-to-Phone call 
+</I>&gt;<i> rates. 
+</I>&gt;<i> 
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> 
+</I>&gt;<i>------------------------------------------------------------------------
+</I>&gt;<i>
+</I>&gt;<i>_______________________________________________
+</I>&gt;<i>Avispa-users mailing list
+</I>&gt;<i><A HREF="http://www.avispa-project.org/mailman/listinfo/avispa-users">Avispa-users at avispa-project.org</A>
+</I>&gt;<i><A HREF="http://www.avispa-project.org/mailman/listinfo/avispa-users">http://www.avispa-project.org/mailman/listinfo/avispa-users</A>
+</I>&gt;<i> 
+</I>&gt;<i>
+</I>
+
+
+			
+---------------------------------
+Sneak preview the  all-new Yahoo.com. It's not radically different. Just radically better. 
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: <A HREF="http://carroll.ai.dist.unige.it/pipermail/avispa-users/attachments/20060524/131aebd9/attachment-0001.htm">http://carroll.ai.dist.unige.it/pipermail/avispa-users/attachments/20060524/131aebd9/attachment-0001.htm</A>
+</PRE>
+
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000244.html">Fwd: Re: [Avispa-users] Question on Needham-Schroeder
+	protocol(Denning Sacco attack)
+</A></li>
+	<LI>Next message: <A HREF="000246.html">[Avispa-users] Can AVISPA verify Chaum's Dining Cryptographers
+	protocol?
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#245">[ date ]</a>
+              <a href="thread.html#245">[ thread ]</a>
+              <a href="subject.html#245">[ subject ]</a>
+              <a href="author.html#245">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="http://www.avispa-project.org/mailman/listinfo/avispa-users">More information about the Avispa-users
+mailing list</a><br>
+</body></html>

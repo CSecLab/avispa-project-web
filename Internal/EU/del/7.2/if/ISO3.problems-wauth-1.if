@@ -1,0 +1,69 @@
+%% IF specification of /home/friends/drwho/Desktop/Archivio/Work/Science/AVISPA/AVISPA-FET-EU-02/shared/testsuite/hlpsl/ISO3.problems.hlpsl
+
+section signature:
+
+state_ISO3_Resp: agent * agent * public_key * public_key * nat * text * text * text * text * public_key * nat -> fact
+state_ISO3_Init: agent * agent * public_key * public_key * nat * text * text * text * text * public_key * nat -> fact
+
+
+section types:
+
+nb, na : protocol_id
+ctext4, ctext3, Na, Text1, Dummy_Text2, Text2, Dummy_Text1, Nb, Dummy_Text4, Dummy_Text3, Dummy_Nb, Dummy_Na, dummy_nonce, ctext2, ctext1, Text3, Text4 : text
+10, 9, 7, 6, 4, State, CID, 3, 2, 1, 0 : nat
+Pks, Pka, Pkb, Dummy_Pka, Dummy_Pkb, dummy_pk, pkb, pka, pks : public_key
+start : message
+A, B, b, i, a : agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(a).
+ iknows(b).
+ iknows(c).
+ iknows(pks).
+ iknows(pki).
+ iknows(inv(pki)).
+ iknows(start).
+ iknows(i).
+ state_ISO3_Init(a,b,pka,pks,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_pk,3).
+ state_ISO3_Resp(b,a,pkb,pks,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_pk,4).
+ state_ISO3_Init(a,b,pka,pks,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_pk,6).
+ state_ISO3_Resp(b,a,pkb,pks,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_pk,7).
+ state_ISO3_Init(b,a,pkb,pks,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_pk,9).
+ state_ISO3_Resp(a,b,pka,pks,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_pk,10)
+
+
+section rules:
+
+step step_0 (A,B,Pka,Pks,Dummy_Na,Nb,Text3,Text4,Pkb,Na,CID) :=
+ state_ISO3_Init(A,B,Pka,Pks,0,Dummy_Na,Nb,Text3,Text4,Pkb,CID).
+ iknows(start)
+=[exists Na]=>
+ state_ISO3_Init(A,B,Pka,Pks,1,Na,Nb,Text3,Text4,Pkb,CID).
+ iknows(pair(pair(pair(pair(pair(pair(Pka,A),crypt(inv(Pks),pair(Pka,A))),Na),B),ctext2),crypt(inv(Pka),pair(pair(Na,B),ctext1))))
+
+step step_1 (A,B,Pka,Pks,Na,Dummy_Nb,Dummy_Text3,Dummy_Text4,Dummy_Pkb,Nb,Text3,Text4,Pkb,CID) :=
+ state_ISO3_Init(A,B,Pka,Pks,1,Na,Dummy_Nb,Dummy_Text3,Dummy_Text4,Dummy_Pkb,CID).
+ iknows(pair(pair(pair(pair(pair(pair(Pkb,B),crypt(inv(Pks),pair(Pkb,B))),Nb),A),Text4),crypt(inv(Pkb),pair(pair(Nb,A),Text3))))
+ =>
+ state_ISO3_Init(A,B,Pka,Pks,2,Na,Nb,Text3,Text4,Pkb,CID).
+ wrequest(A,B,nb,Nb,CID)
+
+step step_2 (B,A,Pkb,Pks,Dummy_Nb,Dummy_Na,Dummy_Text1,Dummy_Text2,Dummy_Pka,Nb,Na,Text1,Text2,Pka,CID) :=
+ state_ISO3_Resp(B,A,Pkb,Pks,0,Dummy_Nb,Dummy_Na,Dummy_Text1,Dummy_Text2,Dummy_Pka,CID).
+ iknows(pair(pair(pair(pair(pair(pair(Pka,A),crypt(inv(Pks),pair(Pka,A))),Na),B),Text2),crypt(inv(Pka),pair(pair(Na,B),Text1))))
+=[exists Nb]=>
+ state_ISO3_Resp(B,A,Pkb,Pks,1,Nb,Na,Text1,Text2,Pka,CID).
+ iknows(pair(pair(pair(pair(pair(pair(Pkb,B),crypt(inv(Pks),pair(Pkb,B))),Nb),A),ctext4),crypt(inv(Pkb),pair(pair(Nb,A),ctext3)))).
+ witness(B,A,nb,Nb)
+
+
+section goals:
+
+goal weak_authenticate_Nb (B,A,Nb,CID) :=
+ wrequest(A,B,nb,Nb,CID).
+ not(witness(B,A,nb,Nb)) &
+ not(equal(B,i))
+

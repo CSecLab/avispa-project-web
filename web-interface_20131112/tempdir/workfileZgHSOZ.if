@@ -1,0 +1,96 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileZgHSOZ
+
+section signature:
+
+state_responder: agent * agent * public_key * public_key * nat * text * text * set(agent) * nat -> fact
+state_initiator: agent * agent * public_key * public_key * nat * text * text * set(agent) * nat -> fact
+
+
+section types:
+
+secret_id_nb, secret_id_na: protocol_id
+MGoal, start: message
+ka, kb, kc, ki, Kb, Ka: public_key
+Dummy_State, 2, SID, State, 3, 1: nat
+set_45, set_53: set
+a, b, c, B, A, i: agent
+ASGoal, Set_32, Set_18, Dummy_Set_32, Dummy_Set_18: set(agent)
+dummy_nonce, Nb, Y, Na, X, Dummy_Y, Dummy_Nb, Dummy_X, Dummy_Na: text
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(c).
+ iknows(ka).
+ iknows(kb).
+ iknows(kc).
+ iknows(ki).
+ iknows(inv(ki)).
+ iknows(i).
+ state_initiator(a,i,ka,ki,1,dummy_nonce,dummy_nonce,set_45,2).
+ state_responder(b,a,kb,ka,1,dummy_nonce,dummy_nonce,set_53,3)
+
+
+section rules:
+
+step step_0 (A,B,Ka,Kb,Dummy_Na,X,Dummy_Set_18,SID,Na) :=
+ state_initiator(A,B,Ka,Kb,1,Dummy_Na,X,Dummy_Set_18,SID).
+ iknows(start)
+=[exists Na]=>
+ state_initiator(A,B,Ka,Kb,2,Na,X,Dummy_Set_18,SID).
+ iknows(crypt(Kb,pair(Na,A))).
+ secret(Na,secret_id_na,Dummy_Set_18).
+ contains(A,Dummy_Set_18).
+ contains(B,Dummy_Set_18)
+
+step step_1 (A,B,Ka,Kb,Na,Dummy_X,Set_18,SID,X) :=
+ state_initiator(A,B,Ka,Kb,2,Na,Dummy_X,Set_18,SID).
+ iknows(crypt(Ka,pair(Na,X)))
+ =>
+ state_initiator(A,B,Ka,Kb,3,Na,X,Set_18,SID).
+ iknows(crypt(Kb,X))
+
+step step_2 (B,A,Kb,Ka,Dummy_Nb,Dummy_Y,Dummy_Set_32,SID,Nb,Y) :=
+ state_responder(B,A,Kb,Ka,1,Dummy_Nb,Dummy_Y,Dummy_Set_32,SID).
+ iknows(crypt(Kb,pair(Y,A)))
+=[exists Nb]=>
+ state_responder(B,A,Kb,Ka,2,Nb,Y,Dummy_Set_32,SID).
+ iknows(crypt(Ka,pair(Y,Nb))).
+ secret(Nb,secret_id_nb,Dummy_Set_32).
+ contains(A,Dummy_Set_32).
+ contains(B,Dummy_Set_32)
+
+step step_3 (B,A,Kb,Ka,Nb,Y,Set_32,SID) :=
+ state_responder(B,A,Kb,Ka,2,Nb,Y,Set_32,SID).
+ iknows(crypt(Kb,Nb))
+ =>
+ state_responder(B,A,Kb,Ka,3,Nb,Y,Set_32,SID)
+
+
+section properties:
+
+property secrecy_of_secret_id_na (MGoal,ASGoal) :=
+ [] ((secret(MGoal,secret_id_na,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_secret_id_nb (MGoal,ASGoal) :=
+ [] ((secret(MGoal,secret_id_nb,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_secret_id_na (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,secret_id_na,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_secret_id_nb (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,secret_id_nb,ASGoal) &
+ not(contains(i,ASGoal))
+

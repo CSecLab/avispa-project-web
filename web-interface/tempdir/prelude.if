@@ -1,0 +1,99 @@
+  section typeSymbols:
+  
+    agent, text, symmetric_key, public_key, hash_func,
+    message, fact, nat, protocol_id, bool, set
+  
+  section signature:
+  
+     message > agent         
+     message > text         
+     message > symmetric_key 
+     message > public_key    
+     message > hash_func
+     message > nat
+     message > protocol_id
+     message > bool
+  
+    % concatenation: pair(Msg1,Msg2)
+    pair     : message * message -> message
+    % asymmetric encryption: crypt(Key,Message)
+    crypt    : message * message -> message
+    % inverse of a public key (=private key): inv(Key)
+    inv      : message -> message
+    % symmetric encryption: scrypt(Key,Message)
+    scrypt   : message * message -> message
+    % exponentiation: exp(Base,Exponent)
+    exp      : message * message -> message
+    % exclusive or: xor(N1,N2)
+    xor      : message * message -> message
+    % application of a hash function: apply(F,Arg)
+    apply    : message * message -> message
+
+    % intruder knowledge: iknows(ki)
+    iknows   : message -> fact
+    % set element: contains(a,set_1)
+    contains : message * set -> fact
+    % witness for authentication: witness(A,B,id,Msg)
+    witness  : agent * agent * protocol_id * message  -> fact
+    % request for strong authentication: request(B,A,id,Msg,RoleID)
+    request  : agent * agent * protocol_id * message * nat -> fact
+    % request for weak authentication: wrequest(B,A,id,Msg,RoleID)
+    wrequest : agent * agent * protocol_id * message * nat -> fact
+    % secrecy: secret(Msg,id,AgentSet)
+    secret   : message * protocol_id * set(agent) -> fact
+
+  section types:
+  
+    % declaration of the pre-defined constants:
+    true, false: bool
+    % declaration of the variables used in this file:
+    PreludeK,PreludeM,PreludeM1,PreludeM2,PreludeM3: message
+  
+  section equations:
+
+    % associativity of concatenation:
+    pair(PreludeM1,pair(PreludeM2,PreludeM3))
+      = pair(pair(PreludeM1,PreludeM2),PreludeM3)
+  
+    % identity of double inverse:
+    inv(inv(PreludeK)) = PreludeK
+
+    % commutation of exponents:
+    exp(exp(PreludeM1,PreludeM2),PreludeM3) = exp(exp(PreludeM1,PreludeM3),PreludeM2)
+    % cancellation of inverse exponents:
+    exp(exp(PreludeM1,PreludeM2),inv(PreludeM2)) = PreludeM1
+  
+    % associativity of xor:
+    xor(PreludeM1,xor(PreludeM2,PreludeM3)) = xor(xor(PreludeM1,PreludeM2),PreludeM3)
+    % commutativity of xor:
+    xor(PreludeM1,PreludeM2) = xor(PreludeM2,PreludeM1)
+    % nilpotency of xor:
+    xor(xor(PreludeM1,PreludeM1),PreludeM2) = PreludeM2
+  
+  section intruder:  % for the Dolev-Yao model
+  
+    % generating rules:
+    step gen_pair (PreludeM1,PreludeM2) :=
+      iknows(PreludeM1).iknows(PreludeM2) => iknows(pair(PreludeM1,PreludeM2))
+    step gen_crypt (PreludeM1,PreludeM2) :=
+      iknows(PreludeM1).iknows(PreludeM2) => iknows(crypt(PreludeM1,PreludeM2))
+    step gen_scrypt (PreludeM1,PreludeM2) :=
+      iknows(PreludeM1).iknows(PreludeM2) => iknows(scrypt(PreludeM1,PreludeM2))
+    step gen_exp (PreludeM1,PreludeM2) :=
+      iknows(PreludeM1).iknows(PreludeM2) => iknows(exp(PreludeM1,PreludeM2))
+    step gen_xor (PreludeM1,PreludeM2) :=
+      iknows(PreludeM1).iknows(PreludeM2) => iknows(xor(PreludeM1,PreludeM2))
+    step gen_apply (PreludeM1,PreludeM2) :=
+      iknows(PreludeM1).iknows(PreludeM2) => iknows(apply(PreludeM1,PreludeM2))
+  
+    % analyzing rules:
+    step ana_pair (PreludeM1,PreludeM2) :=
+      iknows(pair(PreludeM1,PreludeM2)) => iknows(PreludeM1).iknows(PreludeM2)
+    step ana_crypt (PreludeK,PreludeM) :=
+      iknows(crypt(PreludeK,PreludeM)).iknows(inv(PreludeK)) => iknows(PreludeM)
+    step ana_scrypt (PreludeK,PreludeM) :=
+      iknows(scrypt(PreludeK,PreludeM)).iknows(PreludeK) => iknows(PreludeM)
+  
+    % generating fresh constants of any type:
+    step generate (PreludeM) :=
+      =[exists PreludeM]=> iknows(PreludeM)

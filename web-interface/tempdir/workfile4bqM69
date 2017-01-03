@@ -1,0 +1,55 @@
+role alice ( A , S  : agent, 
+              Password : text,
+              B        : message,
+              Hash     : hash_func,
+              Kas      : public_key,
+              Snd, Rcv : channel(dy)) 
+			  
+played_by A def=
+
+  local State , N       : nat,
+        C1 , C2 , C3 ,
+        D1 , D2 , D3 ,
+        D4 , D5      : message 
+
+  init State := 0
+
+  transition
+
+   0.    State  = 0 /\ Rcv(start) =|>
+         State' := 2 /\ B' := xor(Password,1) /\ Snd(A.{Hash(Hash(B'))})
+
+
+   2.    State' = 1 /\ Snd(login)
+
+
+   3.    State  = 0 /\ Rcv(N) =|>
+         State' := 1 /\ D1' := Hash(xor(Password,N))  /\ D2' := Hash(Hash(xor(Password,N))) /\ C1' := xor(D1',D2')
+                     /\ D3' := Hash(Hash(xor(Password,N+1)))  /\ D4' := Hash(xor(Password,N)) /\ C2' := xor(D3',D4')
+                     /\ D5' := Hash(xor(Password,N+1)) /\ C3' := Hash(Hash(D5')) 
+                     /\ Snd(C1'.C2'.C3')
+
+end role
+
+role server ( A , S  : agent,
+              Password : text,
+              B        : message,
+              Hash     : hash_func,
+              Kas      : public_key,
+              Snd, Rcv : channel(dy)) played_by S def=
+
+  local State        : nat,
+        N            : nat
+
+  init State := 0,
+       N     :=1
+
+  transition
+
+   0.    State  = 0 /\ Rcv({A.N'.{Hash(Hash(xor(Password,1)))}}_Kas)
+         
+
+   2.    State = 0 /\ Rcv(login) =|> 
+         State' := 2 /\ Snd(N)   
+
+end role

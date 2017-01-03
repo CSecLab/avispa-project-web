@@ -1,0 +1,114 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileKb8u4Y
+
+section signature:
+
+state_role_TC: agent * symmetric_key * symmetric_key * public_key * public_key * hash_func * text * nat * agent * text * public_key * public_key * symmetric_key * nat -> fact
+state_role_D: agent * agent * symmetric_key * public_key * public_key * hash_func * text * nat * symmetric_key * text * public_key * public_key * symmetric_key * set * nat -> fact
+
+
+section types:
+
+Set_44, Dummy_Set_44, set_79: set
+ASGoal: set(agent)
+start, MGoal: message
+sec_2, sec_1: protocol_id
+4, SID, State, Dummy_State, 3, 2, 1, 0: nat
+Dummy_Ad, Dummy_Atc, Atc, Ad, dummy_nonce, const_1: text
+MAC, mac, hash_0: hash_func
+Dummy_Kds, Dummy_Kde, Ktce, Ktcs, Dummy_Ktce, Dummy_Ktcs, dummy_pk, Kde, Kds, sedKey1, esiKey2, esiKey1, sedKey2: public_key
+Kl, Dummy_Kl, Knwk, Dummy_Knwk, dummy_sk, Ktcl, nwkKey, tclKey: symmetric_key
+Dummy_D, dummy_agent, TC, D, esi, sed, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(esi).
+ iknows(sed).
+ iknows(esiKey1).
+ iknows(esiKey2).
+ iknows(sedKey1).
+ iknows(sedKey2).
+ iknows(mac).
+ iknows(nwkkey).
+ iknows(i).
+ state_role_D(sed,esi,tclKey,sedKey1,sedKey2,mac,const_1,0,dummy_sk,dummy_nonce,dummy_pk,dummy_pk,dummy_sk,set_79,3).
+ state_role_TC(esi,nwkKey,tclKey,esiKey1,esiKey2,mac,const_1,0,dummy_agent,dummy_nonce,dummy_pk,dummy_pk,dummy_sk,4)
+
+
+section rules:
+
+step step_0 (D,TC,Ktcl,Kds,Kde,MAC,Ad,Knwk,Atc,Ktcs,Ktce,Kl,Set_44,SID) :=
+ state_role_D(D,TC,Ktcl,Kds,Kde,MAC,Ad,0,Knwk,Atc,Ktcs,Ktce,Kl,Set_44,SID).
+ iknows(start)
+ =>
+ state_role_D(D,TC,Ktcl,Kds,Kde,MAC,Ad,1,Knwk,Atc,Ktcs,Ktce,Kl,Set_44,SID).
+ iknows(D)
+
+step step_1 (D,TC,Ktcl,Kds,Kde,MAC,Ad,Dummy_Knwk,Atc,Ktcs,Ktce,Kl,Set_44,SID,Knwk) :=
+ state_role_D(D,TC,Ktcl,Kds,Kde,MAC,Ad,1,Dummy_Knwk,Atc,Ktcs,Ktce,Kl,Set_44,SID).
+ iknows(pair(TC,scrypt(Ktcl,Knwk)))
+ =>
+ state_role_D(D,TC,Ktcl,Kds,Kde,MAC,Ad,2,Knwk,Atc,Ktcs,Ktce,Kl,Set_44,SID).
+ iknows(scrypt(Knwk,pair(Kds,Kde)))
+
+step step_2 (D,TC,Ktcl,Kds,Kde,MAC,Ad,Knwk,Atc,Dummy_Ktcs,Dummy_Ktce,Dummy_Kl,Dummy_Set_44,SID,Ktcs,Ktce,Kl) :=
+ state_role_D(D,TC,Ktcl,Kds,Kde,MAC,Ad,2,Knwk,Atc,Dummy_Ktcs,Dummy_Ktce,Dummy_Kl,Dummy_Set_44,SID).
+ iknows(scrypt(Knwk,pair(Ktcs,Ktce)))
+=[exists Kl]=>
+ state_role_D(D,TC,Ktcl,Kds,Kde,MAC,Ad,3,Knwk,Atc,Ktcs,Ktce,Kl,Dummy_Set_44,SID).
+ secret(Kl,sec_2,Dummy_Set_44).
+ iknows(scrypt(Knwk,apply(MAC,pair(Ad,pair(Kds,pair(Ktcs,pair(Kde,pair(Ktce,Kl))))))))
+
+step step_3 (D,TC,Ktcl,Kds,Kde,MAC,Ad,Knwk,Dummy_Atc,Ktcs,Ktce,Kl,Set_44,SID,Atc) :=
+ state_role_D(D,TC,Ktcl,Kds,Kde,MAC,Ad,3,Knwk,Dummy_Atc,Ktcs,Ktce,Kl,Set_44,SID).
+ iknows(scrypt(Knwk,apply(MAC,pair(Atc,pair(Ktcs,pair(Kds,pair(Ktce,pair(Kde,Kl))))))))
+ =>
+ state_role_D(D,TC,Ktcl,Kds,Kde,MAC,Ad,4,Knwk,Atc,Ktcs,Ktce,Kl,Set_44,SID)
+
+step step_4 (TC,Knwk,Ktcl,Ktcs,Ktce,MAC,Atc,Dummy_D,Ad,Kde,Kds,Kl,SID,D) :=
+ state_role_TC(TC,Knwk,Ktcl,Ktcs,Ktce,MAC,Atc,0,Dummy_D,Ad,Kde,Kds,Kl,SID).
+ iknows(D)
+ =>
+ state_role_TC(TC,Knwk,Ktcl,Ktcs,Ktce,MAC,Atc,1,D,Ad,Kde,Kds,Kl,SID).
+ iknows(pair(TC,scrypt(Ktcl,Knwk)))
+
+step step_5 (TC,Knwk,Ktcl,Ktcs,Ktce,MAC,Atc,D,Ad,Dummy_Kde,Dummy_Kds,Kl,SID,Kde,Kds) :=
+ state_role_TC(TC,Knwk,Ktcl,Ktcs,Ktce,MAC,Atc,1,D,Ad,Dummy_Kde,Dummy_Kds,Kl,SID).
+ iknows(scrypt(Knwk,pair(Kds,Kde)))
+ =>
+ state_role_TC(TC,Knwk,Ktcl,Ktcs,Ktce,MAC,Atc,2,D,Ad,Kde,Kds,Kl,SID).
+ iknows(scrypt(Knwk,pair(Ktcs,Ktce)))
+
+step step_6 (TC,Knwk,Ktcl,Ktcs,Ktce,MAC,Atc,D,Dummy_Ad,Kde,Kds,Dummy_Kl,SID,Ad,Kl) :=
+ state_role_TC(TC,Knwk,Ktcl,Ktcs,Ktce,MAC,Atc,2,D,Dummy_Ad,Kde,Kds,Dummy_Kl,SID).
+ iknows(scrypt(Knwk,apply(MAC,pair(Ad,pair(Kds,pair(Ktcs,pair(Kde,pair(Ktce,Kl))))))))
+ =>
+ state_role_TC(TC,Knwk,Ktcl,Ktcs,Ktce,MAC,Atc,3,D,Ad,Kde,Kds,Kl,SID).
+ iknows(scrypt(Knwk,apply(MAC,pair(Atc,pair(Ktcs,pair(Kds,pair(Ktce,pair(Kde,Kl))))))))
+
+
+section properties:
+
+property secrecy_of_sec_1 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_1,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_sec_2 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_2,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_sec_1 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_1,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_sec_2 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_2,ASGoal) &
+ not(contains(i,ASGoal))
+

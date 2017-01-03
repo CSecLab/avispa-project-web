@@ -1,0 +1,65 @@
+role role_A(A:agent,B:agent,R:agent,Ka:public_key,Ks:public_key,SND,RCV:channel(dy))
+played_by A
+def=
+	local
+		State:nat,TA:text,Na:text,Nb:text,Kb:public_key
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ Na':=new() /\ SND(A.Na')
+		4. State=1 /\ RCV({A.Ka.TA'}_Ks.{Nb'}_Ka) =|> State':=2 /\ SND(Na.{A.Ka.TA'}_Ka)
+		6. State=2 /\ RCV(Nb.{Ka}_Ks) =|> State':=3 /\ Kb':=new() /\ SND({Ka}_Kb') /\ SND(A.B)
+end role
+
+role role_B(A:agent,B:agent,R:agent,Kb:public_key,Ks:public_key,SND,RCV:channel(dy))
+played_by B
+def=
+	local
+		State:nat,Na:text,Cloudid:text,Nb:text,TA:text,Ka:public_key
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(A.Na') =|> State':=1 /\ Nb':=new() /\ TA':=new() /\ SND(B.{A.Na'.TA'.Nb'}_Ks)
+		3. State=1 /\ RCV({B.Na.Ka'.TA.Cloudid'}_Ks.{A.Ka'.TA}_Ks.Nb) =|> State':=2 /\ SND({A.Ka'.TA}_Ks.{Nb}_Ka')
+		7. State=2 /\ RCV({Ka}_Kb) =|> State':=3
+end role
+
+role role_R(A:agent,B:agent,R:agent,Ka:public_key,Kb:public_key,Ks:public_key,SND,RCV:channel(dy))
+played_by R
+def=
+	local
+		State:nat,Cloudid:text,TA:text,Na:text,Nb:text
+	init
+		State := 0
+	transition
+		2. State=0 /\ RCV(B.{A.Na'.TA'.Nb'}_Ks) =|> State':=1 /\ Cloudid':=new() /\ SND({B.Na'.Ka.TA'.Cloudid'}_Ks.{A.Ka.TA'}_Ks.Nb')
+		5. State=1 /\ RCV(Na.{A.Ka.TA}_Ka) =|> State':=2 /\ SND(Nb.{Ka}_Ks)
+		8. State=2 /\ RCV(A.B) =|> State':=3
+end role
+
+role session1(A:agent,B:agent,R:agent,Ka:public_key,Kb:public_key,Ks:public_key)
+def=
+	local
+		SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_R(A,B,R,Ka,Kb,Ks,SND3,RCV3) /\ role_B(A,B,R,Kb,Ks,SND2,RCV2) /\ role_A(A,B,R,Ka,Ks,SND1,RCV1)
+end role
+
+role session2(A:agent,B:agent,R:agent,Ka:public_key,Kb:public_key,Ks:public_key)
+def=
+	local
+		SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_R(A,B,R,Ka,Kb,Ks,SND3,RCV3) /\ role_B(A,B,R,Kb,Ks,SND2,RCV2) /\ role_A(A,B,R,Ka,Ks,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		ki:public_key,registry:agent,service:agent,hash_0:function,kb:public_key,cloud:agent,ka:public_key,ks:public_key
+	intruder_knowledge = {service,cloud,ka,kb,ki,inv(ki)}
+	composition
+		session2(service,cloud,registry,ka,ki,ks) /\ session1(service,cloud,registry,ka,kb,ks)
+end role
+
+environment()

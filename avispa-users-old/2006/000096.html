@@ -1,0 +1,166 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Avispa-users] A-&gt;B : K
+   </TITLE>
+   <LINK REL="Index" HREF="index.html" >
+   <LINK REL="made" HREF="mailto:avispa-users%40avispa-project.org?Subject=%5BAvispa-users%5D%20A-%3EB%20%3A%20K&In-Reply-To=">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000095.html">
+   <LINK REL="Next"  HREF="000098.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Avispa-users] A-&gt;B : K</H1>
+    <B>Yacine Challal</B> 
+    <A HREF="mailto:avispa-users%40avispa-project.org?Subject=%5BAvispa-users%5D%20A-%3EB%20%3A%20K&In-Reply-To="
+       TITLE="[Avispa-users] A-&gt;B : K">ychallal at hds.utc.fr
+       </A><BR>
+    <I>Wed Apr 26 10:57:17 CEST 2006</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000095.html">[Avispa-users] A-&gt;B:K ?
+</A></li>
+        <LI>Next message: <A HREF="000098.html">[Avispa-users] A-&gt;B : K
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#96">[ date ]</a>
+              <a href="thread.html#96">[ thread ]</a>
+              <a href="subject.html#96">[ subject ]</a>
+              <a href="author.html#96">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Dear Avispa users,
+We are beginners in using Avispa.
+We specified a simple protocol using HLPSL :
+A-&gt; B : K ,
+where K is a secret between A and B.
+We claimed that this protocol guarantees unilateral authentication.
+It is easy to see that this protocol is not safe, and we expected Avispa 
+to say : UNSAFE, and a trace attack would be for instance :
+i-&gt;(a,3) : start
+(a,3)-&gt;i : kab
+i-&gt;(b,3) : kab
+
+This is not the case. Avispa says the protocol is SAFE.
+We wonder if we made a mistake in our specification. Please find attach 
+to this message our HLPSL specification.
+Thank you for your cooperation.
+Best regards,
+
+Ouadjaout Abdelraouf (USTHB-Algiers)
+Yacine Challal (UTC-Compi&#232;gne)
+
+-- 
+-------------------------------------
+Yacine Challal
+Heudiasyc Lab.
+Royallieu Research Center
+Compiegne University of Technology
+PoBox: 20529
+60205, France.
+Tel: +33 3 44 23 46 99 Post: 4280
+Fax: +33 3 44 23 44 77
+Web: <A HREF="http://www.hds.utc.fr/~ychallal/">http://www.hds.utc.fr/~ychallal/</A>
+-------------------------------------
+
+-------------- next part --------------
+%% Author : Ouadjaout Abdelraouf (<A HREF="http://www.avispa-project.org/mailman/listinfo/avispa-users">ouadjaout at gmail.com</A>)
+%% Date : 18/04/2006
+
+%% Description : A simple unilateral authentication, comparable to telnet
+%% Assumptions : A and B share a secret key K (the password)
+
+%% A-B model :
+%% A -&gt; B : K
+
+role alice (
+	A, B : agent,
+	K : symmetric_key,
+	Snd, Rcv : channel(dy)
+	)
+played_by A def=
+	local
+		State : nat
+	init
+		State := 0
+	transition
+		1.  State = 0   /\  Rcv(start)
+		=|&gt; State':=2   /\  Snd(K)
+				/\  witness(A,B,bob_alice_k,K)
+end role
+
+role bob (
+	A, B : agent,
+	K : symmetric_key,
+	Snd, Rcv : channel(dy)
+	)
+played_by B def=
+	local
+		State : nat
+	init
+		State := 1
+	transition
+		1.  State = 1   /\  Rcv(K)
+		=|&gt; State':=3   /\  request(B,A,bob_alice_k,K)
+end role
+
+role session (
+	A, B : agent,
+	K : symmetric_key
+	)
+def=
+	local
+		SA, RA, SB, RB : channel(dy)
+	composition
+		alice(A,B,K,SA,RA)
+		/\ bob(A,B,K,SB,RB)
+end role
+
+role environment()
+def=
+	const
+		bob_alice_k : protocol_id,
+		kab, kai, kbi: symmetric_key,
+		a,b : agent
+
+	intruder_knowledge = {a,b,kai,kbi}
+
+	composition
+		session(a,b,kab)
+		/\ session(a,i,kai)
+		/\ session(i,b,kbi)
+end role
+
+goal
+	authentication_on bob_alice_k
+end goal
+
+environment()
+
+</PRE>
+
+
+
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000095.html">[Avispa-users] A-&gt;B:K ?
+</A></li>
+	<LI>Next message: <A HREF="000098.html">[Avispa-users] A-&gt;B : K
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#96">[ date ]</a>
+              <a href="thread.html#96">[ thread ]</a>
+              <a href="subject.html#96">[ subject ]</a>
+              <a href="author.html#96">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="http://www.avispa-project.org/mailman/listinfo/avispa-users">More information about the Avispa-users
+mailing list</a><br>
+</body></html>

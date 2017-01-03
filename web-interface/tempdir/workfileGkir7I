@@ -1,0 +1,109 @@
+%%
+%%
+%%
+%%
+%%PROTOCOL: Diffie-Hellman Key Exchange Protocol.
+%%PURPOSE: To establish a symmetric secret key between A and B.
+%A -> B : 
+%B -> A : 
+%To simulate man-in-the-middle attack on this protocol.
+
+role client (A, S : agent,Snd, Rcv: channel(dy), Hash: hash_func)
+played_by A
+def=
+local State : nat,
+P,Q,Reply,CA, ACA,TA, ZR, YR, ZZR, R, RR, Na: text,
+Add,Mul,Mac,Demac,Xfun:hash_func,
+
+QA:public_key
+const alice_bob_xa, bob_alice_xb, sub1 : protocol_id
+init State := 0
+transition
+1. State = 0 /\ Rcv(start) =|>
+		 State' := 1 /\ ACA' := new()
+	/\ CA' := new()
+	/\ QA' := new()
+	/\ Snd(CA.ACA) %ZZR'.YR.Mac(R'.Na')
+	/\ Rcv(ZZR.YR.Mac(R.Na))
+	/\witness(A,S, alice_bob_xa, CA')
+	%/\request (S, A, bob_alice_xb, R')
+2. State = 1  =|>
+State' := 2 
+	%/\ Demac( Mac(R.Na))
+	/\ ZR' := Mul(inv(QA).YR)
+	/\ Snd(Mac(R.Na.ACA)) 
+	/\ Rcv(R.Reply)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+role sl (A,S : agent,
+Snd, Rcv: channel(dy),Hash: hash_func)
+played_by S
+def=
+local State : nat,
+Add,Mul,Mac,Demac,Xfun:hash_func,
+P, Q, EA,Reply, CA, ACA,TA, ZR, YR, ZZR, R, RR, Na: text,
+QA:public_key
+const alice_bob_xa, bob_alice_xb, sub2 : protocol_id
+init State := 0
+
+transition
+
+1. State = 0 /\ Rcv(CA.ACA) =|>
+	 State' := 1 
+							/\ EA' := new()%Hash(CA.ACA)
+							/\ QA' := Mul(EA'.CA.Q)
+							/\ R' := new()  %%%%%%%%%%%%%%%%%%%Mehnaaz Apply secrecy here.
+							/\ secret({R'},sub1, {S,A})
+							/\ Na' := new()
+							/\ secret({Na'},sub2, {S,A})
+							/\ ZR' := Mul(Hash(R').QA')
+							/\ YR' := Mul(Hash(R').P)
+							/\ ZZR' := xor(R',Xfun(ZR'))
+							/\ Snd(ZZR'.YR'.Mac(R'.Na'))
+							/\ witness( S,A, alice_bob_xa_, ZZR') 
+2. State = 1 /\ Rcv(Mac(R'.Na'.ACA)) =|>
+State' := 2 
+	%				/\ request (A, S, bob_alice_xb, ACA)
+					/\ Reply' := new() 
+					/\ Snd(R'.Reply')
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(A,S: agent
+)
+def=
+local
+SA, SB, RA, RB: channel (dy),
+P,Q,Reply, CA, ACA,TA, ZR, YR, ZZR, R, RR, Na: text,
+Add,Mul,Mac,Demac,Xfun,Hash:hash_func,
+QA:public_key
+const alice_bob_xa, alice_bob_xa_, bob_alice_xb, sub1, sub2 : protocol_id
+composition
+client(A, S, SA, RA,Hash)
+/\ sl(A, S, SB, RB,Hash)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+const a, b: agent,
+p,q,qa: text,
+alice_bob_xa, bob_alice_xb, sub1, sub2 : protocol_id
+intruder_knowledge = {p,q}
+composition
+session(a, b) /\
+session(a, b)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+secrecy_of sub1
+secrecy_of sub2
+authentication_on alice_bob_xa
+authentication_on bob_alice_xb
+authentication_on alice_bob_xa_
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

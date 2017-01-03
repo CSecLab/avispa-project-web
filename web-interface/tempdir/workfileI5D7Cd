@@ -1,0 +1,177 @@
+role u1(U1,AM,SM,U2: agent,
+		Ku1,Kam,Kca,Ku2,Ksm : public_key,
+                H : hash_func
+		) played_by U1 def= 
+local S : nat,
+UseraID : nat,
+UaT : nat,
+UserAC : text,                
+Nonce : nat,
+InviteAB : text, 
+ServReq : text,                               
+ServRes : text,                               
+Bye : text, 
+        SND, RCV: channel (dy)
+%const session_key : protocol_id
+	init S := 0
+transition
+
+1.  S = 0 /\ RCV(start)  =|>            
+        S' := 1 /\ 
+%	 Nonce' := new() /\
+	SND ({UseraID.UserAC.Nonce.{H(UserID.Nonce)}_inv(Ku1)}_Kam)         %% sent to AM
+%	/\     witness(C,M,c_m_nonce,N1') 
+%        /\ secret(SessionKeyCM',purchase_order,{C,M})                                      
+
+2. S = 1 /\ RCV ({UaT.{SM.Ksm}_inv(Kca).Nonce}_inv(Kam))   =|>
+                 S':= 2 /\                 
+
+	SND (InviteAB.{UseraID.ServReq.UaT.Nonce}_Ksm)       	   %sent to SM
+          %/\     secret(SessionKeyCB',sessioncb, {C,B}) 
+
+3. S = 2 /\ RCV({UseraID.ServRes.Ks'.{H(UseraID.ServRes.Ks'.Nonce)}_inv(Ksm).Nonce}_Ku1) =|>  %%rece from SM
+	S':= 3 /\
+%	secret(sessionkey,session_key,{sm,u1}) /\
+	SND ({UseraID.Bye.Nonce}_inv(Ku1))       	   %sent to UserB
+
+end role             
+
+%% AM=======================================================
+
+role am(U1,AM,SM,U2: agent,
+		Ku1, Kam,Kca,Ku2,Ksm : public_key,
+                H : hash_func
+		) played_by AM def= 
+
+local S : nat,
+UaT: nat,
+Nonce : nat,		
+               SND, RCV: channel (dy)
+
+        init S := 2
+	
+transition
+1. S = 2 /\ RCV ({UseraID.Nonce.{H(UseraID.Nonce)}_inv(Ku1)}_Kam)          =|>   %% received from Ua1
+ S':= 4 /\ SND ({UaT.{SM.Ksm}_inv(Kca).Nonce}_inv(Kam))         %% sent to USerA
+
+
+end role
+
+  
+%%========SM===============================================
+role sm(U1,AM,SM,U2: agent,
+		Ku1,Kam,Kca,Ku2,Ksm : public_key,
+                H : hash_func
+		) played_by SM def= 
+       
+local S : nat,
+UseraID : nat,
+UserbID : nat,
+UaT : nat,
+UserAC : text,                
+Nonce : nat,
+TOKENID: nat,
+InviteAB : text, 
+ServReq : text,
+ServRes : text,		
+Ks: symmetric_key,			
+                SND, RCV: channel (dy)
+
+const session_key : protocol_id
+	init S := 1
+
+transition
+
+1.  S = 1 /\ RCV (InviteAB.{UseraID.ServReq.UaT.Nonce}_Ksm)       	  =|>      %sent frm UserA
+	S' := 3 /\ 
+Ks' :=  new() /\
+SND (InviteAB.{UseraID.UserbID.Ks'.{H(UseraID.Ks'.Nonce)}_inv(Ksm).Nonce}_Ku2) /\  %%sent to UserB
+SND ({UseraID.ServRes.Ks'.{H(UseraID.ServRes.Ks'.Nonce)}_inv(Ksm).Nonce}_Ku1)  /\ %%sent to UserA
+secret(Ks',session_key,{sm,u1}) 
+%/\ secret(sessionkey,session_key,{sm,u2})
+end role
+
+
+%%===u2====================================================
+
+role u2(U1,AM,SM,U2: agent,
+		Ku1,Kam,Kca,Ku2,Ksm : public_key,
+                H : hash_func
+		) played_by U2 def= 
+
+local S : nat,
+UseraID : nat,
+UserbID : nat,
+UaT : nat,
+UserAC : text,                
+Nonce : nat,
+TOKENID: nat,
+InviteAB : text, 
+ServReq : text,
+Bye : text,
+
+Ks: symmetric_key,	
+        SND, RCV: channel (dy)
+const session_key : protocol_id
+init S := 3
+
+transition
+
+
+1. S = 3  /\   RCV (InviteAB.{UseraID.UserbID.Ks'.{H(UseraID.Ks'.Nonce)}_inv(Ksm).Nonce}_Ku2) =|>          %%sent by SM
+   S':= 6 
+
+2.   S = 6 /\  RCV ({UseraID.Bye.Nonce}_inv(Ku1))       =|>	   %sent by UserA
+	S' := 9 
+end role
+
+%===================================================================
+
+
+role session(U1,AM,SM,U2: agent,
+		Ku1,Kam,Kca,Ku2,Ksm : public_key,                
+                H : hash_func
+               ) def=
+
+local  SA, SB,SC,SD, RA, RB,RC,RD: channel (dy)
+ composition
+  u1(U1,AM,SM,U2,Ku1,Kam,Kca,Ku2,Ksm)   %/\
+
+% bank(C,M,P,B,SignK_C,SignK_M,SignK_P,SignK_B,H,MasterKeyCB,MasterKeyMB) /\
+
+%  merchant(C,M,P,B,SignK_C,SignK_M,SignK_P,SignK_B,H,MasterKeyMB) /\
+
+%  paymentGateway(C,M,P,B,SignK_C,SignK_M,SignK_P,SignK_B,H,MasterKeyCB)
+
+end role
+
+role environment() 
+def=
+%local
+%local sa, ra: channel (dy)
+const h: hash_func, 
+%const c_m_nonce  : protocol_id,
+%h: hash_func, 
+u1,am,sm,u2: agent,
+ku1,kam,kca,ku2,ksm : public_key
+%        masterkeycb, masterkeymb: symmetric_key
+      
+
+intruder_knowledge = {u1,am,sm,u2}
+
+composition
+
+session(u1,am,sm,u2,Ku1,Kam,Kca,Ku2,Ksm,h)
+%%/\ session(c,m,p,i,sign_c,sign_m,sign_p,sign_i,h,masterkeycb,masterkeymb)
+%/\session(c,i,p,b,sign_c,sign_i,sign_p,sign_b,h,masterkeycb,masterkeymb) 
+%%/\session(c,m,i,b,sign_c,sign_i,sign_p,sign_b,h,masterkeycb,masterkeymb) 
+
+
+end role
+
+goal
+%authentication_on c_m_nonce
+%authentication_on info  
+  secrecy_of session_key  % Addresses  G12
+end goal
+environment()

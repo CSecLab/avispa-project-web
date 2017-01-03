@@ -1,0 +1,155 @@
+%% PROTOCOL:    	PN Formation Protocol
+%% PURPOSE:     	Secure key exchange using an OOB Channel
+%% ALICE_BOB messages
+% 
+%%%%%%%%
+% In our model, Kab and H(Kab,exp(g,X)) are transmitted on a secure/private Out-of-
+% band channel. This can be modeled through a pre-shared secret; OOB, and 
+% messages 0 and 1 are sent simultaneously in HLPSL, even though part 1 can be 
+% achieved separately.
+% 0. A -> B : A.{H(Kab,exp(g,X)).Kab}_OOB
+% 1. A -> B : A.exp(g,X)       //   B  computes secret key K=H(Kab,g^XY mod (p)))
+% 2. B -> A : B.exp(g,Y),{B.Nb)}_K      //      A computes secret key K
+% 3. A -> B : A.{Na,Nb}_K
+% 4. B -> A : B.{Na}_K  %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% OUTPUT
+%%SUMMARY
+%  SAFE
+%DETAILS
+%  BOUNDED_NUMBER_OF_SESSIONS
+%
+%GOAL
+%  as_specified
+%BACKEND
+%  OFMC
+%COMMENTS
+%STATISTICS
+%  parseTime: 0.00s
+%  searchTime: 0.09s
+%  visitedNodes: 33 nodes
+%  depth: 6 plies
+%%%%%%%%%%%%%%%%%%
+
+role initiator (
+        A,B     : agent,      % Initiator and Responder
+        OOB	: symmetric_key,
+        Hash    : hash_func,     % Hash Function
+	G:nat,  % Diffie Hellman's public G value
+        SND,RCV : channel(dy))
+        
+        played_by A def=
+
+        local
+
+        State   : nat,
+        X   : text,         % Initiator's Diffie Hellman Value
+        Na, Nb, Kab	: text,         % Initiator's nonce
+        EGY, K, PK : message
+
+        const   sec_i_na: protocol_id
+        init State := 0
+
+transition
+                
+ 0.     State = 0 /\ RCV (start)=|>
+        State':= 2 /\ X':=new() 
+                   /\ Kab':=new()
+                   /\ SND(A.{Hash(Kab',exp(g,X')).Kab'}_OOB.exp(G,X'))
+                   /\ witness (A,B,auth_part1,Hash(Kab',exp(g,X')))
+ 2.     State = 2 /\ RCV(EGY'.{Nb'}_Hash(Kab,exp(EGY',X))) =|>
+        State':= 4 /\ Na' := new()
+                   /\ SND({Na'.Nb'}_Hash(Kab,exp(EGY',X)))
+
+                   /\ witness (A,B,auth_a,Na'.Nb')
+
+4.      State = 4 /\ RCV({Na}_Hash(Kab,exp(EGY,X))) =|>
+        State':= 6 /\ PK':=Hash(Na,Nb,exp(EGY,X))
+                   /\ secret(PK',sec_a_PK,{A,B})
+                   /\ request (A,B,auth_b,Na.Nb)
+end role
+
+
+role responder (
+                B,A     :agent,       % Initiator and Responder
+                OOB	: symmetric_key,
+                Hash    : hash_func,      % Hash Function
+                G:nat,   % Diffie Hellman's public G value
+                SND,RCV : channel(dy))                 
+        played_by B def=
+
+        local
+        State:nat,
+        Y   :text,          % Responder's Diffie Hellman parameter
+        Na, Nb, Kab  :text,         	% Responder's nonce
+       	EGX, PK	: message
+
+        const   sec_r_nb : protocol_id
+        init State := 1
+
+                  
+        transition
+
+1.       State = 1 /\ RCV (A.{Hash(Kab',EGX').Kab'}_OOB.EGX') =|>
+         State':=3 /\ Y':=new()
+                   /\ Nb':=new()
+                   /\ SND (exp(G,Y').{Nb'}_Hash(Kab,exp(EGX',Y')))
+                   /\ request (B,A,auth_part1,Hash(Kab',EGX'))
+3.       State = 3 /\ RCV({Na'.Nb}_Hash(Kab,exp(EGX,Y)))
+                   =|>
+         State':=5 /\ SND ({Na'}_Hash(Kab,exp(EGX,Y)))
+                   /\ request (B,A,auth_a,Na.Nb)
+                   /\ witness (B,A,auth_b, Na'.Nb)
+                   /\ PK':=Hash(Na',Nb,exp(EGX,Y))
+                   /\ secret(PK',sec_b_PK,{A,B})
+
+end role                        
+ 
+role session (
+        A,B      : agent,       % Initiator and Responder
+	OOB	 : symmetric_key,
+        Hash     : hash_func,    % Hash Function
+        G        :nat )         % Diffie Hellman's public G value
+
+def=
+
+        local SA, SB, RA, RB: channel (dy)
+
+
+       composition
+                initiator(A,B,OOB,Hash,G,SA,RA)
+             /\ responder(B,A,OOB,Hash,G,SB,RB)
+
+end role
+
+role environment()
+     def=
+            
+
+        const
+          a,b     : agent,      % Initiator and Responder
+          oobab, oobai, oobbi : symmetric_key,
+          hash_   : hash_func,   % Hash Function
+          g       : nat,        % Diffie Hellman's public G value
+          auth_part1, auth_a,  auth_b:  protocol_id
+        intruder_knowledge = {a,b,oobai,oobbi,hash_,g}
+
+        composition
+        session(a,b,oobab,hash_,g)
+  /\
+        session(a,i,oobai,hash_,g)
+
+  /\    session(i,b,oobbi,hash_,g)
+
+end role
+
+goal
+            
+  secrecy_of sec_a_PK, sec_b_PK
+  authentication_on auth_part1
+  authentication_on auth_a
+  authentication_on auth_b
+end goal
+
+environment()
+

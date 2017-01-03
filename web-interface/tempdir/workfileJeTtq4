@@ -1,0 +1,56 @@
+role requester (R:agent,Name:public_key,H:function, SND,RCV:channel(dy))
+played_by R
+def=
+	local
+	State:nat,
+	Data:message,
+	P: agent, 
+	Kproducer:public_key
+	const publickeyeditor, identity : protocol_id
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ SND(Name.P) 
+		2. State=1 /\ RCV(Name.P.Data'.{Name.P.Data'}_inv(Name))/\ Name' =Name 
+		 =|> State':=2 /\ wrequest(R,P, publickeyeditor, Name.P.Data')
+			     
+																
+end role
+
+role producer(P:agent,Name:public_key,Data:message,H:function,SND, RCV:channel(dy))
+played_by P
+def=
+	local
+		State:nat,R:agent
+
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(Name'.P') /\ Name' =Name /\ P' = P
+		=|> State':=1 /\SND(Name'.P.Data.{Name'.P.Data}_inv(Name))
+			      /\ witness(P,R,publickeyeditor,Name'.P.Data)		
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(Name:public_key,Data:message,P:agent,R:agent,H:function)
+def=
+	local
+		SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		producer(P,Name,Data,H,SND2,RCV2) /\ requester(R,Name,H,SND1,RCV1)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+	const
+	hash_0:function,hach:function,r:agent,name:public_key,data:message,n:agent, ki:public_key,identity: protocol_id, publickeyeditor:protocol_id
+	intruder_knowledge = {hach,r, ki, inv(ki)}
+	composition
+	session(name,data,n,r,hach) 		
+end role
+
+goal
+weak_authentication_on publickeyeditor
+end goal
+
+environment() 
+

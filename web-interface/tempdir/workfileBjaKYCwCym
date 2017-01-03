@@ -1,0 +1,238 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% HLPSL Code for the scheme:
+%%% 
+%%% Developed by: Jangirala Srinivas
+%%%               IIT Kharagpur
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%% Role for Mobile User MU %%%%%%%%%%%%%%%%%%%% 
+role user(MU, FA, HA : agent,
+% symmetric key between MU and HA
+        SK1 : symmetric_key,
+% H is hash function
+         H : hash_func,
+         SEND, RECV: channel(dy))
+		 
+played_by MU
+def=
+ local State : nat,
+     IDmu, PWmu, V, Vv, M, IDha, IDfa, Mid, N, A, C, K, Li,
+	 Aa,Bb,P, Amu, Dfa, Dha, Aha, Afa, Shm, AaBbP, T1,Tfa,Tha,Kfh, SKmf : text,
+     M1, M2,M3,M4: message,
+     W:hash_func,
+	 
+Inc : hash_func
+
+ const user_fhome_Aa, fhome_home_Bb, user_home_Aa, 
+       fhome_user_Bb, sub1, sub2, sub3, sub4, sub5, sub6, sub7: protocol_id
+
+init State := 0
+ transition
+% Start User registration phase
+
+% Ui sends < IDmu, V > to HA via a secure channel
+
+1. State = 0 /\ RECV(start) =|>
+State' := 1  /\ M' :=new()
+			 /\ V':= H(PWmu.IDmu.M')
+			 /\ SEND({IDmu. V'}_SK1)
+% Send registration request to the HA
+			 /\ secret({IDmu,PWmu},sub1,MU)
+             
+
+2. State = 1 /\ RECV({{IDmu.n'}_K.H(V.IDmu).xor(V,H(IDmu.K)).IDha}_SK1)=|>
+% Ui receives  from HA via a secure channel
+			
+% Login phase and authentication phase
+State' := 2  /\ Aa':=new() /\ T1':= new()
+        /\ Shm':= xor(V,C) 
+		/\ AaP':= W(Aa.P)
+		/\ Amu':= {IDmu.AaP'.T1'}_Shm
+		/\ SEND(IDha.Mid.Amu.T1)
+% Send login message < m_1 > to the FA
+
+            /\ witness(MU, FA, user_fhome_Aa, Aa')
+	    /\ secret({Aa'},sub2,{Ui,FA,HA})  
+%	      /\ request(MU,FA,user_fhome_Aa,Aa')           
+
+%  Receives messages from FA
+
+3. State = 2 /\ RECV(H(Tha'.W(Aa.Bb.P).IDmu.IDfa).{Mid'.W(Aa.P).T1.W(Bb.P).Tha}_Smh)=|>
+		/\ witness( FA, MU, fhome_user_b, Bb')
+	    /\ secret({Bb'},sub2,{Ui,FA,HA})  
+		/\ secret({W(Aa.Bb.P)},sub8,{MU,FA})
+State' := 3  /\ SKmf':= H(IDmu.W(Aa.P).W(Bb.P).W(Aa.Bb.P).IDfa)          
+end role
+
+
+%%%%%%%%%%% Role for HA %%%%%%%%%%%%%%%%%%%%
+role home(Ui, FA, HA : agent,
+% symmetric key between Ui and HA
+        SK1 : symmetric_key,
+% H is hash function
+         H : hash_func,
+         SEND, RECV: channel(dy))
+
+played_by HA 
+def=
+
+ local State : nat,
+     IDmu, PWmu, V, Vv, M, IDha, IDfa, Mid, N, A, C, K, Li,
+	 Aa,Bb,P, Amu, Dfa, Dha, Nn, Aha, Afa, Shm, AaBbP, T1,Tfa,Tha,Kfh, SKmf : text,
+     M1, M2,M3,M4: message,
+     W:hash_func,
+	 
+Inc : hash_func
+
+ const user_fhome_Aa, fhome_home_Bb, user_home_Aa, 
+       fhome_user_Bb, sub1, sub2, sub3, sub4, sub8, sub5, sub6, sub7: protocol_id
+       
+init State := 0
+ transition
+ 
+% Receives registration  request message from user 
+1. State = 0 /\ RECV({IDmu.H(PWmu.IDmu.M)}_SK1) =|>
+State' := 1 /\ N':=new() /\ Mid':= {IDmu.N'}_K
+			/\ A':= H(H(PWmu.IDmu.M).IDmu)
+			/\ C':= xor(H(PWmu.IDmu.M),H(IDmu.K))
+			/\ secret({K,N}, sub3,{HA}) 
+			/\ SEND({Mid'.A'.C'.IDha}_SK1)
+
+%Send smartcard information securely
+			
+
+
+% Receive request message  from FA
+ 
+2. State= 1 /\ RECV(IDfa.{IDmu.N}_K.{IDmu.W(Aa.P).T1}_Shm.Tfa.{IDfa.W(Bb.P).Tfa}_Kfh)=|>
+
+State':=2 /\ Nn':= new() /\ Tha':= new() 
+			/\ Shm':= H(IDmu.K)
+			/\ Mid1':= {IDmu.xor(Nn',N)}_K
+			/\ Dha':= {IDha.IDmu.W(Aa.P).W(Bb.P).T1.Tha'}_Kfh
+			/\ Aha':= {Mid1'.W(Aa.P).T1.W(Bb.P).Tha'}_Shm
+			
+			
+% send response message  to FA
+
+/\ SEND(Dha'.Aha') 
+/\secret({Shm',Smh}, sub6, {MU,HA,FA})
+
+end role
+
+
+
+%%%%%%%%%%% Role for FA %%%%%%%%%%%%%%%%%%%%
+role fhome(Ui, FA, HHA : agent,
+% symmetric key between Ui and HA
+        SK1 : symmetric_key,
+% H is hash function
+         H : hash_func,
+         SEND, RECV: channel(dy))
+
+played_by FA
+def=
+ local State : nat,
+     IDmu, PWmu, V, Vv, M, IDha, IDfa, Mid, N, A, C, K, Li,
+	 Aa,Bb,P, Amu, Dfa, Dha, Nn, Aha, Afa, Shm, AaBbP, T1,Tfa,Tha,Kfh, SKmf : text,
+     M1, M2,M3,M4: message,
+     W:hash_func,
+	 
+Inc : hash_func
+
+ const user_fhome_Aa, fhome_home_Bb, user_home_Aa, 
+       fhome_user_Bb, sub1, sub2, sub3, sub8, sub4, sub5, sub6, sub7: protocol_id
+       
+init State := 0
+transition
+
+
+1. State = 0 /\ RECV(IDha.{IDmu.n}_K.{IDmu.W(Aa.P).T1}_Shm.T1) =|> 
+% Receive message  from MU
+
+	State' := 1 /\ Bb':=new()  /\ Tfa':=new() 
+		/\ Dfa':= {IDfa.W(Bb.P).Tfa'}_Kfh
+		/\ secret({Kfh},sub8,{HA,FA})
+		/\ SEND(IDfa'.Mid.Amu.Tfa'.Dfa')
+% Send message  to the HA					
+
+			/\ secret({Bb'},sub7,{MU,HA,FA})
+			/\ witness(FA,MU,fhome_user_b,Bb')
+
+2. State = 1 /\ RECV({IDha.IDmu.W(Aa.P).W(Bb.P).T1.Tha}_Kfh.{Mid1.W(Aa.P).T1.W(Bb.P).Tha}_Smh) =|> 
+% Receive message  from HA
+
+	State' := 1 /\ Afa':= H(Tha.W(Aa.Bb.P).IDmu.IDfa)
+		/\ SKmf':= H(IDmu.W(Aa.P).W(Bb.P).W(Aa.Bb.P).IDfa)          
+		/\ secret({Aa,Bb},sub9,{MU,FA,HA})
+		/\ secret({W(Aa.Bb.P)},sub8,{MU,FA})
+		/\ SEND(Afa'.Aha')
+% Send message  to the MU					
+
+						
+end role
+
+
+%%%%%%%%%%%%%%% Done till here %%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(MU, FA, HA : agent,
+% symmetric key between Ui and HA
+        SK1 : symmetric_key,
+% H is hash function
+         H : hash_func)
+def=
+  local SI, SJ, Aa, Bb, TI,TJ,PI, PJ : channel (dy)
+composition
+   user(MU, FA, HA, SK1, H, SI, PI)
+/\ fhome(MU, FA, HA, SK1, H, SJ, PJ)
+/\ home(MU, FA, HA, SK1, H, TI, TJ)
+end role
+
+
+
+role environment()
+def=
+  const mu, fa, ha: agent, 
+        sk1 : symmetric_key, 
+        h : hash_func,
+		
+
+		idmu, pwmu, v, vv, m, idha,idfa, mid, n, a, c, k, li, aa,bb,p, amu, dfa, dha, nn, aha, afa, shm, aabbp, t1,tfa,tha,kfh, skmf : text,
+     m1, m2,m3,m4: message,
+	 
+        
+		user_home,fhome_home,fhome_user, sub1,sub2,sub3,sub4,sub5,sub6,sub7,sub8,sub9: protocol_id
+		
+		% Represents Intruder Knowledge
+		
+		intruder_knowledge = {mu, fa, ha, h,idmu,idfa,idha, v,c,a, m, m1, m2,m3,m4,t1,tfa,tha}
+composition
+   session(mu, fa, ha, sk1, h)
+ /\ session(i, fa, ha, sk1, h)
+ /\ session(mu, i, ha, sk1, h)
+ /\ session(mu, fa, i, sk1, h)
+end role
+goal
+
+% Verifies secrecy of the confidential information
+
+  secrecy_of sub1	secrecy_of sub2
+  secrecy_of sub3	secrecy_of sub4
+  secrecy_of sub5	secrecy_of sub6
+  secrecy_of sub7	secrecy_of sub8
+  secrecy_of sub9	
+
+% Verifies authentication of the random numbers used in the protocol
+  authentication_on user_fhome_aa
+  authentication_on fhome_home_bb
+ % authentication_on home_fhome_rk
+  authentication_on fhome_user_bb
+ % authentication_on fhome_home_bb
+  
+  
+  
+end goal
+environment()
+
+
+

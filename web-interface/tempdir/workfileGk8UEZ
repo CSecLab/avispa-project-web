@@ -1,0 +1,205 @@
+%% PROTOCOL: LTE AKA
+%%
+%% ATTACKS: 
+%% 1.   SUMMARY
+%%  UNSAFE
+%% GOAL
+%%  secrecy_of_imsi
+%% BACKEND
+%%   OFMC
+%% COMMENTS
+%% STATISTICS
+%% parseTime: 0.00s
+%% searchTime: 0.01s
+%% visitedNodes: 0 nodes
+%% depth: 0 plies
+%% ATTACK TRACE
+%% i -> (ue,3): start
+%% (ue,3) -> i: imsi
+%% i -> (i,17): imsi
+%% i -> (i,17): imsi
+
+%% ATTACKS: 
+%% 2.   SUMMARY
+%%  UNSAFE
+%% GOAL
+%%  authentication_on_ue_hss_mac
+%% BACKEND
+%%   OFMC
+%% COMMENTS
+%% STATISTICS
+%% parseTime: 0.00s
+%% searchTime: 0.01s
+%% visitedNodes: 2 nodes
+%% depth: 1 plies
+%% ATTACK TRACE
+%% i -> (ue,3): start
+%% (ue,3) -> i: imsi
+%% i -> (ue,3): x274.x275.x276.f1(x277)
+%% (ue,3) -> i: f2(k.x274)s
+%%
+%% IMSI Attack, man-in-the-middle(attack on authentication on MAC)
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%HLPSL:
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role ue(U,H,M : agent,
+	    IMSI,AMF,MAC,XMAC,RES,CK,IK,AK,SNID:text,          
+            K,KASME:symmetric_key,
+	    F1,F2,F3,F4,F5,KDF: hash_func,
+            SND, RCV: channel(dy))
+played_by U
+def=
+
+  local State : nat,
+        SQN,RAND,XSQN: text,
+	X1:symmetric_key.text.text.text
+
+  init  State := 0 
+
+  transition
+
+    1.  State = 0 /\ RCV(start)
+        =|> 
+        State':=1 /\ SND(IMSI) 
+	 	  /\ secret(IMSI,imsi,{U,H})
+
+    4.  State = 1 /\ RCV(RAND'.XSQN'.AMF'.F1(X1')) /\ MAC'=F1(X1') 
+	=|> 
+        State':=2 /\ AK':=F5(K.RAND')
+		  /\ SQN':=xor(XSQN',AK')
+		  /\ XMAC':=F1(K.SQN'.RAND'.AMF')
+                  /\ RES':=F2(K.RAND')
+                  /\ CK':=F3(K.RAND')
+                  /\ IK':=F4(K.RAND')
+ 		  /\ KASME':=KDF(xor(SQN',AK').SNID.CK'.IK')
+		  /\ SND(RES') 
+                  /\ witness (U,M, mme_ue_res,RES') 
+                  /\ request (U,M, ue_hss_mac,XMAC') 
+        
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role mme(M,H,U:agent,
+                IMSI,AMF,RES,XRES,SNID:text,
+		K,KASME: symmetric_key,
+                F1,F2,F3,F4,F5:hash_func,
+                SND,RCV:channel(dy))
+played_by M
+def=
+
+  local State :nat, 
+	SQN,RAND: text,
+	KeySet:(text) set,
+	X2,X3,X4,X5:symmetric_key.text,
+	X1:symmetric_key.text.text.text
+
+  init  State := 0
+
+  transition
+
+    1.  State = 0 /\ RCV(IMSI) 
+	=|> 
+        State':=1 /\ SND(IMSI.SNID)  
+
+    3.  State = 1 /\ RCV(RAND'.F2(XRES').KASME'.F3(X3').F4(X4').xor(SQN',F5(X5')).AMF.F1(X1'))  /\ XRES'=F2(K.RAND')		  	
+	=|>  
+        State':=2 /\ SND(RAND'.xor(SQN',F5(X5')).AMF.F1(X1')) 
+
+
+    5.  State=2   /\ RCV(RES') 
+	=|> 
+        State':=3 /\ request(M, U, mme_ue_res, XRES)
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role hss(H,M,U:agent,
+                IMSI,AMF,MAC,XRES,CK,IK,AK,SNID:text,
+		K,KASME: symmetric_key,
+                F1, F2, F3, F4, F5, KDF:hash_func,
+                SND,RCV:channel(dy))
+played_by H
+def=
+
+  local State :nat, 
+	SQN,RAND: text
+
+  init  State := 0
+
+  transition
+
+    1.  State = 0 /\ RCV(IMSI'.SNID') 
+	=|> 
+        State':=1 /\ SQN':=new()
+                  /\ RAND':=new() 
+                  /\ MAC':=F1(K.SQN'.RAND'.AMF)
+                  /\ XRES':=F2(K.RAND')
+                  /\ CK':=F3(K.RAND')
+                  /\ IK':=F4(K.RAND')
+                  /\ AK':=F5(K.RAND')
+		  /\ KASME':=KDF(xor(SQN,AK).SNID.CK'.IK')
+                  /\ SND(RAND'.XRES'.KASME'.CK'.IK'.xor(SQN',AK').AMF.MAC') 
+		  /\ witness(U, H, ue_hss_mac, MAC')
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(H ,M ,U:agent, 
+        SNID, IMSI, AMF, RAND, MAC, XMAC, RES, XRES, CK, IK, AK: text,       
+	F1 ,F2 ,F3 ,F4, F5, KDF: hash_func,
+	K,KASME:symmetric_key)
+def=
+        local
+                SND3, RCV3, SND2, RCV2, SND1, RCV1 : channel(dy)
+        composition
+                   hss(H, M, U, IMSI , AMF, MAC, XRES, CK, IK, AK, SNID, K,KASME, F1, F2, F3, F4, F5, KDF, SND3, RCV3)      
+                /\ mme(M, H, U, IMSI, AMF, RES, XRES, SNID, K, KASME, F1, F2, F3, F4, F5,SND2, RCV2) 
+                /\ ue(U, H, M,IMSI,AMF,MAC,XMAC,RES,CK,IK,AK,SNID,K,KASME,F1,F2,F3,F4,F5, KDF, SND1, RCV1)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() 
+def=
+
+  const
+		mme_ue_res,ue_hss_mac:protocol_id,
+                k, ki,kasme:symmetric_key,
+		imsi,snid,amf:text,
+                mme,hss,ue:agent,
+                f1, f2, f3,f4, f5, kdf: hash_func,
+                rand,mac,xmac,res,xres,ck,ik,ak:text
+        
+intruder_knowledge = {ki, f1, f2, f3, f4, f5}
+        composition
+                session(hss, mme, ue, snid,imsi,amf,rand,mac,xmac,res,xres,ck,ik,ak,f1,f2,f3,f4,f5,kdf,k,kasme)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+  
+  % Message authentication (G2)
+  % MME authenticates UE on RES
+  authentication_on mme_ue_res
+  
+  % Message authentication (G2)
+  % UE authenticates HSS on MAC  
+  authentication_on ue_hss_mac
+  
+  % Confidentiality (G12)
+  % secrecy_of IMSI  
+  secrecy_of imsi
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

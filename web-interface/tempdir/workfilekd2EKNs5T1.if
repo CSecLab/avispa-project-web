@@ -1,0 +1,75 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilekd2EKNs5T1
+
+section signature:
+
+state_role_A: agent * agent * text * text * hash_func * nat * text * text * text * text * nat -> fact
+state_role_B: agent * agent * text * text * hash_func * nat * text * text * text * text * nat -> fact
+
+
+section types:
+
+prng, hash_0, Prng: hash_func
+const_1, Ctrx, Tr, Beta, Rr, Rtsj, Idj, Dummy_Ctrx, Dummy_Tr, Dummy_Beta, Dummy_Rr, dummy_nonce: text
+start, MGoal: message
+State, 2, 1, 0, 4, SID, Dummy_State, 3, SID2, SID1: nat
+alice, bob, B, A, A2Goal, i, A1Goal: agent
+auth_1: protocol_id
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(alice).
+ iknows(i).
+ state_role_B(bob,alice,const_1,const_1,prng,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,3).
+ state_role_A(alice,bob,const_1,const_1,prng,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,4)
+
+
+section rules:
+
+step step_0 (B,A,Idj,Rtsj,Prng,Dummy_Rr,Dummy_Beta,Dummy_Tr,Dummy_Ctrx,SID,Rr,Beta,Tr,Ctrx) :=
+ state_role_B(B,A,Idj,Rtsj,Prng,0,Dummy_Rr,Dummy_Beta,Dummy_Tr,Dummy_Ctrx,SID).
+ iknows(pair(xor(Rr,Beta),pair(xor(Idj,apply(Prng,xor(Rtsj,Rr))),xor(Ctrx,apply(Prng,xor(Rtsj,xor(Beta,Rr)))))))
+=[exists Tr]=>
+ state_role_B(B,A,Idj,Rtsj,Prng,1,Rr,Beta,Tr,Ctrx,SID).
+ iknows(pair(xor(Rtsj,apply(Prng,xor(Idj,Tr))),xor(Tr,Beta)))
+
+step step_1 (A,B,Idj,Rtsj,Prng,Dummy_Rr,Dummy_Beta,Tr,Dummy_Ctrx,SID,Rr,Beta,Ctrx) :=
+ state_role_A(A,B,Idj,Rtsj,Prng,0,Dummy_Rr,Dummy_Beta,Tr,Dummy_Ctrx,SID).
+ iknows(start)
+=[exists Beta,Ctrx,Rr]=>
+ state_role_A(A,B,Idj,Rtsj,Prng,1,Rr,Beta,Tr,Ctrx,SID).
+ iknows(pair(xor(Rr,Beta),pair(xor(Idj,apply(Prng,xor(Rtsj,Rr))),xor(Ctrx,apply(Prng,xor(Rtsj,xor(Beta,Rr)))))))
+
+step step_2 (A,B,Idj,Rtsj,Prng,Rr,Beta,Dummy_Tr,Ctrx,SID,Tr) :=
+ state_role_A(A,B,Idj,Rtsj,Prng,1,Rr,Beta,Dummy_Tr,Ctrx,SID).
+ iknows(pair(xor(Rtsj,apply(Prng,xor(Idj,Tr))),xor(Tr,Beta)))
+ =>
+ state_role_A(A,B,Idj,Rtsj,Prng,2,Rr,Beta,Tr,Ctrx,SID)
+
+
+section properties:
+
+property authentication_on_auth_1 (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,auth_1,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,auth_1,MGoal))
+     /\ ((request(A1Goal,A2Goal,auth_1,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,auth_1,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state authentication_on_auth_1 (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,auth_1,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,auth_1,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_auth_1 (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,auth_1,MGoal,SID1).
+ request(A1Goal,A2Goal,auth_1,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

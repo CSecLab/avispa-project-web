@@ -1,0 +1,119 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Avispa-users] Attack no longer found by CL-AtSe with modified model
+   </TITLE>
+   <LINK REL="Index" HREF="index.html" >
+   <LINK REL="made" HREF="mailto:avispa-users%40avispa-project.org?Subject=%5BAvispa-users%5D%20Attack%20no%20longer%20found%20by%20CL-AtSe%20with%20modified%20model&In-Reply-To=">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000271.html">
+   <LINK REL="Next"  HREF="000273.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Avispa-users] Attack no longer found by CL-AtSe with modified model</H1>
+    <B>G Keighren</B> 
+    <A HREF="mailto:avispa-users%40avispa-project.org?Subject=%5BAvispa-users%5D%20Attack%20no%20longer%20found%20by%20CL-AtSe%20with%20modified%20model&In-Reply-To="
+       TITLE="[Avispa-users] Attack no longer found by CL-AtSe with modified model">s9901726 at sms.ed.ac.uk
+       </A><BR>
+    <I>Thu Jun 29 21:58:40 CEST 2006</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000271.html">[Avispa-users] How to verify encrypted hashes - signatures
+</A></li>
+        <LI>Next message: <A HREF="000273.html">[Avispa-users] Attack no longer found by CL-AtSe with modified
+	model
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#272">[ date ]</a>
+              <a href="thread.html#272">[ thread ]</a>
+              <a href="subject.html#272">[ subject ]</a>
+              <a href="author.html#272">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi there,
+
+
+I have a model which happens to take quite a long time for an attack to 
+be found, using CL-AtSe. I had hoped that it would be faster if I split 
+the transitions into smaller steps, thus constraining the values 
+allowed more.
+
+
+For example, I changed the following command from:
+
+(Apologies for the unhelpful variable names)
+
+step1.
+   Rcv({A'}_xor(B',C').C'.{B'}_xor(x,y))
+     =|&gt; Snd({A'}_xor(x,C'))
+
+to:
+
+step1a. State = 0 /\ Rcv({B'}_xor(x,y))
+          =|&gt; State' := 1
+
+step1b. State = 1 /\ Rcv({A'}_xor(B,C'))
+          =|&gt; State' := 2
+
+step1c. State = 2 /\ Rcv(C)
+          =|&gt; State' := 0 /\ Snd({A}_xor(x,C))
+
+
+I hoped that because the initial Rcv was more tightly constrained, and 
+later values depended on earlier ones, that some of the search space 
+may be cut off.
+
+However, there is a problem - CL-AtSe no longer finds a particular attack.
+
+
+The problem appears to be in step1c where the intruder has to know the 
+value of C. It looks like step1b is not being tried with all possible 
+values, thus C is not able to be matched in step1c.
+
+Priming this final C causes the attack to be found (although the 
+transition becomes semantically wrong).
+
+There are many possibilities for C', but only one or two are actually 
+known by the intruder (in the attack, B is an xor of other terms, not 
+all of which the intruder knows). I run the model with the -notype 
+option, so it is not caused by CL-AtSe being unable to xor non-message 
+types.
+
+I wanted to ask if anyone had any ideas as to what the root of the problem is?
+
+Also, I would like to know if this change is likely to have any effect 
+on the search space, and run time, of CL-AtSe, since if it does not 
+then I can safely ignore the problem.
+
+
+thanks in advance,
+
+Gavin Keighren
+
+
+</PRE>
+
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000271.html">[Avispa-users] How to verify encrypted hashes - signatures
+</A></li>
+	<LI>Next message: <A HREF="000273.html">[Avispa-users] Attack no longer found by CL-AtSe with modified
+	model
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#272">[ date ]</a>
+              <a href="thread.html#272">[ thread ]</a>
+              <a href="subject.html#272">[ subject ]</a>
+              <a href="author.html#272">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="http://www.avispa-project.org/mailman/listinfo/avispa-users">More information about the Avispa-users
+mailing list</a><br>
+</body></html>

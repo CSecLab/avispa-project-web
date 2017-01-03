@@ -1,0 +1,128 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileOAZPHl
+
+section signature:
+
+state_role_RP: agent * agent * agent * agent * symmetric_key * symmetric_key * symmetric_key * nat * text * text * text * text * text * text * text * text * text * text * text * text * text * text * text * set(agent) * nat -> fact
+state_role_OP: agent * agent * agent * symmetric_key * symmetric_key * nat * text * text * text * text * text * text * text * text * text * set(agent) * nat -> fact
+state_role_EU: agent * agent * symmetric_key * nat * text * text * nat -> fact
+state_role_TE: agent * agent * agent * symmetric_key * nat * text * text * text * text * text * text * text * text * set(agent) * nat -> fact
+state_role_UE: agent * agent * agent * symmetric_key * nat * text * text * nat -> fact
+
+
+section types:
+
+sec_1: protocol_id
+set_161, set_152, set_136: set
+Set_86, Dummy_Set_36, Set_59, Dummy_Set_59, Dummy_Set_86, Set_36, ASGoal: set(agent)
+start, MGoal: message
+ResponseClaim, RequestClaim, IdToken, ExpireIn, AccessToken, TokenType, RefreshToken, RedirectUri, GrantType, Code, ResponseAuth, RequestAuth, Stat, Dummy_Stat, Dummy_Nonce, Dummy_Scope, Dummy_ClientId, Nonce, Dummy_ResponseType, Scope, ClientId, ResponseType, Dummy_ResponseAuth, Dummy_RequestAuth, Dummy_IdToken, Dummy_ExpireIn, Dummy_AccessToken, Dummy_TokenType, Dummy_RefreshToken, Dummy_RedirectUri, Dummy_GrantType, Dummy_Code, Dummy_ResponseClaim, Dummy_RequestClaim, dummy_nonce: text
+State, 7, SID, 6, 5, 3, 4, 2, Dummy_State, 1, 0: nat
+Krpue, Krpte, Kopeu, Krpop, krpue, kopeu, krpop, krpte: symmetric_key
+RP, OP, UE, TE, EU, authorizationServer, tokenEndpoint, endUser, userInfoEndpoint, clientApplication, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(clientApplication).
+ iknows(authorizationServer).
+ iknows(endUser).
+ iknows(tokenEndpoint).
+ iknows(userInfoEndpoint).
+ iknows(i).
+ state_role_UE(userInfoEndpoint,authorizationServer,clientApplication,krpue,0,dummy_nonce,dummy_nonce,3).
+ state_role_TE(tokenEndpoint,authorizationServer,clientApplication,krpte,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_136,4).
+ state_role_EU(endUser,authorizationServer,kopeu,0,dummy_nonce,dummy_nonce,5).
+ state_role_OP(authorizationServer,clientApplication,endUser,krpop,kopeu,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_152,6).
+ state_role_RP(clientApplication,authorizationServer,tokenEndpoint,userInfoEndpoint,krpop,krpte,krpue,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_161,7)
+
+
+section rules:
+
+step step_0 (UE,OP,RP,Krpue,Dummy_RequestClaim,Dummy_ResponseClaim,SID,RequestClaim,ResponseClaim) :=
+ state_role_UE(UE,OP,RP,Krpue,0,Dummy_RequestClaim,Dummy_ResponseClaim,SID).
+ iknows(scrypt(Krpue,RequestClaim))
+=[exists ResponseClaim]=>
+ state_role_UE(UE,OP,RP,Krpue,1,RequestClaim,ResponseClaim,SID).
+ iknows(scrypt(Krpue,ResponseClaim))
+
+step step_1 (TE,OP,RP,Krpte,Dummy_Code,Dummy_GrantType,Dummy_RedirectUri,Dummy_RefreshToken,Dummy_TokenType,Dummy_AccessToken,Dummy_ExpireIn,Dummy_IdToken,Dummy_Set_86,SID,Code,GrantType,RedirectUri,RefreshToken,TokenType,AccessToken,ExpireIn,IdToken) :=
+ state_role_TE(TE,OP,RP,Krpte,0,Dummy_Code,Dummy_GrantType,Dummy_RedirectUri,Dummy_RefreshToken,Dummy_TokenType,Dummy_AccessToken,Dummy_ExpireIn,Dummy_IdToken,Dummy_Set_86,SID).
+ iknows(scrypt(Krpte,pair(GrantType,pair(Code,RedirectUri))))
+=[exists AccessToken,TokenType,ExpireIn,RefreshToken,IdToken]=>
+ state_role_TE(TE,OP,RP,Krpte,1,Code,GrantType,RedirectUri,RefreshToken,TokenType,AccessToken,ExpireIn,IdToken,Dummy_Set_86,SID).
+ secret(Code,sec_1,Dummy_Set_86).
+ iknows(scrypt(Krpte,pair(AccessToken,pair(TokenType,pair(ExpireIn,pair(RefreshToken,IdToken)))))).
+ contains(OP,Dummy_Set_86).
+ contains(RP,Dummy_Set_86)
+
+step step_2 (EU,OP,Kopeu,Dummy_RequestAuth,Dummy_ResponseAuth,SID,RequestAuth,ResponseAuth) :=
+ state_role_EU(EU,OP,Kopeu,0,Dummy_RequestAuth,Dummy_ResponseAuth,SID).
+ iknows(scrypt(Kopeu,RequestAuth))
+=[exists ResponseAuth]=>
+ state_role_EU(EU,OP,Kopeu,1,RequestAuth,ResponseAuth,SID).
+ iknows(scrypt(Kopeu,ResponseAuth))
+
+step step_3 (OP,RP,EU,Krpop,Kopeu,Dummy_RedirectUri,Dummy_ResponseType,Dummy_ClientId,Dummy_Scope,Dummy_Nonce,Dummy_RequestAuth,ResponseAuth,Code,Dummy_Stat,Set_59,SID,RedirectUri,ResponseType,ClientId,Scope,Nonce,RequestAuth,Stat) :=
+ state_role_OP(OP,RP,EU,Krpop,Kopeu,0,Dummy_RedirectUri,Dummy_ResponseType,Dummy_ClientId,Dummy_Scope,Dummy_Nonce,Dummy_RequestAuth,ResponseAuth,Code,Dummy_Stat,Set_59,SID).
+ iknows(scrypt(Krpop,pair(ResponseType,pair(ClientId,pair(RedirectUri,pair(Scope,pair(Stat,Nonce)))))))
+=[exists RequestAuth]=>
+ state_role_OP(OP,RP,EU,Krpop,Kopeu,1,RedirectUri,ResponseType,ClientId,Scope,Nonce,RequestAuth,ResponseAuth,Code,Stat,Set_59,SID).
+ iknows(scrypt(Kopeu,RequestAuth))
+
+step step_4 (OP,RP,EU,Krpop,Kopeu,RedirectUri,ResponseType,ClientId,Scope,Nonce,RequestAuth,Dummy_ResponseAuth,Dummy_Code,Stat,Dummy_Set_59,SID,ResponseAuth,Code) :=
+ state_role_OP(OP,RP,EU,Krpop,Kopeu,1,RedirectUri,ResponseType,ClientId,Scope,Nonce,RequestAuth,Dummy_ResponseAuth,Dummy_Code,Stat,Dummy_Set_59,SID).
+ iknows(scrypt(Kopeu,ResponseAuth))
+=[exists Code]=>
+ state_role_OP(OP,RP,EU,Krpop,Kopeu,2,RedirectUri,ResponseType,ClientId,Scope,Nonce,RequestAuth,ResponseAuth,Code,Stat,Dummy_Set_59,SID).
+ secret(Code,sec_1,Dummy_Set_59).
+ iknows(scrypt(Krpop,pair(Code,Stat))).
+ contains(OP,Dummy_Set_59).
+ contains(RP,Dummy_Set_59)
+
+step step_5 (RP,OP,TE,UE,Krpop,Krpte,Krpue,Dummy_ResponseType,Dummy_ClientId,Dummy_Scope,Dummy_Nonce,Dummy_Stat,Code,GrantType,Dummy_RedirectUri,RefreshToken,TokenType,AccessToken,ExpireIn,IdToken,RequestClaim,ResponseClaim,Set_36,SID,ResponseType,ClientId,Scope,Nonce,Stat,RedirectUri) :=
+ state_role_RP(RP,OP,TE,UE,Krpop,Krpte,Krpue,0,Dummy_ResponseType,Dummy_ClientId,Dummy_Scope,Dummy_Nonce,Dummy_Stat,Code,GrantType,Dummy_RedirectUri,RefreshToken,TokenType,AccessToken,ExpireIn,IdToken,RequestClaim,ResponseClaim,Set_36,SID).
+ iknows(start)
+=[exists ResponseType,ClientId,RedirectUri,Scope,Stat,Nonce]=>
+ state_role_RP(RP,OP,TE,UE,Krpop,Krpte,Krpue,1,ResponseType,ClientId,Scope,Nonce,Stat,Code,GrantType,RedirectUri,RefreshToken,TokenType,AccessToken,ExpireIn,IdToken,RequestClaim,ResponseClaim,Set_36,SID).
+ iknows(scrypt(Krpop,pair(ResponseType,pair(ClientId,pair(RedirectUri,pair(Scope,pair(Stat,Nonce)))))))
+
+step step_6 (RP,OP,TE,UE,Krpop,Krpte,Krpue,ResponseType,ClientId,Scope,Nonce,Stat,Dummy_Code,Dummy_GrantType,RedirectUri,RefreshToken,TokenType,AccessToken,ExpireIn,IdToken,RequestClaim,ResponseClaim,Dummy_Set_36,SID,Code,GrantType) :=
+ state_role_RP(RP,OP,TE,UE,Krpop,Krpte,Krpue,1,ResponseType,ClientId,Scope,Nonce,Stat,Dummy_Code,Dummy_GrantType,RedirectUri,RefreshToken,TokenType,AccessToken,ExpireIn,IdToken,RequestClaim,ResponseClaim,Dummy_Set_36,SID).
+ iknows(scrypt(Krpop,pair(Code,Stat)))
+=[exists GrantType]=>
+ state_role_RP(RP,OP,TE,UE,Krpop,Krpte,Krpue,2,ResponseType,ClientId,Scope,Nonce,Stat,Code,GrantType,RedirectUri,RefreshToken,TokenType,AccessToken,ExpireIn,IdToken,RequestClaim,ResponseClaim,Dummy_Set_36,SID).
+ secret(Code,sec_1,Dummy_Set_36).
+ iknows(scrypt(Krpte,pair(GrantType,pair(Code,RedirectUri)))).
+ contains(OP,Dummy_Set_36).
+ contains(RP,Dummy_Set_36)
+
+step step_7 (RP,OP,TE,UE,Krpop,Krpte,Krpue,ResponseType,ClientId,Scope,Nonce,Stat,Code,GrantType,RedirectUri,Dummy_RefreshToken,Dummy_TokenType,Dummy_AccessToken,Dummy_ExpireIn,Dummy_IdToken,Dummy_RequestClaim,ResponseClaim,Set_36,SID,RefreshToken,TokenType,AccessToken,ExpireIn,IdToken,RequestClaim) :=
+ state_role_RP(RP,OP,TE,UE,Krpop,Krpte,Krpue,2,ResponseType,ClientId,Scope,Nonce,Stat,Code,GrantType,RedirectUri,Dummy_RefreshToken,Dummy_TokenType,Dummy_AccessToken,Dummy_ExpireIn,Dummy_IdToken,Dummy_RequestClaim,ResponseClaim,Set_36,SID).
+ iknows(scrypt(Krpte,pair(AccessToken,pair(TokenType,pair(ExpireIn,pair(RefreshToken,IdToken))))))
+=[exists RequestClaim]=>
+ state_role_RP(RP,OP,TE,UE,Krpop,Krpte,Krpue,3,ResponseType,ClientId,Scope,Nonce,Stat,Code,GrantType,RedirectUri,RefreshToken,TokenType,AccessToken,ExpireIn,IdToken,RequestClaim,ResponseClaim,Set_36,SID).
+ iknows(scrypt(Krpue,RequestClaim))
+
+step step_8 (RP,OP,TE,UE,Krpop,Krpte,Krpue,ResponseType,ClientId,Scope,Nonce,Stat,Code,GrantType,RedirectUri,RefreshToken,TokenType,AccessToken,ExpireIn,IdToken,RequestClaim,Dummy_ResponseClaim,Set_36,SID,ResponseClaim) :=
+ state_role_RP(RP,OP,TE,UE,Krpop,Krpte,Krpue,3,ResponseType,ClientId,Scope,Nonce,Stat,Code,GrantType,RedirectUri,RefreshToken,TokenType,AccessToken,ExpireIn,IdToken,RequestClaim,Dummy_ResponseClaim,Set_36,SID).
+ iknows(scrypt(Krpue,ResponseClaim))
+ =>
+ state_role_RP(RP,OP,TE,UE,Krpop,Krpte,Krpue,4,ResponseType,ClientId,Scope,Nonce,Stat,Code,GrantType,RedirectUri,RefreshToken,TokenType,AccessToken,ExpireIn,IdToken,RequestClaim,ResponseClaim,Set_36,SID)
+
+
+section properties:
+
+property secrecy_of_sec_1 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_1,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_sec_1 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_1,ASGoal) &
+ not(contains(i,ASGoal))
+

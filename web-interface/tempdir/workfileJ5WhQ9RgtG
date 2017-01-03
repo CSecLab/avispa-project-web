@@ -1,0 +1,97 @@
+role alice(
+	A,B : agent,
+	Hash :hash_func,
+	SND,RCV : channel(dy))
+played_by A def=
+
+local State :nat,
+	Ya :public_key,
+	Pib: text,
+	Sid: text,
+	Ks: text,
+	Ka :text,
+	Rb :text,
+	Pk :text,
+	Ts :text,
+	K :text
+const pin,alice_bob_rb: protocol_id
+init
+	State :=0
+transition
+
+0. State=0 	/\RCV(start) =|>
+   State':=2	/\Pib':=new()/\ Sid':=new()/\Ya':=new()
+           /\Ts':=new()
+		/\Pk' :=Hash(xor(Ks,Pib'))
+		/\Ka' :=Hash(Sid'.inv(Ya).Ya)
+		/\K' :=Hash(Pk'.Ks.Ts')
+		/\SND(Pk'.Ts'.{inv(Ya')}_K'.Sid'.Ka'.Ya')
+		/\secret(Pib',pin,A)
+
+2. State=2	/\RCV(Rb'.Hash(Hash(Ya'.Rb'.Sid'.inv(Ya'))))=|>
+   State':=4	/\request(A,B,alice_bob_rb,Rb')
+end role
+
+role bob(
+	A,B :agent,
+	Hash :hash_func,
+	SND,RCV : channel(dy))
+played_by B def=
+
+local State :nat,
+	Sid:text,
+	Ks:text,
+	Rb :text,
+	Ts :text,
+	Ya :public_key,
+	Pk: text,
+	K:text
+	
+const alice_bob_rb: protocol_id
+init
+	State :=1
+transition
+
+1. State=1	 /\      RCV(Pk'.Ts'.{inv(Ya')}_K'.Sid'.Hash(Sid'.inv(Ya').Ya').Ya')=|>
+   State':=3	/\Rb':=new()
+		/\witness(A,B,alice_bob_rb,Rb')
+		/\SND(Rb'.Hash(Hash(Ya'.Rb'.Sid'.inv(Ya'))))
+
+
+end role
+
+role session(A,B:agent,
+		Hash :hash_func)
+def=
+local SAB,RAB,SBA,RBA:channel(dy)
+
+composition
+alice(A,B,Hash,SAB,RAB)
+/\bob(A,B,Hash,SBA,RBA)
+
+end role
+
+role environment()
+def=
+const pin,alice_bob_rb :protocol_id,
+	a,b :agent,
+	h :hash_func
+intruder_knowledge={a,b,h}
+composition
+	session(a,b,h)
+	/\session(a,b,h)
+end role
+
+goal
+	secrecy_of pin
+	authentication_on alice_bob_rb
+end goal
+
+environment()
+
+
+
+
+	
+
+

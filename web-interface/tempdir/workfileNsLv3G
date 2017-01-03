@@ -1,0 +1,181 @@
+%% PROTOCOL: EN-AKA
+%% PURPOSE: 
+%% Authentication and Key Agreement
+%% REFERENCE:
+%% \url{http://www.3gpp.org/ftp/tsg_sa/WG3_Security/_Specs/33902-310.pdf}
+%% MODELER:
+%% \begin{itemize}
+%%  \item Haykal Tej, Siemens CT IC 3, 2003
+%%  \item Sebastian M{\"o}dersheim, ETH Z{\"u}rich, December 2003
+%% \end{itemize}
+%%
+%% ALICE_BOB:
+%% S is the server, M is the mobile set, they share a secret key k(M).
+%% 
+%% Both S and M have an own version of a sequence number,
+%% that they try to maintain synchonized.
+%% 
+%% Using k(M), a random number (nonce) r, his sequence number seq,
+%% when S receives a request from M (or whenever he wishes
+%% this part is not modelled here), S generates:
+%% \begin{verbatim}
+%%   res = F2(k(M); r)   where F2 hash
+%%   CK =  F3(k(M); r)   where F3 one-way
+%%   IK =  F4(k(M); r)   where F4 one-way
+%%   Ka =  F5(k(M); r)   where F5 one-way
+%%   AUTN = {seq}Ka; F1(k(M); seq; r)  where F1 hash
+%%
+%% M -> S : M
+%% S -> M : r; {seq}_Ka; F1(k(M); seq; r)
+%%
+%%      from r M calculates KA, then seq, then checks if F1(k(M); seq; r) OK
+%%      if yes, M increments his seq number and responds:
+%%
+%% M -> S : F2(k(M); r)
+%% \end{verbatim}
+%% The goal is that at the end both authenticate each other and share
+%% the value of \verb|CK| and \verb|IK|.
+%%
+%%% LIMITATIONS:
+%%
+%% PROBLEMS: 3
+%%
+%% CLASSIFICATON: G2 G12 
+%%
+%% ATTACKS: None
+%%
+%%% NOTES:
+%%
+%%HLPSL:
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%50
+
+role server(S,M           : agent,
+	    Snd, Rec   : channel(dy),
+                  Kms       : symmetric_key,
+            Seq,Imsi          : text,
+            F1,F2,F5,H: hash_func)
+played_by S
+def=
+
+  local State                 : nat,
+        Rnd,Rnd_s          : text,
+        KK                       : message
+
+  const 
+        add        : hash_func
+
+  init  State := 1 
+
+  transition
+
+   
+    1.  State   = 1        /\ Rec({M.S.Imsi}_H(Kms).Rnd')  =|> 
+         State' := 2        /\ Rnd_s' := new() /\ KK' := H(Kms)
+                                /\ Snd({M.S}_KK'.Rnd_s'.{Seq}_F5(Rnd_s'.KK').F1(KK'.Seq.Rnd_s')) 
+	 	    /\ secret(Seq,sseq1,{S,M})
+                                /\ secret(Imsi,imsi_id, {S,M})
+                                /\ witness(S,M,r1,Rnd_s')
+                                /\ secret (KK',k_id,{S,M})
+
+    2.  State   = 2         /\ Rec({M.S}_KK.F2( Rnd.KK)) =|> 
+        State' := 3        /\ Seq' := add(Seq,1) 
+		    /\  request(S,M,r2,Rnd)
+        
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role mobile(M,S:agent,
+            Snd, Rec: channel(dy),
+            Kms        : symmetric_key,
+            Seq,Imsi: text,
+            F1,F2,F5,H: hash_func)
+played_by M
+def=
+
+  local State :nat, 
+	Rnd,Rnd_s     :text,
+         KK : message
+
+  const 
+        sec_fun               : hash_func    
+
+  init  State := 1
+
+  transition
+
+    
+
+
+  1.  State = 1          /\ Rec(start) =|> 
+       State' :=2         /\ Rnd':=  new() /\ KK' := H(Kms)
+                              /\ Snd({M.S.Imsi}_H(Kms).Rnd') 
+                              /\ secret (KK',k_id,{M,S})
+   2.State = 2       /\ Rec({M.S}_KK.Rnd_s'.{Seq}_F5(Rnd_s'.KK).F1(KK.Seq.Rnd_s'))  =|>  
+      State':=3        /\ Snd({M.S}_KK.F2( Rnd.KK)) 
+		  /\ secret(Seq,sseq2,{M,S})
+                              /\ secret(Imsi,imsi_id, {M,S})
+                              /\ request(M,S,r1,Rnd_s') 
+		  /\ witness(M,S,r2,Rnd)
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(M,S           : agent,
+	     Kms           : symmetric_key,
+	     Seq,Imsi     : text,
+             F1,F2,F5 ,H  : hash_func,
+             SA,RA,SB,RB    : channel(dy)) def=
+
+   composition
+
+	 mobile(M,S,SA,RA,Kms,Seq,Imsi,F1,F2,F5,H)
+      /\ server(S,M,SB,RB,Kms,Seq,Imsi,F1,F2,F5,H)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+ local Sm1,Rm1,Ss1,Rs1,Si1,Ri1,Ss2,Rs2,Sm2,Rm2,Si2,Ri2 : channel (dy)
+
+ const r1, r2 ,sseq1,sseq2,imsi_id,k_id             : protocol_id,
+       m, i, s                : agent,
+       k_ms, k_is, k_mi      : symmetric_key,
+       f1, f2, f5 ,h           : hash_func,
+       seq_ms, seq_is, seq_mi,imsi_ms,imsi_is,imsi_mi : text
+
+ intruder_knowledge={m,s,i,k_ms,f1,f2,f5}
+
+ composition
+ 
+	session(m,s,k_ms,seq_ms,imsi_ms,f1,f2,f5,h,Sm1,Rm1,Ss1,Rs1) 
+    /\	session(i,s,k_is,seq_is,imsi_is,f1,f2,f5,h,Si1,Ri1,Ss2,Ss2) 
+  /\	session(m,i,k_mi, seq_mi,imsi_mi,f1,f2,f5,h,Sm2,Rm2,Si2,Ri2)
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  % Confidentiality (G12)
+  secrecy_of sseq1,sseq2,imsi_id,k_id
+
+  % Message Authentication (G2)
+  % Mobile weakly authenticates Server on r1  % the nonce R
+  authentication_on r1
+
+  % Message Authentication (G2)
+  % Server weakly authenticates Mobile on r2  % the nonce R
+  authentication_on r2
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+

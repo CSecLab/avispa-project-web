@@ -1,0 +1,115 @@
+role alice (A, S, B: agent,
+	Kas, Kbs : symmetric_key,
+	SND_SA, RCV_SA, SND_BA, RCV_BA: channel(dy))
+
+played_by A def=
+
+local
+	Kab : symmetric_key,
+	State : nat,
+	X : {symmetric_key}_symmetric_key
+%% Note that X is required for X' = {Kab'}_Kbs below
+
+init 	State := 100
+
+transition
+
+%% 1. A -> S : A, B
+	100. State = 100 /\ RCV_BA(start) =|>
+		State':= 110 /\ SND_SA(A.B)
+%% 2. S -> A : {Kab}_Kas, {Kab}_Kbs
+	110. State = 110 /\ RCV_SA({Kab'}_Kas.X') =|>
+%% 3. A -> B : {Kab}_Kbs, A
+		State':= 120 /\ SND_BA(X'.A)
+		/\ witness(A, B, alice_bob_Kab, Kab')
+
+end role
+
+%%----------------------------------------------------------------------
+role server (A, S, B: agent,
+	Kas, Kbs : symmetric_key,
+	SND_AS, RCV_AS: channel(dy))
+
+played_by S def=
+
+local 
+	Kab : symmetric_key,
+	State : nat
+
+init 	State := 200
+
+transition
+
+%% 1. A -> S : A, B
+	200. State = 200 /\ RCV_AS(A.B) =|>
+%% 2. S -> A : {Kab}_Kas, {Kab}_Kbs
+		State':= 2 /\ Kab' := new() 
+		/\ SND_AS({Kab'}_Kas.{Kab'}_Kbs) 
+		/\ secret(Kab', kab, {A, S, B})
+%% IGNORED 3. A -> B : {Kab}_Kbs, A
+
+end role
+
+%%----------------------------------------------------------------------
+role bob (A, S, B: agent,
+	Kbs : symmetric_key,
+	RCV_AB: channel(dy))
+
+played_by B def=
+
+local 
+	Kab : symmetric_key,
+	State : nat
+
+init 	State := 300
+
+transition
+
+%% IGNORED 1. A -> S : A, B
+%% IGNORED 2. S -> A : KAB
+%% 3. A -> B : {Kab}_Kbs, A
+	300. State = 300 /\ RCV_AB({Kab'}_Kbs.A) =|>
+		State':= 310 /\ witness(B, A, alice_bob_Kab, Kab')
+
+end role
+
+%%----------------------------------------------------------------------
+role session(A, S, B : agent,
+	Kas, Kbs : symmetric_key)
+def=
+local
+	SSA, RSA, SBA, RBA,
+	SAS, RAS,
+	RAB: channel(dy)
+
+composition
+	alice (A, S, B, Kas, Kbs, SSA, RSA, SBA, RBA)
+	/\ server(A, S, B, Kas, Kbs, SAS, RAS)
+	/\ bob (A, S, B, Kbs, RAB)
+end role
+
+%%----------------------------------------------------------------------
+role environment()
+def=
+
+const 
+	a, b, s : agent,
+	kas, kbs, ki : symmetric_key,
+	kab: protocol_id
+
+intruder_knowledge = {a, b, s, ki}
+
+composition
+	session(a,s,b, ka, kb)
+	/\ session(a,s,i, ka, ki)
+	/\ session(i,s,b, ki, kb)
+
+end role
+
+%%----------------------------------------------------------------------
+goal
+	secrecy_of kab
+end goal
+
+%%----------------------------------------------------------------------
+environment()

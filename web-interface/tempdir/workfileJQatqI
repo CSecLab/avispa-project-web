@@ -1,0 +1,37 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(EV,SGS : agent,
+PW : symmetric_key,
+Salt : protocol_id,
+H : hash_func,
+G,P : text)
+def=
+local SndEV,RcvEV,SndSGS,RcvSGS: channel (dy)
+composition
+pev_Init(EV,SGS,PW,H,G,P,SndEV,RcvEV) /
+pev_Resp(SGS,EV,PW,Salt,H,G,P,SndSGS,RcvSGS)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+const k11,k12,k21,k22 : protocol_id,
+ev,sgs,I : agent,
+kab,kai,kib : symmetric_key,
+s_ab,s_ai,s_ib : protocol_id,
+hsh : hash_func,
+g,p : text
+intruder_knowledge = {i, kai, kib, s_ai, s_ib}
+composition
+session(ev,sgs,kab,s_ab,hsh,g,p)
+/ session(ev,i,kai,s_ai,hsh,g,p)
+/ session(i,sgs,kib,s_ib,hsh,g,p)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+secrecy_of sec_init_K1, sec_resp_K1, sec_init_K2, sec_resp_K2
+authentication_on k12
+authentication_on k11
+authentication_on k22
+authentication_on k21
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment() 

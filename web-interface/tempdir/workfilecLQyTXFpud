@@ -1,0 +1,96 @@
+role MME(A, B: agent,
+	 snd, rcv: channel(dy),
+	 k0: symmetric_key,
+	 EIA2: hash_func)
+
+played_by A def=
+local state : nat, imsi, ksi, Hash1, Hash2, sec_cap, Req, mme_id, rand, autn, ksi_asme, Res, Start, Success : text
+ 
+init State := 0
+
+transition 
+
+	0. State = 0 / Rcv(start) =|> 
+	    State':= 2 / Req' := new() / snd(Req')
+
+	2. State = 2 / Rcv({imsi,ksi,sec_cap}_k0, Hash1')
+	    state':= 4 / Rcv(start) =|>
+
+	4. state = 4 / Start' := new() / snd(Start')
+	    state':= 6 / snd({mme_id,rand,autn,ksi_asme}_k0)
+	               / Hash2' := EIA2(mme_id.rand.ksi_asme)
+		       / snd (Hash2')
+	6. State = 6 / Rcv (Res)
+	    state' := 7 / Success' := new() / snd(success')
+
+		     / Secret(k0,{A,B})
+		     / wrequest(B,A,bob_alice_na,imsi,ksi,sec_cap)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role ms(A, B: agent,
+	snd, rcv: channel(dy),
+	k0: symmetric_key,
+        EIA2: hash_func)
+played_by B def=
+local state : nat, imsi, ksi, Hash, sec_cep, Req, Start : text
+init state := 1
+transition
+
+	1. state = 1 / Rcv(Req') =|>
+	    state' :=3 / snd({imsi,ksi,sec_cap}_k0)
+		       / Hash1' :=EIA2(imsi.ksi.sec_cap)
+		       / snd (Hash1')
+	
+	3. state = 3 / Rcv (Start') =|>
+	    state' := 5 / rcv({mme_id,rand.autn,ksi_asme}_k0,Hash2')
+
+	5. State = 5 / Rcv (start') =|>
+	    state' := 7 / snd(Res)
+	
+	7. state = 7 / Rcv (start') =|>
+	    state' := 9 / rcv (success)
+		       / secret(k0,{A,B})
+		       / witness(A,B,bob_alice_na,imsi,ksi,sec_cap)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(A, B: agent, K0: symmetric_key, EIA2: hash_func) def=
+
+   local SA, RA, SB, RB: channel (dy)
+
+   composition
+
+	ms(A,B,k0,EIA2,SA,RA)
+	/mme(A,B,k0,EIA2,SB,RB)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+	const a, b : agent,
+	 	kasb, kai, kib : symmetric_key,
+		alice_bob_nb, bob_alice_na, k0 : protocol_id,
+		EIA2 : hash_func
+
+	intruder_knowledge = {a,b, EIA2, kai, kib}
+
+	composition
+
+		session(a,b,kab,EIA2)
+		/ session(a,i,kai,EIA2)
+		/ session(i,b,kib,EIA2)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+	secrecy_of k0
+	authentication_on bob_alice_na
+
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+
+ 

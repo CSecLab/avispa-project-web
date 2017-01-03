@@ -1,0 +1,31 @@
+role bClient (C,BC,S:   agent,
+              Kbc,Ks:   public_key,
+              H:        hash_func,
+              SND,RCV:  channel(dy))
+played_by BC def=
+
+  local State: nat,
+        M0:    text,
+        M: hash(text),
+        SSM: message
+
+  init State := 0
+
+  transition
+    1.      State = 0
+            /\ RCV(start)
+        =|>
+            State' := 1
+            /\ M0' := new()
+            /\ M'  := H(M0')                    % using   hashed message
+            %/\ M' := M0'                       % using unhashed message
+            /\ SND(M'.{M'}_inv(Kbc))
+
+    2.      State = 1
+            /\ RCV(SSM')
+            /\ SSM' = {{M}_inv(Kbc)}_inv(Ks)
+        =|>
+            State' := 2
+            /\ SND(M.SSM')
+
+end role

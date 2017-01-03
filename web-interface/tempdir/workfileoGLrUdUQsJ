@@ -1,0 +1,80 @@
+role alice(A,B: agent,
+        G: text,
+        Snd,Rcv:channel (dy))
+       
+played_by A def=
+local
+   
+     State:nat,
+      DX,DY : text,
+      Na,Nb:text,
+     GXY:message, %% more specific: exp(text,text)
+   
+  init State :=0
+  
+  transition
+ 1. State =0 /\ Rcv(start) =|>
+    State' :=2/\DX' := new()
+              /\Na' :=new()
+              /\Snd(A.exp(G,DX').Na')
+              /\secret(Na',na,{A,B})
+              /\witness(A,B,bob_alice_na,Na')
+ 2. State =2 /\Rcv(B.exp(G,DY').Nb') =|>
+    State':=4/\Snd(B.exp(DX',DY'))
+             /\secret(GXY',gxy,{A,B})
+             /\request(A,B,alice_bob_gxy,GXY')
+  end role
+  
+role bob(A,B: agent,
+        G: text,
+        Snd,Rcv:channel (dy))
+       
+played_by B def=
+local
+   
+     State:nat,
+      DX,DY : text,
+      Na,Nb:text,
+     GXY:message, %% more specific: exp(text,text)
+   
+  init State :=1
+  transition
+  1. State =1 /\Rcv(A.exp(G,DX').Na') =|>
+     State':=3/\DY' :=new()
+              /\Nb' :=new()
+              /\Snd(B.exp(G,DY').Nb') 
+              /\secret(Nb',nb,{A,B})
+              /\witness(B,A,alice_bob_nb,Nb')
+  2. State =3 /\Rcv(exp(DX',DY').DY') =|>
+      State':=5/\request(B,A,bob_alice_gxy,GXY')
+  end role
+  
+role session(A,B: agent,
+        G: text)
+       
+ def=
+local SA, RA, SB, RB:channel (dy)
+
+composition
+   alice(A,B,G,SA,RA)
+  /\bob(B,A,G,SB.RB)
+  end role
+  
+  role environment()
+  def=
+  const alice_bob_gxy,bob_alice_gxy,na,nb :protocol_id,
+  a, b , i: agent,
+  g:text
+  
+  intruder_knowledge={a,b,i,g}
+  composition
+     session(a,b,g,gxy)
+     /\session(b,a,g,gxy)
+     end role
+ goal
+ secrecy_of alice_bob_gxy, bob_alice_gxy
+ authentication_on na
+ authentication_on nb
+ end goal
+ 
+ environment()

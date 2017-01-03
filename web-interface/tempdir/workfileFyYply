@@ -1,0 +1,96 @@
+role alice(A,B: agent,	    
+	    K: symmetric_key,
+		Hash : hash_func,
+	    SND, RCV: channel (dy)) 
+played_by A def=
+
+  local State : nat, 
+        Na, Nb: text,
+		Ka, Kb :symmetric_key
+		
+  init State := 0
+
+  transition
+	
+	0.  State  = 0 /\ RCV(start) =|> 
+            State':= 2 /\ Na' := new() 
+		   /\ SND(Na')
+
+        2.  State  = 2 /\ RCV(Nb') =|> 
+            State':= 4
+		   /\ Kb' := Na.Nb'
+		   /\ K' := new() 
+		   /\ secret(K', sk, {A,B})
+		   /\ SND({K'}_Kb')
+		4. State = 4 /\ RCV(Hash(A)) =|>
+				witness(A,B,alice_bob_na,K')
+	
+end role
+
+role bob(A,B: agent,
+	    K: symmetric_key,
+		Hash : hash_func,
+	    SND, RCV: channel (dy)) 
+played_by S def=
+
+  local State : nat, 
+        Na, Nb: text,
+		Ka, Kb :symmetric_key
+
+  init State := 1
+
+  transition
+	
+	1.  State  = 1 /\ RCV(Na') =|> 
+            State':= 3 /\ Nb' := new() /\ Kb' := Nb'.Na' /\ Ka' := Na'.Nb' /\
+		    SND(Nb')
+	3.  State  = 3 /\ RCV({K'}_Kb') =|> 
+            State':= 5 /\ SND(Hash(K)) /\ request(B, A, alice_bob_na, K)
+		   
+		   
+end role
+
+role session(A,B: agent,
+	     K: symmetric_key)
+def=
+local SA, RA, SB, RB: channel(dy)
+
+composition
+
+	client(A,B,K,SA,RA)
+	/\
+	server(A,B,K,SA,RA)
+end role
+
+
+
+role environment() def=
+
+    const a, b         : agent,          
+	  sk,ski      : symmetric_key,
+	  dgst	       : hash_func,
+          na, nb,
+          alice_bob_na,bob_alice_nb : protocol_id
+
+    intruder_knowledge = {a, b, ski, dgst}
+
+    composition
+
+        session(a,b,sk, dgst)
+     /\ session(a,i,sk, dgst)
+     /\ session(i,b, sk, dgst)
+
+end role
+
+
+goal
+
+  secrecy_of sk
+  authentication_on alice_bob_na
+  authentication_on bob_alice_nb
+
+end goal
+
+
+
+environment()

@@ -1,0 +1,69 @@
+role keyOwner(
+	A,B :agent,
+	EDecode : hash_func,
+	SND,RCV : channel(dy))
+played_by A def=
+
+local
+	State	: nat,
+	UINFO,KEYS :text,
+	REQUEST,EPOL	: message
+init
+	State	:= 0
+transition
+1. State = 0 /\ RCV(start) =|>
+   State':= 2 /\ UINFO':=new() /\ REQUEST':=EDecode(UINFO)/\ SND(REQUEST)
+2. State = 2 /\ RCV(EPOL') =|>
+   State':= 4 /\ witness(A,B,onwer_manager_key,EPOL')
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role keyManager(
+	A,B :agent,
+	EDecode : hash_func,
+	SND,RCV : channel(dy))
+played_by B def=
+local
+	State	: nat,
+	UINFO,KEYS  :text,
+	REQUEST,EPOL	: message
+init
+	State	:= 1
+transition
+1. State = 1 /\ RCV(REQUEST) =|>
+   State':= 3 /\  KEYS':=new() /\ EPOL':=EDecode(KEYS) /\ SND(EPOL) /\ secret(EPOL',k1,{A,B})
+2. State = 3 =|> State':=5 /\ request(B,A,onwer_manager_key,EPOL)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(
+	A,B : agent,
+	EDecode : hash_func)
+def=
+	local SA,SB,RA,RB :channel (dy)
+composition
+	keyOwner(A,B,EDecode,SA,RA)
+	/\ keyManager(A,B,EDecode,SB,RB)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+const
+	onwer_manager_key,
+	k1		 : protocol_id,
+	a,b		 : agent,
+	edecode		 : hash_func
+intruder_knowledge ={a,b}
+composition
+	session(a,b,edecode)
+	/\ session(a,i,edecode)
+	/\ session(i,b,edecode)
+end role
+%%%%%%%%%%%%%%%%%%%%%
+goal
+  secrecy_of k1
+  authentication_on onwer_manager_key
+end goal
+%%%%%%%%%%%%%%%%%
+environment()
+	
+	

@@ -1,0 +1,116 @@
+
+role owner( % represented by th Mobile Agent
+	       H0, H2: agent,
+	       V0, V2 : public_key,
+	       Hash  : hash_func,	       
+               Snd, Rcv : channel(dy)
+              ) played_by H0 def=
+local
+     State  : nat,
+     H1: agent,
+     R0, R1, R2 : text, 
+     D1, D2, O1: message,
+     Sigma0 : {hash_func}_inv(public_key),
+     X0 : {text.agent}_public_key,    
+     V1, M1 : public_key
+
+init State:= 0
+
+transition
+1. State  = 0 /\ Rcv(start)
+              =|>
+   State':= 0 /\ Snd({{{D1.M1.Sigma0}_inv(V1).R1}_V0.Hash({{R0.Sigma0}_V0.Hash(R0.H1.H2)}_inv(V0).R1.H2.H0).M1}_inv(V0).Sigma0) % sends O1, Sigma0 to H1
+              /\ witness(H0, H2, owner_host2_sigma0, Sigma0)
+              
+2. State  = 1 /\ Rcv({{D2.Sigma0}_inv(V1).R2}_V0.Hash({{{D1.M1.Sigma0}_inv(V1).R1}_V0.Hash({{R0.Sigma0}_V0.Hash(R0.H1.H2)}_inv(V0).R1.H2.H0).M1}_inv(V0).R2.H0).Sigma0) % O2, Sigma0 from H2             
+              =|>
+   State':= 1   
+              /\ secret(R2, r2, {H2, H0})
+              /\ secret(D2, d2, {H2, H0})                
+              /\ request(H0, H2, host2_owner_d2, D2)                
+              /\ request(H0, H2, host2_owner_r2, R2)
+end role
+
+% -----------------------------------------------------------------------------------------------------------------
+
+role host2(
+	    H0, H2: agent,
+	    V0, V2 : public_key,
+	    Hash : hash_func,	    
+            Snd, Rcv : channel(dy)
+           ) played_by H2 def=
+local
+     State  : nat,     
+     Sigma0 : {hash_func}_inv(public_key),
+     PO1 : {message}_public_key,
+     Chain : hash_func,
+     PO0 : {message}_public_key,    
+     D2 : message,
+     M1, V1 : public_key,
+     R2 : text
+     
+init State:= 0
+
+transition
+
+1. State  = 0   /\ Rcv({PO1.Chain'.M1'}_inv(V0).Sigma0') % O1, Sigma0 from H1
+                =|>
+   State':= 0   /\ request(H2, H0, owner_host2_sigma0, Sigma0')
+                /\ D2':=new() /\ R2':=new()
+                /\ Snd({{D2'.Sigma0}_inv(V1).R2'}_V0.Hash({PO1.Chain'.M1'}_inv(V0).R2'.H0).Sigma0') % to H0   
+                /\ witness(H2, H0, host2_owner_d2, D2')
+                /\ witness(H2, H0, host2_owner_r2, R2')                
+
+end role
+
+% -----------------------------------------------------------------------------------------------------------------
+
+role session(
+	     H0, H2: agent,
+	     V0, V2: public_key,
+             H      : hash_func
+            )
+def=
+local
+     Snd, Rcv : channel(dy)
+composition
+     owner(H0, H2, V0, V2, H, Snd, Rcv)  
+  /\ host2(H0, H2, V0, V2, H, Snd, Rcv)  
+end role
+
+% -----------------------------------------------------------------------------------------------------------------
+
+role environment()
+def=
+ const      
+      host2_owner_d2,
+      host2_owner_r2,
+      owner_host2_sigma0,      
+      d2, r2     : protocol_id,
+      h0, h2: agent,
+      v0, v2, vi   : public_key,
+      h      : hash_func
+
+intruder_knowledge = {h0, h2, v0, v2, vi, h}
+
+composition
+           session(h0, h2, v0, v2, h)
+	/\ session(h0, i, v0,  vi, h) 
+	%/\ session(i, h2, vi, v2, h)
+end role
+
+% ------------------------------------------------------------------------------------------------------------------
+
+goal
+    
+   % authentication_on host2_owner_d2    
+   % authentication_on host2_owner_r2    
+    authentication_on owner_host2_sigma0
+   % secrecy_of d2    
+    %secrecy_of r2    
+    
+end goal
+
+% ------------------------------------------------------------------------------------------------------------------
+environment()
+% ------------------------------------------------------------------------------------------------------------------

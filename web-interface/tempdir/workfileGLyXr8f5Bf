@@ -1,0 +1,133 @@
+role node (N, S     : agent,
+	   Sha256   : hash_func,
+	   SND, RCV : channel(dy))
+
+played by N
+def = 
+	local   State    : nat ,     
+		NodeName : text,     
+		C        : text,
+		Ik  	 : text.text,
+		Hmac     : hash((text.text xor text).hash((text.text xor text).text)),   %HMAC(K,C) = SHA256(K ⊕ 0x5c∥ SHA1(K ⊕ 0x36 ∥ C))
+		Otp      : agent.hash(text.text, text) /\ text,                          %Truncate(HMAC(K,C)) & 0x7FFFFFFF
+		K        : symmetric_key,
+		Iv	 : symmetric_key,
+
+		
+		
+	const pk, matrix, opad, ipad, pad : text                                         %Preshared key, a preshared matrix, opad(0x5c), and ipad(0x36)
+	      node_name, key_id, iv_id     : protocol_id %----------------> goal
+	
+	init State := 0
+	
+	transition
+	1. State = 0 /\ RCV(start) =|> State' := 2 /\ SND(N.NodeName)
+						   /\ wrequest (S, N, node_name, N.NodeName)     
+	
+	2. State = 2 /\ RCV(S.C')  =|> State' := 4 /\ Ik'  := pk.C'  
+                                                   /\ Hmac':= Sha256 ((Ik' xor opad).Sha256((Ik' xor ipad).C')) 
+                                                   /\ Otp' := trancate(N.Hmac' /\ pad) 				   % j'ai besoin d'une fonction "trancate"
+						   /\ K'   := N.matrix.Ik'                                         % à refaire car je dois créer une fonction qui fait les permutaions avec la matrice
+	      					   /\ Iv'  := trancate(N.Ik')					   % j'ai besoin d'une fonction trancate
+						   /\ secret  (K',key_id,{N,S})
+						   /\ secret  (Iv',iv_id,{N,S})
+						   /\ SND({N.Otp}_K'.Iv')
+
+	
+end role
+
+
+role server (S, N     : agent,
+	     Sha256   : hash_func,
+	     SND, RCV : channel(dy))
+
+played by S
+def = 
+	local State    : nat,
+	      NodeName : text,     
+	      C        : text,
+	      Ik       : text.text,
+	      Hmac     : hash((text.text xor text).hash((text.text xor text).text)),   %HMAC(K,C) = SHA256(K ⊕ 0x5c∥ SHA1(K ⊕ 0x36 ∥ C))
+	      Otp      : agent.hash(text.text, text) /\ text,                          %Truncate(HMAC(K,C)) & 0x7FFFFFFF
+	      K        : symmetric_key,
+	      Iv       : symmetric_key,
+	       
+
+	const pk, matrix, opad, ipad, pad : text                                         %Preshared key, a preshared matrix, opad(0x5c), and ipad(0x36)
+
+	      
+	init State := 1
+	
+	transition
+	1. State = 1 /\ RCV (N.NodeName) =|> State' := 3 /\ witness (N, S, node_name, N.NodeName) 
+							 /\ C' = new() 
+							 /\ SND (S.C')
+							 /\ Ik'  := pk.C'  
+                                                         /\ Hmac':= Sha256 ((Ik' xor opad).Sha256((Ik' xor ipad).C')) 
+                                                         /\ Otp' := trancate(N.Hmac' /\ pad) 		               % j'ai besoin d'une fonction "trancate"
+						         /\ K'   := N.matrix.Ik'                                       % à refaire car je dois créer une fonction qui fait les permutaions avec la matrice
+	      					         /\ Iv'  := trancate(N.Ik')				       % j'ai besoin d'une fonction trancate
+
+	2. State = 3 /\ RCV ({N.Otp'}_K'.Iv') /\ equal(N.Otp', S.Otp)      =|> State' := 5  
+
+	3. State = 3 /\ RCV ({N.Otp'}_K'.Iv') /\ not(equal(N.Otp', S.Otp)) =|> State' := 7  
+							 
+	4. State = 5 /\ 
+	
+	5. State = 7 /\
+
+end role
+
+
+
+role session (N, S   : agent,
+	      Sha256 : hash_func)
+
+def =
+	local SN, RN, SS, RS : channel(dy)
+	
+	composition 
+	
+	node (N, S, Sha256, SN, RN : channel(dy))
+	/\ server (S, N, Sha256, SS, RS : channel(dy))
+         
+		
+end role
+
+
+role environnement ()
+def = 
+	const n, s                        : agent,
+	      Sha256 			  : hash_func,
+	      k, iv                       : text,	
+	      pk, matrix, opad, ipad, pad : text,                                         %Preshared key, a preshared matrix, opad(0x5c), and ipad(0x36)
+	      node_name, key_id, iv_id    : protocol_id %----------------> goal
+
+
+	intruder_knowledge = {n, s, k}
+
+	composition
+        	session(n, s, Sha256)
+            /\  session(n, i, Sha256)
+            /\  session(i, s, Sha256)
+
+
+end role
+
+
+
+goal
+
+  secrecy_of node_name, k  % Addresses G7
+  %Server authenticates Node on node_name
+  weak_authentication_on node_name  % Addresses G1, G2, G3, G7, G10
+
+end goal
+
+
+
+environment()
+
+
+
+

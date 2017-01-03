@@ -1,0 +1,113 @@
+role role_MR(MR:agent,MAG1:agent,S:agent,LMA:agent,RequetID:text,EAPpol:text,PsK:symmetric_key,KpubS:symmetric_key,IDmr:text,SQN:text,Left: hash_func,Right: hash_func,F1: hash_func,F2: hash_func,F3: hash_func,F4: hash_func,EK:symmetric_key,Success:text,H: hash_func,SND,RCV:channel(dy))
+played_by MR
+def=
+	local
+		State:nat,IDS:text,Nmr:text,NS:text,IK:symmetric_key,CK:symmetric_key
+const 
+		auth_1,auth_2 : protocol_id,
+		eap_res_id,der, dea_eap_req,eap_req,eap_res,der_eap_res : text
+		
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ SND(EAPpol)
+		2. State=1 /\ RCV(RequetID) =|> State':=2 /\ Nmr':=new() /\ SQN':=new()    
+			   /\ secret(SQN',sec_1,{LMA,S,MR}) %  /\ secret(SQN',sec_1,{}) 
+			   /\ SND(eap_res_id({SQN.IDmr.Nmr'}_KpubS))
+		6. State=2 /\ RCV(eap_req({F1(PsK.NS').IDmr.IDS'.NS'}_F2(PsK.Nmr)))
+		=|> State':=3 /\ SND(eap_res(F4(F3(PsK.NS'.Nmr).IDmr.IDS'))) %NS'.
+		/\ request(MR,S,auth_2, F2(PsK.Nmr))
+		/\ witness (MR,S, auth_1,F3(PsK.NS'.Nmr))
+		10. State=3 /\ RCV(Success.H(Success.IK'.CK')) 
+		=|> State':=4 /\ witness (MR,MAG1, auth_3,H(Success.IK'.CK'))
+end role
+
+role role_MAG1(MR:agent,MAG1:agent,S:agent,LMA:agent,KmagS:symmetric_key,RequetID:text,EAPpol:text,KpubS:symmetric_key,Left: hash_func,F1: hash_func,F2: hash_func,F3: hash_func,F4: hash_func,Success:text,H: hash_func,Right: hash_func,KlmaMag:symmetric_key,SND,RCV:channel(dy))
+played_by MAG1
+def=
+	local
+		State:nat,SQN:text,IDS:text,PsK:symmetric_key,IK:symmetric_key,CK:symmetric_key,KlmaS:symmetric_key,Nmr:text,IDmr:text,NS:text
+	const
+		pbu,
+	              pba:text,
+		eap_req,eap_res_id,der, dea_eap_req,eap_req,eap_res,der_eap_res : text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(EAPpol) =|> State':=1 /\ SND(RequetID)
+		3. State=1 /\ RCV(eap_res_id({SQN'.IDmr'.Nmr'}_KpubS)) =|> State':=2 % /\ secret(SQN',sec_1,{})
+			  /\ SND(der({SQN'.IDmr'.Nmr'}_KpubS))
+		5. State=2 /\ RCV( dea_eap_req({{F1(PsK'.NS').IDmr.IDS'.NS'}_F2(PsK'.Nmr).{SQN'.IDmr'.Right(Nmr).Left(NS')}_KlmaS'}_KmagS))
+		 =|> State':=3 /\ SND(eap_req({F1(PsK'.NS').IDmr.IDS'.NS'}_F2(PsK'.Nmr))) 
+		7. State=3 /\ RCV(eap_res(F4(F3(PsK.NS.Nmr).IDmr.IDS))) %NS.
+		=|> State':=4 /\ SND(der_eap_res(F4(F3(PsK.NS.Nmr).IDmr.IDS))) %NS.
+		9. State=4 /\ RCV(Success.{IK'.CK'}_KmagS) %F3(PsK.NS.Nmr)).
+		 =|> State':=5 /\ SND(Success.H(Success.IK'.CK'))  %.F3(PsK.NS.Nmr)
+			       /\ witness(MAG1,MR,auth_3,H(Success.IK'.CK'))
+			       /\ SND(pbu({{F2(Right(IDmr).Left(Nmr)).Right(Nmr).Left(NS)}_KlmaS.0.0.0.0.MAG1}_KlmaMag))
+		14. State=5 /\ RCV(pba(LMA.MAG1)) =|> State':=6
+end role
+
+role role_S(MR:agent,MAG1:agent,S:agent,LMA:agent,KlmaS:symmetric_key,KmagS:symmetric_key,RequetID:text,EAPpol:text,PsK:symmetric_key,KpubS:symmetric_key,IDS:text,Left: hash_func,Right: hash_func,F1: hash_func,F2: hash_func,F3: hash_func,F4: hash_func,EK:symmetric_key,Success:text,H: hash_func,SND,RCV:channel(dy))
+played_by S
+def=
+	local
+		State:nat,SQN:text,IK:symmetric_key,CK:symmetric_key,NS:text,Nmr:text,IDmr:text
+const 
+		auth_1,auth_2 : protocol_id,
+		der, dea_eap_req,eap_req,eap_res,der_eap_res,aar,aaa : text
+		
+	init
+		State := 0
+	transition
+		4. State=0    /\ RCV(der({SQN'.IDmr'.Nmr'}_KpubS)) =|> State':=1 
+			     /\ NS':=new() 
+			     /\ SND( dea_eap_req({{F1(PsK.NS').IDmr'.IDS.NS'}_F2(PsK.Nmr').{SQN'.IDmr'.Right(Nmr').Left(NS')}_KlmaS}_KmagS)) 
+			     /\ witness(S,MR,auth_2,F2(PsK.Nmr'))
+		8. State=1    /\ RCV(der_eap_res(F4(F3(PsK.NS.Nmr).IDmr.IDS))) %NS.
+		=|> State':=2 /\ CK':=new() /\ IK':=new() 
+			     /\request(S,MR,auth_1,F3(PsK.NS.Nmr))
+			     /\ SND(Success.{IK'.CK'}_KmagS)
+		12. State=2  /\ RCV(aar({F2(Right(IDmr).Left(Nmr)).LMA}_KlmaS) )
+		=|> State':=3 /\ SND(aaa({IDmr.MAG1}_KlmaS))
+end role
+
+role role_LMA(MR:agent,MAG1:agent,S:agent,LMA:agent,KlmaS:symmetric_key,RequetID:text,EAPpol:text,KpubS:symmetric_key,Left: hash_func,Right: hash_func,F1: hash_func,F2: hash_func,F3: hash_func,F4: hash_func,Success:text,H: hash_func,KlmaMag:symmetric_key,SND,RCV:channel(dy))
+played_by LMA
+def=
+	local
+		State:nat,NS:text,Nmr:text,IDmr:text,SQN:text
+	const
+		pbu,aar,aaa,
+		pba:text
+	init
+		State := 0
+	transition
+		11. State=0 /\ RCV(pbu({{SQN'.IDmr'.Right(Nmr').Left(NS')}_KlmaS.0.0.0.0.MAG1}_KlmaMag)) 
+		=|> State':=1 /\ SND(aar({F2(Right(IDmr').Left(Nmr')).LMA}_KlmaS))
+		13. State=1 /\ RCV(aaa({IDmr.MAG1}_KlmaS)) 
+		=|> State':=2 /\ SND(pba(LMA.MAG1))
+end role
+
+role session1(EK:symmetric_key,IDS:text,PsK:symmetric_key,KmagS:symmetric_key,SQN:text,IDmr:text,MR:agent,MAG1:agent,S:agent,LMA:agent,KlmaS:symmetric_key,RequetID:text,EAPpol:text,KpubS:symmetric_key,Left: hash_func,Right: hash_func,F1: hash_func,F2: hash_func,F3: hash_func,F4: hash_func,Success:text,H: hash_func,KlmaMag:symmetric_key)
+def=
+	local
+		SND4,RCV4,SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_LMA(MR,MAG1,S,LMA,KlmaS,RequetID,EAPpol,KpubS,Left,Right,F1,F2,F3,F4,Success,H,KlmaMag,SND4,RCV4) /\ role_S(MR,MAG1,S,LMA,KlmaS,KmagS,RequetID,EAPpol,PsK,KpubS,IDS,Left,Right,F1,F2,F3,F4,EK,Success,H,SND3,RCV3) /\ role_MAG1(MR,MAG1,S,LMA,KmagS,RequetID,EAPpol,KpubS,Left,F1,F2,F3,F4,Success,H,Right,KlmaMag,SND2,RCV2) /\ role_MR(MR,MAG1,S,LMA,RequetID,EAPpol,PsK,KpubS,IDmr,SQN,Left,Right,F1,F2,F3,F4,EK,Success,H,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		hash_0: hash_func,h: hash_func,f4: hash_func,f2: hash_func,right: hash_func,kPubS:symmetric_key,requestID:text,lma:agent,magNas:agent,idMR:text,kMagS:symmetric_key,idS:text,const_1:symmetric_key,psk:symmetric_key,sqn:text,routeurMobile:agent,server:agent,kLmaS:symmetric_key,eapPol:text,left: hash_func,f1: hash_func,f3: hash_func,success:text,kLmaMag:symmetric_key,sec_1:protocol_id,auth_1:protocol_id,auth_2:protocol_id,auth_3:protocol_id,pbu:text,pba:text
+	intruder_knowledge = {routeurMobile,magNas,server,lma,f1,f2,f3,f4,h}
+	composition
+		session1(const_1,idS,psk,kMagS,sqn,idMR,routeurMobile,magNas,server,lma,kLmaS,requestID,eapPol,kPubS,left,right,f1,f2,f3,f4,success,h,kLmaMag)
+end role
+goal
+	secrecy_of sec_1
+	authentication_on auth_3,auth_2,auth_1
+end goal
+
+environment()

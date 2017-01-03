@@ -1,0 +1,159 @@
+role sgas_Init (SM,SAS:		agent,
+				PW:			symmetric_key,
+				Hsh:		hash_func,
+				G,N:		text,
+				Snd,Rcv:	channel(dy))
+played_by SM
+def=
+ local	State:				nat,
+ 		Rsm:				text,
+ 		Salt:				protocol_id,
+ 		PubKsm, PubKsas:	public_key,
+ 		FFi, Ffi:			hash_func,
+ 		STi, SNsm, Gsm, Gsas, Ver, K0, K, M1, M2, M, Ru, X, S0, S1, S2, S:		message
+
+ const	sec_init_Si, sec_init_K:		protocol_id
+
+ init State:=0
+
+ transition
+
+ 1.State = 0	/\ Rcv(start) =|>						% start
+   State':=2	/\ Rsm':= new()							% R_sm = Rnd(.)
+   				/\ SNsm':= new()						% SN_sm = Rnd(.)
+   				/\ Gsm':= exp(G, Rsm')					% Gsm = g^R_sm
+   				/\ Snd(SM.Gsm'.SNsm')					% Sending ID_sm, g^R_sm, SN_sm
+
+ 2.State = 2	/\ Rcv(Salt'.Gsas'.FFi'.STi') =|>		% Receiving Salt, B, Encrypted F_i(.) & State i with K
+   State':=4	/\ K0':= Hsh(N.G)						% k = hash(N,g)
+   				/\ Ru':= Hsh(Gsm.Gsas')					% u = hash(A,B)
+   				/\ X':= Hsh(Salt'.PW)					% x = hash(salt, pw)
+   				/\ Ver':= exp(G,X')						% ver = g^x
+   				/\ S0':= xor(Gsas',Hsh(K0'.Ver'))		% g^b + k.g^x - k.g^x = g^b
+   				/\ S1':= exp(S0',Rsm)					% (g^b)^a = g^ab
+   				/\ S2':= exp(exp(S0',Ru'),X')			% ((g^b)^u)^x = g^bux
+   				/\ S':= xor(S1', S2')					% S = g^ab xor g^bux
+   				/\ K':= Hsh(S')							% K = hash(S)
+   				/\ witness(SM,SAS,k1,K')				% Checking K
+   				/\ secret(K',sec_init_K,{SM,SAS})		% Checking K
+   				/\ M1':= xor(Hsh(N),Hsh(G))				% M1 = hash(N) xor hash(g)
+   				/\ M2':= Hsh(xor(SM,SNsm))				% M2 = hash(ID xor SN)
+   				/\ M':= Hsh(M1'.M2'.Salt.Gsm.Gsas'.K')	% M = hash(M1, M2, salt, A, B, K)
+   				/\ STi':= {STi'}_inv(K')				% Decrypting i with K
+   				/\ FFi':= {FFi'}_inv(K')				% Decrypting F_i with K
+   				/\ PubKsas':= FFi(SAS)					% PubK_sas = F_i(ID_SAS)
+   				/\ Snd({STi'}_inv(PubKsas'))			% sending i uncrypted by PubK_sas
+   				/\ witness(SM,SAS,si1,STi')				% Checking state i
+   				/\ secret(STi',sec_init_Si,{SM,SAS})	% Checking state i
+
+ 2.State = 4	/\ Rcv(M) =|>							% receiving hash(M)
+   State':=6	/\ request(SM,SAS,k2,K)					% Checking K
+   				/\ request(SM,SAS,si2,STi)				% Checking state i
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role sgas_Resp (SAS,SM:		agent,
+				Ver:		message,
+				Salt:		protocol_id,
+				Hsh:		hash_func,
+				G,N:		text,
+				Snd,Rcv:	channel(dy))
+
+played_by SAS
+def=
+ local 	State: 				nat,
+ 		Rsas:				text,
+ 		FFi,Ffi:			hash_func,
+ 		PubKsm, PubKsas:	public_key,
+ 		Resi, Resj, STi, SNsm, Ru, M1, M2, M, K0, K, Gsm, Gsas, X, S0, S1, S:	message
+
+ const	sec_resp_Si, sec_resp_K:		protocol_id
+
+ init State:= 1
+
+ transition
+
+ 1.State = 1	/\ Rcv(SM.Gsm',SNsm') =|>					% A and g^a
+   State':=3	/\ K0':= Hsh(N.G)							% k = hash(N, g)
+   				/\ Rsas':= new()							% b = Rnd()
+   				/\ Gsas':= xor(exp(G,Rsas'),Hsh(K0'.Ver))	% B = g^b + k.g^x
+   				/\ Ru':= Hsh(Gsm'.Gsas')					% u = hash(A, B)
+   				/\ S0':= exp(Gsm',Rsas')					% (g^a)^b = g^ab
+   				/\ S1':= exp(exp(Ver, Ru'), Rsas')			% ((g^x)^u)^b = g^bux
+   				/\ S':= xor(S0', S1')						% S = g^ab xor g^bux
+   				/\ K':= Hsh(S')								% K = hash(S) 
+   				/\ M1':= xor(Hsh(N), Hsh(G))				% M1 = hash(N) xor hash(g)
+   				/\ M2':= Hsh(xor(SM, SNsm'))				% M2 = hash(ID xor SN)
+   				/\ M':= Hsh(M1'.M2'.Salt.Gsm'.Gsas'.K')		% M = hash(M1, M2, salt, A, B, K)
+   				/\ STi':= new()								% State i
+   				/\ PubKsas':= FFi(SAS)						% PubK_sas = F_i(ID_sas)
+   				/\ Snd(Salt.Gsas'.{FFi}_K'.{STi'}_K')		% Sending salt, B
+   				/\ witness(SAS, SM, k2, K')					% Checking K
+   				/\ secret(K', sec_resp_K, {SM, SAS})		% Checking K
+
+ 2.State = 3	/\ Rcv({Resi'}_inv(PubKsas)) =|> 			% receiving state i
+   State':=5	/\ witness(SAS, SM, si2, Resi')				% Checking state i
+   				/\ secret(Resi', sec_resp_Si, {SM, SAS})	% Checking state i
+   				/\ Snd(M)									% Sending M
+   				/\ request(SAS, SM, si1, Resi')				% Checking state i
+   				/\ request(SAS, SM, k1, K)					% Checking K
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(SM, SAS:		agent,
+			 PW:			symmetric_key,
+			 Salt:			protocol_id,
+			 Hsh:			hash_func,
+			 G, N:			text)
+
+def=
+
+ local SndSM, RcvSM, SndSAS, RcvSAS:	channel(dy)
+
+ composition
+ 	sgas_Init(SM, SAS, PW, Hsh, G, N, SndSM, RcvSM) /\
+ 	sgas_Resp(SAS, SM, exp(G, Hsh(Salt.PW)), Salt, Hsh, G, N, SndSAS, RcvSAS)	% x = hash(Salt, pw) & Ver = g^x
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+
+def=
+ const si1, si2, k1, k2:		protocol_id,
+ 	   sm, sas, intruder:		agent,
+ 	   kab, kai, kbi:			symmetric_key,
+ 	   s_ab, s_ai, s_bi:		protocol_id,
+ 	   hsh:						hash_func,
+ 	   g, n:					text
+
+ intruder_knowledge = {i, kai, kbi, s_ai, s_bi}
+
+ composition
+ 		session(sm, sas, kab, s_ab, hsh, g, n)
+ 		/\ session(sm, intruder, kai, s_ai, hsh, g, n)
+ 		/\ session(sas, intruder, kbi, s_bi, hsh, g, n)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+	secrecy_of sec_init_Si, sec_init_K, sec_resp_Si, sec_resp_K
+
+	authentication_on k1
+	authentication_on k2
+
+	authentication_on si1
+	authentication_on si2
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

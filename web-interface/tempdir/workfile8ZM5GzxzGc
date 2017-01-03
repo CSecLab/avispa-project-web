@@ -1,0 +1,105 @@
+role card(   Sc: agent,
+			  Cr: agent,
+			  Kcr: public_key,
+			  Ksc: public_key,
+			  Ks: symmetric_key,
+			  Snd,Rcv: channel(dy))
+		
+played_by Sc
+def=
+	local 	State : nat,
+			RandS, RandC, PrivX, BioCert : text
+	%% sec_3 pour RandC et sec_4 pour BioCert
+	const sec_1, sec_4 : protocol_id
+	%% const sec_4 : protocol_id
+	init	State := 0
+	
+	transition
+		1. State=0 /\ Rcv(start) 
+		=|> 
+		State':=1 	/\ RandS' := new()
+					/\ Snd({Sc.RandS'}_Kcr.{PrivX}_Kcr)
+					/\ secret(RandS',sec_1,{Cr,Sc})  					
+					
+		2. State=1 	/\ Rcv({Cr.RandS.RandC'}_Ksc.PrivX)
+		=|> 
+		State':=2 	/\ Snd({RandC}_Ks.{BioCert}_Ks)
+					/\ secret(BioCert,sec_4,{Cr,Sc}) 
+					/\ request(Cr,Sc,auth1,RandC)
+					/\ witness(Sc,Cr,auth2,PrivX)
+
+end role
+
+
+role reader( Cr: agent,
+			  Sc: agent,
+			  Kcr: public_key,
+			  Ksc: public_key,
+			  Ks: symmetric_key,
+			  Snd,Rcv: channel(dy))
+		
+played_by Cr
+def=
+	local 	State : nat,
+			RandS, RandC, PrivX, BioCert: text
+	%% sec_1 pour RandS
+	const sec_3 : protocol_id
+	
+	
+	init	State := 0
+	
+	transition
+		1. State=0  /\ Rcv({Sc.RandS'}_Kcr.{PrivX}_Kcr) 
+		=|> 
+		State':=1 	/\ RandC' := new()
+					/\ Snd({Cr.RandS'.RandC'}_Ksc.PrivX)
+					/\ secret(RandC',sec_3,{Cr,Sc})  					 
+					/\ request(Sc,Cr,auth2,PrivX)
+					
+		2. State=1 	
+		/\ Rcv({RandC}_Ks.{BioCert}_Ks)
+		=|> 
+		State':=2 /\ witness(Cr,Sc,auth1,RandC)
+
+end role
+
+
+role session1(  Cr:agent,
+				Sc:agent,
+				Kcr: public_key,
+			    Ksc: public_key,
+				Ks: symmetric_key)
+def=
+	local
+		Snd1,Rcv1,Snd2,Rcv2: channel(dy)
+		
+	composition
+		reader(Cr,Sc,Kcr,Ksc,Ks,Snd1,Rcv1)
+		/\ card(Sc,Cr,Kcr,Ksc,Ks,Snd2,Rcv2) 
+		
+end role
+
+role environment()
+def=
+	const
+		c, s, i: agent,
+		kc, ksc, ki : public_key,
+		ks, kis, kci: symmetric_key,
+		auth1, auth2 : protocol_id,
+		sec_1, sec_3, sec_4 : protocol_id
+	
+	intruder_knowledge = {c,s,i,kc,ksc,ki,inv(ki)}
+	composition
+		  session1(c,s,kc,ksc,ks)
+		/\session1(i,s,ki,ksc,kis)
+		/\session1(c,i,kc,ki,kci)
+end role
+
+goal
+	secrecy_of sec_1, sec_3, sec_4
+	authentication_on auth1
+	authentication_on auth2
+	
+end goal
+
+environment()

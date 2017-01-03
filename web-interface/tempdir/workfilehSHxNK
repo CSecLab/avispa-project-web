@@ -1,0 +1,73 @@
+role user(
+U,S :agent,
+k : symmetric key,
+Hash : hash_func,
+SND,RCV :channel(dy))
+
+played_by U def
+
+local
+State : nat,
+Username,Pass,Da : text,
+K1 :message
+
+init
+state := 0
+ 
+transition 
+1.State =0 /\ RCV(start) =|>
+		State' := 2 /\ Username := new()
+			    /\ Pass := new ()
+			    /\ SND ({Usename'.Pass'}_k)
+
+2.State = 2 /\ RCV({Da'}_k) =|>
+	    /\ K1' := Hash(Username.Pass')
+	    /\ SND({Pass'}_K1')
+
+end role
+
+	 
+role server(
+U,S :agent,
+k : symmetric key,
+Hash : hash_func,
+SND,RCV :channel(dy))
+
+played_by S def
+
+local
+State : nat,
+Username,Pass,Na,Ba,Da,Aa,Xa,Ya : text,
+K1 :message
+
+init
+State := 1
+
+transition
+1.State =1 /\ RCV({Username'.Pass'}_k) =|>
+State':=3	/\Xa' :=new()
+		/\Ya' :=new()
+		/\Na' :=xor(Hash(Username'.Pass'),Hash(x))
+		/\Aa' :=xor(xor(xor(Hash(Username'.Pass'),Pass'),Hash(Ya))
+		/\Ba' := xor(xor(Ya,Username'),Pass')
+		/\Da' := Hash(xor(Hash(Username'.Ya),Xa))
+		/\SND({Da'}_k)
+2.State =3 /\RCV({Pass'}_K1)
+	   
+end role
+
+role session(
+U,S :agent,
+K : symmetric_key,
+Hash : hash_func)
+def=
+local SU,SS,RU,RS :channel(dy)
+
+composition
+
+user(U,S,K,Hash,SU,RU)
+/\server(U,S,Hash,SS,RS)
+
+end role
+ 
+

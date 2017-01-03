@@ -1,0 +1,100 @@
+% --------------------------------
+
+role a(A, B: agent, K, Ka: symmetric_key, SND, RCV: channel (dy)) played_by A def=
+
+	local
+		State: nat,
+		Na, Nb, Msg: text
+
+	init
+		State := 0
+
+	transition
+
+	0. State = 0 /\ RCV(start) =|>
+		State' := 2
+		/\ Na' := new()
+		/\ SND(Na')
+		/\ witness(A, B, b_a_na, Na')
+
+	2. State = 2 /\ RCV({K'}_Ka'.Nb') =|>
+		State' := 4
+		/\ Ka' := dgst(Na).Nb'
+		/\ Msg' := new()
+		/\ SND({Msg'}_K)
+		/\ request(A, B, a_b_na, Na)
+
+end role
+
+% --------------------------------
+
+role b(A, B: agent, K, Ka: symmetric_key, SND, RCV: channel (dy)) played_by B def=
+
+	local
+		State: nat,
+		Na, Nb, Msg: text
+
+	init
+		State := 1
+
+	transition
+
+	1. State = 1 /\ RCV(Na') =|>
+		State' := 3
+		/\ Nb' := new()
+		/\ Ka' := dgst(Na').Nb'
+		/\ K' := new()
+		/\ SND({K'}_Ka'.Nb')
+		/\ secret(K', k, {A, B})
+		/\ witness(B, A, a_b_na, Na')
+		
+	3. State = 3 /\ RCV({Msg'}_K) =|>
+		State' := 5
+		/\ request(B, A, b_a_na, Na)
+
+end role
+
+% --------------------------------
+
+role session(A, B: agent, K, Ka: symmetric_key) def=
+
+	local
+		SA, RA, SB, RB: channel(dy)
+	
+	composition
+		a(A, B, K, Ka, SA, RA)
+		/\
+		b(A, B, K, Ka, SB, RB)
+
+end role
+
+% --------------------------------
+
+role environment() def=
+
+	const
+		a, b: agent,
+		k, ka: symmetric_key,
+		dgst: hash_func,
+		na, nb, a_b_na, b_a_na: protocol_id
+	
+    composition
+		session(a, b, k, ka)
+
+end role
+
+% --------------------------------
+
+goal
+
+	secrecy_of k
+	authentication_on a_b_na
+	authentication_on b_a_na
+
+end goal
+
+% --------------------------------
+
+environment()
+
+% --------------------------------

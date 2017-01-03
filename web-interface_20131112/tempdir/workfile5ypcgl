@@ -1,0 +1,59 @@
+role reader (R,T: agent, ID :text, K: symmetric_key, H : hash_func, Snd,Rec:channel(dy))
+played_by R def=
+
+local State : nat, Nr, Nt : text 
+
+init State := 0
+transition
+1. State = 0   /\ Rec(start) =|> 
+   State':= 1  /\ Nr' := new() 
+               /\ Snd(Nr')
+             %  /\ witness(R,T,aut_reader,Nr')
+2. State = 1   /\ Rec(xor(ID,Nt').xor(H(Nr.K),Nt')) =|> 
+   State':= 2  /\ request(R,T,aut_tag,Nt')
+               
+end role
+
+role tag (T,R: agent, ID :text, K: symmetric_key, H : hash_func, Snd,Rec:channel(dy))
+played_by T def=
+
+local State : nat, Nr, Nt : text 
+const sec_k : protocol_id 
+init State := 0
+transition
+1. State = 0   /\ Rec(Nr') =|> 
+   State':= 1  /\ Nt' := new() 
+               /\ Snd(xor(ID,Nt').xor(H(Nr'.K),Nt'))
+               /\ witness(T,R,aut_tag,Nt')
+              /\ secret(K,sec_k,{T,R})
+             %  /\ request(T,R,aut_reader,Nr')
+end role
+
+role session(T,R: agent, ID :text, K: symmetric_key, H : hash_func ) def=
+ local St,Rt,Sr,Rr : channel(dy)
+
+composition
+   tag(T,R,ID,K,H,St,Rt)
+/\ reader(R,T,ID,K,H,Sr,Rr)
+end role
+
+role environment() def=
+const t1, r : agent,
+      id : text, 
+      k : symmetric_key ,
+      h : hash_func ,
+     aut_reader, aut_tag :protocol_id 
+
+intruder_knowledge = {t1,r,h}
+composition
+session(t1,r,id,k,h) /\ session(t1,r,id,k,h)
+end role
+
+goal
+secrecy_of sec_k 
+authentication_on aut_tag
+%authentication_on aut_reader
+end goal
+
+environment()      
+      

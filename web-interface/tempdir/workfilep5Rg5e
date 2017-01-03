@@ -1,0 +1,65 @@
+role keyowner(
+	A,B : agent,
+	M :message,
+	SND,RCV : channel(dy)
+	)
+played_by A def=
+       local
+	State : nat,
+	UINFO,KEYFILE: message
+init
+	State :=0
+transition
+sendrequest. State=0 /\ RCV(start)=|>
+	      State':=1 /\ UINFO:=new() /\ SND(UINFO)
+	      
+receivefile. State=1 /\ RCV(KEYFILE)=|>
+	 State':=3 /\ witness(A,B,key_file,KEYFILE)
+end role
+
+role keymanager(
+	A,B :agent,
+	M : message,
+	SND,RCV :channel(dy)
+	)
+played_by B def=
+ local
+ 	State :nat,
+ 	UINFO,KEYFILE: message
+		
+ init
+	State :=0
+ transition
+ receivekpolicies. State=0 /\ RCV(UINFO)=|>
+ 		   State':=1 /\ SND(KEYFILE)/\ secret(B,A,key_file,KEYFILE)
+ 
+end role
+
+role session(
+	A,B :agent,
+	M:message)
+def=
+ local SA, SB, RA, RB : channel(dy)
+ 
+ composition
+  keyowner(A,B,M,SA,RA)
+ /\ keymanager(A,B,M,SB,RB)
+end role
+
+role environment()
+def=
+const key_file,k1 : protocol_id,
+      a,b : agent,
+      mab,mia,mib:message
+intruder_knowledge = {a,b,mab}
+composition
+session(a,b,mab)
+/\ session(a,i,mia)
+/\ session(i,b,mib)
+end role
+
+goal
+secrecy_of k1
+authentication_on key_file
+end goal
+environment()

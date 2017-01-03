@@ -1,0 +1,82 @@
+role server(S, T: agent,
+Xs, P:text,
+Hsh: hash_func,
+SND, RCV: channel(dy))
+played_by S def=
+local State: nat,
+N:text,
+XT: text,
+R1, R2, M, TK2, TK1, Auts: message
+const tag_server_atus, server_tag_xT: protocol_id
+init State := 0
+transition
+1. State = 0 /\ RCV(start) =|>
+   State' := 2
+/\ N' := new()
+/\ R2' := exp(N',P)
+/\ SND(R2')
+2. State = 2 /\ RCV(TK1'.TK2') =|>
+ State' := 4 /\ R1' := exp(inv(Xs),TK1')
+             /\ M' := Hsh(R1'.R2.TK1')      %20
+             /\ XT' := cons(TK2',M')
+             /\ request(S,T,server_tag_xT,XT')
+             /\ Auts' := Hsh(XT'.R1')
+             /\ SND(Auts')
+             /\ witness(S,T,tag_server_auts,Auts')
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role tag( T,S: agent,
+Ps: public_key,
+Xs, P:text,
+Hsh: hash_func,
+SND,RCV: channel(dy))               
+played_by T def=
+local State : nat,
+L, XT: text,
+R1 ,R2 , M, TK2, TK1, Auts: message
+const tag_server_atus, server_tag_xT: protocol_id
+init State := 1
+transition
+1. State = 1   /\ RCV(R2') =|>
+   State' := 3 /\ L' := new()
+               /\ R1' := exp(L',P)
+               /\ TK1' := exp(L',Ps)
+               /\ M' := Hsh(R1'.R2'.TK1')
+               /\ TK2' := xor(XT',M')
+               /\ SND(TK1'.TK2')
+               /\ witness(T,S,server_tag_xT,XT')
+2. State = 3   /\ RCV(Auts') =|>
+   State' := 5 /\ Auts' := Hsh(XT'.R1)
+               /\ request(T,S,tag_server_auts,Auts')
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session( T,S : agent,
+Ps: public_key,
+Xs, P:text,
+Hash : hash_func)
+def=
+local SS, RS, ST, RT: channel (dy)
+composition
+tag(T, S, Xs, Ps, Hash, SS, RS, P)
+/\ server (S, T, Xs, Ps, Hash, ST, RT, P)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment( ) 
+def=
+const tag_server_auts, server_tag_xT, xT : protocol_id,
+hsh : hash_func,
+ki, p :text, 
+t, s: agent
+intruder_Knowledge = {t,s,hsh,ki,p}
+composition
+session(t,s,xT,hsh,p)
+/\ session(t,i,ki,hsh,p)
+/\ session(i,s,ki,hsh,p)
+end role
+goal
+secrecy_of xT
+authentication_on tag_server_auts
+authentication_on server_tag_xT
+end goal
+environment()

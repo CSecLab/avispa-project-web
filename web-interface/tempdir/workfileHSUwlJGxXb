@@ -1,0 +1,52 @@
+role alice(A,B:agent
+           Kab:symmetric_key
+           Snd,Rcv:channel(dy))
+played_by A
+def=local state:nat
+          Kab:  symmetric_key
+          Na,Nb:text
+init State:=0
+transition
+1. State=0 /\ Rcv(start)=|>
+   State'=2 /\ Na':=new()
+
+            /\ Snd({Na'}_Kab)
+end role
+role bob(A,B: agent,
+           Kab:symmetric_key,
+           Snd,Rcv: channel(dy))
+played_by B
+def=
+    local state:nat,
+             kab:symmetric_key,
+             Na,Nab:text
+init State:=1
+transition
+ 1. State= 1/\Rcv({Na'}_Kab)
+    State':=3 /\Nb'=new()
+              /\ Snd({Nb'}_Kab)
+end role
+
+role session(A,B:agent
+             Kab:symmetric_key)
+def=
+    local SA,RA,SB,RB:channel(dy)
+     composition
+                alice(A,B,Kab,SA,RA)
+               /\ bob(B,A,Kab,SB,RB)
+end role
+role environment()
+def=
+    const a,b:agent,
+           Kab:symmetric_key,
+           na,nb:protocol_id
+     intruder_knowledge={a,b}
+             composition
+                        session(a,b,Kab)
+                       /\ session(b,a,Kab)
+ end role
+goal
+    secrecy_of symmetric_key_Kb
+    authentication_on Na,Nb
+end goal
+environment() 

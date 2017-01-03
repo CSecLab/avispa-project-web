@@ -1,0 +1,129 @@
+role mobileStation ( M, V			: agent,
+					 Phv, Pms, K	: symmetric_key,
+					 IMSI			: text,
+					 SND_VM, RCV_VM : channel(dy)
+					)
+played_by M
+def=
+	local
+		State						: nat,
+		T1, T2, Rand1				: text,
+		Cert, YCert						: message
+		
+	
+	init
+		State := 0 
+			
+	transition
+	
+	0. State = 0 /\ RCV_VM(start) =|>
+		State' := 4 /\ T1' := new() /\ YCert' := mul(K.T1') /\ SND_VM({IMSI.T1'}_Phv) 
+	
+	4. State = 4 /\ RCV_VM({Cert'}_Pms.Rand1'.T2') /\ Cert' = mul(K.T1) /\ T1 = T2' =|> %% Cert' = YCert /\ T1 = T2'  =|>
+		State':= 10 /\ request(M, V, xcert_id, {Cert'}_Pms)
+		
+end role
+
+role vlr ( M, V, H							: agent,
+			Phv								: symmetric_key,
+			Vid								: text,
+			SND_MV, RCV_MV, SND_HV, RCV_HV	: channel(dy)
+		)
+played_by V
+def=
+	local 
+		State								: nat,
+		T1, IMSI, Rand1						: text,
+		Cert, Dummy							: message,
+		XCert								: {message}_symmetric_key
+	
+	init
+		State := 1
+		
+	transition
+		1. State = 1 /\ RCV_MV({IMSI'.T1'}_Phv) =|>
+			State' := 3 /\ SND_HV({Vid.IMSI'.T1'}_Phv)
+			
+		3. State = 3 /\ RCV_HV({Cert'}_Phv) =|>
+			State' := 6 /\ Dummy' := new() /\ SND_HV(Dummy')%% /\ request(V, H, cert_id, Cert') 
+		
+		6. State = 6 /\  RCV_HV({XCert'}_Phv) =|>
+			State' := 8 /\ Rand1' := new() /\ SND_MV(XCert'.Rand1'.T1) /\ witness(V, M, xcert_id, XCert')
+			
+end role
+
+role hlr( V, H								: agent,
+			Phv								: symmetric_key,
+			Keyring							: (text.symmetric_key.symmetric_key) set,
+			Idring							: (text) set,
+			SND_VH, RCV_VH					: channel(dy)		
+		)
+played_by H
+def=
+	local
+		State								: nat,
+		Vid, IMSI, T1						: text,
+		Pms, K								: symmetric_key,
+		Cert, Dummy							: message,
+		XCert								: {message}_symmetric_key
+	
+	init
+		State := 2
+		
+	transition
+		2. State = 2 /\ RCV_VH({Vid'.IMSI'.T1'}_Phv) /\ in(IMSI'.Pms'.K', Keyring) /\ in(Vid', Idring) =|>
+			State' := 5 /\ Cert' := mul(K'.T1') /\ SND_VH({Cert'}_Phv) %%/\ witness(H, V, cert_id, Cert')
+			
+		5. State = 5 /\ RCV_VH(Dummy') =|>
+			State' := 7 /\ XCert' := {Cert}_Pms /\ SND_VH({XCert'}_Phv)
+			
+end role
+
+role session( M, V, H						: agent,
+			 Phv, Pms, K					: symmetric_key,
+			 IMSI, Vid						: text,
+			 Keyring						: (text.symmetric_key.symmetric_key) set,
+			 Idring							: (text) set				
+			)
+def=
+	local
+		SND_VM, RCV_VM,
+		SND_MV, RCV_MV, SND_HV, RCV_HV,
+		SND_VH, RCV_VH						: channel(dy)
+		
+	composition
+		mobileStation(M, V, Phv, Pms, K, IMSI, SND_VM, RCV_VM)
+		/\ vlr(M, V, H,	Phv, Vid, SND_MV, RCV_MV, SND_HV, RCV_HV)
+		/\ hlr(V, H, Phv, Keyring, Idring, SND_VH, RCV_VH)
+		
+end role
+
+role environment()
+def=
+	local
+		Keyring								: (text.symmetric_key.symmetric_key) set,
+		Idring								: (text) set	
+		
+	const
+		m, v, h								: agent,
+		phv, pmsM1, kM1, kMi, pmsMi			: symmetric_key,
+		imsiM1, vidV1, imsiMi, vidVi		: text,
+		cert_id, xcert_id					: protocol_id,
+		mul									: hash_func
+		
+	init
+		Keyring		:= {imsiM1.pmsM1.kM1, imsiMi.pmsMi.kMi} /\
+		Idring		:= {vidV1, vidVi}			
+	
+	intruder_knowledge = {m, v, h, imsiM1}
+	
+	composition
+		session(m, v, h, phv, pmsM1, kM1, imsiM1, vidV1, Keyring, Idring)
+
+end role
+		
+goal
+	authentication_on cert_id, xcert_id
+end goal
+
+environment()

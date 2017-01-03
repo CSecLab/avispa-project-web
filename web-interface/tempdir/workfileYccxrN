@@ -1,0 +1,148 @@
+%% HLPSL:
+role pev_Init (EV,SGS : agent,
+PW1 : symmetric_key,
+H : hash_func,
+G,P : text,
+Snd,Rcv : channel(dy))
+played_by EV % electric vehicle
+def=
+local State : nat,
+EVr1, EVr2 : text,
+Salt1, Salt2 : protocol_id,
+EVg1, SGSg1, X1, Ver1, U1, S1, K0, K1, M1 : message,
+EVg2, SGSg2, X2, Ver2, U2, S2, K2, M2 : message,
+PW2, PW3 : symmetric_key
+const sec_init_K1, sec_init_K2 : protocol_id
+init State := 0
+transition
+1. State = 0 /\ Rcv(start) =|>
+State':= 1 /\ EVr1' := new() % a = rand()
+/\ EVg1' := exp(G,EVr1') % A = g^a
+/\ Snd(EV.EVg1') % sebding A and ID_EV to SGS
+2. State = 1 /\ Rcv(Salt1'.{SGSg1'}_(exp(G,H(Salt1'.H(EV.PW1))))) =|>
+State':= 2 /\ K0' := H(P.G) % k= hash(p,g)
+/\ U1' := H(EVg1.SGSg1') % u= hash(A,B)
+/\ X1' := H(Salt1'.PW1) % x= hash(salt, pw)
+/\ Ver1' := exp(G,X1') % ver = g^x
+/\ S1' := xor(SGSg1',H(K0'.Ver1')) % g^b + k.g^x - k.g^x = g^b
+/\ K1' := H((exp(S1',EVr1)).(exp(exp(S1',U1'),X1'))) % K = hash(g^ab , g^bux)
+/\ M1' := H((xor(H(P),H(G))).(H(xor(EV,PW1))).Salt1'.EVg1.SGSg1'.K1')
+% M = hash(M1,M2,salt,A,B,K)
+/\ PW2' := H(EVg1.SGSg1'.K1')
+/\ Snd(M1')
+/\ witness(EV,SGS,k11,K1')
+/\ secret(K1',sec_init_K1,{EV,SGS})
+3. State = 2 /\ Rcv(H(PW2)) =|>
+State':= 3
+/\ request(EV,SGS,k12,K1)
+/\ EVr2' := new()
+/\ EVg2' := exp(G,EVr2')
+/\ Snd(EV.EVg2')
+4. State = 3 /\ Rcv(Salt2'.{SGSg2'}_(exp(G,H(Salt2'.H(EV.PW2))))) =|>
+State':= 4 /\ U2' := H(EVg2.SGSg2') % u= hash(A,B)
+/\ X2' := H(Salt2'.PW2) % x= hash(salt, pw)
+/\ Ver2' := exp(G,X2') % ver = g^x
+/\ S2' := xor(SGSg2',H(K0.Ver2')) % g^b + k.g^x - k.g^x = g^b
+/\ K2' := H((exp(S2',EVr2)).(exp(exp(S2',U2'),X2'))) % K = hash(g^ab , g^bux)
+/\ M2' := H((xor(H(P),H(G))).(H(xor(EV,PW2))).Salt2'.EVg2.SGSg2'.K2')
+% M = hash(M1,M2,salt,A,B,K)
+/\ PW3' := H(EVg2.SGSg2'.K2')
+/\ Snd(M2')
+/\ witness(EV,SGS,k21,K2')
+/\ secret(K2',sec_init_K2,{EV,SGS})
+5. State = 4 /\ Rcv(H(PW3)) =|>
+State':= 5
+/\ request(EV,SGS,k22,K2)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role pev_Resp (SGS, EV : agent,
+PW1 : symmetric_key,
+Salt1 : protocol_id,
+H : hash_func,
+G,P : text,
+Snd, Rcv : channel(dy))
+played_by SGS % smart grid server
+def=
+local State : nat,
+SGSr1, SGSr2 : text,
+Salt2 : protocol_id,
+EVg1, SGSg1, U1, Ver1, S1, K0, K1, M1 : message,
+EVg2, SGSg2, U2, Ver2, S2, K2, M2 : message,
+PW2, PW3 : symmetric_key
+const sec_resp_K1, sec_resp_K2 : protocol_id
+init State := 0
+transition
+1. State = 0 /\ Rcv(EV.EVg1') =|> % ID_EV and A (g^a)
+State':= 1 /\ K0' := H(P.G) % k = hash(p,g)
+/\ SGSr1' := new() % b = Rnd()
+/\ Ver1' := exp(G,H(Salt1.PW1)) % ver = g^x
+/\ SGSg1' := xor(exp(G,SGSr1'),H(K0'.Ver1')) % B = g^b + k.g^x
+/\ U1' := H(EVg1'.SGSg1') % u = hash(A,B)
+/\ S1' := exp(exp(Ver1',U1'),SGSr1') % ((g^x)^u)^b = g^bux
+/\ K1' := H((exp(EVg1',SGSr1')).S1') % K = hash(g^ab , g^bux)
+/\ M1' := H((xor(H(P),H(G))).(H(xor(EV,PW1))).Salt1.EVg1'.SGSg1'.K1')
+% M = hash(M1,M2,salt,A,B,K)
+/\ Snd(Salt1.{SGSg1'}_(exp(G,H(Salt1.H(EV.PW1))))) % sending salt,B
+/\ witness(SGS,EV,k12,K1')
+/\ secret(K1',sec_resp_K1,{EV,SGS})
+2. State = 1 /\ Rcv(M1) =|> % A and g^a
+State':= 3 /\ PW2' := H(EVg1.SGSg1.K1)
+/\ Snd(H(PW2'))
+/\ request(SGS,EV,k11,K1)
+3. State = 3 /\ Rcv(EV.EVg2') =|> % A and g^a
+State':= 4 /\ Salt2' := new() % New salt = Rnd()
+/\ SGSr2' := new() % b = Rnd()
+/\ Ver2' := exp(G,H(Salt2'.PW2)) % ver = g^x
+/\ SGSg2' := xor(exp(G,SGSr2'),H(K0.Ver2')) % B = g^b + k.g^x
+/\ U2' := H(EVg2'.SGSg2') % u = hash(A,B)
+/\ S2' := exp(exp(Ver2',U2'),SGSr2') % ((g^x)^u)^b = g^bux
+/\ K2' := H((exp(EVg2',SGSr2')).S2') % K = hash(g^ab , g^bux)
+/\ M2' := H((xor(H(P),H(G))).(H(xor(EV,PW2))).Salt2'.EVg2'.SGSg2'.K2')
+% M = hash(M1,M2,salt,A,B,K)
+/\ Snd(Salt2'.{SGSg2'}_(exp(G,H(Salt2'.H(EV.PW2))))) % sending salt,B
+/\ witness(SGS,EV,k22,K2')
+/\ secret(K2',sec_resp_K2,{EV,SGS})
+4. State = 4 /\ Rcv(M2) =|>
+State':= 5 /\ PW3' := H(EVg2.SGSg2.K2)
+/\ Snd(H(PW3'))
+/\ request(SGS,EV,k21,K2)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(EV,SGS : agent,
+PW : symmetric_key,
+Salt : protocol_id,
+H : hash_func,
+G,P : text)
+def=
+local SndEV,RcvEV,SndSGS,RcvSGS: channel (dy)
+composition
+pev_Init(EV,SGS,PW,H,G,P,SndEV,RcvEV) /\
+pev_Resp(SGS,EV,PW,Salt,H,G,P,SndSGS,RcvSGS)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+const k11,k12,k21,k22 : protocol_id,
+ev,sgs,i : agent,
+kab,kai,kib : symmetric_key,
+s_ab,s_ai,s_ib : protocol_id,
+hsh : hash_func,
+g,p : text
+intruder_knowledge = {i, kai, kib, s_ai, s_ib}
+composition
+session(ev,sgs,kab,s_ab,hsh,g,p)
+/\ session(ev,i,kai,s_ai,hsh,g,p)
+/\ session(i,sgs,kib,s_ib,hsh,g,p)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+secrecy_of sec_init_K1, sec_resp_K1, sec_init_K2, sec_resp_K2
+authentication_on k12
+authentication_on k11
+authentication_on k22
+authentication_on k21
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()
+

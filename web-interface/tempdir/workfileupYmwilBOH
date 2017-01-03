@@ -1,0 +1,115 @@
+%%Wong Stajano Protocol - OOB Transformation
+% ( F: hash function, Ks: pre-shared key, ACK: confirm message)
+% ( attacker knowledge: G, Hash, A, B)
+%
+% A->B : ra {h(m,ra)}_K
+% B->A : rb
+% A->B : m{h(m,rb,ra)}_K
+
+role alice(A, B : agent,
+          F: hash_func,
+	  Ks: symmetric_key,
+	  SND,RCV: channel(dy))
+
+played_by A def=
+	local State   : nat,
+        M: message,
+	Ra, Rb : text
+
+init State := 0
+
+transition
+
+1. State = 0 /\ RCV(start) 
+   =|>
+   State' := 2 /\ Ra' := new()
+	       /\ M' := new
+	       /\ SND(Ra’.{F(M'.Ra')}_Ks
+               /\ witness(A,B,bob_alice_rat,M')
+
+2. State = 2 /\ RCV(Rb') 
+   =|>
+   State' := 4 /\ SND(M.{F(M.Rb'.Ra)}_Ks)
+	
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob(B, A : agent,
+          F: hash_func,
+	  Ks: symmetric_key,
+	  SND,RCV: channel(dy))
+
+played_by B def=
+	local State   : nat,
+        M: message,
+	Ra, Rb : text,
+ 	Ha1: hash(message.text),
+	Ha2: hash(message.text.text)
+	
+init
+	State := 1
+
+transition
+
+1. State = 1 /\  RCV(Ra.{Ha1'}_Ks) 
+   =|>
+   State' := 3 /\ Rb' := new()
+	       /\ SND(Rb')
+	
+2. State = 3 /\ RCV(M'.{Ha2'}_Ks)
+               /\ Ha2' = F(M'.Ra.Rb)
+               /\ Ha1 = F(M'.Ra)
+   =|>
+   State' := 5 /\ request(B,A,bob_alice_rat,M')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(A,B : agent,
+	     F: hash_func,
+	     Kab: symmetric_key)
+
+def=
+  local SA, RA, SB, RB: channel (dy)
+
+  composition
+     alice(A,B,F,Kab,SA,RA)
+  /\ bob  (B,A,F,Kab,SB,RB)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+    const a, b          : agent,
+	m		    : message,
+	h           : hash_func,
+        kab         : symmetric_key,
+        rat, rbt,
+	bob_alice_rat        : protocol_id
+ 
+    intruder_knowledge={a,b,h}
+
+
+   composition
+      session(a,b,h,kab)
+   /\ session(a,i,h,kab)
+   /\ session(i,b,h,kab)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  authentication_on bob_alice_rat
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()
+
+
+

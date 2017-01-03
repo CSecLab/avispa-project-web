@@ -1,0 +1,73 @@
+
+%%  1. A -> B : A
+%%  2. B -> A : Nb
+%%  3. A -> B : Na,H(k(A,B),(Na,Nb,A))
+%%  4. B -> A : H(k(A,B),Na)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role chap_Init (A,B : agent,Kb:public_key,H:hash_func, Snd, Rcv: channel(dy)) played_by A
+def=         
+  local State  : nat,Na, Nb : text
+  const sec_kab1 : protocol_id
+  init  State := 0
+  transition
+   1. State   = 0 /\ Rcv(start) =|>
+      State' := 1 /\ Snd(A)
+
+   2. State   = 1 /\ Rcv(Nb') =|> 
+      State' := 2 /\ Na' := new() /\ Snd(H(Na'.Nb'))
+	          /\ witness(A,B,na,Na') 	 
+
+   3. State   = 2 /\ Rcv({Na}_inv(kb)) =|> 
+      State' := 3 /\ request(A,B,nb,Nb) 
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%
+role chap_Resp (B,A : agent,     Kb:public_key,H: hash_func,    Snd, Rcv: channel(dy))
+played_by B def=       
+  local State  : nat,
+        Na, Nb : text
+  const sec_kab2 : protocol_id
+  init  State := 0
+  transition
+   1. State   = 0 /\ Rcv(A) =|>  
+      State' := 1 /\ Nb' := new() /\ Snd(Nb')
+	          /\ witness(B,A,nb,Nb')
+
+   2. State   = 1 /\ Rcv(H(Na'.Nb)) =|>
+      State' := 2 /\ Snd({Na'}_inv(Kb))
+	          /\ request(B,A,na,Na') 
+		
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(A,B: agent,Kb:public_key,H: hash_func)
+def=
+  local SA, SB, RA, RB: channel (dy)
+  composition
+           chap_Init(A, B, Kb, H, SA, RA)
+       /\  chap_Resp(B, A,  Kb,H, SB, RB)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+  const a, b          : agent,
+        
+kb,ki:public_key,
+        hab,hai,hib             : hash_func,
+        na, nb        : protocol_id
+
+  intruder_knowledge = {a, b,hai,hib,ki   }
+  composition
+	session(a,b,kb,hab) /\
+	session(a,i,ki,hai) /\
+        session(b,i,ki,hib)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+ %secrecy of the shared key
+                 
+ %CHAP_Init authenticates CHAP_Resp on nb
+ authentication_on nb
+ %CHAP_Resp authenticates CHAP_Init on na
+ authentication_on na 
+end goal
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5%%%%%
+environment() 

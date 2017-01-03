@@ -1,0 +1,151 @@
+role doc( A,B,C,D : agent,
+	  ID_A,ID_B,ID_C,ID_D:message,
+	  Sk: symmetric_key,
+	  F1:hash_func,
+	  SND,RCV: channel(dy))
+
+played_by A def=
+
+local State: nat,
+	PHI: text
+
+init State:=0
+
+
+transition
+
+0. State =0 /\ RCV(start) =|>
+    State':=2   /\  PHI':=new()
+		/\ SND(ID_A.{PHI'.F1(ID_A.ID_B.ID_C)}_Sk)
+	       /\ secret(PHI',p,{A,B,C,D})
+2. State =2 =|>
+	State':= 8  /\SND(ID_A.ID_B.{PHI.F1(ID_A.ID_B.ID_C)}_Sk)
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role patient(A,B,C,D : agent,
+	  ID_A,ID_B,ID_C,ID_D:message,
+	  Sk: symmetric_key,
+	  F1:hash_func,
+	  SND,RCV: channel(dy))
+
+
+played_by B def=
+
+local State: nat,
+	PHI: text
+
+init State:=1
+
+
+transition
+	
+1. State =1  /\ RCV(ID_A.{PHI'.F1(ID_A.ID_B.ID_C)}_Sk) =|>
+	State' := 7
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role hsp(A,B,C,D : agent,
+	  ID_A,ID_B,ID_C,ID_D:message,
+	  Sk,MS_HSP: symmetric_key,
+	  F1:hash_func,
+	  SND,RCV: channel(dy))
+
+played_by C def=
+
+local State: nat,
+	PHI: text
+
+init State:=3
+
+
+transition
+	
+1. State =3  /\ RCV(ID_A.ID_B.{PHI.F1(ID_A.ID_B.ID_C)}_Sk) =|>
+	State' :=6   /\  SND(ID_C.{ID_C.ID_B.PHI}_MS_HSP)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role ra(A,B,C,D : agent,
+	  ID_A,ID_B,ID_C,ID_D:message,
+	  MS_HSP: symmetric_key,
+	  F1:hash_func,
+	  SND,RCV: channel(dy))
+
+played_by D def=
+
+local State: nat,
+	PHI: text
+
+init State:=4
+
+
+transition
+	
+1. State =4 /\  SND(ID_C.{ID_C.ID_B.PHI}_MS_HSP) =|>
+	State' := 5 
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(A,B,C,D : agent,
+	     ID_A,ID_B,ID_C,ID_D:message,
+	      Sk,MS_HSP: symmetric_key,
+		F1:hash_func) def=
+
+local SA,RA,SB,RB,SC,RC,SD,RD: channel(dy)
+
+composition
+ 
+           doc(A,B,C,D,ID_A,ID_B,ID_C,ID_D,Sk,F1,SA,RA)
+	/\ patient(A,B,C,D,ID_A,ID_B,ID_C,ID_D,Sk,F1,SB,RB)
+	/\ hsp(A,B,C,D,ID_A,ID_B,ID_C,ID_D,Sk,MS_HSP,F1,SC,RC)
+	/\ ra(A,B,C,D,ID_A,ID_B,ID_C,ID_D,MS_HSP,F1,SD,RD)
+	     
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+    const a, b ,c , d        : agent,
+	  sk,ms  : symmetric_key,
+	  id_A,id_B,id_C,id_D:message,
+          p: protocol_id,
+	  f1:hash_func
+
+    intruder_knowledge = {a, b,c,d,id_A,id_B,id_C,id_D}
+
+    composition
+
+	session(a,b,c,d,id_A,id_B,id_C,id_D,sk,ms,f1)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of p
+  
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+
+ 
+
+
+
+
+

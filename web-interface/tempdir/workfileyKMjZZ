@@ -1,0 +1,172 @@
+%%%%enddevice%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role enddevice(E,L,B,S:agent,
+               Subprefix, LLprefix,
+			   IDe,IDr,IDbr,IDs:text,
+			   Kpube,Kpubr,Kpubbr,Kpubs: public_key,
+			   H: hash_func,
+			   G:nat,
+			   SND,RCV: channel(dy))
+played_by E def=
+
+	local State: nat,
+	      Te,Ts,Tend:text,
+		  Ne,Gs:nat,             
+		  Tickete: {text.text.public_key.text.text}_inv(public_key),
+		  Kes: symmetric_key  
+		  
+		  
+    init State := 0
+
+	transition
+	1. State = 0 /\ RCV(start) =|>
+	   State':=1 /\ Te':= new()
+	             /\ Ne':= new()
+	             /\ SND(Subprefix.IDe.IDr.{Subprefix.IDe.IDr.Te'.Kpube.Kpubr.exp(G,Ne')}_inv(Kpube))
+				 /\ secret(Ne',ne,E)
+				 /\ witness(E,S,ed_sr_ge,exp(G,Ne'))
+				 /\ witness(E,S,ed_sr_te,Te')
+	2. State = 1 /\ RCV(Subprefix.IDr.IDe.{Subprefix.IDe.Kpube.Ts'.Tend'.Gs'}_inv(Kpubs).{Ne}_Kes) =|>
+	   State':=2 /\ Kes':= exp(Gs',Ne')
+	             /\ request(E,S,sr_ed_ts,Ts')
+                 /\ request(E,S,sr_ed_gs,Gs')			 
+end role
+
+%%%%router%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role router(E,L,B,S:agent,
+             Subprefix, LLprefix,
+			 IDr,IDbr,IDs:text,
+             Kpubr,Kpubbr,Kpubs: public_key,
+			 H: hash_func,
+			 SND,RCV: channel(dy))
+played_by L def=
+
+	local State: nat,
+	      Te,Ts,Tend:text,              %nonce
+		  IDe: text,  %ID
+		  Kpube: public_key,
+		  X,Y : nat
+
+    init State := 0
+
+	transition
+	1. State = 0 /\ RCV(Subprefix.IDe'.IDr.{Subprefix.IDe'.IDr.Te'.Kpube'.Kpubr.X'}_inv(Kpube')) =|>
+	   State':=1 /\ SND(Subprefix.IDr.IDbr.{Subprefix.IDe'.IDr.Te'.Kpube'.Kpubr.X'}_inv(Kpube'))	   
+	2. State = 1 /\ RCV(Subprefix.IDbr.IDr.{Subprefix.IDe.Kpube.Ts'.Tend'.Y'}_inv(Kpubs)) =|>
+	   State':=2 /\ SND(Subprefix.IDr.IDe.{Subprefix.IDe.Kpube.Ts'.Tend'.Y'}_inv(Kpubs))
+  
+end role
+
+%%%%edge router%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role brouter(E,L,B,S:agent,
+             Subprefix, LLprefix,
+			 IDbr,IDs:text,
+             Kpubbr,Kpubs: public_key,
+			 Kbs:symmetric_key,
+			 H: hash_func,
+			 SND,RCV: channel(dy))
+played_by B def=
+
+	local State: nat,
+	      Te,Tb,Ts,Tend:text,             %nonce
+          IDe,IDr: text,
+		  Kpube,Kpubr:public_key, 
+		  X,Y : nat
+		  
+    init State := 0
+
+	transition
+	1. State = 0 /\ RCV(Subprefix.IDr'.IDbr.{Subprefix.IDe'.IDr'.Te'.Kpube'.Kpubr'.X'}_inv(Kpube')) =|>
+	   State':=1 /\ Tb':= new()
+	             /\ SND(Subprefix.IDbr.IDs.{Subprefix.IDe'.IDr'.Te'.Kpube'.Kpubr'.X'}_inv(Kpube').Tb'.H(IDe'.IDr'.IDbr.Kpube'.Kpubr'.Kpubbr.Kbs))
+	2. State = 1 /\ RCV(Subprefix.IDs.IDbr.{Subprefix.IDe.Kpube.Ts'.Tend'.Y'}_inv(Kpubs)) =|>
+	   State':=2 /\ SND(Subprefix.IDbr.IDr.{Subprefix.IDe.Kpube.Ts'.Tend'.Y'}_inv(Kpubs))
+		 
+end role
+
+%%%%server%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role server(E,L,B,S:agent,
+            Subprefix, LLprefix,
+			IDe,IDr,IDbr,IDs:text,
+            Kpube,Kpubr,Kpubbr,Kpubs: public_key,
+			Kbs:symmetric_key,
+			H: hash_func,
+			G:nat,
+			SND,RCV: channel(dy))
+played_by S def=
+
+	local State: nat,
+	      Te,Tb,Ts,Tend:text,
+		  Ns,Ge:nat,
+          Kes:symmetric_key
+		  
+    init State := 0
+
+	transition
+	1. State = 0 /\ RCV(Subprefix.IDbr.IDs.{Subprefix.IDe.IDr.Te'.Kpube.Kpubr.Ge'}_inv(Kpube).Tb'.H(IDe.IDr.IDbr.Kpube.Kpubr.Kpubbr.Kbs)) =|>
+	   State':=1 /\ Ts':= new()
+	             /\ Tend':= new() 
+				 /\ Ns':= new()
+	             /\ SND(Subprefix.IDs.IDbr.{Subprefix.IDe.Kpube.Ts'.Tend'.exp(G,Ns')}_inv(Kpubs))
+				 /\ Kes':= exp(Ge',Ns')
+				 /\ secret(Ns',ns,S)
+				 /\ request(S,E,ed_sr_ge,Ge')
+				 /\ request(S,E,ed_sr_te,Te')
+                 /\ witness(S,E,sr_ed_ts,Ts')
+                 /\ witness(S,E,sr_ed_gs,exp(G,Ns'))				 
+end role
+
+%%%%session%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(E,L,B,S:agent,
+             Subprefix, LLprefix,
+			 IDe,IDr,IDbr,IDs:text,
+			 Kpube,Kpubr,Kpubbr,Kpubs: public_key,
+			 Kbs,Kes:symmetric_key,
+			 H: hash_func,
+			 G:nat,
+			 SND,RCV: channel(dy))
+def=
+	
+	composition
+	   enddevice(E,L,B,S,Subprefix,LLprefix,IDe,IDr,IDbr,IDs,Kpube,Kpubr,Kpubbr,Kpubs,H,G,SND,RCV)
+	/\ router(E,L,B,S,Subprefix,LLprefix,IDr,IDbr,IDs,Kpubr,Kpubbr,Kpubs,H,SND,RCV)
+	/\ brouter(E,L,B,S,Subprefix,LLprefix,IDbr,IDs,Kpubbr,Kpubs,Kbs,H,SND,RCV)
+	/\ server(E,L,B,S,Subprefix,LLprefix,IDe,IDr,IDbr,IDs,Kpube,Kpubr,Kpubbr,Kpubs,Kbs,H,G,SND,RCV)
+	
+end role
+
+%%%%environment%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+    const 
+	    ne,ns,ed_sr_ge,ed_sr_te,sr_ed_ts,sr_ed_gs:protocol_id,
+	    e,l,b,s,i:agent,
+		subprefix, llprefix,
+		ide,idr,idbr,ids,idi:text,
+		kpube,kpubr,kpubbr,kpubs,kpubi: public_key,
+		kbs,kes,
+		kis,kbi,kei:symmetric_key, %%enddevice and brouter are intruder
+		h:hash_func,
+		g:nat,
+        snd,rcv:channel(dy)
+
+	intruder_knowledge={e,l,b,s,i,subprefix,llprefix,ide,idr,idbr,ids,idi,kpube,kpubr,kpubbr,kpubs,kpubi,inv(kpubi),kis,h}
+	composition
+		   session(e,l,b,s,subprefix, llprefix,ide,idr,idbr,ids,kpube,kpubr,kpubbr,kpubs,kbs,kes,h,g,snd,rcv)
+		/\ session(i,l,b,s,subprefix, llprefix,idi,idr,idbr,ids,kpubi,kpubr,kpubbr,kpubs,kbs,kis,h,g,snd,rcv)		
+		/\ session(e,i,b,s,subprefix, llprefix,ide,idi,idbr,ids,kpube,kpubi,kpubbr,kpubs,kbs,kes,h,g,snd,rcv)		
+		/\ session(e,l,i,s,subprefix, llprefix,ide,idr,idi,ids,kpube,kpubr,kpubi,kpubs,kis,kes,h,g,snd,rcv)
+        %/\ session(e,l,b,i,subprefix, llprefix,ide,idr,idbr,idi,kpube,kpubr,kpubbr,kpubi,kbi,kei,h,g,snd,rcv)
+end role
+		
+%%%%goal%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%				 
+goal
+  secrecy_of ne
+  secrecy_of ns
+  authentication_on ed_sr_ge
+  authentication_on ed_sr_te
+  authentication_on sr_ed_ts
+  authentication_on sr_ed_gs
+end goal
+
+%%%%initial%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

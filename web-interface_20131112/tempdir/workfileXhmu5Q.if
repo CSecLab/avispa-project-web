@@ -1,0 +1,188 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileXhmu5Q
+
+section signature:
+
+state_user_agent_client: agent * agent * text * hash_func * nat * text * nat -> fact
+state_diameter_server: agent * agent * agent * text * hash_func * nat * agent * text * nat -> fact
+state_sip_server_2: agent * agent * nat * protocol_id * agent * text * apply(hash_func,pair(text,pair(apply(hash_func,pair(agent,text)),apply(hash_func,protocol_id)))) * nat -> fact
+state_sip_server_1: agent * agent * nat * protocol_id * agent * agent * protocol_id * apply(hash_func,pair(text,pair(apply(hash_func,pair(agent,text)),apply(hash_func,protocol_id)))) * text * nat -> fact
+
+
+section types:
+
+Y, Dummy_Y: apply(hash_func,pair(text,pair(apply(hash_func,pair(agent,text)),apply(hash_func,protocol_id))))
+y, dest, sip200, success, Dest, Dummy_X, sip401, sipregister, Dummy_Dest, X, dummy_pid: protocol_id
+start, dummy_msg, MGoal: message
+State, 6, SID, 5, 7, 4, 3, 2, Dummy_State, 1, SID2, SID1: nat
+Nonce, PWD, Dummy_Nonce, dummy_nonce, pwd: text
+H, h: hash_func
+UAC, SS1, DS, SS2, Dummy_SS2, Dummy_UAC, dummy_agent, A2Goal, A1Goal, uac, ss1, ss2, ds, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(uac).
+ iknows(ss1).
+ iknows(ss2).
+ iknows(ds).
+ iknows(sipregister).
+ iknows(sip401).
+ iknows(sip200).
+ iknows(success).
+ iknows(h).
+ iknows(i).
+ state_sip_server_1(ss1,ds,1,dummy_pid,dummy_agent,dummy_agent,dummy_pid,dummy_msg,dummy_nonce,3).
+ state_sip_server_2(ss2,ds,1,dummy_pid,dummy_agent,dummy_nonce,dummy_msg,4).
+ state_diameter_server(ds,ss1,ss2,pwd,h,1,dummy_agent,dummy_nonce,5).
+ state_user_agent_client(uac,ss1,pwd,h,1,dummy_nonce,6)
+
+
+section rules:
+
+step step_0 (SS1,DS,Dummy_Dest,SS2,Dummy_UAC,X,Y,Nonce,SID,Dest,UAC) :=
+ state_sip_server_1(SS1,DS,1,Dummy_Dest,SS2,Dummy_UAC,X,Y,Nonce,SID).
+ iknows(pair(sipregister,pair(UAC,Dest)))
+ =>
+ state_sip_server_1(SS1,DS,2,Dest,SS2,UAC,X,Y,Nonce,SID).
+ iknows(pair(UAC,Dest))
+
+step step_1 (SS1,DS,Dest,Dummy_SS2,UAC,X,Y,Nonce,SID,SS2) :=
+ state_sip_server_1(SS1,DS,2,Dest,Dummy_SS2,UAC,X,Y,Nonce,SID).
+ iknows(pair(UAC,SS2))
+ =>
+ state_sip_server_1(SS1,DS,3,Dest,SS2,UAC,X,Y,Nonce,SID).
+ iknows(pair(sipregister,pair(UAC,Dest)))
+
+step step_2 (SS1,DS,Dest,SS2,UAC,X,Y,Dummy_Nonce,SID,Nonce) :=
+ state_sip_server_1(SS1,DS,3,Dest,SS2,UAC,X,Y,Dummy_Nonce,SID).
+ iknows(pair(sip401,Nonce))
+ =>
+ state_sip_server_1(SS1,DS,4,Dest,SS2,UAC,X,Y,Nonce,SID).
+ iknows(pair(sip401,Nonce))
+
+step step_3 (SS1,DS,Dest,SS2,UAC,X,Dummy_Y,Nonce,SID,Y) :=
+ state_sip_server_1(SS1,DS,4,Dest,SS2,UAC,X,Dummy_Y,Nonce,SID).
+ iknows(pair(sipregister,pair(UAC,pair(Dest,pair(Nonce,Y)))))
+ =>
+ state_sip_server_1(SS1,DS,5,Dest,SS2,UAC,X,Y,Nonce,SID).
+ iknows(pair(UAC,Dest))
+
+step step_4 (SS1,DS,Dest,Dummy_SS2,UAC,X,Y,Nonce,SID,SS2) :=
+ state_sip_server_1(SS1,DS,5,Dest,Dummy_SS2,UAC,X,Y,Nonce,SID).
+ iknows(pair(UAC,SS2))
+ =>
+ state_sip_server_1(SS1,DS,6,Dest,SS2,UAC,X,Y,Nonce,SID).
+ iknows(pair(sipregister,pair(UAC,pair(Dest,pair(Nonce,Y)))))
+
+step step_5 (SS1,DS,Dest,SS2,UAC,Dummy_X,Y,Nonce,SID,X) :=
+ state_sip_server_1(SS1,DS,6,Dest,SS2,UAC,Dummy_X,Y,Nonce,SID).
+ iknows(X)
+ =>
+ state_sip_server_1(SS1,DS,7,Dest,SS2,UAC,X,Y,Nonce,SID).
+ iknows(X)
+
+step step_6 (SS2,DS,Dummy_Dest,Dummy_UAC,Nonce,Y,SID,Dest,UAC) :=
+ state_sip_server_2(SS2,DS,1,Dummy_Dest,Dummy_UAC,Nonce,Y,SID).
+ iknows(pair(sipregister,pair(UAC,Dest)))
+ =>
+ state_sip_server_2(SS2,DS,2,Dest,UAC,Nonce,Y,SID).
+ iknows(pair(Dest,UAC))
+
+step step_7 (SS2,DS,Dest,UAC,Dummy_Nonce,Y,SID,Nonce) :=
+ state_sip_server_2(SS2,DS,2,Dest,UAC,Dummy_Nonce,Y,SID).
+ iknows(pair(Nonce,UAC))
+ =>
+ state_sip_server_2(SS2,DS,3,Dest,UAC,Nonce,Y,SID).
+ iknows(pair(sip401,Nonce))
+
+step step_8 (SS2,DS,Dest,UAC,Nonce,Dummy_Y,SID,Y) :=
+ state_sip_server_2(SS2,DS,3,Dest,UAC,Nonce,Dummy_Y,SID).
+ iknows(pair(sipregister,pair(UAC,pair(Dest,pair(Nonce,Y)))))
+ =>
+ state_sip_server_2(SS2,DS,4,Dest,UAC,Nonce,Y,SID).
+ iknows(pair(Dest,pair(UAC,pair(Nonce,Y))))
+
+step step_9 (SS2,DS,Dest,UAC,Nonce,Y,SID) :=
+ state_sip_server_2(SS2,DS,4,Dest,UAC,Nonce,Y,SID).
+ iknows(pair(UAC,success))
+ =>
+ state_sip_server_2(SS2,DS,5,Dest,UAC,Nonce,Y,SID).
+ iknows(sip200)
+
+step step_10 (DS,SS1,SS2,PWD,H,Dummy_UAC,Nonce,SID,UAC) :=
+ state_diameter_server(DS,SS1,SS2,PWD,H,1,Dummy_UAC,Nonce,SID).
+ iknows(pair(UAC,dest))
+ =>
+ state_diameter_server(DS,SS1,SS2,PWD,H,2,UAC,Nonce,SID).
+ iknows(pair(UAC,SS2))
+
+step step_11 (DS,SS1,SS2,PWD,H,UAC,Dummy_Nonce,SID,Nonce) :=
+ state_diameter_server(DS,SS1,SS2,PWD,H,2,UAC,Dummy_Nonce,SID).
+ iknows(pair(dest,UAC))
+=[exists Nonce]=>
+ state_diameter_server(DS,SS1,SS2,PWD,H,3,UAC,Nonce,SID).
+ iknows(pair(Nonce,UAC))
+
+step step_12 (DS,SS1,SS2,PWD,H,UAC,Nonce,SID) :=
+ state_diameter_server(DS,SS1,SS2,PWD,H,3,UAC,Nonce,SID).
+ iknows(pair(UAC,dest))
+ =>
+ state_diameter_server(DS,SS1,SS2,PWD,H,4,UAC,Nonce,SID).
+ iknows(pair(UAC,SS2))
+
+step step_13 (DS,SS1,SS2,PWD,H,UAC,Nonce,SID) :=
+ state_diameter_server(DS,SS1,SS2,PWD,H,4,UAC,Nonce,SID).
+ iknows(pair(dest,pair(UAC,pair(Nonce,apply(H,pair(Nonce,pair(apply(H,pair(UAC,PWD)),apply(H,dest))))))))
+ =>
+ state_diameter_server(DS,SS1,SS2,PWD,H,5,UAC,Nonce,SID).
+ iknows(pair(UAC,success)).
+ request(UAC,UAC,y,apply(H,pair(Nonce,pair(apply(H,pair(UAC,PWD)),apply(H,dest)))),SID)
+
+step step_14 (UAC,SS1,PWD,H,Nonce,SID) :=
+ state_user_agent_client(UAC,SS1,PWD,H,1,Nonce,SID).
+ iknows(start)
+ =>
+ state_user_agent_client(UAC,SS1,PWD,H,2,Nonce,SID).
+ iknows(pair(sipregister,pair(UAC,dest)))
+
+step step_15 (UAC,SS1,PWD,H,Dummy_Nonce,SID,Nonce) :=
+ state_user_agent_client(UAC,SS1,PWD,H,2,Dummy_Nonce,SID).
+ iknows(pair(sip401,Nonce))
+ =>
+ state_user_agent_client(UAC,SS1,PWD,H,3,Nonce,SID).
+ iknows(pair(sipregister,pair(UAC,pair(dest,pair(Nonce,apply(H,pair(Nonce,pair(apply(H,pair(UAC,PWD)),apply(H,dest))))))))).
+ witness(UAC,UAC,y,apply(H,pair(Nonce,pair(apply(H,pair(UAC,PWD)),apply(H,dest)))))
+
+step step_16 (UAC,SS1,PWD,H,Nonce,SID) :=
+ state_user_agent_client(UAC,SS1,PWD,H,3,Nonce,SID).
+ iknows(sip200)
+ =>
+ state_user_agent_client(UAC,SS1,PWD,H,4,Nonce,SID)
+
+
+section properties:
+
+property authentication_on_y (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,y,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,y,MGoal))
+     /\ ((request(A1Goal,A2Goal,y,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,y,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state authentication_on_y (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,y,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,y,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_y (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,y,MGoal,SID1).
+ request(A1Goal,A2Goal,y,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

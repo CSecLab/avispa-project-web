@@ -1,0 +1,142 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilek13423
+
+section signature:
+
+state_ar: agent * agent * symmetric_key * hash_func * nat * text * text * text * text * text * apply(hash_func,pair(text,text)) * set(agent) * nat -> fact
+state_obu: agent * agent * symmetric_key * hash_func * nat * text * text * text * text * text * apply(hash_func,pair(text,text)) * set(agent) * nat -> fact
+
+
+section types:
+
+HAK, Dummy_HAK: apply(hash_func,pair(text,text))
+Success, Nobu, Nar, IDobu, IDar, success, Dummy_Nar, Dummy_Nobu, dummy_nonce: text
+set_85, set_83, set_81, set_80, set_78, set_76, set_72, set_62: set
+State, 12, 10, 7, 6, 3, 4, 2, SID, 1, 0, Dummy_State, SID2, SID1: nat
+Set_42, Set_25, Dummy_Set_42, Dummy_Set_25, ASGoal: set(agent)
+start, dummy_msg, MGoal: message
+sec_hak_ar, sec_hak_obu, hak1, hak2: protocol_id
+PRF, prf: hash_func
+AR, OBU, ar, A2Goal, A1Goal, obu, i: agent
+HEK, hek: symmetric_key
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(obu).
+ iknows(ar).
+ iknows(prf).
+ iknows(i).
+ state_obu(obu,ar,hek,prf,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,set_62,3).
+ state_ar(ar,obu,hek,prf,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,set_72,4).
+ state_obu(obu,ar,hek,prf,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,set_76,6).
+ state_ar(ar,obu,hek,prf,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,set_78,7).
+ state_ar(ar,i,hek,prf,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,set_81,10).
+ state_obu(obu,i,hek,prf,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,set_83,12)
+
+
+section rules:
+
+step step_0 (OBU,AR,HEK,PRF,IDobu,IDar,Dummy_Nobu,Nar,Success,HAK,Set_25,SID,Nobu) :=
+ state_obu(OBU,AR,HEK,PRF,0,IDobu,IDar,Dummy_Nobu,Nar,Success,HAK,Set_25,SID).
+ iknows(start)
+=[exists Nobu]=>
+ state_obu(OBU,AR,HEK,PRF,1,IDobu,IDar,Nobu,Nar,Success,HAK,Set_25,SID).
+ iknows(scrypt(HEK,pair(IDobu,pair(IDar,Nobu))))
+
+step step_1 (OBU,AR,HEK,PRF,IDobu,IDar,Nobu,Dummy_Nar,Success,Dummy_HAK,Set_25,SID,Nar) :=
+ state_obu(OBU,AR,HEK,PRF,1,IDobu,IDar,Nobu,Dummy_Nar,Success,Dummy_HAK,Set_25,SID).
+ iknows(scrypt(HEK,pair(IDobu,pair(IDar,Nar))))
+ =>
+ state_obu(OBU,AR,HEK,PRF,2,IDobu,IDar,Nobu,Nar,Success,apply(PRF,pair(Nobu,Nar)),Set_25,SID).
+ iknows(scrypt(HEK,apply(PRF,pair(Nobu,Nar))))
+
+step step_2 (OBU,AR,HEK,PRF,IDobu,IDar,Nobu,Nar,Success,HAK,Dummy_Set_25,SID) :=
+ state_obu(OBU,AR,HEK,PRF,2,IDobu,IDar,Nobu,Nar,Success,HAK,Dummy_Set_25,SID).
+ iknows(success)
+ =>
+ state_obu(OBU,AR,HEK,PRF,3,IDobu,IDar,Nobu,Nar,Success,HAK,Dummy_Set_25,SID).
+ secret(HAK,sec_hak_obu,Dummy_Set_25).
+ contains(OBU,Dummy_Set_25).
+ contains(AR,Dummy_Set_25)
+
+step step_3 (AR,OBU,HEK,PRF,IDobu,IDar,Dummy_Nobu,Dummy_Nar,Success,Dummy_HAK,Set_42,SID,Nobu,Nar) :=
+ state_ar(AR,OBU,HEK,PRF,0,IDobu,IDar,Dummy_Nobu,Dummy_Nar,Success,Dummy_HAK,Set_42,SID).
+ iknows(scrypt(HEK,pair(IDobu,pair(IDar,Nobu))))
+=[exists Nar]=>
+ state_ar(AR,OBU,HEK,PRF,1,IDobu,IDar,Nobu,Nar,Success,apply(PRF,pair(Nar,Dummy_Nobu)),Set_42,SID).
+ iknows(scrypt(HEK,pair(IDobu,pair(IDar,Nar))))
+
+step step_4 (AR,OBU,HEK,PRF,IDobu,IDar,Nobu,Nar,Success,Dummy_HAK,Dummy_Set_42,SID,HAK) :=
+ state_ar(AR,OBU,HEK,PRF,1,IDobu,IDar,Nobu,Nar,Success,Dummy_HAK,Dummy_Set_42,SID).
+ iknows(scrypt(HEK,HAK))
+ =>
+ state_ar(AR,OBU,HEK,PRF,2,IDobu,IDar,Nobu,Nar,Success,HAK,Dummy_Set_42,SID).
+ iknows(success).
+ secret(HAK,sec_hak_ar,Dummy_Set_42).
+ contains(AR,Dummy_Set_42).
+ contains(OBU,Dummy_Set_42)
+
+
+section properties:
+
+property secrecy_of_sec_hak_obu (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_hak_obu,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_sec_hak_ar (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_hak_ar,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_hak1 (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,hak1,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,hak1,MGoal))
+     /\ ((request(A1Goal,A2Goal,hak1,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,hak1,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_hak2 (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,hak2,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,hak2,MGoal))
+     /\ ((request(A1Goal,A2Goal,hak2,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,hak2,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_sec_hak_obu (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_hak_obu,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_sec_hak_ar (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_hak_ar,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_hak1 (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,hak1,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,hak1,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_hak1 (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,hak1,MGoal,SID1).
+ request(A1Goal,A2Goal,hak1,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_hak2 (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,hak2,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,hak2,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_hak2 (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,hak2,MGoal,SID1).
+ request(A1Goal,A2Goal,hak2,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

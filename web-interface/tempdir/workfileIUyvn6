@@ -1,0 +1,159 @@
+role alice(A,B,S:agent,
+	   KA: symmetric_key,
+	   Succ: hash_func,
+	   Snd, Rcv: channel (dy))
+played_by A
+def=
+
+  local State: nat,
+	Ta, Na: text, 
+	Kab: symmetric_key
+
+
+%  const na, alice_bob_kab,secret_kab: protocol_id
+  const kab, alice_bob_kab, bob_alice_kab: protocol_id
+
+  init  State := 0
+
+  transition
+
+%% Start of the protocol
+  step1. 	State = 0  /\ Rcv(start)  =|>	
+		State':= 2 /\ Ta':= new() /\ Kab':= new() 
+			/\ Snd(A.{A.B.Ta'.Kab'}_KA)
+	                /\ secret(Kab',kab,{A,B,S})
+			/\ witness(A,B,alice_bob_kab,Kab')
+
+%%3 B --> A : {Na}_Kab
+  step3and4.    State = 2 /\ Rcv({Na'}_Kab) =|>
+%%4 A --> B : {Succ(Na)}_Kab
+ 		State':= 4 /\ Snd({Succ(Na')}_Kab)
+%		/\ request(A,B,bob_alice_kab,Kab)
+						
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+
+%%2 S --> B : {A, Ts, Kab}_|KB|
+%%3 B --> A : {Na}_Kab
+%%4 A --> B : {Succ(Na)}_Kab
+
+role   bob(A,B,S:agent,
+	   KB: symmetric_key,
+	   Succ: hash_func,
+	   Snd,Rcv: channel (dy))
+played_by B
+def=
+
+  local State: nat,
+	Na:text,
+	Ts: message, 
+	Kab: symmetric_key
+
+  const bob_alice_kab: protocol_id
+
+  init  State := 0
+
+  transition
+
+%%2 S --> B : {A, Ts, Kab}_|KB|
+  step2and3. 	State = 0  /\ Rcv({A.Ts'.Kab'}_KB) =|>
+%%3 B --> A : {Na}_Kab
+		State' := 1 /\ Na':=new() /\ Snd({Na'}_Kab')
+%		/\ witness(B,A,bob_alice_kab,Kab')
+		
+		
+%%4 A --> B : {Succ(Na)}_Kab
+  step4.    State = 1 /\ Rcv({Succ(Na)}_Kab) =|>
+	    State':= 3 /\
+	    request(B,A,alice_bob_kab,Kab)
+
+		
+		
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+%%1 A --> S : A, {B, Ta, Kab}_|KA|
+%%2 S --> B : {A, Ts, Kab}_|KB|
+
+role server(A, B, S:agent,
+	    KA, KB: symmetric_key,
+  	    Timestamp : hash_func,
+	    Snd, Rcv: channel (dy))
+played_by S
+def=
+
+  local State: nat,
+	Ta: text, 
+	Kab: symmetric_key
+
+  init  State := 0
+
+  transition
+  step0. 	State = 0 /\ Rcv(A.{A.B.Ta'.Kab'}_KA) =|>	
+		State' := 1 /\ Snd({A.Timestamp(Ta').Kab'}_KB)	
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+%%1 A --> S : A, {B, Ta, Kab}_|KA|
+%%2 S --> B : {A, Ts, Kab}_|KB|
+
+
+%% The role representing a partial session between alice and bob
+role  wmf(A,B,S: agent,
+	  KA, KB: symmetric_key,
+	  TS,Succ:hash_func )
+		
+def=
+
+  local S_AS, R_AS, S_BS, R_BS, R_AB, S_AB: channel (dy)
+
+  composition
+	    alice (A,B,S,KA,Succ,S_AS,R_AB) 
+	/\  bob   (A,B,S,KB,Succ,S_AB,R_BS)
+	/\  server(A,B,S,KA,KB,TS,S_BS,R_AS)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+%% The main role
+role environment()
+def=
+ 
+  const a, b, s, i : agent,
+        ka, kb, ki : symmetric_key,
+	ts, succ: hash_func
+
+
+  intruder_knowledge = {ki, inv(ki), a, b, i,s,ts,succ}
+
+  composition
+     	   wmf(a,b,s,ka,kb,ts,succ)
+     	/\ wmf(a,b,s,ka,kb,ts,succ)
+%     	/\ wmf(b,a,s,kb,ka,ts,succ)
+%	/\ wmf(a,i,s,ka,ki,ts,succ)
+%     	/\ wmf(i,b,s,ki,kb,ts,succ)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+%% Properties to verify
+goal
+
+%  	secrecy_of na
+%	secrecy_of secret_kab
+
+  	authentication_on alice_bob_kab
+%  	authentication_on bob_alice_kab
+  
+
+end goal
+
+environment()

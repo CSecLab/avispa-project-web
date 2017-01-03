@@ -1,0 +1,253 @@
+role useri (Ui, MRS, MSj, PSk   : agent,
+            SKuimrs : symmetric_key,
+            % H is one-way hash function
+            H: hash_func,
+            SND, RCV: channel(dy))
+% Player by the initiator, the user Ui
+played_by Ui
+def=
+ local State  : nat,
+       RPWi, PWi, Bi, K, IDi, IDmsj,
+       IDk, Aj, Pj, TSc, TSmsj:  text,
+       TSk, Rc, Rms, Rk, M1, M2, M3,
+       M4, M5, Xc, Xk : text,
+       Gen, Rep : hash_func
+ const user_msj_tsc,  user_msj_rc,
+       msj_psk_tsms, msj_psk_rms,
+       psk_user_tsk, psk_user_rk,
+       s1, s2, s3, s4 : protocol_id
+init  State := 0
+transition
+% User registration phase
+1. State = 0   /\ RCV(start) =|>
+   State' := 1 /\ RPWi' := H(IDi.K.PWi)
+% Send the registration request message to MRS securely
+               /\ SND({IDi.RPWi'}_SKuimrs)
+               /\ secret({Xc}, s1, MRS)
+               /\ secret({PWi, Bi, K}, s2, Ui)
+               /\ secret({Xk}, s3, {MSj, PSk})
+               /\ secret({IDi}, s4, {Ui,MSj,PSk})
+% Receive the smart card from MRS securely
+2. State = 1 /\ RCV({IDmsj.xor(H(IDi.H(IDmsj.Xc)),
+                 H(IDi.K.PWi)).xor(H(IDmsj.H(IDmsj.Xc)),
+                 H(IDi.K.PWi)).H.Gen.Rep}_SKuimrs) =|>
+% Login phase
+State' := 2 /\ TSc' := new()
+            /\ Rc' := new()
+            /\ M1' :=H(IDi.H(IDmsj.Xc))
+            /\ M3' :=xor(IDi, xor(IDmsj.H(IDmsj.Xc)))
+            /\ M4' :=xor(IDi, xor(H(IDi.H(IDmsj.Xc)),Rc'))
+            /\ M5' :=H(M1'.M3'.M4'.M5'.Rc'.TSc')
+% Send the login request message to MSj
+            /\ SND(IDmsj.IDk.M3'.M4'.M5'.TSc')
+% Ui has freshly generated the value TSc for MSj
+            /\ witness(Ui, MSj, user_msj_tsc, TSc')
+% Ui has freshly generated the value Rc for MSj
+            /\ witness(Ui, MSj, user_msj_rc, Rc')
+%Authentication and session key agreement phase
+% Receive the authentication reply message from PSk
+3. State = 2  /\ RCV(IDk.xor(IDi,xor(Rc',Rk')).
+                 xor(H(IDi.Xk),Rk').
+                 H(H(IDi.IDk.Rc'.Rk'.H(IDi.Xk).TSk').
+                 xor(IDi,xor(Rc',Rk')).
+                 xor(H(IDi.Xk),Rk').Rc'.Rk'.TSk').TSk') =|>
+% Ui's acceptance of the value TSk generated for Ui by PSk 
+State' := 3  /\ request(PSk, Ui, psk_user_tsk, TSk')
+% Ui's acceptance of the value Rk generated for Ui by PSk
+             /\ request(PSk, Ui, psk_user_rk, Rk')
+end role
+
+
+%%%%%%%%%%
+
+role mrs (Ui, MRS, MSj, PSk   : agent,
+            SKuimrs : symmetric_key,
+            % H is one-way hash function
+            H: hash_func,
+            SND, RCV: channel(dy))
+% Player by the MRS
+played_by MRS
+def=
+ local State  : nat,
+       RPWi, PWi, Bi, K, IDi, IDmsj,
+       IDk, Aj, Pj, Xc, Xk  : text,
+       Gen, Rep : hash_func
+ const s1, s2, s3, s4 : protocol_id
+init  State := 0
+transition
+% Registration phase
+% Receive the registration request message from Ui
+1. State  = 0 /\ RCV({IDi.H(IDi.K.PWi)}_SKuimrs) =|>  
+  State' := 1 /\ secret({Xc}, s1, MRS)
+              /\ secret({PWi, Bi, K}, s2, Ui)
+              /\ secret({Xk}, s3, {MSj, PSk})
+              /\ secret({IDi}, s4, {Ui,MSj,PSk})
+              /\ Aj' := xor(H(IDi.H(IDmsj.Xc)),
+                        H(IDi.K.PWi))
+              /\ Pj' := xor(H(IDmsj.H(IDmsj.Xc)),
+                        H(IDi.K.PWi))
+% Send the smart card to Ui securely
+              /\ SND({IDmsj.Aj'.Pj'.H.Gen.Rep}_SKuimrs)
+end role
+
+
+%%%%%%%% Role for MSj %%%%%%%%%%
+role medical_serverj (Ui, MRS, MSj, PSk : agent,
+            % H is one-way hash function
+            H: hash_func,
+            SND, RCV: channel(dy))
+% Player by MSj
+played_by MSj
+def=
+ local State  : nat,
+       RPWi, PWi, Bi, K, IDi, IDmsj,
+       IDk, Aj, Pj, TSc, TSmsj:  text,
+       TSk, Rc, Rms, Rk, M13, 
+       M14, M15 : text,
+       Gen, Rep : hash_func
+ const user_msj_tsc,  user_msj_rc,
+       msj_psk_tsms, msj_psk_rms,
+       psk_user_tsk, psk_user_rk,
+       s1, s2, s3, s4 : protocol_id
+init  State := 0
+transition
+% Login phase
+% Receive the login request message from Ui
+1. State  = 0 /\ RCV(IDmsj.IDk.xor(IDi, xor(IDmsj.
+                 H(IDmsj.Xc))).
+                 xor(IDi, xor(H(IDi.H(IDmsj.Xc)),Rc')).
+                 H(M1'.M3'.M4'.M5'.Rc'.TSc').TSc') =|>
+  State' := 1 /\ secret({Xc}, s1, MRS)
+              /\ secret({PWi, Bi, K}, s2, Ui)
+              /\ secret({Xk}, s3, {MSj, PSk})
+              /\ secret({IDi}, s4, {Ui,MSj,PSk})
+% Authentication and session key agreement phase
+              /\ TSms' := new()
+              /\ Rms' := new()
+              /\ M12' :=xor(IDi,H(IDmsj.IDk.Xk))
+              /\ M13' :=xor(H(IDi.Xk),Rms')
+              /\ M14' :=xor(IDi,xor(Rc',Rms'))
+              /\ M15' :=H(IDi.H(IDmsj.IDk.Xk).M12'.M13'.
+                        M14'.Rc'.Rms'.Tsms')
+% Send authentication request message to PSk
+             /\ SND(IDmsj.IDk.M12'.M13'.M14'.M15'.TSms')
+% MSj has freshly generated the value TSms for PSk
+            /\ witness(MSj, PSk, msj_psk_tsms, TSms')
+% MSj has freshly generated the value Rms for PSk
+            /\ witness(MSj, PSk, msj_psk_rms, Rms')
+% MSj's acceptance of the value TSc generated for MSj by Ui 
+            /\ request(Ui, MSj, user_msj_tsc, TSc')   
+% MSj's acceptance of the value Rc generated for MSj by Ui 
+            /\ request(Ui, MSj, user_msj_rc, Rc')          
+end role
+
+
+
+%%%%%%% Role for PSk %%%%%
+role physician_serverk (Ui, MRS, MSj, PSk : agent,
+            % H is one-way hash function
+            H: hash_func,
+            SND, RCV: channel(dy))
+% Player by PSk
+played_by PSk
+def=
+ local State  : nat,
+       RPWi, PWi, Bi, K, IDi, IDmsj,
+       IDk, Aj, Pj, TSc, TSmsj:  text,
+       TSk, Rc, Rms, Rk, M22, 
+       M23, M24 : text,
+       Gen, Rep : hash_func
+ const user_msj_tsc,  user_msj_rc,
+       msj_psk_tsms, msj_psk_rms,
+       psk_user_tsk, psk_user_rk,
+       s1, s2, s3, s4 : protocol_id
+init  State := 0
+transition
+% Authentication and session key agreement phase
+% Receive authentication request message from MSj
+1. State = 0 /\ RCV(IDmsj.IDk.xor(IDi.
+                H(IDmsj.IDk.Xk)).
+                xor(H(IDi.Xk),Rms').
+                xor(IDi,xor(Rc',Rms')).
+         H(IDi.H(IDmsj.IDk.Xk).xor(IDi,H(IDmsj.IDk.Xk)).
+         xor(H(IDi.Xk),Rms').
+         xor(IDi,xor(Rc',Rms')).Rc'.Rms'.Tsms').TSms') =|>
+  State' := 1 /\ secret({Xc}, s1, MRS)
+              /\ secret({PWi, Bi, K}, s2, Ui)
+              /\ secret({Xk}, s3, {MSj, PSk})
+              /\ secret({IDi}, s4, {Ui,MSj,PSk})
+              /\ TSk' := new()
+              /\ Rk' := new()
+              /\ M22' :=xor(IDi,xor(Rc',Rk'))
+              /\ M23' :=xor(H(IDi.Xk),Rk')
+              /\ M24' :=H(H(IDi.IDk.Rc'.Rk'.H(IDi.Xk).TSk').
+                        M22'.M23'.Rc'.Rk'.TSk')
+% Send authentication reply message to Ui 
+             /\ SND(IDk.M22'.M23'.M24'.TSk')
+% PSk has freshly generated the value TSk for Ui
+            /\ witness(PSk, Ui, psk_user_tsk, TSk')
+% PSk has freshly generated the value Rk for Ui
+            /\ witness(PSk, Ui, psk_user_rk, Rk')
+% PSk's acceptance of the value TSms generated for PSk by MSj 
+            /\ request(MSj, PSk, msj_psk_tsms, TSms')   
+% PSk's acceptance of the value Rms generated for PSk by MSj 
+            /\ request(MSj, PSk, msj_psk_rms, Rms') 
+end role
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session (Ui, MRS, MSj, PSk : agent,
+            SKuimrs : symmetric_key,
+            % H is one-way hash function
+            H: hash_func)
+def=
+  local  S1, S2, S3, S4, R1, R2, R3, R4: channel (dy)
+  composition
+           useri (Ui, MRS, MSj, PSk, SKuimrs, H, S1, R1)
+        /\ mrs (Ui, MRS, MSj, PSk, SKuimrs, H, S2, R2)
+        /\ medical_serverj (Ui, MRS, MSj, PSk, H, S3, R3)
+        /\ physician_serverk (Ui, MRS, MSj, PSk, H, S3, R3)
+end role 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role environment()
+def=
+  const ui, mrs, msj, psk: agent,
+        skuimrs : symmetric_key,
+        h, gen, rep   : hash_func,
+        pwi, bi, xc, k, idi, idmsj, idk,
+        rc, tsc, rms, tsms, rk, tsk:  text, 
+        user_msj_tsc,  user_msj_rc,
+        msj_psk_tsms, msj_psk_rms,
+        psk_user_tsk, psk_user_rk,
+        s1, s2, s3, s4 : protocol_id
+  intruder_knowledge = {ui, mrs, msj, psk, h,
+                        idmsj, idk, gen, rep,
+                        tsc, tsms, tsk}
+  composition
+	   session(ui, mrs, msj, psk, skuimrs, h) 
+	/\ session(i, mrs, msj, psk, skuimrs, h) 
+        /\ session(ui, i, msj, psk, skuimrs, h)
+        /\ session(ui, mrs, i, psk, skuimrs, h)
+        /\ session(ui, mrs, msj, i, skuimrs, h)   
+end role
+
+goal
+  secrecy_of s1
+  secrecy_of s2
+  secrecy_of s3
+  secrecy_of s4
+
+  authentication_on user_msj_tsc
+  authentication_on user_msj_rc
+  authentication_on msj_psk_tsms 
+  authentication_on msj_psk_rms
+  authentication_on psk_user_tsk
+  authentication_on psk_user_rk
+end goal
+environment()
+

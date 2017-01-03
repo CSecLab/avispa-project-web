@@ -1,0 +1,113 @@
+role user(   User, Ap :agent,
+          T_dash,T_cap,R,V : text,
+          H : hash_func,
+          Snd,Rcv: channel(dy))
+
+ played_by User
+ def=        
+        local State : nat,
+        Key,T,U,I_dash,Key : text
+        const user_ap,ap_User : protocol_id
+        
+        init State := 0
+        
+  transition
+
+  1. State = 0  /\ Rcv(start) =|>
+	     State' := 1 /\ T' := new()
+	     /\ T_dash' = new()
+	     /\ I_dash' = new()
+	     /\ T_cap' := new()
+             /\ R' := new()
+             /\ V' := H(Tc.{R'},{T_cap'})
+             /\ U' := new()
+             /\ snd(cons(cons({U'},{V'}),Tc,{T_dash'},{I_dash'})))    
+             /\ wittness(User, Ap , user_ap, Key')
+
+  2. State = 1 /\ Rcv(mac({V'}_key)) =|>
+              State' :=2 /\ Key' := H(V,T_cap)
+              /\ request(Ap, User, ap_User, Key')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role ap ( User, Ap :agent,
+          T_dash,T_cap,R,V : text,
+          H : hash_func,
+          Snd,Rcv: channel(dy))
+
+ played_by Ap
+ def=        
+        local State : nat,
+        key,T,U,I_dash,Tc : text
+       const user_ap,ap_User : protocol_id
+        
+        init State := 0
+        
+  transition
+  1. State = 0 /\ Rcv(cons(cons({U'},{V'}),Tc,T_dash,I_dash))) = |>
+        State' = 1 /\ T_dash' := new()
+                   /\ T_cap' := new()
+                   /\ I_dash' = new()
+                   /\ R' := new()
+                   /\ V' := H(Tc.{R'},{T_cap'})
+                   /\ Key' := snd(mac({V'}_Key))
+                   /\ witness (Ap, User, ap_User, Key')
+                   /\ request (User, Ap , user_ap, Key')
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(User,Ap: agent,
+             H: hash_func)
+def=
+
+  local  snduser, rcvuser, sndap, rcvap : channel (dy),
+        T_dash,T_cap,r,v,tc : text
+         const user_ap,ap_User : protocol_id
+           
+  composition
+           User(User, Ap, T_dash,T_cap,r,v,tc,H,snduser, rcvuser)
+       /\  ap( User, Ap, T_dash,T_cap,r,v,H,sndap, rcvap)
+end role 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role environment()
+
+def=
+
+	 const ap,user : agent,
+                h: hash_func,
+                T_dash,T_cap,r,v,tc : text,  
+                user_ap,ap_User : protocol_id
+
+	
+	intruder_knowledge={user, ap, T_dash,T_cap,r,v,tc,h}
+	
+	
+	 composition
+           session(user, ap,h)
+       /\  session(user, ap,h)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Description of goal properties: %
+
+goal
+
+authentication_on user_ap,ap_User
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Call of the main role: %
+
+environment()
+
+        

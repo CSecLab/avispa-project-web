@@ -1,0 +1,155 @@
+role new_PANA_Authentication_Agent( A, S, B : agent,
+									ESP_Key 		: symmetric_key,
+									AAA_ID		    : text,
+									Hash, Key_f     : hash_func,
+									Snd, Rcv 		: channel(dy))
+
+played_by A 
+def=
+	
+		local State 						: nat,
+		NA, NSId, NS, IP_S, IP_B  			: text,
+		New_AAA_k, MAC_key, AAA_k_i 		: message, % should be symmetric_key
+		H1 									: message
+		const mac_key 						: protocol_id
+		
+	init State:=0
+
+	transition
+
+	0. State  = 0 /\ Rcv(start) =|> 
+	   State':= 2 /\ Snd(A)
+
+	2. State  = 2 /\ Rcv(IP_S'.IP_B'.NS'.H1') =|> 
+	   State':=4  /\ Snd({IP_S'.IP_B'.NS'.H1'}_ESP_Key)
+
+	4. State  = 4 /\ Rcv({AAA_ID.AAA_k_i'.S}_ESP_Key) =|> 
+	   State':= 6 /\ NA' := new()
+				  /\ NSId':=new()
+				  /\ New_AAA_k':=Key_f(AAA_k_i'.NS.NA')
+				  /\ MAC_key':=Key_f(New_AAA_k'.NS.NA'.NSId')
+				  /\ Snd(NSId'.NA'.Hash(MAC_key'.NSId'.NA'))
+
+	6. State  = 6 /\ Rcv(NA.Hash(MAC_key.NA)) =|> 
+	   State':= 8 /\ request(A, S, A_S_mac_key, MAC_key) % only now S has been authenticated and secrecy may be checked!
+				  /\ secret(MAC_key, mac_key, {S, A})
+				  
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role pANA_Client( A, S, B 					  : agent,
+				  CTP_KEY, AAA_k 					  : symmetric_key,
+				  Hash, Key_f 						  : hash_func,
+				  IP_S, AAA_ID, Session_ID, IP_B : text,
+				  Snd, Rcv 							  : channel(dy))
+				  
+played_by S 
+def=
+
+		local State						  : nat,
+			  NS 						  : text,
+			  New_AAA_k, AAA_k_i, MAC_key : message, %should be: symmetric_key
+			  NA, NSId 				  : text,
+			  Signature 				  : message
+
+	init State := 1
+
+	transition
+	
+	1. State = 1 /\ Rcv(A) =|>
+	   State':=7 /\ NS':=new()
+				 /\ Snd(IP_S.IP_B.NS'. Hash(CTP_KEY.IP_S.IP_B.NS'))
+				 /\ witness(S, B, B_S_ip_S, IP_S)
+			
+	7. State=7 	 /\ Rcv(NSId'.NA'.Hash(MAC_key'.NSId'.NA'))
+				 /\ MAC_key'=Key_f(New_AAA_k'.NS.NA'.NSId')
+				 /\ New_AAA_k'=Key_f(AAA_k_i'.NS.NA')
+				 /\ AAA_k_i'=Key_f(AAA_k.AAA_ID.Session_ID) =|>
+	  State':=9  /\ Snd(NA'.Hash(MAC_key'.NA'))
+				 /\ witness(S, A, A_S_mac_key, MAC_key')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role previous_PANA_Authentication_Agent( A, S, B 					 : agent,
+										 CTP_KEY, ESP_Key, AAA_k 			 : symmetric_key,
+										 Hash, Key_f 						 : hash_func,
+										 IP_S, AAA_ID, Session_ID, IP_B : text,
+										 Snd, Rcv 							 : channel(dy))
+
+played_by B 
+def=
+
+		local State : nat,
+		NS, NA : text,
+		AAA_k_i 	: message % should be a symmetric_key
+		
+	init State := 3
+	
+	transition
+	
+	3. State  = 3 /\ Rcv({IP_S.IP_B.NS'.Hash(CTP_KEY.IP_S.IP_B.NS')}_ESP_Key) =|> 
+	   State':= 5 /\ AAA_k_i':=Key_f(AAA_k.AAA_ID.Session_ID)
+				  /\ Snd({AAA_ID.AAA_k_i'.S}_ESP_Key)
+				  /\ request(B, S, B_S_ip_S, IP_S)
+				  
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role session( A,S, B 					  : agent,
+			  CTP_KEY, ESP_Key, AAA_k 			  : symmetric_key,
+			  Hash, Key_f 						  : hash_func,
+			  IP_S, AAA_ID, Session_ID, IP_B : text)
+
+def=
+
+		local SS, SA, SB, RS, RA, RB : channel(dy)
+
+		composition
+		
+			previous_PANA_Authentication_Agent(A, S, B, CTP_KEY, ESP_Key, AAA_k, Hash, Key_f, IP_S,
+											   AAA_ID, Session_ID, IP_B, SB, RB)
+			/\ new_PANA_Authentication_Agent(A, S, B, ESP_Key, AAA_ID, Hash, Key_f, SA, RA)
+			/\ pANA_Client(A, S, B, CTP_KEY, AAA_k, Hash, Key_f, IP_S, AAA_ID,
+						   Session_ID, IP_B, SS, RS)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role environment() 
+
+def=
+		const
+			B_S_ip_S, A_S_mac_key 			: protocol_id,
+			A, S, B 							: agent,
+			h, key_f 									: hash_func,
+			ctp_key, esp_key, aaa_k, aaa_k_i, ctp_key_i : symmetric_key,
+			ip_S, aaa_id, ip_B, sid1, sidi, ip_i 	: text
+
+intruder_knowledge = {A, S, B, h, key_f, aaa_id, aaa_k_i,
+								  ip_B, ctp_key_i, session_id_i, ip_i}
+
+composition
+	session(A, S, B, ctp_key, esp_key, aaa_k, h, key_f,
+			p_S, aaa_id, sid1, ip_B)
+	/\ session(A, i, B, ctp_key_i, esp_key, aaa_k_i, h, key_f,
+			   ip_i, aaa_id, sidi, ip_B)
+			   
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+goal
+	secrecy_of mac_key
+	
+	authentication_on B_S_ip_S % addresses G1 and G3
+	authentication_on A_S_mac_key % addresses G3 and G7
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+environment()

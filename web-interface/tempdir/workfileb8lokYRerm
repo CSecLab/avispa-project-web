@@ -1,0 +1,219 @@
+role mobile(M,S,C          : agent,
+            K_MS, K_MC,K_CS     : symmetric_key,
+              %K_C, K_S,K_M 
+                    K_C   : public_key,
+            SND_MS, RCV_MS,SND_MC, RCV_MC
+                  : channel(dy)
+              ,HashF:hash_func
+           )
+played_by M
+def=
+
+  local State   : nat,
+        Service : text,
+        Na,Na_req,Nb_Ack,NumberS,Ns: text,
+        Compare: bool, 
+    MessageM1,MessageC1,Message_M, Message_C,MessageC,MessageM,Message_Ac
+        ,MessageC2,Message_C2 ,Message_Mv  :message
+  
+  const    true, false: bool
+  init  State := 1 
+
+  transition 
+        1. State=1 /\  RCV_MS(start)   =|> 
+            State':=2  /\ Na':=new()  
+                              /\ Message_C2':= new() 
+                        /\ SND_MS(Na')
+
+    2.  State   = 2 /\ RCV_MS( {Service'.M.S}_K_MS)  
+                           /\  MessageM1={Service'.M.S}_K_MS =|> 
+        
+          State':=3 /\ Na_req':=new() /\ SND_MC(Na_req')
+
+3.       State=3 /\ RCV_MC(( {Service'.C.S}_K_CS).{Nb_Ack'}_inv(K_C))   
+                  /\ MessageC1={Nb_Ack'}_inv(K_C)   
+                  /\ MessageC2= {Service'.C.S}_K_CS                   =|> 
+
+            State' := 4 /\ SND_MC({{Service'.M.S}_K_MS.M.S}_K_MS)
+                         /\   NumberS':= new()
+
+4.       State= 4 /\ RCV_MS(HashF({Service.M'.S}_K_MS'.{Service.C'.S}_K_CS'.{Nb_Ack'}_inv(K_C).Ns'))
+                     /\ Message_M={Service.M'.S}_K_MS
+                    /\ Message_C={Service.C'.S}_K_CS'
+                   /\ Message_Ac={Nb_Ack'}_inv(K_C)
+                    /\ NumberS'=Ns'
+                    /\  Compare=false    =|> 
+
+    State':= 5  
+                      /\ MessageC1':=  Message_Ac
+                      /\ MessageC2':=Message_C
+                     /\MessageM1':= Message_M
+            
+                     /\ Message_Mv  ':=HashF (MessageC1' , Message_C2',MessageM1',NumberS')
+                    /\ Compare':=true
+     
+               /\ witness(M,C,cloudlet_mobile_cloudlet,Service')
+                  /\ witness(M,S,server_cloudlet_mobileid,C')
+
+      
+end role
+
+%--------------------------------------------------------------------------------
+role server(M,S,C    : agent,
+            K_MS,K_CS     :symmetric_key,
+            K_C, K_S : public_key,
+            Service  : text,
+            SND_MS, RCV_MS, SND_CS, RCV_CS : channel (dy),
+              HashF  :  hash_func  )
+
+played_by    S    def=
+
+  local State     : nat,
+      
+    MessageCCS:message,
+
+         Na,Na_req,Nb_Ack,NumberS,Nb,Ns : text,
+          Message_M1: message ,
+       MessageMS   :  {text.agent.agent}_symmetric_key,
+
+       MessageMC : {text.agent.agent}_symmetric_key
+ 
+    init  State := 1
+
+
+  transition
+
+         1.  State = 1 /\ RCV_MS(Na')  =|> 
+          State ' := 2 /\  Service':=new()
+                       /\ SND_MS({Service.M.S}_K_MS)
+
+      2.   State = 2 /\ RCV_CS(Nb')   =|>
+            State' :=  3 /\ SND_CS({Service.C.S}_K_CS)
+
+
+    3.    State = 3 /\ RCV_CS(({MessageMC'.M.C.S}_inv(K_S)).HashF({Nb_Ack'}_inv(K_C)).{{Service.C'.S}_K_CS'.C.M.S}_inv(K_S))
+          /\ MessageMC={Service.M'.S}_K_MS' 
+         /\ MessageCCS={Service.C'.S}_K_CS'      =|>
+     
+  State' :=  4 /\ Ns':=new()
+                /\   SND_MS(HashF({Service.M'.S}_K_MS'.{Service.C'.S}_K_CS'.{Nb_Ack'}_inv(K_C).Ns'))
+              /\ wrequest(S,C,server_cloudlet_mobileid,M) 
+             /\ wrequest(S,M,server_cloudlet_mobileid,C) 
+
+end role
+
+%--------------------------------------------------------------------------------
+role cloudlet(M,S,C      : agent,
+           K_CS  ,K_MS      : symmetric_key,
+            K_C, K_S : public_key,
+            Service  : text,
+            SND_CS, RCV_CS,SND_MC,RCV_MC: channel(dy)
+            ,HashF:hash_func            )
+played_by C
+def=
+
+  local State     : nat,
+       %M         : agent,
+         %MessageMC:message,
+        MessageMC : {text.agent.agent}_symmetric_key,
+       %MassageCS: {text.agent.agent}_symmetric_key,
+        
+        Nb_Ack,Nb ,Na_req  :text ,
+  Message_M1:message
+
+  init  State := 1
+
+  transition
+
+ 1.  State=1  /\ RCV_CS(start)                  =|> 
+       State':= 2 /\   Nb':=new()   /\ SND_CS(Nb')  /\ Service':=new()
+
+     2.  State= 2 /\  RCV_CS( {Service'.C.S}_K_CS)   =|> 
+         State':= 3 % /\ SND_CS(Nb')
+  
+3.       State=3     /\    RCV_MC(Na_req')    =|> 
+          State' :=4   /\  Nb_Ack':=new() 
+                             /\ SND_MC(( {Service'.C.S}_K_CS).{Nb_Ack'}_inv(K_C))   
+
+4.  State= 5   /\ RCV_MC({MessageMC'.M.S}_K_MS)    =|>
+      State':=6 /\  SND_CS (({MessageMC'.M.C.S}_inv(K_S)).HashF({Nb_Ack'}_inv(K_C)).{{Service.C'.S}_K_CS'.C.M.S}_inv(K_S))
+    
+           /\ wrequest(C,M',cloudlet_mobile_cloudlet,Service)        
+          /\ witness(C,S,server_cloudlet_mobileid,M')
+
+end role
+
+%182
+%--------------------------------------------------------------------------------
+
+
+role session(M,S,C: agent,
+             K_MS,K_MC,K_CS : symmetric_key,
+             K_C, K_S : public_key,
+             Service: text,
+              HashF:hash_func
+            ) 
+def=
+   local
+      SND_CS, RCV_CS,SND_MC,RCV_MC,SND_MS, RCV_MS :  channel(dy)
+
+   composition
+
+      mobile(M,S,C,K_MS,K_MC,K_CS, K_C,SND_MS, RCV_MS,SND_MC,RCV_MC,HashF)
+    /\ server(M,S,C,K_MS,K_CS ,K_C,K_S,Service,SND_CS, RCV_CS,SND_MS, RCV_MS,HashF)
+      /\ cloudlet(M,S,C,K_CS,K_MS,K_C,K_S,Service,SND_CS, RCV_CS,SND_MC,RCV_MC,HashF)
+
+end role
+
+
+%--------------------------------------------------------------------------------
+
+
+role environment() def=
+
+
+ const m, s, c                      : agent,
+       k_ms, k_mc,k_cs,
+       k_is,k_ic,k_mi,k_ci,k_is  : symmetric_key,
+       k_c, k_s, k_i                : public_key,
+       service                      : text,
+     hash_  : hash_func,
+
+
+       cloudlet_mobile_cloudlet, 
+       server_cloudlet_mobileid       : protocol_id
+ 
+
+
+ intruder_knowledge={m,s,c,service, k_is,k_ic,k_mi,k_ci,k_is,k_c, k_s, k_i,hash_}
+
+ composition
+ 
+        session(m,s,c,k_ms, k_mc,k_cs, k_c, k_s,service,hash_) 
+ /\     session(i,s,c,k_is, k_ic,k_cs, k_c, k_s,service,hash_)
+ /\    session(m,i,c,k_mi, k_mc,k_ci, k_c, k_i,service,hash_)
+ /\     session(m,s,i,k_ms, k_mi,k_is, k_i, k_s,service,hash_)
+
+end role
+
+
+%--------------------------------------------------------------------------------
+
+
+goal
+
+  %mo abileuthorization
+  weak_authentication_on server_cloudlet_mobileid 
+
+  %server authorization
+  weak_authentication_on   cloudlet_mobile_cloudlet 
+         % the server provides the service the mobile has asked (and payed) for
+
+end goal
+
+
+%--------------------------------------------------------------------------------
+
+
+environment()
+

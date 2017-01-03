@@ -1,0 +1,179 @@
+role user (Ui, ASj, RSk, RSf : agent,
+SK1 : symmetric_key,
+SK2 : symmetric_key,
+% H is hash function
+H: hash_func, Snd, Rcv: channel(dy))
+played_by Ui
+def=
+local State : nat,
+IDi, PWi, DIDi,PWRi, Ei, Bi, Ak, TIDi, IDrsk, IDasj, REGi, Ri, Ni, Nj, Nk, T1f, T2f, Xk, XXk, Pj, Sj, Rshrd: text,
+ Fi,Gi,Ki, FFk, LLi, MMi, PPi, NNi, QQj, RRj, DFFi, FGk, SKij : message,
+Inc : hash_func
+const user_rserver, rserver_fserver, fserver_rserver, user_aserver,
+subs1, subs2, subs3, subs4,subs5 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(start) =|>
+State' := 1 /\ Ri' :=new()
+/\ Ei' := H(Bi)
+/\ DIDi' :=H(IDi.Ri')
+/\ PWRi' := H(PWi.Ri')
+/\ Snd({DIDi'.PWRi'.Ei'}_SK1)
+/\ secret({IDi, PWi}, subs1, Ui)
+2. State = 1 /\ Rcv({REGi'.Ak'.IDrsk.TIDi'. Ei}_SK1) =|>
+State' := 2 /\ Ni' := new() 
+/\ T1' := new()
+/\ Fi' := xor(Ak,H(PWRi.Ei))
+/\ Gi' := H(IDrsk.Fi'.Ni'.T1')   %line 27
+/\ Ki' := xor(Fi',Ni')
+/\ Snd(IDasj.TIDi.Gi'.Ki'.T1) 
+/\ witness(Ui, RS, user_rserver, Ni')
+/\ request(Ui, RS, user_rserver, Ni')
+3. State = 2 /\ Rcv(DFFi,GGi) =|>
+State' := 3 /\  Ni' := new()
+/\ T1f' := new()     %line 34
+/\ FFk' := xor(DFFi,DIDi)
+/\ LLi' := xor(FFk,GGi)
+/\ MMi' := xor(DIDi,LLi)
+/\ PPi' := xor(DIDi,Ni')
+/\ NNi' := H(LLi'.DIDi.Ni.T1f)
+/\ Snd(TIDi.MMi'.NNi'.PPi'.T1f')
+4. State = 3 /\ Rcv(QQj,RRj) =|>
+State' := 4 /\  Nj' := xor(QQj,Ni)
+/\ SKij := H(IDasj.DIDi.Ni.Nj')
+/\ secret({SKij,Ni,Nj}, subs2, {Ui,ASj})
+end role 
+
+role rserver (RSk, Ui, ASj, RSf : agent,
+SK1 : symmetric_key,
+SK2 : symmetric_key,
+% H is hash function
+H : hash_func,
+Snd, Rcv: channel(dy) )
+played_by RSk
+def=
+local State : nat,
+IDi, PWi, DIDi,PWRi, Ei, Bi, Ak, TIDi, IDrsk, IDasj, REGi, Ri, Ni, Nj, Nk, T1f, T2f, Xk, XXk, Pj, Sj, Rshrd: text,
+ Fi,Gi,Ki, FFk, LLi, MMi, PPi, NNi, QQj, RRj, DFFi, FGk, SKij, : message,
+Inc : hash_func
+const user_rserver, rserver_fserver, fserver_rserver, user_aserver,
+subs1, subs2, subs3, subs4,subs5 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv({DIDi.PWRi.Ei}_SK1) =|>  
+State' := 1 /\ TIDi' := new()
+/\ REGi' := H(DIDi.PWRi)
+/\ Ak' := xor(H(DIDi.Xk),H(xor(PWRi.Ei))) %line60
+/\ secret({Xk}, subs3, {RS})
+/\ Snd({REGi'.Ak'.IDrsk.TIDi'. Ei}_SK1)
+2. State =1 /\ Rcv(IDasj) =|> 
+State' := 2 /\ Sj' := new()
+/\ Pj' := H(IDasj.Sj')
+/\ Snd({Pj'}_SK2)
+3. State = 2 /\ Rcv(IDasj.TIDi.Gi'.Ki'.T1) =|>
+State' := 3 /\  Snd(IDrsk, IDasj, TIDi)
+
+4. State = 3 /\ Rcv(GGi,FGk) =|>
+State' := 4 /\  Snd(IDrsk, IDasj, TIDi)
+/\ FFk' := xor(FGk,Rshrd)
+/\ DFFi' := xor(FFk, DIDi)
+/\ Snd(DFFi', GGi)
+end role
+
+role fserver (RSf, Ui, ASj, RSk : agent,
+SK1 : symmetric_key,
+SK2 : symmetric_key,
+% H is hash function
+H : hash_func,
+Snd, Rcv: channel(dy) )
+played_by RSf
+def=
+local State : nat,
+IDi, PWi, DIDi,PWRi, Ei, Bi, Ak, TIDi, IDrsk, IDasj, REGi, Ri, Ni, Nj, Nk, T1f, T2f, Xk, XXk, Pj, Sj, Rshrd: text,
+ Fi,Gi,Ki, FFk, LLi, MMi, PPi, NNi, QQj, RRj, DFFi, FGk, SKij, : message,
+Inc : hash_func
+const user_rserver, rserver_fserver, fserver_rserver, user_aserver,
+subs1, subs2, subs3, subs4,subs5 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(IDrsk, IDasj, TIDi) =|>
+State' := 1 /\ FFk := H(TIDi.XXk)
+/\ GGi := xor(FFk, H(TIDi.IDasj.Pj))
+/\ FGk := xor(FFk,Rshrd)
+/\ Snd(GGi,FGk)
+/\ secret({Rshrd}, subs4, {RSk,RSf})
+/\ request(RSf, RSk, fserver_rserver, Rshrd)
+end role
+
+role aserver (ASj, Ui, RSk, RSf : agent,
+SK1 : symmetric_key,
+SK2 : symmetric_key,
+% H is hash function
+H : hash_func,
+Snd, Rcv: channel(dy) )
+played_by ASj
+def=
+local State : nat,
+IDi, PWi, DIDi,PWRi, Ei, Bi, Ak, TIDi, IDrsk, IDasj, REGi, Ri, Ni, Nj, Nk, T1f, T2f, Xk, XXk, Pj, Sj, Rshrd: text,
+ Fi,Gi,Ki, FFk, LLi, MMi, PPi, NNi, QQj, RRj, DFFi, FGk, SKij, : message,
+Inc : hash_func
+const user_rserver, rserver_fserver, fserver_rserver, user_aserver,
+subs1, subs2, subs3, subs4,subs5 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(start) =|>
+State' := 1 /\ IDasj' := new()
+/\ Snd(IDasj)
+2. State = 1 /\ Rcv({Pj}_SK2) =|>  
+State' := 2 /\ secret({Pj}, subs5, {ASj,RSf})
+3. State = 2 /\ Rcv(TIDi.MMi'.NNi'.PPi'.T1f') =|>
+State' := 3 /\ Nj' := new()
+/\ T2f' :=new()
+/\ LLj' := H(TIDi.IDasj.Pj)
+/\ DIDi' := xor(MMi, LLj')
+/\ Ni' := xor(DIDi',PPi)
+/\ QQj' := xor(Ni',Nj')
+/\ RRj' := H(TIDi.IDasj.DIDi.LLj'.Nj'.T2f)
+/\ Snd(QQj',RRj')
+/\ witness(ASj, Ui, aserver_user, Nj') 
+end role
+
+role session(ASj, Ui, RSk, RSf: agent,
+SK1 : symmetric_key,
+SK2: symmetric_key,
+H: hash_func)
+def=
+local SI, SJ, RI, RJ, TI, TJ, PI, PJ, QI, QJ: channel (dy)
+composition
+user(Ui, RSk, ASj, RSh, SK1, SK2, H, SI, RI)
+/\ rserver(RSh, Ui, ASj, RSf, SK1, SK2, H, SJ, RJ)
+/\ fserver(RSf, RSk, Ui, ASj, SK1, SK2, H, TI, TJ)
+/\ aserver(ASj, RSk, Ui, RSf, SK1, SK2, H, QI, QJ)
+end role
+
+role environment()
+def=
+const ui, asj, rsk, rsf: agent,
+sk1: symmetric_key,
+sk2: symmetric_key,
+h: hash_func,
+idi, pwi, didi,pwri, ei, bi, ak, tidi, idrsk, idasj, regi, ri, ni, nj, nk, t1f, t2f, xk, xxk, pj, sj, rshrd: text,
+user_rserver, rserver_aserver, aserver_user,
+subs1, subs2, subs3, subs4, subs5, subs6, subs7 : protocol_id
+intruder_knowledge = {ui, asj, rsk, rsf, h, regi, idasj, ak, tidi, ei, t1f, t2f}
+composition
+session( rsk, asj, ui, rsf, sk1, sk2, h)
+/\ session(ui, asj, rsk, rsf, sk1, sk2, h)
+/\ session(ui, rsk, asj, rsf, sk1, sk2, h)
+end role
+goal
+secrecy_of subs1
+secrecy_of subs2
+secrecy_of subs3
+secrecy_of subs4
+secrecy_of subs5
+authentication_on user_rserver_ni
+authentication_on rserver_aserver_nk
+authentication_on aserver_user_nj
+end goal
+environment()

@@ -1,0 +1,102 @@
+role role_RP(RP:agent,OP:agent,TE:agent,UE:agent,Krpop:symmetric_key,Krpte:symmetric_key,Krpue:symmetric_key,SND,RCV:channel(dy))
+played_by RP
+def=
+	local
+		State:nat,ResponseType:text,ClientId:text,Scope:text,Nonce:text,Stat:text,Code:text,GrantType:text,RedirectUri:text,RefreshToken:text,TokenType:text,ExpireIn:text,IdToken:text,AccessToken:text,RequestClaim:text,ResponseClaim:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ Nonce':=new() /\ Stat':=new() /\ Scope':=new() /\ RedirectUri':=new() /\ ClientId':=new() /\ ResponseType':=new() /\ SND({ResponseType'.ClientId'.RedirectUri'.Scope'.Stat'.Nonce'}_Krpop)
+		4. State=1 /\ RCV({Code'.Stat}_Krpop) =|> State':=2 /\ GrantType':=new() /\ SND({GrantType'.Code'.RedirectUri}_Krpte)
+		6. State=2 /\ RCV({AccessToken'.TokenType'.ExpireIn'.RefreshToken'.IdToken'}_Krpte) =|> State':=3 /\ secret(AccessToken',sec_1,{TE,RP}) /\ RequestClaim':=new() /\ SND({AccessToken'.RequestClaim'}_Krpue)
+		8. State=3 /\ RCV({ResponseClaim'}_Krpue) =|> State':=4
+end role
+
+role role_OP(OP:agent,RP:agent,EU:agent,Krpop:symmetric_key,Kopeu:symmetric_key,SND,RCV:channel(dy))
+played_by OP
+def=
+	local
+		State:nat,RedirectUri:text,ResponseType:text,Scope:text,Nonce:text,ClientId:text,RequestAuth:text,ResponseAuth:text,Code:text,Stat:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV({ResponseType'.ClientId'.RedirectUri'.Scope'.Stat'.Nonce'}_Krpop) =|> State':=1 /\ witness(OP,EU,auth_4,ClientId') /\ RequestAuth':=new() /\ SND({ClientId'.RequestAuth'}_Kopeu)
+		3. State=1 /\ RCV({ResponseAuth'}_Kopeu) =|> State':=2 /\ Code':=new() /\ SND({Code'.Stat}_Krpop)
+end role
+
+role role_EU(EU:agent,OP:agent,RP:agent,Kopeu:symmetric_key,SND,RCV:channel(dy))
+played_by EU
+def=
+	local
+		State:nat,ClientId:text,RequestAuth:text,ResponseAuth:text
+	init
+		State := 0
+	transition
+		2. State=0 /\ RCV({ClientId'.RequestAuth'}_Kopeu) =|> State':=1 /\ ResponseAuth':=new() /\ SND({ResponseAuth'}_Kopeu)
+end role
+
+role role_TE(TE:agent,OP:agent,RP:agent,Krpte:symmetric_key,SND,RCV:channel(dy))
+played_by TE
+def=
+	local
+		State:nat,Code:text,GrantType:text,RedirectUri:text,RefreshToken:text,TokenType:text,AccessToken:text,ExpireIn:text,IdToken:text
+	init
+		State := 0
+	transition
+		5. State=0 /\ RCV({GrantType'.Code'.RedirectUri'}_Krpte) =|> State':=1 /\ witness(TE,RP,auth_5,Code') /\ IdToken':=new() /\ RefreshToken':=new() /\ ExpireIn':=new() /\ TokenType':=new() /\ AccessToken':=new() /\ secret(AccessToken',sec_1,{TE,RP}) /\ SND({AccessToken'.TokenType'.ExpireIn'.RefreshToken'.IdToken'}_Krpte)
+end role
+
+role role_UE(UE:agent,OP:agent,RP:agent,TE:agent,Krpue:symmetric_key,SND,RCV:channel(dy))
+played_by UE
+def=
+	local
+		State:nat,AccessToken:text,RequestClaim:text,ResponseClaim:text
+	init
+		State := 0
+	transition
+		7. State=0 /\ RCV({AccessToken'.RequestClaim'}_Krpue) =|> State':=1 /\ witness(UE,RP,auth_6,AccessToken') /\ secret(AccessToken',sec_1,{TE,RP}) /\ ResponseClaim':=new() /\ SND({ResponseClaim'}_Krpue)
+end role
+
+role session1(Krpte:symmetric_key,Krpop:symmetric_key,EU:agent,Kopeu:symmetric_key,UE:agent,OP:agent,RP:agent,TE:agent,Krpue:symmetric_key)
+def=
+	local
+		SND5,RCV5,SND4,RCV4,SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_UE(UE,OP,RP,TE,Krpue,SND5,RCV5) /\ role_TE(TE,OP,RP,Krpte,SND4,RCV4) /\ role_EU(EU,OP,RP,Kopeu,SND3,RCV3) /\ role_OP(OP,RP,EU,Krpop,Kopeu,SND2,RCV2) /\ role_RP(RP,OP,TE,UE,Krpop,Krpte,Krpue,SND1,RCV1)
+end role
+
+role session2(Krpte:symmetric_key,Krpop:symmetric_key,EU:agent,Kopeu:symmetric_key,UE:agent,OP:agent,RP:agent,TE:agent,Krpue:symmetric_key)
+def=
+	local
+		SND5,RCV5,SND4,RCV4,SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_UE(UE,OP,RP,TE,Krpue,SND5,RCV5) /\ role_TE(TE,OP,RP,Krpte,SND4,RCV4) /\ role_EU(EU,OP,RP,Kopeu,SND3,RCV3) /\ role_OP(OP,RP,EU,Krpop,Kopeu,SND2,RCV2) /\ role_RP(RP,OP,TE,UE,Krpop,Krpte,Krpue,SND1,RCV1)
+end role
+
+role session3(Krpte:symmetric_key,Krpop:symmetric_key,EU:agent,Kopeu:symmetric_key,UE:agent,OP:agent,RP:agent,TE:agent,Krpue:symmetric_key)
+def=
+	local
+		SND5,RCV5,SND4,RCV4,SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_UE(UE,OP,RP,TE,Krpue,SND5,RCV5) /\ role_TE(TE,OP,RP,Krpte,SND4,RCV4) /\ role_EU(EU,OP,RP,Kopeu,SND3,RCV3) /\ role_OP(OP,RP,EU,Krpop,Kopeu,SND2,RCV2) /\ role_RP(RP,OP,TE,UE,Krpop,Krpte,Krpue,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		tokenEndpoint:agent,authorizationServer:agent,kopi:symmetric_key,krpte:symmetric_key,endUser:agent,hash_0:function,kopeu:symmetric_key,krpi:symmetric_key,kieu:symmetric_key,krpop:symmetric_key,userInfoEndpoint:agent,clientApplication:agent,krpue:symmetric_key,sec_1:protocol_id,sec_2:protocol_id,auth_3:protocol_id,auth_4:protocol_id,auth_5:protocol_id,auth_6:protocol_id
+	intruder_knowledge = {clientApplication,authorizationServer,endUser,tokenEndpoint,userInfoEndpoint,krpi,kieu,kopi}
+	composition
+		session3(krpte,krpop,i,kopi,userInfoEndpoint,authorizationServer,clientApplication,tokenEndpoint,krpue) /\ session2(krpte,krpi,endUser,kieu,userInfoEndpoint,i,clientApplication,tokenEndpoint,krpue) /\ session1(krpte,krpop,endUser,kopeu,userInfoEndpoint,authorizationServer,clientApplication,tokenEndpoint,krpue)
+end role
+
+goal
+	secrecy_of sec_1
+	secrecy_of sec_2
+	authentication_on auth_3
+	authentication_on auth_4
+	authentication_on auth_5
+	authentication_on auth_6
+end goal
+
+environment()

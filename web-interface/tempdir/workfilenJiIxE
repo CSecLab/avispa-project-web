@@ -1,0 +1,213 @@
+
+role ue (
+    U,H                              : agent,
+    F1,F2,F3,F4,F5            : hash_func,
+    HMAC                          : hash_func,
+    PRF_SHA1                   : hash_func,
+    K                                 : symmetric_key,    
+    Pu                               : public_key,
+    IMSI                            : text,
+    SND,RCV                     : channel (dy))
+
+played_by U def=
+
+  local
+    State                 : nat,
+    CIDue                : {text}_symmetric_key,
+    RANDh              : text,
+    MACh                : hash(hash({text}_symmetric_key.hash(symmetric_key.text).hash(symmetric_key.text)).text),
+    CTh                   : {text}_symmetric_key,
+    IK,CK     : hash(symmetric_key.text),
+    RES	             : hash(symmetric_key.text),
+    MACu                : hash(hash({text}_symmetric_key.hash(symmetric_key.text).hash(symmetric_key.text)).hash(symmetric_key.text))
+ 
+       
+
+  const
+    request_id,respond_id,success                     : text,
+    sec_ck1, sec_ik1,randh1,randh2,imsi               : protocol_id
+ 
+  init 
+    State := 0 
+  
+  transition
+
+  1. State   = 0
+       /\ RCV(request_id)
+     =|>
+     State' := 2
+       /\ Pu'   := new()
+       /\ CIDue':= {IMSI}_K
+       /\ SND(respond_id.CIDue'.Pu')
+
+  2. State   = 2
+       /\ RCV(MACh'.CTh'.RANDh')
+       /\ RANDh'    = {CTh'}_K
+       /\ IK'       = F4(K.RANDh')
+       /\ CK'       = F3(K.RANDh')
+       /\ MACh'     = HMAC(PRF_SHA1(CIDue'.IK'.CK').RANDh')  
+       =|>
+     State' := 4
+       /\ RES'     := F2(K.RANDh')
+       /\ MACu'    := HMAC(PRF_SHA1(CIDue'.IK'.CK').RES')
+       /\ SND(RES'.MACu')
+
+       /\ request(U,H,randh1,RANDh')
+
+       /\ witness(U,H,imsi,IMSI)
+       /\ witness(U,H,randh2,RANDh')
+
+       /\ secret(CK',sec_ck1,{H,U})
+       /\ secret(IK',sec_ik1,{H,U})
+ 
+       
+
+  3. State   = 4 /\ RCV(success) =|>
+     State' := 6 
+
+end role
+
+
+%***************************************************************************************************************************%
+
+
+role haaa (
+    H,U                              : agent,
+    F1,F2,F3,F4,F5            : hash_func,
+    PRF_SHA1                   : hash_func,
+    HMAC                       : hash_func,
+    K                                 : symmetric_key,    
+    Pu                               : public_key,
+    IMSI                            : text,
+    SND,RCV                     : channel (dy))
+    
+
+played_by H def=
+
+  local
+    CIDue                     : {text}_symmetric_key,
+    RANDh                   : text,
+    MACh                     : hash(hash({text}_symmetric_key.hash(symmetric_key.text).hash(symmetric_key.text)).text),
+    CTh                        : {text}_symmetric_key,
+    IK,CK                      : hash(symmetric_key.text),
+    RES	                  : hash(symmetric_key.text),
+    MACu                     : hash(hash({text}_symmetric_key.hash(symmetric_key.text).hash(symmetric_key.text)).hash(symmetric_key.text)),
+    State                      : nat
+
+  const
+    success                                      : text,
+    sec_ck2, sec_ik2, randh2,randh1              : protocol_id
+    
+ 
+
+  init 
+    State := 1 
+
+  transition
+
+ 1. State   = 1
+       /\ RCV(start)
+     =|>
+     State' := 3
+       /\ SND(request_id)
+       
+       
+  2. State   = 3
+       /\ RCV(CIDue'.Pu')
+     =|>
+     State' := 5
+       /\ IMSI'     := {CIDue'}_K
+       /\ RANDh '   := new()
+       /\ IK'       := F4(K.RANDh')
+       /\ CK'       := F3(K.RANDh')
+       /\ MACh'     := HMAC(PRF_SHA1(CIDue'.IK'.CK').RANDh') 
+      
+
+       3. State   = 5
+       /\ RCV(RES'.MACu')
+       /\ RES'  = F2(K.RANDh)
+       /\ MACu = HMAC(PRF_SHA1(CIDue.IK.CK).RES')
+     =|>
+     State' := 7
+       /\ SND(success)
+  
+
+       /\ witness(H,U,randh1,RANDh')
+
+       /\ request(H,U,imsi,IMSI)
+       /\ request(H,U,randh2,RANDh')
+
+       /\ secret(CK',sec_ck2,{H,U})
+       /\ secret(IK',sec_ik2,{H,U})
+    
+ 
+
+
+end role
+
+%***************************************************************************************************************************%
+
+role session(
+    U,H              : agent,
+    F1,F2,F3,F4,F5   : hash_func,
+    PRF_SHA1         : hash_func,
+    HMAC             : hash_func,
+    K              : symmetric_key)
+
+def=
+
+local
+    SNDU, RCVU, SNDH, RCVH : channel (dy)
+
+const 
+    randh1,randh2       : protocol_id
+
+  composition
+     ue(    U,H,F1,F2,F3,F4,F5,PRF_SHA1,HMAC,K,SNDU,RCVU)
+  /\ haaa(U,H,F1,F2,F3,F4,F5,PRF_SHA1,HMAC,K,SNDH,RCVH)
+
+end role
+
+
+
+role environment() def=
+
+  const 
+    u,h                     : agent,
+    kuh,kih                 : symmetric_key, % !!one per user   !!
+    f1,f2,f3,f4,f5          : hash_func,
+    prf_sha1                : hash_func,
+    hmac                    : hash_func
+
+  intruder_knowledge = {u,h,i,f1,f2,f3,f4,f5,prf_sha1,hmac
+
+                       }
+ 
+  composition
+     session(u,h,f1,f2,f3,f4,f5,prf_sha1,hmac,kuh)
+% /\ session(i,h,f1,f2,f3,f4,f5,prf_sha1,hmac,kih)
+
+end role
+
+%***************************************************************************************************************************%
+
+goal
+
+  %secrecy_of CK, IK
+  secrecy_of sec_ck1, sec_ck2, sec_ik1, sec_ik2
+  
+  %Peer authenticates Server on at_randh
+  authentication_on randh1
+  
+  %Server authenticates Peer on at_randh
+  authentication_on randh2
+  
+
+  %Server authenticates Peer on imsi
+  authentication_on imsi
+
+end goal
+
+%***************************************************************************************************************************%
+
+environment()

@@ -1,0 +1,88 @@
+%%HLPSL:
+role client(A,S: agent,			
+			SND, RCV: channel(dy),			
+			PKs: public_key)
+
+played_by A
+def=
+
+  local  State : nat,
+ 		 M: message
+  const
+       sec_M : protocol_id
+               
+  transition 
+
+  1. State = 0   /\ RCV(start) 
+     =|>
+     State' := 2 /\ M':=new()
+     			 /\ SND({M'}_PKs)
+  2. State = 2 /\  RCV(M')
+  	 =|>
+     State' := 4
+     /\ secret(M, sec_M,{A,S})
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role server(S, A : agent, SND, RCV: channel (dy))
+
+played_by S
+def=
+
+  local State : nat,
+  PKs: public_key,
+  M: message
+  
+  transition 
+   1. State = 1   /\ RCV({M'}_PKs) 
+      =|>
+      State' := 3 /\ SND(M')
+      			  
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role session(A, S: agent, PKs: public_key)
+
+def=
+
+  local 
+  		SNDA, SNDS, RCVA, RCVS: channel (dy)
+
+  composition
+       client(A,S,SNDA,RCVA,PKs)
+    /\ server(S,A,SNDS,RCVS)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role environment()
+
+def=
+
+ const a, s : agent,
+       sec_M : protocol_id,
+	   pks: public_key	   
+	   
+ intruder_knowledge = {a,s,i}
+
+ composition
+      session(a,s,pks)
+   /\ session(i,s,pks)
+   /\ session(a,i,pks)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of sec_M
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

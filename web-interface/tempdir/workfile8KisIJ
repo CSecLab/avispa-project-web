@@ -1,0 +1,135 @@
+%%%% Role of User
+
+role user_role (User, Server : agent,
+			Snd, Rcv : channel(dy),
+			Hash : hash_func,
+			K : symmetric_key)
+
+played_by User
+def = 
+	local State : nat,
+	ID, Pw, R, RPW, L, J, T, Ts, C1, C2, C3, D, AID, S : text,
+	Y : symmetri_key
+	
+	const user_server_Pw, user_server_RPW : protocol_id, 
+	user_server_j, user_server_r, user_server_l : protocol_id
+	
+	init State := 0
+	
+	transition
+	1. State = 0 /\ Rcv(start) =|>
+		State' :=1 /\ ID' := new() /\Pw' := new() /\ R' := new() /\ RPW' := Hash(R'.Pw')
+					/\ Snd(ID'.RPW')
+					/\ witness(User, Server, user_server_Pw, Pw')
+					/\ witness(User, Server, user_server_RPW, RPW')
+					/\ secret(Pw',pw,{User})
+	
+	2. State = 1 /\ Rcv({L'.Y'}_K) =|>
+		State' := 2 /\ J' := xor(L',RPW)
+					/\ T' := new() /\ C1' := Hash(T'.J')
+					/\ D' := new() /\ AID' = xor(ID, Hash(Y'.T'.D'))
+					/\ Snd(AID'.T.D.C1)
+					/\ witness(User, Server, user_server_j, J') 
+					/\ witness(User, user_server_r, R') 
+					/\ request(User, user_server_l, L')
+					
+	3. State = 2 /\ Rcv(C2', Ts') =|>
+		State':= 3 /\ C3' = Hash(xor(xor(C1,J),Ts'))
+					
+	4. State = 3 /\ C3 = C2 =|>
+		State' := 4 /\ Sk' = Hash(xor(C2,J))
+					/\ Snd(Sk')
+					/\ secret(Sk',Sk,{User,Server})
+					
+		
+end role
+
+
+%%%% Role of Server
+
+role server_role (User, Server : agent,
+				Snd, Rcv : channel(dy),
+				Hash : hash_func,
+				K : symmetric_key)
+				
+played_by Server
+def = 
+	local State : nat,
+	ID, RPW, N, L, AID, T, D, C1, J, IDU, Ts, C2 : text
+	X, Y : symmetric_key
+	
+	const user_server_x, user_server_j, user_server_l, user_server_rpw, user_server_n : protocol_id
+	
+	init State :=0
+	
+	transition
+	1.State = 0 /\ Rcv(ID'.RPW') =|>
+		State' :=1 /\ N' := 0 /\ IDU' := ID'.N' /\ X' := new() /\ Y' := new()
+					/\ J' := Hash(X'.IDU')
+					/\ L' := xor(J',RPW')
+					/\Snd({L'.Y'}_K)
+					/\ witness(Server, User, user_server_x, X') 
+					/\ witness(Server, User, user_server_j, J') 
+					/\ witness(Server, User, user_server_l, L') 
+					/\ request(Server, User, user_server_rpw, RPW')
+					/\ witness(Server, User, user_server_n, N') 
+					/\ secret(N',N,{User,Server})
+					/\ secret(X',X,{Server})
+					
+	2.State = 1 /\ Rcv(AID', T', D', C1') =|>
+		State' := 2 /\ ID' := xor(AID', Hash(Y.T'.D'))
+					/\ IDU' := ID'.N
+					/\ J' := Hash(X.IDU')
+					/\ Ts' := new() 
+					/\ C2' := Hash(xor(xor(C1,J),Ts'))
+					/\ Snd(C2.Ts)
+					/\ request(Server, User, user_server_c1, C1') 
+					/\ witness(Server, User, user_server_c2, C2')
+					
+	3. State = 2 /\ Rcv(Sk') =|>
+		State' := 3 /\ secret(Sk',Sk,{User,Server})
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(User, Server : agent,
+			Hash : hash_func,
+			K : symmetric_key)
+			
+def = 
+	local SU, RU, SS, RS : channel(dy)
+	
+	composition
+		user_role(User, Server, SU, RU, Hash, K)
+		/\ server_role(Server, User, SS, RS, Hash, K)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def =
+
+	const user, server : agent,
+		h, hi : hash_func,
+		k, ki : symmetric_key
+	
+	intruder knowledge = {user, server, k, ki, h, hi}
+	
+	composition
+		session(user, server, h, k)
+		/\ session(user, server, hi, ki)
+		
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+	secrecy of 
+	authentication on
+	
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

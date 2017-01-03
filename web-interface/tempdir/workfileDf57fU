@@ -1,0 +1,65 @@
+role sed1(U,V       : agent,
+         MAC,ECC    : hash_func,    
+         Knwk,Ktcl  : symmetric_key,
+         Cu,Pu,CA   : text,
+         SND,RCV    : channel(dy))
+played_by U
+def=
+	local
+		State:nat,Cv,EPu:text,Eu,Ev:public_key,Kl:symmetric_key
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=2 /\ SND(U.{Cu}_Knwk) 
+		2. State=2 /\ RCV(V.{Cv'}_Knwk) =|> State':=4 /\ Eu':=new() /\ EPu':=new() /\SND({Eu'}_Knwk)
+		3. State=4 /\ RCV({Ev'}_Knwk) =|> State':=6 /\ Kl':=ECC(Pu,Eu,EPu,Cv,Ev,CA) /\ SND({MAC(Kl')}_Knwk) /\ secret(Kl',link_key,{U,V}) /\ witness(U,V,lk1,MAC(Kl'))
+		5. State=8 /\ RCV({MAC(Kl')}_Knwk) =|> State':=10 /\ request(U,V,lk2,MAC(Kl'))
+end role
+
+role sed2(U,V       : agent,
+         MAC,ECC   : hash_func,
+         Knwk,Ktcl : symmetric_key,
+         Cv,Pv,CA  : text,
+         SND,RCV   : channel(dy))
+played_by V
+def=
+	local
+		State:nat,Cu,EPv:text,Eu,Ev:public_key,Kl:symmetric_key
+	init
+		State := 1
+	transition
+		1. State=1 /\ RCV(U.{Cu'}_Knwk) =|> State':=3 /\ SND(V.{Cv}_Knwk) 
+		2. State=3 /\ RCV({Eu'}_Knwk) =|> State':=5 /\ Ev':=new() /\ EPv':=new() /\SND({Ev'}_Knwk)
+		3. State=5 /\ RCV({MAC(Kl')}_Knwk) =|> State':=7 /\ request(V,U,lk1,MAC(Kl'))/\ Kl':=ECC(Pv,Ev,EPv,Cu,Eu,CA) /\SND({MAC(Kl')}_Knwk) /\ secret(Kl',link_key,{U,V}) /\ witness(V,U,lk2,MAC(Kl'))
+end role
+
+role session(U,V:agent,
+             MAC,ECC:hash_func,
+             Cu,Pu,CA,Pv,Cv:text,
+             Knwk,Ktcl:symmetric_key)
+def=
+	local
+		SNDu,RCVu,SNDv,RCVv:channel(dy)
+	composition
+		sed2(U,V,MAC,ECC,Knwk,Ktcl,Cv,Pv,CA,SNDu,RCVv) /\ sed1(U,V,MAC,ECC,Knwk,Ktcl,Cu,Pu,CA,SNDu,RCVu)
+end role
+
+role environment()
+def=
+	const u,v                  : agent,
+              mac,ecc              : hash_func,
+              pu,pv,cu,cv,ca: text,
+              ktcl,kn: symmetric_key,
+              link_key,lk1,lk2:protocol_id
+
+	intruder_knowledge = {u,v,mac,ecc,ca,cu,cv,pu,pv}
+	composition
+		session(u,v,mac,ecc,cu,pu,ca,pv,cv,kn,ktcl) 
+end role
+
+goal
+	secrecy_of link_key
+        authentication_on lk1,lk2
+end goal
+
+environment()

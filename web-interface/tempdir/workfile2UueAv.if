@@ -1,0 +1,95 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfile2UueAv
+
+section signature:
+
+state_stationdebase: agent * agent * hash_func * hash_func * hash_func * text * nat * text * text * message * nat * nat * nat -> fact
+state_capteur: agent * agent * hash_func * hash_func * hash_func * text * nat * text * text * message * nat * nat * set(agent) * nat -> fact
+
+
+section types:
+
+ksession, capteur_stationdebase_n2: protocol_id
+set_69: set
+R, R1, State, 4, SID, Dummy_R1, Dummy_R, 2, Dummy_State, 3, dummy_nat, 1, 0, SID2, SID1: nat
+Dummy_Set_25, Set_25, ASGoal: set(agent)
+Ksession, Dummy_Ksession, start, dummy_msg, MGoal: message
+N1, N2, Id, Dummy_N2, Dummy_N1, dummy_nonce, id: text
+M, H, Mac, m, h, mac: hash_func
+A, B, A2Goal, A1Goal, a, b, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(mac).
+ iknows(h).
+ iknows(m).
+ iknows(i).
+ state_capteur(a,b,mac,h,m,id,0,dummy_nonce,dummy_nonce,dummy_msg,dummy_nat,dummy_nat,set_69,3).
+ state_stationdebase(a,b,mac,h,m,id,0,dummy_nonce,dummy_nonce,dummy_msg,dummy_nat,dummy_nat,4)
+
+
+section rules:
+
+step step_0 (A,B,Mac,H,M,Id,Dummy_N1,Dummy_N2,Dummy_Ksession,Dummy_R,R1,Dummy_Set_25,SID,N1,N2,R) :=
+ state_capteur(A,B,Mac,H,M,Id,0,Dummy_N1,Dummy_N2,Dummy_Ksession,Dummy_R,R1,Dummy_Set_25,SID).
+ iknows(start)
+=[exists R,N2,N1]=>
+ state_capteur(A,B,Mac,H,M,Id,1,N1,N2,apply(M,pair(Id,R)),R,R1,Dummy_Set_25,SID).
+ iknows(pair(N1,pair(R,pair(scrypt(apply(M,pair(Id,R)),pair(R,N2)),apply(Mac,pair(apply(M,pair(Id,R)),pair(R,pair(N1,N2)))))))).
+ witness(A,B,capteur_stationdebase_n2,N2).
+ secret(apply(M,pair(Id,R)),ksession,Dummy_Set_25).
+ contains(A,Dummy_Set_25).
+ contains(B,Dummy_Set_25)
+
+step step_1 (A,B,Mac,H,M,Id,N1,N2,Ksession,R,Dummy_R1,Set_25,SID,R1) :=
+ state_capteur(A,B,Mac,H,M,Id,1,N1,N2,Ksession,R,Dummy_R1,Set_25,SID).
+ iknows(pair(scrypt(Ksession,pair(R1,N2)),apply(Mac,pair(R1,N2))))
+ =>
+ state_capteur(A,B,Mac,H,M,Id,2,N1,N2,Ksession,R,R1,Set_25,SID)
+
+step step_2 (A,B,Mac,H,M,Id,Dummy_N1,Dummy_N2,Dummy_Ksession,Dummy_R,Dummy_R1,SID,N1,N2,Ksession,R,R1) :=
+ state_stationdebase(A,B,Mac,H,M,Id,0,Dummy_N1,Dummy_N2,Dummy_Ksession,Dummy_R,Dummy_R1,SID).
+ iknows(pair(N1,pair(R,pair(scrypt(Ksession,pair(R,N2)),apply(Mac,pair(Ksession,pair(R,pair(N1,N2))))))))
+=[exists R1]=>
+ state_stationdebase(A,B,Mac,H,M,Id,1,N1,N2,Ksession,R,R1,SID).
+ request(A,B,capteur_stationdebase_n2,N2,SID).
+ iknows(pair(scrypt(Dummy_Ksession,pair(R1,N2)),apply(Mac,pair(R1,N2))))
+
+
+section properties:
+
+property secrecy_of_ksession (MGoal,ASGoal) :=
+ [] ((secret(MGoal,ksession,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_capteur_stationdebase_n2 (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,capteur_stationdebase_n2,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,capteur_stationdebase_n2,MGoal))
+     /\ ((request(A1Goal,A2Goal,capteur_stationdebase_n2,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,capteur_stationdebase_n2,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_ksession (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,ksession,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_capteur_stationdebase_n2 (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,capteur_stationdebase_n2,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,capteur_stationdebase_n2,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_capteur_stationdebase_n2 (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,capteur_stationdebase_n2,MGoal,SID1).
+ request(A1Goal,A2Goal,capteur_stationdebase_n2,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

@@ -1,0 +1,121 @@
+role masc(M, G : agent,
+	Hash, Key_Function : function,
+	S, N  : text,
+	SND, RCV : channel(dy))
+
+played_by M def=
+
+local
+State : nat,
+Na1, Na2 : text,
+Nb1, Nb2 : text,
+Mac, Mac_own : message,
+Ke, Km : symmetric_key
+
+init 
+State :=0
+
+transition
+
+0. State=0 /\ RCV(start) =|>
+	State':= 2/\
+   Na1':=new() /\
+   Na2':= new()/\
+   SND(Na1'.Na2'.M)
+
+2. State=2 /\ RCV(Nb1'.Nb2'.G.Mac')
+   =|> State':= 4 /\
+	Km' := Key_Function(S.Nb1'.Na2) /\ %mac key
+	Ke':=	Key_Function(S.Na1.Nb2') /\
+	Mac_own':= Hash(Km'.M.Na1.Na2.G.Nb1'.Nb2')/\
+	SND(M)/\
+	witness(M,G,gegen_masc_ke, Ke')
+
+4. State=4 /\ RCV(G) /\ Mac_own = Mac
+	 =|>
+	State':=6 /\ SND({N}_Ke) /\
+	request(M,G,masc_gegen_km, Km)
+
+end role
+
+role gegenstelle(M,G: agent,
+		Hash, Key_Function : function,
+	S,N : text,
+	SND,RCV : channel(dy))
+
+played_by G def=
+
+local
+State : nat,
+Ke, Km : symmetric_key,
+Na1, Na2, Nb1, Nb2 : text,
+Mac : message
+
+init
+State:=1
+
+transition
+
+1. State=1 /\ RCV(Na1'.Na2'.M) =|>
+   State':=3 /\
+	Nb1':=new()/\
+	Nb2':=new()/\
+	Ke':= Key_Function(S.Na1'.Nb2')/\
+	Km':= Key_Function(S.Nb1'.Na2')/\
+	witness(G,M,masc_gegen_km,Km')/\
+	Mac':= Hash(Km'.M.Na1'.Na2'.G.Nb1'.Nb2')/\
+	SND(Nb1'.Nb2'.G.Mac')
+
+
+3. State=3 /\ RCV(M) =|>
+	State':= 5 /\
+	SND(G)
+
+5. State=5/\ RCV({N'}_Ke) /\ N' = N =|>
+  State':= 7 /\ request(G,M,gegen_masc_ke,Ke)
+
+end role
+
+role session(M,G: agent,
+	Hash, Key_Function : function,
+	S, N : text)
+def=
+
+local SM, RM, SG, RG : channel(dy)
+
+composition
+
+masc(M,G,Hash,Key_Function, S, N,SM,RM)/\
+gegenstelle(M,G,Hash, Key_Function, S,N,SG,RG)
+
+end role
+
+role environment()
+
+def=
+
+const
+
+m,g : agent,
+h, key_function : function,
+s_mg,n_mg, s_ig, n_ig, s_mi, n_mi	:text,
+km, ke, gegen_masc_ke, masc_gegen_km : protocol_id
+
+intruder_knowledge = {m,g,h,key_function}
+
+composition
+
+session(m,g,h,key_function, s_mg,n_mg)/\
+session(i,g,h,key_function, s_ig, n_ig)/\
+session(m,i,h, key_function, s_mi, n_mi)
+
+end role
+
+goal
+
+secrecy_of km,ke
+authentication_on masc_gegen_km
+authentication_on gegen_masc_ke
+end goal
+
+environment()

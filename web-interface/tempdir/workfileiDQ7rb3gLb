@@ -1,0 +1,87 @@
+role alice(
+		A,B			: agent,
+		K_AB			: public_key,
+		K_BA			: public_key,
+		Hash			: hash_func,
+		SND,RCV			: channel(dy) )
+	played_by A
+	def=
+		local
+			
+			data,RB,RA		: text,
+			rqu			: text,
+			State			: nat,
+			KS			:message
+		init
+			State :=0
+		transition
+		1.	State  = 0  /\  RCV(start) =|>
+			State':= 2  /\  RA' := new()
+				    /\  SND({RA'}_inv(K_BA))
+
+		2.	State  = 2  /\  RCV({RA.RB'}_inv(K_AB)) =|>
+			State := 4  /\  KS' := Hash (RA.RB')
+					SND({rqu}_KS')
+				    
+		3.	State  = 4  /\  RCV({data}_KS) =|>
+			State := 6  /\  request(B,A,bob_alice_rb,RB)
+end role
+%————————————————————————————————————————————————
+role bob(
+		A,B			: agent;
+		K_AB			: public_key,
+		K_BA			:public_key,
+		Hash			: hash_func,
+		SND,RCV			: channel(dy) )
+	played_by B
+	def=
+		local
+			State			:nat,
+			rqu,data,RB,RA		:text,
+			KS			:message
+		init
+			State :=1
+		transition
+		1.	State  = 1  /\  RCV({RA'}_inv(K_BA)) =|>
+			State':= 3  /\  RB' := new()
+				    /\  SND({RA'.RB'}_inv(K_AB))
+				    /\  KS' := Hash (RA'.RB')
+				    /\	secret(KS',ks,(A,B))
+
+		2.	State  = 3  /\  RCV({rqu.RB}_KS') =|>
+			State := 5  /\  SND({data'}_KS)  
+				    /\  witness(A,B,bob_alice_rb,RB)	
+end role
+%————————————————————————————————————————————————
+role session(
+			A,B		:agent,
+			K_AB			: public_key,
+			K_BA			:public_key,
+			Hash			: hash_func)
+	def=
+		local
+			SA, SB, RA, RB : channel (dy)
+		composition
+			alice(A,B,K_AB,K_BA,Hash,SA,RA)
+		/\	bob (A,B,K_AB,K_BA,Hash,SB,RB)
+end role
+%————————————————————————————————————————————————
+role environment()
+	def=
+		const
+			bob_alice_rb,
+			ks			: protocol_id,
+			kab,kba			: public_key,
+			a,b			: agent,
+			h			: hash_func
+			intruder_knowlege = {a,b,h}
+			composition
+				session(a,b,kab,kba,h)
+end role
+%————————————————————————————————————————————————
+goal
+	secrecy_of 			ks
+	authentication_on	bob_alice_rb
+end goal
+%————————————————————————————————————————————————
+environment()

@@ -1,0 +1,46 @@
+role party1 ( P1,P2,P3:agent,G: text, SND, RCV : channel(dy),K1,K2,K3: public_key) 
+played_by P1 
+def= local 
+State : nat, 
+A1 : text, 
+X,Y,Z,Ya3,Za2,Xa2,Xa3 :public_key, 
+K : symmetric_key 
+% knowledge(P1) = {inv(K1)} 
+init State :=0 
+transition 
+1.State=0/\RCV(start)=|> 
+State' := 1/\ A1':= new() 
+/\ X':=exp(G,A1') 
+/\SND({{P1.X'}_inv(K1)}_K2) 
+/\ witness(P1,P2,party2_party1_x,X') 
+2.State=1 /\ RCV({{Xa3'.Ya3'}_inv(K3)}_K1)=|> 
+State':= 2 
+/\request(P1,P3,party1_party3_ya3,Ya3') 
+/\ K':= exp(Ya3',A1) 
+/\secret(K',k,{P1,P2,P3}) 
+end role 
+role party2(P2,P3,P1: agent, G : text,SND,RCV: channel (dy),K1,K2,K3 : public_key) 
+played_by P2 def= 
+local 
+State :nat, 
+X,Y,Z,Ya3,Za2,Xa2,Xa3 :public_key, 
+K : symmetric_key, 
+A2 :text 
+init State :=0 
+% knowledge(P2) = {inv(K2)} 
+Transition 
+1.State =0 /\RCV({{P1.X'}_inv(K1)}_K2)=|> 
+State':=1/\request(P2,p1, party2_party1_x,X') 
+/\ A2':= new() 
+/\ Y':= exp(G,A2') 
+/\ Xa2' := exp(X',A2') 
+/\ SND({{P1.P2.X'.Y'.Xa2'}_inv(K2)}_K3) 
+/\ witness(P2,P3,party3_party2_x,X') 
+/\ witness(P2,P3,party3_party2_y,Y') 
+/\ witness(P2,P3,party3_party2_xa2,Xa2') 
+2.State =1 /\ RCV({{Xa3'.Ya3'}_inv(k3)}_K2)=|> 
+State':=2 
+/\ request(P2,P3,party2_party3_xa3,Xa3') 
+/\ K' := exp(Xa3',A2) 
+/\ secret(K',k,{P1,P2,P3}) 
+end role 

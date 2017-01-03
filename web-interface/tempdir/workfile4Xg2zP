@@ -1,0 +1,80 @@
+role mme(MME, MTCD : agent, GK:symmetric_key,
+Sqn, Amf, Rhss, Rg  :text,
+F2,F3,F4: hash_func,
+SND, RCV: channel (dy))
+
+played_by MME def=
+local
+ Rmme :text,
+ State : nat
+const
+mme_mtcd, mtcd_mme :protocol_id
+init State :=0
+transition
+1. State =0 /\ RCV(MTCD)=|>
+State' :=2
+/\Rmme' := new()
+/\SND(Rhss.Rg.Rmme' .{F2(Sqn.Rmme')}_F4(GK.Rg.Rhss.Amf) .Amf)
+/\witness(MME,MTCD,mtcd_mme,Rmme')
+2. State =2
+/\ RCV({F3(Sqn.Rg)}_F4(GK.Rg.Rhss.Amf))
+=|>
+State' :=4/\request(MME,MTCD,mme_mtcd,Rmme')
+end role
+
+role mtcd(MME, MTCD : agent, GK:symmetric_key,
+Sqn, Amf, Rhss, Rg :text,
+F2,F3,F4: hash_func,
+SND, RCV: channel (dy))
+
+played_by MTCD def=
+local
+ Rmme :text,
+ State : nat
+const
+mme_mtcd, mtcd_mme :protocol_id
+init State :=1
+transition
+1. State =1 /\ RCV(start)=|>
+State' :=2  /\ SND(MTCD)
+
+2. State =2
+/\ RCV(Rhss.Rg.Rmme'.{F2(Sqn.Rmme')}_F4(GK.Rg.Rhss.Amf).Amf)
+=|>
+State' :=3
+/\ SND({F3(Sqn.Rg)}_F4(GK.Rg.Rhss.Amf))
+/\request(MTCD,MME,mtcd_mme,Rmme')
+/\witness(MTCD,MME,mme_mtcd,Rmme')
+end role
+role session(MME, MTCD: agent,GK:
+symmetric_key, Sqn, Amf, Rhss, Rg :text,F2,F3,F4 : hash_func)
+def=
+local SNDmme,RCVmme,SNDmtcd,RCVmtcd : channel (dy)
+const 
+    mme_mtcd , mtcd_mme : protocol_id
+composition
+mme(MTCD,AAA,GK,Sqn, Amf, Rhss, Rg,F1,F2,F3,F4,SNDmme,RCVmme)
+/\ 
+aaa(MTCD,AAA,GK,Sqn, Amf, Rhss, Rg,F1,F2,F3,F4,SNDmtcd,RCVmtcd)
+end role
+role environment()
+def=
+const 
+mme, mtcd : agent,
+sqn, amf, rhss, rg : text,
+f2,f3,f4 : hash_func,
+gkmm,gkim : symmetric_key
+intruder_knowledge={mme,mtcd,i,f2,f3,f4}
+composition
+session(mme,mtcd,gkmm,Sqn, Amf, Rhss, Rg,f2,f3,f4)
+%/\ session(mme,mtcd,gkmm,Sqn, Amf, Rhss, Rg,f2,f3,f4)
+%/\ session(i,mtcd,gkim,Sqn, Amf, Rhss, Rg,f2,f3,f4)
+end role
+
+goal
+authentication_on mme_mtcd
+authentication_on mtcd_mme
+end goal
+
+environment()
+

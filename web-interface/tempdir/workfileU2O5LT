@@ -1,0 +1,108 @@
+role	user(
+	U, H, B				:	agent,
+	Ku, Kh, Kb			:	public_key,
+	SND_H, RCV_H, SND_B, RCV_B	:	channel(dy)
+	)
+	
+	played_by U
+	
+	def=
+	
+	local
+		State			:	nat,
+		O, A, S1, N1, N2	:	text
+	
+	init
+		State	:=	1
+		
+	transition
+	1.	State	=	1 /\ RCV_H(start)	=|>
+		State'	:=	3 /\ O' := new()
+				  /\ A' := new()
+				  /\ N1' := new()
+				  /\ N2' := new()
+				  /\ S1' := new()
+				  /\ ReqH' := {{U.H.O'.A'.S1'.N1'}_Ku}_Kh
+				  /\ ReqT' := {{S1'.N2'}_Ku}_Kb
+				  /\ SND_B(ReqH'.ReqT')
+				  /\ secret(N2', n2, {U, B})
+%				  /\ secret(N1', n1, {U, H})
+				  /\ request(U, H, user_host_s1, S1')
+
+end role
+
+
+role	board(
+	U, H, B				:	agent,
+	Ku, Kh, Kb			:	public_key,
+	SND_U, RCV_U, SND_H, RCV_H	:	channel(dy)
+	)
+	
+	played_by B
+	
+	def=
+	
+	local
+		State	:	nat,
+		ReqH	:	{{agent.agent.text.text.text.text}_public_key}_public_key,
+		S1, N2	:	text
+	
+	init
+		State	:=	2
+	
+	transition
+	2.	State	=	2 /\ RCV_U(ReqH'.{{S1'.N2'}_Ku}_Kh)	=|>
+		State'	:=	4 /\ witness(H, U, user_host_s1, S1')
+
+end role
+
+
+role	session(
+	U, H, B		:	agent,
+	Ku, Kh, Kb	:	public_key
+	)
+	
+	def=
+	
+	local
+		U2B, B2U, U2H, H2U, H2B, B2H	:	channel(dy)
+		
+	composition
+		user(U, H, B, Ku, Kh, Kb, U2H, H2U, U2B, B2U) /\
+		board(U, H, B, Ku, Kh, Kb, B2U, U2B, B2H, H2B)
+
+end role
+
+
+role environment()
+	
+	def=
+	
+	const
+		user_host_s1	:	protocol_id,
+		u, h, b, i	:	agent,
+		ku, kh, kb, ki	:	public_key
+		
+	intruder_knowledge	=	{u, h, b, i, ku, kh, kb, ki}
+	
+	composition
+		session(u, h, b, ku, kh, kb) /\
+		session(u, i, b, ku, ki, kb) /\
+		session(u, h, b, ku, kh, ki) /\
+		session(i, h, b, ki, kh, kb)
+
+end role
+
+
+goal
+
+	secrecy_of n2
+	authentication_on user_host_s1
+
+end goal
+
+
+%
+
+
+environment()

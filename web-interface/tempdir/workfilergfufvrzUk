@@ -1,0 +1,56 @@
+role sip_server(SS,UAC : agent, PWD : text, H : hash_func, SND, RCV : channel(dy)) 
+played_by SS def=
+local   State     : nat, 
+Nonce    : text
+init State := 1 
+transition
+0. State = 1 
+/ RCV(sipregister.UAC') =|>
+State' := 2
+/ Nonce' := new()
+/ SND(sip401.Nonce')
+1. State = 2 
+/ RCV(sipregister.UAC.Nonce.H(Nonce.H(UAC.PWD))) =|>
+State' := 3
+/ SND(sip200)
+/ request(SS,UAC,y,sipregister.UAC.Nonce.H(Nonce.H(UAC.PWD)))
+end role
+role user_agent_client(UAC,SS : agent, PWD : text, H : hash_func, SND, RCV :channel(dy))
+played_by UAC def=
+local   State     : nat,
+Nonce   : text
+init State := 1
+transition
+2.   State = 1
+/ RCV(start) =|> 
+State':=2
+/ SND(sipregister.UAC)
+3. State = 2 
+/ RCV(sip401.Nonce') =|>
+State':= 3
+/ SND(sipregister.UAC.Nonce'.H(Nonce'.H(UAC.PWD)))
+/ witness(UAC,SS,y,H(Nonce'.H(UAC.PWD)))
+4. State = 3
+/ RCV(sip200) =|> 
+State':= 4
+end role
+role session(UAC,SS:agent, H:hash_func, PWD:text) 
+def= local SND, RCV : channel(dy)
+composition
+sip_server(SS,UAC,PWD,H,SND,RCV)
+/   user_agent_client(UAC,SS,PWD,H,SND,RCV) 
+end role
+role environment() def=
+const   uac, ss      : agent,
+h          : hash_func,
+y            : protocol_id,
+sipregister    : protocol_id,
+sip401,sip200  : protocol_id,
+pwd      : text
+intruder_knowledge = {uac,ss,sipregister,sip401,sip200,h,i}
+composition session(uac,ss,h,pwd)
+end role
+goal 
+authentication_on y
+end goal
+environment() 

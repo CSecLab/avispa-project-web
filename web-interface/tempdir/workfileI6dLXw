@@ -1,0 +1,143 @@
+
+
+
+
+role server (U, S : agent,
+Send, Receive: channel(dy),
+Hash: hash_func,
+Skey : symmetric_key,
+)
+
+
+
+
+played_by S
+def=
+local 
+State : nat,
+Na,CID,Bi,PWi,Nb,HPWi,Ack,Ni, Y,X,Ci: text
+const user_server_na,server_user_nb,subs1,subs2 : protocol_id
+init State := 1
+transition
+1. State = 1 /\Receive({PWi'}_SKus) =|>
+State':=3
+/\X':=new()
+/\secret(X',subs1,{S})
+/\Y':=new()
+/\secret(Y',subs2,{U,S})
+/\Ni':=xor(PWi',X')
+/\Send({PWi'.Hash.Ni'.Y'}_SKus)
+2.State=3/\Receive(CID'.Ni'.Ci'.Na')=|>
+State':=5
+/\Nb':=new()
+
+
+
+
+/\request(S,U,user_server_na,Na') 
+
+
+
+end role
+
+
+
+
+role session(U, S : agent)
+def=
+local 
+Skey : symmetric_key,
+Hash : hash_func,
+SU,SS,RU,RS:channel(dy),
+PWi, X,Y,Ni: text
+const subs1,subs2 : protocol_id
+composition
+user(U,S,Skey,Hash,SU,RU)
+/\server(U,S,Skey,Hash,SS,RS)
+end role
+
+
+
+
+role environment ()
+def=
+const user_agent,server_agent : agent,
+h: hash_func,
+subs1,subs2,user_server_na,server_user_nb : protocol_id
+
+
+intruder_knowledge={user_agent,server_agent,h}
+composition
+session(user_agent,server_agent)
+end role
+
+
+
+
+
+
+
+
+role user (U, S : agent,
+Skey : symmetric_key,
+Hash : hash_func,
+Send, Receive: channel(dy))
+
+
+
+played_by U
+def=
+local State : nat,
+PWi, Ni, Y,Na,CID,Bi,Ci,Nb,Ack,Ni_new,PWi_new: text
+const subs1,subs2,user_server_na,server_user_nb : protocol_id
+init 
+State := 0
+
+
+
+transition
+1. State = 0 /\Receive(start) =|>
+State' := 2 /\PWi' := new()
+/\Send({PWi'}_SKus)
+/\secret({PWi'}, subs1, {U,S})
+/\secret({Skey}, subs2, {U,S})
+
+
+
+2.State = 2 /\Receive({PWi.Hash.Ni'.Y'}_SKus)
+=|>State':= 4
+
+
+
+3.State=4 /\Receive({PWi'.Hash.Ni'.Y'}_SKus)=|>
+State':=6
+/\Na':=new()
+/\witness(U,S,user_server_na,Na')  
+/\CID':=xor(Hash(PWi'),Hash(xor(Ni',xor(Y',Na'))))
+/\Bi':=Hash(xor(CID',Hash(PWi)))
+/\Ci':=Hash(xor(Na',xor(Ni',xor(Bi',Y'))))
+/\Send(CID'.Ni'.Ci'.Na')
+
+
+
+4.State=6=|>
+State':=8
+/\PWi_new':=new()
+/\Ni_new':=xor(Ni',xor(Hash(PWi),Hash(PWi_new')))
+/\Ni':=Ni_new'
+end role
+
+
+
+
+
+
+
+goal
+	secrecy_of subs1
+	secrecy_of subs2
+	authentication_on user_server_na
+	authentication_on server_user_nb
+end goal
+
+environment()

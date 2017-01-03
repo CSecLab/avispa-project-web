@@ -1,0 +1,115 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileEPR5av
+
+section signature:
+
+state_sdDest: agent * agent * public_key * public_key * nat * text * public_key * nat -> fact
+state_dest: agent * agent * agent * public_key * public_key * public_key * symmetric_key * nat * text * text * message * message * public_key * nat -> fact
+state_src: agent * agent * agent * public_key * public_key * public_key * symmetric_key * nat * text * text * message * public_key * nat -> fact
+state_sdSrc: agent * agent * agent * public_key * public_key * public_key * text * nat * text * public_key * set(agent) * nat -> fact
+
+
+section types:
+
+sk, SK: symmetric_key
+transfer: protocol_id
+MGoal, Ack, Param, start, dummy_msg: message
+State, 2, 16, 14, 13, 1, 11, 10, 0, 8, 6, SID, 5, 4, Dummy_State, 3: nat
+pksdsrc, pksddest, pksrctee, pkdestee, ki, KProxy, PKDesTEE, PKSDdest, PKSrcTEE, PKdesTEE, PKSDsrc, dummy_pk: public_key
+sdcred, EncSD, TimeStamp, SDCred, Dummy_EncSD, dummy_nonce: text
+sdsrc, sddest, srctee, destee, DesTEE, SDdest, SrcTEE, SDsrc, i: agent
+set_121, set_117, set_102: set
+Set_21, Dummy_Set_21, ASGoal: set(agent)
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(srctee).
+ iknows(destee).
+ iknows(pksrctee).
+ iknows(pkdestee).
+ iknows(ki).
+ iknows(inv(ki)).
+ iknows(i).
+ state_sdSrc(sdsrc,srctee,sddest,pksrctee,pksdsrc,pksddest,sdcred,0,dummy_nonce,dummy_pk,set_102,3).
+ state_src(srctee,sdsrc,destee,pksrctee,pksdsrc,pkdestee,sk,0,dummy_nonce,dummy_nonce,dummy_msg,dummy_pk,4).
+ state_dest(destee,srctee,sddest,pksrctee,pkdestee,pksddest,sk,0,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_pk,5).
+ state_sdDest(sddest,destee,pkdestee,pksddest,0,dummy_nonce,dummy_pk,6).
+ state_sdSrc(sdsrc,i,sddest,pksrctee,pksdsrc,pksddest,sdcred,0,dummy_nonce,dummy_pk,set_117,8).
+ state_dest(destee,i,sddest,pksrctee,pkdestee,pksddest,sk,0,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_pk,10).
+ state_sdDest(sddest,destee,pkdestee,pksddest,0,dummy_nonce,dummy_pk,11).
+ state_sdSrc(sdsrc,srctee,sddest,pksrctee,pksdsrc,pksddest,sdcred,0,dummy_nonce,dummy_pk,set_121,13).
+ state_src(srctee,sdsrc,i,pksrctee,pksdsrc,pkdestee,sk,0,dummy_nonce,dummy_nonce,dummy_msg,dummy_pk,14).
+ state_sdDest(sddest,i,pkdestee,pksddest,0,dummy_nonce,dummy_pk,16)
+
+
+section rules:
+
+step step_0 (SDsrc,SrcTEE,SDdest,PKSrcTEE,PKSDsrc,PKSDdest,SDCred,EncSD,KProxy,Set_21,SID) :=
+ state_sdSrc(SDsrc,SrcTEE,SDdest,PKSrcTEE,PKSDsrc,PKSDdest,SDCred,0,EncSD,KProxy,Set_21,SID).
+ iknows(start)
+ =>
+ state_sdSrc(SDsrc,SrcTEE,SDdest,PKSrcTEE,PKSDsrc,PKSDdest,SDCred,1,EncSD,KProxy,Set_21,SID)
+
+step step_1 (SDsrc,SrcTEE,SDdest,PKSrcTEE,PKSDsrc,PKSDdest,SDCred,Dummy_EncSD,KProxy,Dummy_Set_21,SID) :=
+ state_sdSrc(SDsrc,SrcTEE,SDdest,PKSrcTEE,PKSDsrc,PKSDdest,SDCred,1,Dummy_EncSD,KProxy,Dummy_Set_21,SID)
+ =>
+ state_sdSrc(SDsrc,SrcTEE,SDdest,PKSrcTEE,PKSDsrc,PKSDdest,SDCred,1,crypt(PKSDsrc,SDCred),KProxy,Dummy_Set_21,SID).
+ iknows(pair(SDsrc,pair(SrcTEE,crypt(PKSDsrc,SDCred)))).
+ secret(SDCred,transfer,Dummy_Set_21).
+ contains(SDsrc,Dummy_Set_21).
+ contains(SDdest,Dummy_Set_21)
+
+step step_2 (SrcTEE,SDsrc,DesTEE,PKSrcTEE,PKSDsrc,PKDesTEE,SK,EncSD,TimeStamp,Ack,KProxy,SID) :=
+ state_src(SrcTEE,SDsrc,DesTEE,PKSrcTEE,PKSDsrc,PKDesTEE,SK,0,EncSD,TimeStamp,Ack,KProxy,SID).
+ iknows(pair(SrcTEE,pair(SDsrc,EncSD)))
+ =>
+ state_src(SrcTEE,SDsrc,DesTEE,PKSrcTEE,PKSDsrc,PKDesTEE,SK,1,EncSD,TimeStamp,Ack,KProxy,SID)
+
+step step_3 (SrcTEE,SDsrc,DesTEE,PKSrcTEE,PKSDsrc,PKDesTEE,SK,EncSD,TimeStamp,Ack,KProxy,SID) :=
+ state_src(SrcTEE,SDsrc,DesTEE,PKSrcTEE,PKSDsrc,PKDesTEE,SK,1,EncSD,TimeStamp,Ack,KProxy,SID)
+ =>
+ state_src(SrcTEE,SDsrc,DesTEE,PKSrcTEE,PKSDsrc,PKDesTEE,SK,2,EncSD,TimeStamp,Ack,KProxy,SID).
+ iknows(pair(SrcTEE,pair(DesTEE,scrypt(SK,crypt(KProxy,EncSD)))))
+
+step step_4 (SrcTEE,SDsrc,DesTEE,PKSrcTEE,PKSDsrc,PKDesTEE,SK,EncSD,TimeStamp,Ack,KProxy,SID) :=
+ state_src(SrcTEE,SDsrc,DesTEE,PKSrcTEE,PKSDsrc,PKDesTEE,SK,2,EncSD,TimeStamp,Ack,KProxy,SID)
+ =>
+ state_src(SrcTEE,SDsrc,DesTEE,PKSrcTEE,PKSDsrc,PKDesTEE,SK,2,EncSD,TimeStamp,Ack,KProxy,SID).
+ iknows(scrypt(SK,pair(SrcTEE,pair(DesTEE,pair(Ack,TimeStamp)))))
+
+step step_5 (DesTEE,SrcTEE,SDdest,PKSrcTEE,PKdesTEE,PKSDdest,SK,EncSD,TimeStamp,Ack,Param,KProxy,SID) :=
+ state_dest(DesTEE,SrcTEE,SDdest,PKSrcTEE,PKdesTEE,PKSDdest,SK,0,EncSD,TimeStamp,Ack,Param,KProxy,SID).
+ iknows(pair(DesTEE,pair(SrcTEE,scrypt(SK,crypt(KProxy,EncSD)))))
+ =>
+ state_dest(DesTEE,SrcTEE,SDdest,PKSrcTEE,PKdesTEE,PKSDdest,SK,1,EncSD,TimeStamp,Ack,Param,KProxy,SID).
+ iknows(pair(SrcTEE,pair(DesTEE,scrypt(SK,pair(Ack,TimeStamp)))))
+
+step step_6 (DesTEE,SrcTEE,SDdest,PKSrcTEE,PKdesTEE,PKSDdest,SK,EncSD,TimeStamp,Ack,Param,KProxy,SID) :=
+ state_dest(DesTEE,SrcTEE,SDdest,PKSrcTEE,PKdesTEE,PKSDdest,SK,1,EncSD,TimeStamp,Ack,Param,KProxy,SID)
+ =>
+ state_dest(DesTEE,SrcTEE,SDdest,PKSrcTEE,PKdesTEE,PKSDdest,SK,1,EncSD,TimeStamp,Ack,Param,KProxy,SID).
+ iknows(pair(DesTEE,pair(SDdest,crypt(KProxy,EncSD))))
+
+step step_7 (SDdest,DesTEE,PKDesTEE,PKSDdest,EncSD,KProxy,SID) :=
+ state_sdDest(SDdest,DesTEE,PKDesTEE,PKSDdest,0,EncSD,KProxy,SID)
+ =>
+ state_sdDest(SDdest,DesTEE,PKDesTEE,PKSDdest,0,EncSD,KProxy,SID).
+ iknows(pair(SDdest,pair(DesTEE,crypt(KProxy,EncSD))))
+
+
+section properties:
+
+property secrecy_of_transfer (MGoal,ASGoal) :=
+ [] ((secret(MGoal,transfer,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_transfer (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,transfer,ASGoal) &
+ not(contains(i,ASGoal))
+

@@ -1,0 +1,72 @@
+rôle ss (ss, bs :agent,
+         Pkss, Pkbs:public key,
+         SND, RCV:channel (dy))
+played_by SS def=
+   local State : nat,
+         Nss, Nbs: text,
+   init State := 0
+ transition 
+        0.  State  = 0 /\ RCV(start) =|> 
+            State':= 2 /\ Nss' := new() /\ SND({Nss'.ss}_PKbs)
+                   /\ secret(Nss',Nss,{ss,bs}) 
+                   /\ witness(ss,bs,bs_ss_Nss,Nbs')
+        2.  State  = 2 /\ RCV({Nss.Nbs'}_Pkss) =|> 
+            State':= 4 /\ SND({Nbs'}_Pkbs)
+                       /\ request(ss,bs,ss_bs_Nbs,Nbs')
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role bs(ss, bs: agent
+         Pkss, Pkbs: public_key,
+         SND, RCV:channel (dy))
+played_by BS def= 
+   local State : nat,
+         Nss, Nbs: text,
+   init State := 0
+transition  
+       1.  State  = 1 /\ RCV({Nss'.ss}_Pkbs) =|> 
+           State':= 3 /\ Nbs' := new() /\ SND({Nss'.Nbs'}_Pkss)
+                      /\ secret(Nbs',Nbs,{ss,bs}) 
+                      /\ witness(bs,ss,ss_bs_Nbs,Nbs')
+       3.  State  = 3 /\ RCV({Nbs}_Pkbs) =|> 
+           State':= 5 /\ request(bs,ss,bs_ss_Nss,Nss)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(ss, bs: agent, Pkss, Pkbs: public_key) def=
+     local SA, RA, SB, RB: channel (dy)
+  composition 
+     ss(ss,bs,Pkss,Pkbs,Sss,Rss)
+     /\ bs  (ss,bs,Pkss,Pkb,Sbs,Rbs)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment() def=
+      const ss, bs	       : agent,
+      Pkss, Pkbs, Pki   : public_key,
+  Nss, Nbs,
+	  ss_bs_Nbs,
+	  bs_ss_Nss : protocol_id
+
+    intruder_knowledge = {ss, bs, Pkss, Pkbs, Pki, inv(ki)}
+
+    composition
+
+	session(ss,bs,Pkss,Pkbs)
+     /\ session(ss,i,Pkss,Pki)
+     /\ session(i,bs,Pki,Pkbs)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of Nss, Nbs
+  authentication_on ss_bs_Nbs
+  authentication_on bs_ss_Nss
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+
+

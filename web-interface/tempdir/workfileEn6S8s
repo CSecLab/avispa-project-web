@@ -1,0 +1,174 @@
+role user(A, S : agent,
+Skey : symmetric_key,
+H : hash_func,
+SND_SA, RCV_SA : channel(dy))
+
+played_by A def=
+local
+state, N : nat,
+Apasswd, Nonce : text
+HashPasswd, NthResponse, Challenge, Msg1, Msg2, Msg3, Msg4, R : message,
+init
+state := 0 /\ N := 1
+transition
+0. state = 0 /\ RCV_SA(start) =|>
+    state' := 2 /\ Apasswd' := new() /\ HashPasswd' := H(H(xor(Apasswd', N))) /\ SND_SA( A.HashPasswd' ) /\ secret(Apasswd',apasswd, {A, S})
+
+
+
+ 2. state = 2 /\ RCV_SA( S. ok) =|> state' := 4 /\ SND_SA(A.S.login_request)
+
+ 4. state = 4 /\ RCV_SA(S.A.N.Challenge') =|> state' := 6 /\ NthResponse' := H( H( xor( Apasswd,N ) ) ) /\ R' := xor( Challenge', NthResponse')
+ /\ Msg1' := xor(H(NthResponse'),xor(H(R'),H(xor(NthResponse',inr(N)))))
+
+  /\ Msg2' := xor(H(xor(Apasswd,N)),H(H(R')))
+
+ /\ Msg3' := xor(H(xor(NthResponse',H(R'))),H(H(xor(Apasswd,inr(N)))))
+
+  /\ Msg4' := xor(H(H(H(xor(Apasswd,inr(N))))),H(H(H(R'))))
+
+ /\ SND_SA(Msg1'.Msg2'.Msg3'.Msg4')
+
+  6. State = 6 /\ RCV_SA(S.A.Nonce') =|> State' := 8 /\ request( S, A, auth, Nonce')
+
+ end role
+
+
+role server(
+
+ S : agent,
+ SKey : symmetric_key,
+ H : hash_func,
+
+ SND_AS, RCV_AS : channel(dy))
+ played_by S def=
+ local
+ X : agent,
+
+ State, N : nat,
+
+ 
+
+ NthResponse, Challenge, HPasswd, HashPasswd, HR, NthCredential, H2PN1,
+ H3PN1,Hashpasswd : message,
+
+  Msg1, Msg2, Msg3, Msg4, R : message,
+
+ Nonce : text
+
+ init
+  State := 1 /\ N := 1
+
+ transition
+  1. State = 1 /\ RCV_AS( X'.HashPasswd') =|>
+
+    State' := 3 /\ HPasswd' := xor( HashPasswd', H( SKey, X' )) /\SND_AS(S.ok)
+
+  3. State = 3 /\ RCV_AS( X.S.login_request) =|>
+
+ State' := 5 /\ NthResponse' := HashPasswd
+
+  /\ R' := new() /\ Challenge' := xor(NthResponse', R') /\
+ SND_AS(S.X.N.Challenge')
+
+  5. State = 5 /\ RCV_AS( Msg1'.Msg2'.Msg3'.Msg4' ) =|>
+
+ State' := 7 /\ HR' := xor( H( xor( NthResponse, inr(N) ) ), xor( Msg1', H( NthResponse ) ) )
+
+  /\ NthCredential' := H( xor( Msg2', H( HR' ) ) )
+
+  7. State = 7 /\ NthResponse = NthCredential =|>
+
+ State' := 8 /\ H2PN1' := xor( Msg3, H( xor( NthResponse, HR ) ) ) /\ H3PN1' := xor( Msg4, H( H( HR ) ) )
+
+
+
+ 8. State = 8 /\ H3PN1 = H( H2PN1 ) =|>
+
+  State' := 9 /\ Nonce' := new() /\ SND_AS(S.X.Nonce') /\ witness( S, X, auth, Nonce')
+
+
+
+ end role
+
+
+
+ role session(
+
+ A, S : agent,
+
+ SKey : symmetric_key
+
+  )
+
+
+
+ def=
+
+ local
+
+ SND_AS, RCV_AS, SND_SA, RCV_SA : channel(dy)
+
+
+
+
+
+ composition
+
+ user(A, S, SKey, SND_SA, RCV_SA)
+
+  /\ server(S, SKey, SND_AS, RCV_AS)
+
+ end role
+
+
+
+ role environment()
+
+ def=
+
+
+
+ const
+
+  a,b,s : agent,
+
+ h,inr : hash_func,
+
+ login_request,ok : text,
+
+ apasswd,auth : protocol_id,
+
+  skey : symmetric_key
+
+
+
+ intruder_knowledge = { a,s, h, login_request }
+
+
+
+
+
+ composition
+
+ session(a, s, skey)
+
+ /\ session(i, s, skey)
+
+
+
+ end role
+
+
+
+ goal
+
+ secrecy_of apasswd
+
+ authentication_on auth
+
+ end goal
+
+
+
+ environment()

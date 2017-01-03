@@ -1,0 +1,317 @@
+%%- C- client	M-Merchant B-Bank P- Payment Gateway 
+%%HLPSL:
+% session keys are left
+
+%%% TOKEN = (TOKENID'.ItemInfo.price)
+%%%  TICKET2 = TICKETID'.{DigMoney'}_inv(SignK_B).PIN.OTP
+%%% HASH2 = h(PIN)
+%%% TICKET1 = TICKETID'.{DigMoney'}_inv(SignK_B)
+
+role client(C,M,P,B: agent,
+		SignK_C,SignK_M,SignK_P,SignK_B : public_key,
+                H : hash_func,
+		MasterKeyCB: symmetric_key
+		) played_by C def= 
+	        
+local S : nat,
+		TransID : nat,
+		ServID : nat,
+                ItemID : nat,
+		Nonce : nat,
+                TICKETID : nat,
+		TICKETID2 : nat,
+		TOKENID: nat,
+                Price : text,
+                ItemInfo : text,
+ 		UserID : text,
+                Password : text,
+		DigMoney : text,
+                N1 : text,
+		PIN,OTP : symmetric_key,
+	SessionKeyCM, SessionKeyCB,SessionKeyCP: symmetric_key,
+        SND, RCV: channel (dy)
+	%SND,RCV : channel(dy)
+	init S := 0
+transition
+
+1.  S = 0 /\ RCV(start)  =|>            
+        S' := 1 /\ 
+	TransID' := new() /\
+	ServID'  := new() /\ 
+	ItemID'  := new() /\
+	N1'	:=  new() /\
+	SessionKeyCM' :=  new() /\
+SND ({TransID'.ServID'.ItemID'.N1'.SessionKeyCM'}_SignK_M)         %% sent to merchant 
+/\ witness(C,M,alice_bob_num,N1')
+
+2. S = 1 /\ RCV({TransID'.(TOKENID'.ItemInfo.{Price}_SignK_B).{H(TransID'.Price.ItemInfo)}_inv(SignK_M)}_SessionKeyCM')   %%from merchant 
+        =|>                                      
+      S':= 2 /\                 
+      SessionKeyCB' :=  new() /\
+      SND ({UserID.Password.{Price}_SignK_B.SessionKeyCB'}_MasterKeyCB)   %%sent to Bank      %%3rd message
+
+
+3. S = 2 /\  RCV ({TICKETID'.{DigMoney'}_inv(SignK_B)}_SessionKeyCB')   %% received 4th message from bank 
+	=|>	S':= 3 /\
+        SessionKeyCP' :=  new() /\                                                       
+     SND ({TICKETID'.{DigMoney'}_inv(SignK_B).SessionKeyCP'}_SignK_P)   %5. client to PG    //C->PG: { TICKET1, sessionKeyCT } PGPU
+
+4. S = 3  /\ RCV({ TICKETID'.{DigMoney'}_inv(SignK_B).PIN.OTP.{ {PIN}_inv(SignK_P)}_SignK_C}_SessionKeyCP')       %%6t message, received from PG   
+	=|>   S':= 4 /\                                                      
+
+
+        %%7th message, sent to Merchant     %%%C -> M:{TOKEN ,TICKET2,HASH2} sessionKeyCM
+
+	SND ({(TOKENID.ItemInfo.Price).(TICKETID'.{DigMoney'}_inv(SignK_B).PIN.OTP).h(PIN)}_SessionKeyCM)      %%sent to merchant , 7th message
+
+5.  S = 4  =|>                                %%%.	C->M: { [PIN] CPR} sessionKeyCM       
+    SND ({{PIN}_inv(SignK_C)}_SessionKeyCM) /\                 %%sent 10th message to Merchant             
+    S' := 5
+  
+
+end role             
+%% Bank=======================================================
+
+role bank(C,M,P,B: agent,
+	%	AI : text,
+	%	PurchaseAmount : nat,
+	%	OrderDesc :text,
+		SignK_C,SignK_M,SignK_P,SignK_B : public_key,
+                H : hash_func,
+                MasterKeyCB, MasterKeyMB: symmetric_key
+                %SND, RCV: channel (dy)
+		) 
+played_by B 
+def= 
+
+		local S : nat,
+		TransID : nat,
+                ServID : nat, 
+                ItemID : nat,
+		Nonce : nat,
+                TICKETID : nat,
+                TOKENID: nat,
+		Price : text,
+                ItemInfo : text,
+ 		UserID : text, 
+                Password : text,
+		DigMoney : text,
+		PIN,OTP : symmetric_key,
+		Conform_Msg : text,
+	        SessionKeyCM, SessionKeyCB,SessionKeyCP : symmetric_key,
+               SND, RCV: channel (dy)
+	%SND,RCV : channel(dy)
+        init S := 2
+	
+transition
+1. S = 2 /\  
+ RCV ({UserID.Password.{Price}_SignK_B.SessionKeyCB'}_MasterKeyCB)   %%received from client  ,,              %%3rd message     
+ =|>    S':= 4 /\
+        TICKETID' := new() /\
+        DigMoney' := new() /\
+        SND ({TICKETID'.{DigMoney'}_inv(SignK_B)}_SessionKeyCB')   %% bank to client     %%4th message
+
+2.  S = 4 /\ 
+    %%received 11th message from merchant 
+
+RCV({TICKETID.{DigMoney}_inv(SignK_B)}_MasterKeyMB)    =|>
+
+%% confirmation to merchant ,,12th message and final message 
+
+S' := 6 /\ 
+SND ({TICKETID.Conform_Msg}_SignK_M)   
+
+end role
+
+  
+%%========Merchant===============================================
+role merchant( C,M,P,B: agent,
+        % AI : text, 
+	%	PurchaseAmount : nat,
+	%	OrderDesc :text,
+                SignK_C,SignK_M,SignK_P,SignK_B : public_key,
+                H : hash_func,
+                MasterKeyMB    : symmetric_key
+		%SND,RCV : channel(dy)
+             ) played_by M def= 
+        
+local S : nat,
+		TransID : nat,
+                ServID : nat,
+                ItemID : nat,
+		Nonce : nat,
+                TICKETID : nat,
+                TOKENID: nat,
+		Price : text,
+                ItemInfo : text,
+		UserID : text,
+                Password : text,
+		DigMoney : text,
+		Conform_Msg : text,
+		N1 : text,
+		PIN,OTP : symmetric_key,
+        	SessionKeyCM, SessionKeyCB,SessionKeyCP,SessionKeyMP: symmetric_key,
+                SND, RCV: channel (dy)
+	init S := 1
+
+transition
+
+1.  S = 1 /\ RCV ({TransID'.ServID'.ItemID'.N1'.SessionKeyCM'}_SignK_M) =|>         %%received from clinent (1 message)
+	S' := 3 /\ 
+	TOKENID' := new() /\
+
+   %%sent to client by merchant %%%	M -> C: { TransactionID ,TOKEN, {Price}BPU, [Hash1]MPR} sessionKeyCM
+
+    SND({ TransID'.(TOKENID'.ItemInfo.{Price}_SignK_B).{h(TransID'.Price.ItemInfo)}_inv(SignK_M)}_SessionKeyCM')  
+
+
+2.   S = 3 /\ 
+
+%%received 7th message from client, and merchant sent it to PG for 8th message
+
+RCV({(TOKENID.ItemInfo.Price).(TICKETID'.{DigMoney'}_inv(SignK_B).PIN.OTP).h(PIN)}_SessionKeyCM)      =|>   
+     S':= 5 /\
+     SessionKeyMP' :=  new() /\
+     
+%%%8th message, sent to PG from merchant          %%%%8.	M-> PG: { TICKETID, sessionKeyMT } PGPU
+SND( {TICKETID.SessionKeyMP'}_SignK_P)    
+  
+
+
+3. S = 5  /\    RCV ({ {OTP}_inv(SignK_P)}_SessionKeyMP')    %%% 9th message received from PG
+       =|>
+         S' := 7
+
+4. S = 7 /\ 
+
+%% 10th message received from client
+   RCV({{PIN}_inv(SignK_C)}_SessionKeyCM) =|>               
+	S' := 9 /\
+
+ %%11th message sent to bank from merchant             %%%	M->B: {TICKET1} MasterKeyMB 
+
+SND({TICKETID.{DigMoney}_inv(SignK_B)}_MasterKeyMB)    
+
+5.  S = 9 /\ 
+  %% received from bank confirmation, 12the message 
+RCV ({TICKETID.Conform_Msg}_SignK_M)  =|> S' := 11
+
+
+
+end role
+
+
+%%===payment====================================================
+role paymentGateway (C,M,P,B: agent,
+	%	AI : text
+	%	PurchaseAmount : nat,
+	%	OrderDesc :text,
+                SignK_C,SignK_M,SignK_P,SignK_B : public_key,
+                H : hash_func,
+                MasterKeyCB: symmetric_key
+               % SND,RCV : channel(dy)
+) 
+played_by P 
+def= 
+		local S : nat,
+		TransID : nat,
+                ServID : nat,
+                ItemID : nat,
+		Nonce : nat,
+                TICKETID : nat,
+                TICKETID2 : nat,
+		TOKENID: nat,
+		Price : text,
+                ItemInfo : text,
+ 		UserID : text, 
+                Password : text,
+		DigMoney : text,
+		PIN,OTP : symmetric_key,
+	SessionKeyCM, SessionKeyCB,SessionKeyCP,SessionKeyMP: symmetric_key,
+        SND, RCV: channel (dy)
+
+init S := 3
+
+transition
+
+
+1. S = 3  /\  RCV ({TICKETID'.{DigMoney'}_inv(SignK_B).SessionKeyCP'}_SignK_P)  =|>          %%5th message received from client by PG %% 
+   S':= 6 /\
+ 	SND({ TICKETID'.{DigMoney'}_inv(SignK_B).PIN.OTP.{ {PIN}_inv(SignK_P)}_SignK_C}_SessionKeyCP')    %%6th message, sent this to client  %%PG->C: { TICKET2, {[PIN] PGPR} CPU } sessionKeyCT
+
+2. S = 6  /\  RCV({TOKENID.SessionKeyMP'}_SignK_P)     =|>  %% 8th message received from merchant, 
+   S' :=9 /\
+
+%%% 9th message sent to merchant      %%%.	PG->M : { [OTP] PGPR } sessionKeyMT
+
+   SND ({ {OTP}_inv(SignK_P)}_SessionKeyMP')    
+
+end role
+
+%===================================================================
+
+
+
+
+
+role session(C,M,P,B: agent,
+                SignK_C,SignK_M,SignK_P,SignK_B : public_key,
+                H : hash_func,
+                MasterKeyCB, MasterKeyMB: symmetric_key
+               ) def=
+
+local  SA, SB,SC,SD, RA, RB,RC,RD: channel (dy)
+% local SI, RI, SR, RR: channel(dy)
+
+ composition
+  client(C,M,P,B,SignK_C,SignK_M,SignK_P,SignK_B,H,MasterKeyCB) /\
+
+ bank(C,M,P,B,SignK_C,SignK_M,SignK_P,SignK_B,H,MasterKeyCB,MasterKeyMB) /\
+
+  merchant(C,M,P,B,SignK_C,SignK_M,SignK_P,SignK_B,H,MasterKeyMB) /\
+
+  paymentGateway(C,M,P,B,SignK_C,SignK_M,SignK_P,SignK_B,H,MasterKeyCB)
+
+end role
+
+role environment() 
+def=
+%local
+%local sa, ra: channel (dy)
+  %const h: hash_func, 
+const alice_bob_num  : protocol_id,
+    h: hash_func, 
+     c,m,p,b: agent,
+        sign_c,sign_m,sign_p,sign_b,sign_i: public_key,
+        masterkeycb, masterkeymb: symmetric_key
+      
+
+intruder_knowledge = {c,m,p,b,sign_c,sign_m,sign_p,sign_b,sign_i,inv(sign_i)}
+
+composition
+
+session(c,m,p,b,sign_c,sign_m,sign_p,sign_b,h,masterkeycb,masterkeymb) /\
+session(i,m,p,b,sign_i,sign_m,sign_p,sign_b,h,masterkeycb,masterkeymb)
+%session(c,i,p,b,sign_c,sign_i,sign_p,sign_b,h,masterkeycb,masterkeymb) 
+% session(i,c,p,b,sign_i,sign_c,sign_p,sign_b,h)  
+
+end role
+
+goal
+
+  % Entity authentication (G1)
+  % Message authentication (G2)
+  % Replay protection (G3)
+  % Accountability (G17)
+  % Proof of Origin (G18)
+  % Proof of Delivery (G19)
+ % authentication_on deal
+ % weak_authentication_on deal
+authentication_on alice_bob_num
+  % ID protection (Eavesdr.) (G13)
+  % Conifidentiality (G12) --- Missing in table of D6.1
+ % secrecy_of order
+ % secrecy_of payment
+end goal
+
+environment()

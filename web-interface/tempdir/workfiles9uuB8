@@ -1,0 +1,262 @@
+role source_node(
+A,B,C,J,X : agent,
+Ka, Kb, Kc, Kj, Kt, Kx : public_key,
+RCV, SND : channel(dy))
+played_by A def=
+local
+RDP,REP : protocol_id,
+State : nat,
+Na,Plus,Ts1,E1,Ts2,E2,Ts3,E3,Ts4,E4 : text
+const a_b_IPa, a_b_IPx, a_a_Na : protocol_id
+init State := 0
+transition
+step1.
+State = 0 /\ RCV(start)
+=|>
+State’:= 5 /\ Na’ := new()
+/\ SND({RDP.X.Na’}_inv(Ka).{A.Ka.Ts1.E1}_inv(Kt))
+/\ witness(A,B,a_b_IPx,X) /\ witness(A,B,a_a_Na,Na’)
+step2.
+State = 5 /\ RCV({{REP.A’.Na’}_inv(Kx)}_inv(Kb).
+{X’.Kx.Ts4’.E4’}_inv(Kt).{B’.Kb.Ts2’.E2’}_inv(Kt))
+=|>
+State’:= 10 /\ wrequest(A,B,a_b_IPa,A’)
+/\ wrequest(A,B,a_a_Na,Na’)
+end role
+role intermediate_node1(
+A,B,C,J,X : agent,
+Ka, Kb, Kc, Kj, Kt, Kx : public_key,
+RCV,SND : channel(dy))
+played_by B def=
+local
+RDP,REP : protocol_id,
+State : nat,
+Na,Plus,Ts1,E1,Ts2,E2,Ts3,E3,Ts4,E4 : text
+const a_b_IPa, a_b_IPx, a_a_Na : protocol_id
+init State := 1
+transition
+step1.
+State = 1 /\ RCV({RDP.X’.Na’}_inv(Ka).
+{A’.Ka.Ts1’.E1’}_inv(Kt).{Plus}_inv(Kj))
+=|>
+State’:= 6 /\ SND({{RDP.X’.Na’}_inv(Ka)}_inv(Kb).
+{A’.Ka.Ts1’.E1’}_inv(Kt).{B.Kb.Ts2.E2}_inv(Kt))
+/\ wrequest(B,A,a_b_IPx,X’)
+/\ wrequest(B,A,a_a_Na,Na’)
+/\ witness(B,C,a_b_IPx,X’)
+/\ witness(B,C,a_a_Na,Na’)
+step2.
+State = 6 /\ RCV({{REP.A’.Na’}_inv(Kx)}_inv(Kc).
+{X’.Kx.Ts4’.E4’}_inv(Kt).{C’.Kc.Ts3’.E3’}_inv(Kt))
+=|>
+State’:= 11 /\ SND({{REP.A’.Na’}_inv(Kx)}_inv(Kb).
+{X’.Kx.Ts4’.E4’}_inv(Kt).{B.Kb.Ts2.E2}_inv(Kt))
+/\ wrequest(B,C,a_b_IPa,A’)
+/\ wrequest(B,C,a_a_Na,Na’)
+/\ witness(B,A,a_b_IPa,A’)
+/\ witness(B,A,a_a_Na,Na’)
+end role
+role intermediate_node2(
+A,B,C,J,X : agent,
+Ka, Kb, Kc, Kj, Kt, Kx : public_key,
+RCV,SND : channel(dy))
+played_by C def=
+local
+RDP,REP : protocol_id,
+State : nat,
+Na,Plus,Ts1,E1,Ts2,E2,Ts3,E3,Ts4,E4 : text
+const a_b_IPa, a_b_IPx, a_a_Na : protocol_id
+init State := 2
+transition
+step1.
+State = 2 /\ RCV({{RDP.X’.Na’}_inv(Ka)}_inv(Kb).
+{A’.Ka.Ts1’.E1’}_inv(Kt).
+{B’.Kb.Ts2’.E2’}_inv(Kt).{Plus}_inv(Kj))
+=|>
+State’ := 7 /\ SND({{RDP.X’.Na’}_inv(Ka)}_inv(Kc).
+{A’.Ka.Ts1’.E1’}_inv(Kt).{C.Kc.Ts3.E3}_inv(Kt))
+/\ wrequest(C,B,a_b_IPx,X’)
+/\ wrequest(C,B,a_a_Na,Na’)
+/\ witness(C,X,a_b_IPx,X’)
+/\ witness(C,X,a_a_Na,Na’)
+step2.
+State = 7 /\ RCV({REP.A’.Na’}_inv(Kx).
+{X’.Kx.Ts4’.E4’}_inv(Kt))
+=|>
+State’:= 12 /\ SND({{REP.A’.Na’}_inv(Kx)}_inv(Kc).
+{X’.Kx.Ts4’.E4’}_inv(Kt).
+{C.Kc.Ts3.E3}_inv(Kt))
+/\ wrequest(C,X,a_b_IPa,A’)
+/\ wrequest(C,X,a_a_Na,Na’)
+/\ witness(C,B,a_b_IPa,A’)
+/\ witness(C,B,a_a_Na,Na’)
+end role
+role final_node(
+A,B,C,J,X : agent,
+Ka, Kb, Kc, Kj, Kt, Kx : public_key,
+RCV,SND : channel(dy))
+played_by X def=
+local
+RDP,REP : protocol_id,
+State : nat,
+Na,Plus,Ts1,E1,Ts2,E2,Ts3,E3,Ts4,E4 : text
+const a_b_IPa, a_b_IPx, a_a_Na : protocol_id
+init State := 3
+transition
+step1.
+State = 3 /\ RCV({{RDP.X’.Na’}_inv(Ka)}_inv(Kc).
+{A’.Ka.Ts1’.E1’}_inv(Kt).
+{C’.Kc.Ts3’.E3’}_inv(Kt).{Plus}_inv(Kj))
+=|>
+State’:= 8 /\ SND({REP.A’.Na’}_inv(Kx).
+{X.Kx.Ts4.E4}_inv(Kt))
+/\ wrequest(X,C,a_b_IPx,X’)
+/\ wrequest(X,C,a_a_Na,Na’)
+/\ witness(X,C,a_b_IPa,A’)
+/\ witness(X,C,a_a_Na,Na’)
+end role
+role joker_node(
+A,B,C,J,X : agent,
+Ka, Kb, Kc, Kj, Kt, Kx : public_key,
+RCV,SND : channel(dy))
+played_by J def=
+local
+RDP,REP : protocol_id,
+State : nat,
+Na,Plus,Ts1,E1,Ts2,E2,Ts3,E3,Ts4,E4 : text
+const a_b_IPa, a_b_IPx, a_a_Na : protocol_id
+init State := 4
+transition
+step1.
+State = 4 /\ RCV({RDP.X’.Na’}_inv(Ka).
+{A’.Ka.Ts1’.E1’}_inv(Kt))
+=|>
+State’:= 9 /\ SND({RDP.X’.Na’}_inv(Ka).
+{A’.Ka.Ts1’.E1’}_inv(Kt).{Plus}_inv(Kj))
+/\ SND({{RDP.X’.Na’}_inv(Ka)}_inv(Kb).
+{A’.Ka.Ts1’.E1’}_inv(Kt).
+{B.Kb.Ts2.E2}_inv(Kt).{Plus}_inv(Kj))
+/\ SND({{RDP.X’.Na’}_inv(Ka)}_inv(Kc).
+{A’.Ka.Ts1’.E1’}_inv(Kt).
+{C.Kc.Ts3.E3}_inv(Kt).{Plus}_inv(Kj))
+step2.
+State = 9 /\ RCV({{RDP.X’.Na’}_inv(Ka)}_inv(Kb).
+{A’.Ka.Ts1’.E1’}_inv(Kt).{B’.Kb.Ts2’.E2’}_inv(Kt))
+=|>
+State’:= 14 /\ SND({{RDP.X’.Na’}_inv(Ka)}_inv(Kb).
+{A’.Ka.Ts1’.E1’}_inv(Kt).
+{B’.Kb.Ts2’.E2’}_inv(Kt).{Plus}_inv(Kj))
+/\ SND({{RDP.X’.Na’}_inv(Ka)}_inv(Kc).
+{A’.Ka.Ts1’.E1’}_inv(Kt).
+{C.Kc.Ts3.E3}_inv(Kt).{Plus}_inv(Kj))
+step3. State = 14 /\ RCV({{RDP.X’.Na’}_inv(Ka)}_inv(Kc).
+{A’.Ka.Ts1’.E1’}_inv(Kt).
+{C’.Kc.Ts3’.E3’}_inv(Kt))
+=|>
+State’:= 19 /\ SND({{RDP.X’.Na’}_inv(Ka)}_inv(Kc).
+{A’.Ka.Ts1’.E1’}_inv(Kt).
+{C’.Kc.Ts3’.E3’}_inv(Kt).{Plus}_inv(Kj))
+end role
+role session(
+A,B,C,J,X : agent,
+Ka, Kb, Kc, Kj, Kt, Kx : public_key)
+def=
+local
+RCV1,SND1,RCV2,SND2,RCV3,SND3,RCV4,SND4,RCV5,SND5 : channel(dy)
+composition
+source_node(A,B,C,J,X,Ka,Kb,Kc,Kj,Kt,Kx,RCV1,SND1)
+/\ intermediate_node1(A,B,C,J,X,Ka,Kb,Kc,Kj,Kt,Kx,RCV2,SND2)
+/\ intermediate_node2(A,B,C,J,X,Ka,Kb,Kc,Kj,Kt,Kx,RCV3,SND3)
+/\ final_node(A,B,C,J,X,Ka,Kb,Kc,Kj,Kt,Kx,RCV4,SND4)
+/\ joker_node(A,B,C,J,X,Ka,Kb,Kc,Kj,Kt,Kx,RCV5,SND5)
+end role
+role environment()
+def=
+const
+a_b_IPa, a_b_IPx, a_a_Na : protocol_id,
+a,b,c,x,j : agent,
+ka,kb,kc,kj,kt,kx : public_key
+intruder_knowledge ={a,b,c,x,ka,kb,kc,kj,kt,kx}
+composition
+session(a,b,c,j,x,ka,kb,kc,kj,kt,kx)
+end role
+goal
+weak_authentication_on a_b_IPa
+weak_authentication_on a_b_IPx
+weak_authentication_on a_a_Na
+end goal
+environment()
+State = 2 /\ RCV({{Rrep.A’.X’.B’}_inv(Kx)}_inv(Kb))
+/\ A’ = A /\ B’ = B
+=|>
+State’:= 5 /\ wrequest(A,B,xx,X’) /\ wrequest(A,B,bb,B’)
+/\ wrequest(A,B,aa,A’)
+end role
+role intermediate_node(
+A,B,X : agent,
+Ka, Kb, Kx : public_key,
+RCV,SND : channel(dy))
+played_by B def=
+local
+Rrep : protocol_id,
+State : nat
+const aa, bb, xx : protocol_id
+init State := 1
+transition
+step1.
+State = 1 /\ RCV({Rrep.A’.X’.B’}_inv(Kx))
+/\ A’ = A /\ B’ = B /\ X’ = X
+=|>
+State’:= 4 /\ SND({{Rrep.A’.X’.B’}_inv(Kx)}_inv(Kb))
+/\ wrequest(B,X,xx,X’) /\ wrequest(B,X,bb,B’)
+/\ wrequest(B,X,aa,A’) /\ witness(B,A,xx,X’)
+/\ witness(B,A,bb,B’) /\ witness(B,A,aa,A’)
+end role
+role final_node(
+A,B,X : agent,
+Ka, Kb, Kx : public_key,
+RCV,SND : channel(dy))
+played_by X def=
+local
+Rrep : protocol_id,
+State : nat
+const aa, bb, xx : protocol_id
+init State := 0
+transition
+step1.
+State = 0 /\ RCV(start) /\ B’ = B /\ X’ = X
+=|>
+State’:= 3 /\ SND({Rrep.A.X.B}_inv(Kx))
+/\ witness(X,B,xx,X) /\ witness(X,B,bb,B)
+/\ witness(X,B,aa,A)
+end role
+role session(
+A,B,X : agent,
+Ka, Kb, Kx : public_key)
+def=
+local
+RCV1,SND1,RCV2,SND2,RCV3,SND3 : channel(dy)
+composition
+final_node(A,B,X,Ka,Kb,Kx,RCV3,SND3)
+/\ intermediate_node(A,B,X,Ka,Kb,Kx,RCV2,SND2)
+/\ source_node(A,B,X,Ka,Kb,Kx,RCV1,SND1)
+end role
+role environment()
+def=
+const
+aa, bb, xx : protocol_id,
+a,b,x : agent,
+ka,kb,kx : public_key
+intruder_knowledge ={a,b,x,ka,kb,kx}
+composition
+session(a,b,x,ka,kb,kx)
+/\ session(i,b,x,ka,kb,kx)
+/\ session(a,i,x,ka,kb,kx)
+/\ session(a,b,i,ka,kb,kx)
+end role
+goal
+weak_authentication_on xx
+weak_authentication_on bb
+weak_authentication_on aa
+end goal
+environment()

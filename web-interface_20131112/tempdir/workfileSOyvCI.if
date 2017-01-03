@@ -1,0 +1,137 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileSOyvCI
+
+section signature:
+
+state_icc: agent * agent * text * nat * message * message * message * text * text * set(agent) * nat -> fact
+state_ifd: agent * agent * text * nat * text * text * message * message * message * set(agent) * set(agent) * nat -> fact
+
+
+section types:
+
+sec_ifd_dhvalue: protocol_id
+set_89, set_88, set_87, set_86, set_84, set_83, set_78, set_65, set_64: set
+5, 3, 10, State, 6, 4, SID, Dummy_State, 2, 1, 0, SID2, SID1: nat
+Set_43, Dummy_Set_43, Set_29, Dummy_Set_29, Set_26, Dummy_Set_26, ASGoal: set(agent)
+X, Y, K, Dummy_Y, Dummy_K, Dummy_X, start, dummy_msg, MGoal: message
+Ni, Nsecret, G, Dummy_Ni, Dummy_Nsecret, Dummy_Nf, dummy_nonce, Nf, g: text
+B, A, A2Goal, A1Goal, a, b, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(g).
+ iknows(i).
+ state_ifd(a,b,g,0,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,set_64,set_65,3).
+ state_icc(b,a,g,1,dummy_msg,dummy_msg,dummy_msg,dummy_nonce,dummy_nonce,set_78,4).
+ state_ifd(a,i,g,0,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,set_83,set_84,6).
+ state_icc(b,i,g,1,dummy_msg,dummy_msg,dummy_msg,dummy_nonce,dummy_nonce,set_89,10)
+
+
+section rules:
+
+step step_0 (A,B,G,Dummy_Nf,Nsecret,Dummy_X,K,Y,Set_26,Set_29,SID,Nf) :=
+ state_ifd(A,B,G,0,Dummy_Nf,Nsecret,Dummy_X,K,Y,Set_26,Set_29,SID).
+ iknows(start)
+=[exists Nf]=>
+ state_ifd(A,B,G,2,Nf,Nsecret,exp(G,Nf),K,Y,Set_26,Set_29,SID).
+ iknows(exp(G,Nf)).
+ witness(A,B,icc_ifd_x,exp(G,Nf))
+
+step step_1 (A,B,G,Nf,Dummy_Nsecret,X,Dummy_K,Dummy_Y,Dummy_Set_26,Dummy_Set_29,SID,Nsecret,Y) :=
+ state_ifd(A,B,G,2,Nf,Dummy_Nsecret,X,Dummy_K,Dummy_Y,Dummy_Set_26,Dummy_Set_29,SID).
+ iknows(Y)
+=[exists Nsecret]=>
+ state_ifd(A,B,G,4,Nf,Nsecret,X,exp(Y,Nf),Y,Dummy_Set_26,Dummy_Set_29,SID).
+ request(A,B,ifd_icc_y,Y,SID).
+ secret(exp(Y,Nf),k,Dummy_Set_26).
+ iknows(scrypt(exp(Y,Nf),Nsecret)).
+ secret(Nsecret,sec_ifd_dhvalue,Dummy_Set_29).
+ contains(A,Dummy_Set_26).
+ contains(B,Dummy_Set_26).
+ contains(A,Dummy_Set_29).
+ contains(B,Dummy_Set_29)
+
+step step_2 (B,A,G,Dummy_X,Dummy_Y,Dummy_K,Dummy_Ni,Nsecret,Dummy_Set_43,SID,X,Ni) :=
+ state_icc(B,A,G,1,Dummy_X,Dummy_Y,Dummy_K,Dummy_Ni,Nsecret,Dummy_Set_43,SID).
+ iknows(X)
+=[exists Ni]=>
+ state_icc(B,A,G,3,X,exp(G,Ni),exp(exp(G,Ni),Ni),Ni,Nsecret,Dummy_Set_43,SID).
+ request(B,A,icc_ifd_x,X,SID).
+ secret(exp(exp(G,Ni),Ni),k,Dummy_Set_43).
+ iknows(exp(G,Ni)).
+ witness(B,A,ifd_icc_y,exp(G,Ni)).
+ contains(A,Dummy_Set_43).
+ contains(B,Dummy_Set_43)
+
+step step_3 (B,A,G,X,Y,Dummy_K,Ni,Dummy_Nsecret,Set_43,SID,K,Nsecret) :=
+ state_icc(B,A,G,3,X,Y,Dummy_K,Ni,Dummy_Nsecret,Set_43,SID).
+ iknows(scrypt(K,Nsecret))
+ =>
+ state_icc(B,A,G,5,X,Y,K,Ni,Nsecret,Set_43,SID)
+
+
+section properties:
+
+property secrecy_of_sec_ifd_dhvalue (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_ifd_dhvalue,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_k (MGoal,ASGoal) :=
+ [] ((secret(MGoal,k,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_ifd_icc_y (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,ifd_icc_y,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,ifd_icc_y,MGoal))
+     /\ ((request(A1Goal,A2Goal,ifd_icc_y,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,ifd_icc_y,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_icc_ifd_x (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,icc_ifd_x,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,icc_ifd_x,MGoal))
+     /\ ((request(A1Goal,A2Goal,icc_ifd_x,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,icc_ifd_x,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_sec_ifd_dhvalue (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_ifd_dhvalue,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_k (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,k,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_ifd_icc_y (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,ifd_icc_y,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,ifd_icc_y,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_ifd_icc_y (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,ifd_icc_y,MGoal,SID1).
+ request(A1Goal,A2Goal,ifd_icc_y,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_icc_ifd_x (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,icc_ifd_x,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,icc_ifd_x,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_icc_ifd_x (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,icc_ifd_x,MGoal,SID1).
+ request(A1Goal,A2Goal,icc_ifd_x,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

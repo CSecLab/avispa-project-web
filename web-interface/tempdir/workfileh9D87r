@@ -1,0 +1,110 @@
+role alice (Ui,SNj: agent,
+               H : hash_func,
+               Snd,Rcv: channel(dy))
+played_by Ui
+def=
+
+  local State   : nat,
+        Ea, Ca  : public_key,
+         Ep, Cp,N,TK,Cy1,Cy2,Ch : text
+
+  const sub1,sub2,sub3,sub4 : protocol_id
+
+  init  State := 0
+
+  transition
+
+   1. State = 0
+      /\ Rcv(start) =|> 
+      State' := 1
+      /\ Cy1':= {Ea'}_ Cp
+      /\ N':= new()
+      /\ Ch':= H(Ea)
+      /\ Cy2':= {N'.Ch'}_Ep   
+      /\ Snd(Ui.SNj.Cy1'.Cy2')
+      /\ witness(Ui, SNj, sub3, N') 
+
+   2. State = 1
+      /\ Rcv(SNj.Ui.{N'.TK'}_Ea) =|> 
+      State' := 2  /\ secret(TK,sub3,{Ui, SNj})
+                  /\ secret({Ea, Cp},sub2,{Ui, SNj})
+                  /\ secret({Ep,Ca} ,sub1,{Ui, SNj})
+                 /\ request(SNj, Ui sub4, TK')  
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob (Ui,SNj: agent,
+           H : hash_func,
+          Snd,Rcv: channel(dy))
+
+played_by SNj
+def=
+  local State   : nat,
+        N,TK, Ep, Cp, Cy1,Cy2,Ch  : text,
+	Ea ,Ca  : public_key
+    const sub1,sub2,sub3,sub4 : protocol_id
+
+  init  State := 0
+
+  transition
+
+   1. State = 0 /\ Rcv(Ui.SNj.{Ea}_ Cp.{N'.Ch'}_Ep)=|> 
+      State' := 1 /\ TK' := new() 
+                  /\ Snd(SNj.Ui.{N'.TK'}_Ea) 
+                  /\ request(Ui, SNj, sub3, N')
+      		  /\ secret({Ea, Cp},sub2,{Ui, SNj})
+                  /\ secret({Ep,Ca} ,sub1,{Ui, SNj})
+                  /\ witness(SNj, Ui sub4, TK') 
+
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(Ui,SNj: agent,
+ H : hash_func )
+def=
+
+  local SA, RA, SB, RB: channel (dy)
+
+  composition
+     alice(Ui,SNj,H,SA,RA)
+  /\ bob(SNj,Ui,H,SB,RB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role environment()
+def=
+
+  const ui, snj   : agent,
+         h   : hash_func,
+         n,tk,ep, cp,cy1,cy2,ch  : text,
+	ea ,ca  : public_key,
+sub1, sub2,sub3,sub4 : protocol_id
+
+  intruder_knowledge={ui,snj}
+
+  composition
+      session(ui,snj,h)
+   /\ session(snj,ui,h)
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+ secrecy_of sub1
+  secrecy_of sub2
+authentication_on sub3
+authentication_on sub4
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+

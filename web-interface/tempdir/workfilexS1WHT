@@ -1,0 +1,136 @@
+role role_MR(MR:agent,MAP:agent,AAA:agent,AR2:agent,ARID:text,LK:symmetric_key,Ki:symmetric_key,BitI:text,BitR:text,SIDD:text,MRID:text,H:hash_func,NID:text,SND,RCV:channel(dy))
+played_by MR
+def=
+	local
+		State:nat,N1:text,NLCoA:text,ACK2:text,N3:text,MAPID:text,N4:text,N2:text,NSK:message
+		const
+		irtsolpr  : text,
+		iprtadv  : text,
+		fna      : text,
+		lbu : text,
+		flback:text,
+		sec_n3 : protocol_id,
+		auth_1 : protocol_id,
+		auth_2 : protocol_id,
+		auth_3 : protocol_id,
+		auth_4 : protocol_id
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ N3':=new() /\ N2':=new() /\ N1':=new() /\
+		SND(irtsolpr(MR.MAP.ARID.SIDD.NID.N1'.N2'.BitI.BitR.H(MRID.SIDD.N1'.LK).H(MRID.SIDD.N2'.Ki).H(BitI.BitR.SIDD.LK).{SIDD.N3'}_LK))
+		/\ witness (MR, AAA, auth_1,H(MRID.SIDD.N1'.LK))
+		/\ secret(N3,sec_n3, {MR,AAA,AR2 })
+		4. State=1 /\ RCV(iprtadv(MAP.MR.ARID.NLCoA'.N4'.H(SIDD.H(MRID.MAPID'.SIDD.N4'.LK).NLCoA')))
+		/\ request(MR,MAP, auth_2, H(SIDD.H(MRID.MAPID'.SIDD.N4'.LK).NLCoA'))=|> State':=2
+		9. State=2 /\ RCV(flback(MAP.MR.SIDD.NID.{SIDD.N3.ARID}_NSK'.H(H(MRID.MAPID.SIDD.N4.LK).ACK2')))
+		/\ request(MR,AR2, auth_3,N3)
+		=|> State':=3 /\ SND(fna(MR.AR2.SIDD.NID.{SIDD.N3.ARID.MRID}_NSK'))
+		/\ witness(MR,AR2, auth_4,N3) /\ SND(lbu(MR.MAP.SIDD.NID.H(SIDD.N2.H(MRID.MAPID.SIDD.N4.LK))))
+end role
+
+role role_MAP(MAP:agent,AAA:agent,MR:agent,AR2:agent,MAPID:text,SKMapAAA:symmetric_key,H:hash_func,NLCoA:text,ACK2:text,SND,RCV:channel(dy))
+played_by MAP
+def=
+	local
+		State:nat,Ki:symmetric_key,N1:text,BitI:text,BitR:text,N5:text,ACK1:text,ARID:text,N3:text,NSK:message,LK:symmetric_key,SIDD:text,MRID:text,N4:text,N2:text,NID:text
+	const
+		irtsolpr  : text,
+		iprtadv  : text,
+		aaa_auth_req :text,
+		lbu : text,
+		aaa_auth_rep : text,
+		hi :text,
+		hack :text,
+		flback:text,
+		auth_2 : protocol_id
+
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(irtsolpr(MR.MAP.ARID'.SIDD'.NID'.N1'.N2'.BitI'.BitR'.H(MRID'.SIDD'.N1'.LK').H(MRID'.SIDD'.N2'.Ki').H(BitI'.BitR'.SIDD'.LK').{SIDD'.N3'}_LK'))
+		=|> State':=1 /\ SND(aaa_auth_req(MAP.AAA.ARID'.SIDD'.NID'.N1'.BitI'.BitR'.H(MRID'.SIDD'.N1'.LK').H(BitI'.BitR'.SIDD'.LK').{SIDD'.N3'}_LK'))
+		3. State=1 /\ RCV(aaa_auth_rep(AAA.MAP.SIDD.NID.N4'.{H(MRID.MAPID.SIDD.N4'.LK).N5'.SIDD}_SKMapAAA))
+		=|> State':=2 /\ SND(iprtadv(MAP.MR.ARID.NLCoA.N4'.H(SIDD.H(MRID.MAPID.SIDD.N4'.LK).NLCoA)))
+		/\ witness(MAP,MR, auth_2, H(SIDD.H(MRID.MAPID.SIDD.N4'.LK).NLCoA))
+		/\ SND(hi(MAP.AR2.SIDD.NID.NLCoA.H(NLCoA.SKMapAAA).{SIDD.N5'}_SKMapAAA))
+		8. State=2 /\ RCV(hack(AR2.MAP.SIDD.NID.H(SIDD.N5.ACK1').{SIDD.N3.ARID}_NSK'))
+		=|> State':=3 /\ SND(flback(MAP.MR.SIDD.NID.{SIDD.N3.ARID}_NSK'.H(H(MRID.MAPID.SIDD.N4.LK).ACK2)))
+		11. State=3 /\ RCV(lbu(MR.MAP.SIDD.NID.H(SIDD.N2.H(MRID.MAPID.SIDD.N4.LK)))) =|> State':=4
+end role
+
+role role_AAA(AAA:agent,MAP:agent,MR:agent,AR2:agent,LK:symmetric_key,SKMapAAA:symmetric_key,H:hash_func,MAPID:text,SKAr2AAA:symmetric_key,SND,RCV:channel(dy))
+played_by AAA
+def=
+	local
+		State:nat,N1:text,ARID:text,BitI:text,BitR:text,N4:text,MRID:text,NLCoA:text,N3:text,SIDD:text,N5:text,NID:text,NSK:message
+	const
+	aaa_auth_req : text	,
+	aaa_auth_rep : text,
+	sec_nsk : protocol_id,
+	auth_1 : protocol_id,
+	sec_nsk : protocol_id
+
+
+	init
+
+		State := 0
+	transition
+		2. State=0 /\ RCV(aaa_auth_req(MAP.AAA.ARID'.SIDD'.NID'.N1'.BitI'.BitR'.H(MRID'.SIDD'.N1'.LK).H(BitI'.BitR'.SIDD'.LK).{SIDD'.N3'}_LK))
+		/\ request (AAA, MR, auth_1,H(MRID.SIDD.N1'.LK))
+		=|> State':=1 /\ N5':=new() /\ N4':=new() /\ SND(aaa_auth_rep(AAA.MAP.SIDD'.NID'.N4'.{H(MRID'.MAPID.SIDD'.N4'.LK).N5'.SIDD'}_SKMapAAA))
+		6. State=1 /\ RCV(aaa_auth_req(AR2.AAA.SIDD.NID.NLCoA'.H(NLCoA'.SKMapAAA).{SIDD.N5}_SKMapAAA))
+		=|> State':=2
+		/\NSK':=H(NID.SIDD.N1.N4.LK) /\SND(aaa_auth_rep(AAA.AR2.SIDD.NID.{SIDD.NSK'.N3.N5}_SKAr2AAA))/\ secret(NSK,sec_nsk, {MR,AAA,AR2 })
+end role
+
+role role_AR2(AR2:agent,MAP:agent,MR:agent,AAA:agent,H:hash_func,SKAr2AAA:symmetric_key,ACK1:text,ARID:text,SND,RCV:channel(dy))
+played_by AR2
+def=
+	local
+		State:nat,SKMapAAA:symmetric_key,NLCoA:text,N5:text,NSK:message,SIDD:text,N3:text,MRID:text,NID:text
+	const
+		fna : text,
+		hi : text,
+		aaa_auth_req : text,
+		aaa_auth_rep  : text,
+		hack :text,
+		auth_3 : protocol_id,
+		auth_4 : protocol_id
+
+	init
+		State := 0
+	transition
+		5. State=0 /\ RCV(hi(MAP.AR2.SIDD'.NID'.NLCoA'.H(NLCoA'.SKMapAAA').{SIDD'.N5'}_SKMapAAA'))
+		=|> State':=1 /\ SND(aaa_auth_req(AR2.AAA.SIDD'.NID'.NLCoA'.H(NLCoA'.SKMapAAA').{SIDD'.N5'}_SKMapAAA'))
+		7. State=1 /\ RCV(aaa_auth_rep(AAA.AR2.SIDD.NID.{SIDD.NSK'.N3'.N5}_SKAr2AAA))
+		=|> State':=2 /\ SND(hack(AR2.MAP.SIDD.NID.H(SIDD.N5.ACK1).{SIDD.N3'.ARID}_NSK'))/\ witness(AR2,MR, auth_3,N3')
+		10. State=2 /\ RCV(fna(MR.AR2.SIDD.NID.{SIDD.N3.ARID.MRID'}_NSK)) /\ request(AR2,MR, auth_4,N3)=|> State':=3
+end role
+
+role session1(MAPID:text,SKMapAAA:symmetric_key,LK:symmetric_key,NID:text,MRID:text,SIDD:text,BitR:text,BitI:text,Ki:symmetric_key,NLCoA:text,ACK2:text,AR2:agent,MAP:agent,MR:agent,AAA:agent,H:hash_func,SKAr2AAA:symmetric_key,ACK1:text,ARID:text)
+def=
+	local
+		SND4,RCV4,SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_AR2(AR2,MAP,MR,AAA,H,SKAr2AAA,ACK1,ARID,SND4,RCV4) /\ role_AAA(AAA,MAP,MR,AR2,LK,SKMapAAA,H,MAPID,SKAr2AAA,SND3,RCV3) /\ role_MAP(MAP,AAA,MR,AR2,MAPID,SKMapAAA,H,NLCoA,ACK2,SND2,RCV2) /\ role_MR(MR,MAP,AAA,AR2,ARID,LK,Ki,BitI,BitR,SIDD,MRID,H,NID,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		hash_0:hash_func,ack1:text,const_1:hash_func,aaa:agent,map:agent,ack2:text,ki:symmetric_key,bitR:text,mrid:text,lk:symmetric_key,mapid:text,skMapAAA:symmetric_key,nid:text,sid:text,bitI:text,nlcoa:text,ar2:agent,mr:agent,skAr2AAA:symmetric_key,arid:text
+	intruder_knowledge = {map,aaa,mr,ar2}
+	composition
+		session1(mapid,skMapAAA,lk,nid,mrid,sid,bitR,bitI,ki,nlcoa,ack2,ar2,map,mr,aaa,const_1,skAr2AAA,ack1,arid)
+end role
+
+goal
+	authentication_on auth_1
+	authentication_on auth_2
+	authentication_on auth_3
+	authentication_on auth_4
+	secrecy_of sec_n3,sec_nsk
+end goal
+
+environment()

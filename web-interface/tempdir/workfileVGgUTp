@@ -1,0 +1,111 @@
+role cluster (A,B   : agent,
+           	Kg, K   : symmetric_key,
+	   	H     : hash_func,
+           	Snd, Rcv: channel(dy))
+played_by A
+def=
+           
+  local State  : nat,
+        Na, Nb : text,
+	  Ts     : nat
+       
+  const sec_kg1 : symmetric_key
+
+  init  State := 0
+
+  transition
+   1. State   = 0 / Rcv(start) =|>
+      State' := 1 / Na' := new() 
+	        / Snd({A. Na'}_K)
+
+   2. State   = 1 / Rcv({Na'. Nb'.Ts'}_K.H({Na'. Nb'.Ts'}_K)) =|> 
+      State' := 2 / Na' := new() 
+                  / Ts' := new() / Snd({Nb'. Na'.Ts'.A.xor(K,Kg)}_K.H({Nb'. Na'.Ts'.A.xor(K,Kg)}_K))
+	          / witness(A,B,na,Na') 
+		  / secret(Kg,sec_kg1,{A,B})
+
+   3. State   = 2 / Rcv({Kg.Na'. Nb'}_K.H({Kg.Na'.Nb'}_K)) =|> 
+      State' := 3 / request(A,B,nb,Nb) 
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role noeud (B,A : agent,
+                Kg, K : symmetric_key,
+		H: hash_func,
+                Snd, Rcv: channel(dy))
+played_by B
+def=
+           
+  local State  : nat,
+        Na, Nb : text,
+	  Ts : nat
+        
+  const sec_kg2 : symmetric_key
+
+  init  State := 0
+
+  transition
+   1. State   = 0 / Rcv({A'. Na'}_K) =|>  
+      State' := 1 / Ts' := new() 
+			/ Nb' := new() / Snd({ Na'. Nb'.Ts'}_K.H({ Na'. Nb'.Ts'}_K))
+	          / witness(B,A,nb,Nb')
+
+   2. State   = 1 / Rcv({Nb'. Na'.Ts'.A.xor(K,Kg)}_K.H({Nb'. Na'.Ts'.A.xor(K,Kg)}_K)) =|>
+      State' := 2 / Nb' := new()
+	        / Snd({Kg.Na'. Nb'}_K.H({Kg.Na'.Nb'}_K))
+	          / request(B,A,na,Na') 
+		  / secret(Kg,sec_kg2,{A,B})
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(A,B: agent,
+	     Kg, K: symmetric_key,
+	     H: hash_func)
+def=
+
+  local SA, SB, RA, RB: channel (dy)
+
+  composition
+           cluster(A, B, Kg, K, H, SA, RA)
+       /  noeud(B, A, Kg, K, H, SB, RB)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+
+  const a, b          : agent,
+        k,ki, kai, kbi, kg: symmetric_key,
+        h             : hash_func,
+        na, nb        : protocol_id
+
+  intruder_knowledge = {a, b, ki, kai, kbi, h }
+
+  composition
+	session(a,b,k,kg,h) /
+	session(a,i,ki,kai,h) /
+              session(b,i,ki,kbi,h)
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+ %secrecy of the shared key
+ secrecy_of sec_kg1, sec_kg2	% Addresses G12
+                         
+ %Cluster authenticates CHAP_Resp on nb
+ authentication_on nb  % Addresses G1, G2
+ %noeud authenticates CHAP_Init on na
+ authentication_on na  % Addresses G1, G2
+  
+end goal
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+ 

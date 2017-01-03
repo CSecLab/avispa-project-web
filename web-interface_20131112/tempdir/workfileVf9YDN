@@ -1,0 +1,132 @@
+role hsp( A,B,C: agent,
+	      ID_A,ID_B,ID_C:message,
+	      Ka,Kb,Kc:public_key,
+	      H:hash_func,
+	      SND,RCV:channel(dy))
+		
+played_by A def=
+
+local State:nat,
+	TD,PI: text,
+	H1,H2,DS:message
+
+init State :=0
+
+transition
+ 
+0. State=0 /\ RCV(start)=|>
+	State':=5     /\ TD':=new()
+		     /\ PI':=new()
+		     /\ H1':={TD'}_Kb
+		     /\ H2':={PI'}_Kc
+		     /\ DS':={H(H1'.H2')}_inv(Ka)
+		     /\ SND(ID_A.{TD'}_Kb.{PI'}_Kc.H2'.DS')
+		     /\ secret(TD',p1,{A,B})
+		     /\ secret(PI',p2,{A,C})
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role patient(A,B,C: agent,
+	      ID_A,ID_B,ID_C:message,
+	      Ka,Kb,Kc:public_key,
+	      H:hash_func,
+	      SND,RCV:channel(dy))
+
+played_by B def=
+
+local State:nat,
+	TD,PI:text,
+	X,DS,H2:message
+
+init State:=1
+
+transition
+
+1. State=1 /\ RCV(ID_A.{TD'}_Kb.{PI'}_Kc.H2'.DS')=|>
+	State':=4	/\ X':={TD}_Kb
+			/\ SND(ID_A.ID_B.{PI'}_Kc.X'.DS)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role tpa(A,B,C: agent,
+	 ID_A,ID_B,ID_C:message,
+	 Ka,Kb,Kc:public_key,
+	 H:hash_func,
+	 SND,RCV:channel(dy))
+
+played_by C def=
+
+local State:nat,
+	PI:text,
+	DS,X:message
+
+init State:=2
+
+transition
+
+2. State=2 /\ RCV(ID_A.ID_B.{PI'}_Kc.X'.DS)=|>
+	State':=3
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role session(A,B,C : agent,
+	     ID_A,ID_B,ID_C:message,
+	     Ka,Kb,Kc: public_key,
+		H:hash_func) def=
+
+local SA,RA,SB,RB,SC,RC: channel(dy)
+
+composition
+ 
+           hsp(A,B,C,ID_A,ID_B,ID_C,Ka,Kb,Kc,H,SA,RA)
+	/\ patient(A,B,C,ID_A,ID_B,ID_C,Ka,Kb,Kc,H,SB,RB)
+	/\ tpa(A,B,C,ID_A,ID_B,ID_C,Ka,Kb,Kc,H,SC,RC)
+	
+	     
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+    const a, b ,c: agent,
+	  id_A,id_B,id_C:message,
+	   ka,kb,kc: public_key,
+          p1,p2: protocol_id,
+	  h:hash_func
+
+    intruder_knowledge = {a, b,c,id_A,id_B,id_C,h}
+
+    composition
+
+	session(a,b,c,id_A,id_B,id_C,ka,kb,kc,h)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of p1,p2
+  
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+
+ 
+
+
+
+
+
+
+

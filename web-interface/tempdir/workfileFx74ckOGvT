@@ -1,0 +1,115 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%% BS %%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role bs(
+SN,BS: agent,
+Kpub: public_key,
+Kuh:symmetric_key,
+H: function,
+Request,
+Initiation_Required,Success: text,
+SND_BSSN, RCV_BSSN : channel(dy))
+played_by BS def=
+local State,Pkg_param : nat set,
+IDsn : text
+const sec_u_kuh : protocol_id
+init  State := 0
+transition
+
+%%%%%%%%%%%%%%%%%%%BS and SN%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%1. State = 0 /\ RCV_BSSN(start) =|>
+  %% State':= 1 /\ SND_BSSN(Request)
+%%2. State = 1 /\ RCV_BSSN(Initiation_Required)
+1. State =  0 /\ RCV_BSSN(Request) =|>
+   State':= 1 /\  SND_BSSN(Initiation_Required)
+/\ Pkg_param':=new()
+2. State = 1 /\ RCV_BSSN(IDsn)   =|>%%recoit l'ID de SN%%
+   State':= 2 /\ SND_BSSN({Kpub.Pkg_param'.(H(IDsn)).(inv((H(IDsn))))}_Kuh)%%envoie de parametre de SN clé public ,privé et le cle public de PKG
+             /\ secret(Kuh,sec_h_kuh,{BS,SN})%%envoie de ssn d'une manière securisé
+
+3. State = 2 /\ RCV_BSSN(Success) =|>
+    State':= 3
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%% SN %%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role sn (
+SN,BS: agent,
+
+H: function,
+
+
+Request,
+Initiation_Required,Success: text,
+SND_SNBS, RCV_SNBS : channel(dy))
+
+played_by SN def=
+local State,Pkg_param, Q : nat set,
+Kpub: public_key,
+
+Kuh: symmetric_key,
+IDsn : text
+const sec_h_kuh : protocol_id
+
+init State := 11
+transition
+%%1. State =  11 /\ RCV_SNBS(Request) =|>
+ %% State':= 12 /\  SND_SNBS(Initiation_Required)
+
+1. State =11 /\ RCV_SNBS(start) =|>
+   State':= 12 /\ SND_SNBS(Request)
+2. State = 12 /\ RCV_SNBS(Initiation_Required)=|>
+   State':= 13 /\ SND_SNBS((IDsn))   %%envoi l'ID de SN%%
+3. State= 13 /\ RCV_SNBS(Kpub.Pkg_param'.(H(IDsn)).(inv((H(IDsn))))) =|> %%recoit de parametre de SN clé public ,privé et le cle public de PKG
+   State':= 14 /\ SND_SNBS(Success)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%% Session %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session (
+BS,SN : agent,
+Kuh:symmetric_key,
+Kpub: public_key,
+H: function,
+
+Request,
+Initiation_Required,
+Success: text
+)
+def=
+local
+SND_SNBS,SND_BSSN: channel(dy),
+RCV_SNBS,RCV_BSSN : channel(dy)
+composition
+bs(BS,SN,Kpub,H,Request,Initiation_Required,SND_BSSN, RCV_BSSN )
+/\ sn(BS,SN,Request,Initiation_Required,
+Success,SND_SNBS, RCV_SNBS)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%% Environment %%%%%%%%%%%%%%%%%
+role environment()
+def=
+const
+bs1,sn1 : agent,
+kuh,kih : symmetric_key,
+kpub:public_key,
+h :function,
+req,initiation,succ : text
+
+intruder_knowledge = {bs1,sn1,kpub,h,req,initiation,succ}
+composition
+session(bs1,sn1,kuh,kpub,h,req,initiation,succ)
+/\ session(i,bs1,sn1,kih,kpub,h,req,initiation,succ)
+end role
+
+goal
+
+secrecy_of sec_u_kuh
+
+end goal
+
+environment()
+

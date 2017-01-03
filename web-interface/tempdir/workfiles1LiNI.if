@@ -1,0 +1,116 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfiles1LiNI
+
+section signature:
+
+state_capteur2: agent * agent * hash_func * hash_func * nat * nat * message * set(text) * set(text) * nat * nat * nat -> fact
+state_capteur1: agent * agent * hash_func * hash_func * nat * nat * message * set(text) * set(text) * nat * nat * set(agent) * nat -> fact
+
+
+section types:
+
+dummy_set: set(message)
+set_83, set_81, set_66: set
+Bioscrypt, Coeff, Dummy_Bioscrypt, Dummy_Coeff: set(text)
+Dummy_Set_22, Set_22, ASGoal: set(agent)
+Key, Dummy_Key, start, dummy_msg, MGoal: message
+capteur1_capteur2_index, key, capteur1_capteur2_coeff: protocol_id
+Ni, Index, State, 10, N, 6, 4, SID, Dummy_Ni, Dummy_Index, 2, Dummy_State, 3, 1, dummy_nat, 0, SID2, SID1, n: nat
+H, Mac, h, mac: hash_func
+A, B, A2Goal, A1Goal, a, b, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(mac).
+ iknows(h).
+ iknows(i).
+ state_capteur1(a,b,mac,h,n,0,dummy_msg,dummy_set,dummy_set,dummy_nat,dummy_nat,set_66,3).
+ state_capteur2(b,a,mac,h,n,0,dummy_msg,dummy_set,dummy_set,dummy_nat,dummy_nat,4).
+ state_capteur1(a,i,mac,h,n,0,dummy_msg,dummy_set,dummy_set,dummy_nat,dummy_nat,set_81,6).
+ state_capteur2(b,i,mac,h,n,0,dummy_msg,dummy_set,dummy_set,dummy_nat,dummy_nat,10)
+
+
+section rules:
+
+step step_0 (A,B,Mac,H,N,Dummy_Key,Dummy_Coeff,Dummy_Bioscrypt,Index,Ni,Dummy_Set_22,SID,Key,Coeff) :=
+ state_capteur1(A,B,Mac,H,N,0,Dummy_Key,Dummy_Coeff,Dummy_Bioscrypt,Index,Ni,Dummy_Set_22,SID).
+ iknows(start)
+=[exists Coeff,Key]=>
+ state_capteur1(A,B,Mac,H,N,1,Key,Coeff,xor(Coeff,Key),Index,Ni,Dummy_Set_22,SID).
+ secret(Key,key,Dummy_Set_22).
+ iknows(pair(scrypt(apply(H,N),pair(Coeff,xor(Coeff,Key))),apply(Mac,pair(apply(H,N),pair(Coeff,xor(Coeff,Key)))))).
+ contains(A,Dummy_Set_22).
+ contains(B,Dummy_Set_22)
+
+step step_1 (A,B,Mac,H,N,Dummy_Key,Coeff,Bioscrypt,Dummy_Index,Dummy_Ni,Set_22,SID,Key,Index,Ni) :=
+ state_capteur1(A,B,Mac,H,N,1,Dummy_Key,Coeff,Bioscrypt,Dummy_Index,Dummy_Ni,Set_22,SID).
+ iknows(pair(scrypt(Key,Index),apply(Mac,pair(Key,Ni))))
+ =>
+ state_capteur1(A,B,Mac,H,N,2,Key,Coeff,Bioscrypt,Index,Ni,Set_22,SID).
+ request(A,B,capteur1_capteur2_index,Index,SID)
+
+step step_2 (B,A,Mac,H,N,Key,Dummy_Coeff,Dummy_Bioscrypt,Dummy_Index,Dummy_Ni,SID,Coeff,Bioscrypt,Index,Ni) :=
+ state_capteur2(B,A,Mac,H,N,0,Key,Dummy_Coeff,Dummy_Bioscrypt,Dummy_Index,Dummy_Ni,SID).
+ iknows(pair(scrypt(apply(H,N),pair(Coeff,Bioscrypt)),apply(Mac,pair(apply(H,N),pair(Coeff,Bioscrypt)))))
+=[exists Ni,Index]=>
+ state_capteur2(B,A,Mac,H,N,1,Key,Coeff,Bioscrypt,Index,Ni,SID).
+ iknows(pair(scrypt(Key,Index),apply(Mac,pair(Key,Ni)))).
+ witness(B,A,capteur1_capteur2_index,Index)
+
+
+section properties:
+
+property secrecy_of_key (MGoal,ASGoal) :=
+ [] ((secret(MGoal,key,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_capteur1_capteur2_index (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,capteur1_capteur2_index,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,capteur1_capteur2_index,MGoal))
+     /\ ((request(A1Goal,A2Goal,capteur1_capteur2_index,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,capteur1_capteur2_index,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_capteur1_capteur2_coeff (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,capteur1_capteur2_coeff,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,capteur1_capteur2_coeff,MGoal))
+     /\ ((request(A1Goal,A2Goal,capteur1_capteur2_coeff,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,capteur1_capteur2_coeff,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_key (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,key,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_capteur1_capteur2_index (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,capteur1_capteur2_index,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,capteur1_capteur2_index,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_capteur1_capteur2_index (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,capteur1_capteur2_index,MGoal,SID1).
+ request(A1Goal,A2Goal,capteur1_capteur2_index,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_capteur1_capteur2_coeff (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,capteur1_capteur2_coeff,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,capteur1_capteur2_coeff,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_capteur1_capteur2_coeff (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,capteur1_capteur2_coeff,MGoal,SID1).
+ request(A1Goal,A2Goal,capteur1_capteur2_coeff,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

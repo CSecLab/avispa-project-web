@@ -1,0 +1,187 @@
+role creator(
+
+	Cr,Tr,Kdc,Clod,Rdr : agent,
+	H : hash_func,
+	Kcrcc,Kcrtr,Kcrkdc,Krdrcc,Krdrtr,Krdrkdc,Ktrcr,Ktrrdr,Kkdccr,Kkdcrdr,TPK: public_key,
+	SND,RCV : channel(dy)
+
+)
+played_by Cr def=
+	local
+		State : nat,
+		Kbase,Id,A,Ai,Yi,Aa,Bb,G,Hj,T, Y : text,
+		K1 : message
+	init
+		State := 0
+	transition
+		1. State = 0 / SND(start) =|> 
+			State':= 1 / SND({Id}_Kcrtr)
+			
+		2. State = 1 / RCV({H(Id.Kbase.H(Kbase.inv(A)).H(Id.Kbase))}_inv(Ktrcr)) =|>
+			State':= 2 / SND({Id.Kbase.H(Kbase.inv(A)).H(Id.Kbase)}_Kcrkdc)
+					   
+		3. State = 2  / RCV({H(Ai.Yi).H(H(H(G.G).Ai).Yi).H(Aa.Bb).H(H(Hj.Aa).H(Hj.Bb))}_inv(Kkdccr)) =|>
+			State':=3 / T' := new()
+					  / Y' := new()
+					  /SND({{K1}_(H(H(H(G.G).Ai).Yi)).T'.H(TPK.H(Aa.Bb).H(Id.Kbase.H(Kbase.inv(A)).H(Id.Kbase)).K1.Y').Y'}_Kcrcc)
+end role
+
+
+
+role reader(
+
+	Cr,Tr,Kdc,Clod,Rdr : agent,
+	H : hash_func,
+	Kcrcc,Kcrtr,Kcrkdc,Krdrcc,Krdrtr,Krdrkdc,Ktrcr,Ktrrdr,Kkdccr,Kkdcrdr,TPK: public_key,
+	SND,RCV : channel(dy)
+
+)
+played_by Rdr def=
+	local
+		State: nat,
+		Nb,Kbase,T,Si,Y,Id,A,Ai,Yi,Aa,Bb,G,Hj : text,
+		K1 : message
+	init
+		State := 0
+	transition
+		1. State = 0 / SND(start) =|> 
+			State':= 1 / SND(Id)
+			
+		2. State = 1 / RCV({H(Id.Kbase.H(Kbase.inv(A)).H(Id.Kbase))}_inv(Ktrcr)) =|>
+			State':= 2 / SND(H(Id.Kbase.H(Kbase.inv(A)).H(Id.Kbase)))
+			
+		3. State = 2 / RCV(H(Ai.Yi).H(H(H(G.G).Ai).Yi).H(Aa.Bb).H(H(Hj.Aa).H(Hj.Bb))) =|>
+			State':=3 /SND({H(Id.Kbase.H(Kbase.inv(A)).H(Id.Kbase)).H(Ai.Yi).H(Aa.Bb)}_Krdrcc) 
+					  /RCV({K1}_H(H(H(G.G).Ai).Yi))
+end role
+
+role trustee(
+
+	Cr,Tr,Kdc,Clod,Rdr : agent,
+	H : hash_func,
+	Kcrcc,Kcrtr,Kcrkdc,Krdrcc,Krdrtr,Krdrkdc,Ktrcr,Ktrrdr,Kkdccr,Kkdcrdr,TPK: public_key,
+	SND,RCV : channel(dy)
+
+)
+played_by Tr def= 
+
+	local
+		State: nat,
+		Nb,Kbase,T,Si,Y ,Id,A: text
+	init
+		State :=1
+	transition
+		1. State = 1 / RCV({Id}_inv(Kcrtr)) =|>
+			State' := 2 / SND({H(Id.Kbase.H(Kbase.inv(A)).H(Id.Kbase))}_Ktrcr) %%%send from trustee to creator
+			
+		2. State =2 / RCV({Id}_inv(Krdrtr)) =|>
+			State' := 3 / SND({H(Id.Kbase.H(Kbase.inv(A)).H(Id.Kbase))}_Ktrrdr) %%%send from trustee to reader
+
+
+end role
+
+role kdc(
+
+	Cr,Tr,Kdc,Clod,Rdr : agent,
+	H : hash_func,
+	Kcrcc,Kcrtr,Kcrkdc,Krdrcc,Krdrtr,Krdrkdc,Ktrcr,Ktrrdr,Kkdccr,Kkdcrdr,TPK: public_key,
+	SND,RCV : channel(dy)
+
+)
+played_by Kdc def=
+
+	local
+		State : nat,
+		 Aa, Bb, G, Hj , Ai, Yi , Id, Kbase, A : text
+	init
+		State := 1
+	transition
+		1. State = 1 / RCV({Id.Kbase.H(Kbase.inv(A)).H(Id.Kbase)}_inv(Kcrkdc)) =|>  
+			State' := 2 / SND({H(Ai.Yi).H(H(H(G.G).Ai).Yi).H(Aa.Bb).H(H(Hj.Aa).H(Hj.Bb))}_Kkdccr)
+			
+		2. State = 2 / RCV({Id.Kbase.H(Kbase.inv(A)).H(Id.Kbase)}_inv(Krdrkdc)) =|>  
+			State' := 3 / SND({H(Ai.Yi).H(H(H(G.G).Ai).Yi).H(Aa.Bb).H(H(Hj.Aa).H(Hj.Bb))}_Kkdcrdr)
+
+end role
+
+role cloud(
+
+	Cr,Tr,Kdc,Clod,Rdr : agent,
+	H : hash_func,
+	Kcrcc,Kcrtr,Kcrkdc,Krdrcc,Krdrtr,Krdrkdc,Ktrcr,Ktrrdr,Kkdccr,Kkdcrdr,TPK: public_key,
+	SND,RCV : channel(dy)
+
+)
+played_by Clod def=
+	
+	local
+		State : nat,
+		Kbase,Id,A,Ai,Yi,Aa,Bb,G, T,Y : text,
+		K1, : message
+		
+	init 
+		State := 1
+	transition
+		1. State = 1 / RCV({{K1}_(H(H(H(G.G).Ai).Yi)).T'.H(TPK.H(Aa.Bb).H(Id.Kbase.H(Kbase.inv(A)).H(Id.Kbase)).K1.Y').Y'}_inv(Kcrcc)) =|>
+			State':= 2 /witness(Cr, Clod, creator_cloud_pid,{H(TPK.H(Aa.Bb).H(Id.Kbase.H(Kbase.inv(A)).H(Id.Kbase)).K1.Y')} )
+			
+		2. State = 2 / RCV({H(Id.Kbase.H(Kbase.inv(A)).H(Id.Kbase)).H(Ai.Yi).H(Aa.Bb)}_inv(Krdrcc)) =|>
+			State':= 3 / SND({K1}_(H(H(H(G.G).Ai).Yi))) / wirtness(Rdr, Clod, reader_cloud_pid, H(Id.Kbase.H(Kbase.inv(A)).H(Id.Kbase)).H(Ai.Yi).H(Aa.Bb))
+
+end role
+
+role session(
+
+	Cr,Tr,Kdc,Clod,Rdr : agent,
+	H :hash_func,
+	Kcrcc,Kcrtr,Kcrkdc,Krdrcc,Krdrtr,Krdrkdc,Ktrcr,Ktrrdr,Kkdccr,Kkdcrdr,TPK: public_key
+
+)
+def=
+	local 
+	      SND,RCV : channel(dy)
+		  %SCr, SRdr, STr, SKdc, RCr, RRdr, RTr, RKdc, RClod , SClod: channel (dy)
+	composition
+			
+		creator	(Cr,Tr,Kdc,Clod,Rdr, H,Kcrcc,Kcrtr,Kcrkdc,Krdrcc,Krdrtr,Krdrkdc,Ktrcr,Ktrrdr,Kkdccr,Kkdcrdr,TPK, SND, RCV) /
+		reader	(Cr,Tr,Kdc,Clod,Rdr, H,Kcrcc,Kcrtr,Kcrkdc,Krdrcc,Krdrtr,Krdrkdc,Ktrcr,Ktrrdr,Kkdccr,Kkdcrdr,TPK, SND, RCV) /
+		trustee	(Cr,Tr,Kdc,Clod,Rdr, H,Kcrcc,Kcrtr,Kcrkdc,Krdrcc,Krdrtr,Krdrkdc,Ktrcr,Ktrrdr,Kkdccr,Kkdcrdr,TPK, SND, RCV) /
+		kdc		(Cr,Tr,Kdc,Clod,Rdr, H,Kcrcc,Kcrtr,Kcrkdc,Krdrcc,Krdrtr,Krdrkdc,Ktrcr,Ktrrdr,Kkdccr,Kkdcrdr,TPK, SND, RCV)/
+		cloud	(Cr,Tr,Kdc,Clod,Rdr, H,Kcrcc,Kcrtr,Kcrkdc,Krdrcc,Krdrtr,Krdrkdc,Ktrcr,Ktrrdr,Kkdccr,Kkdcrdr,TPK, SND, RCV)
+		
+		%creator(Cr, Tr, Kdc, Clod, H,Kcrcc,Kcrtr,Kcrkdc,Ktrcr,Kkdccr,TPK, SCr, RCr) /
+		%reader(Rdr, Tr, Kdc, Clod, H,Krdrcc,Krdrtr,Krdrkdc,Ktrrdr,Kkdcrdr,TPK, SCr, RCr) /
+		%trustee(Tr, Cr, Rdr, H,Kcrtr,Krdrtr,Ktrcr,Ktrrdr,TPK, STr, RTr) /
+		%kdc(Kdc, Cr, Rdr, H, Kcrkdc,Krdrkdc,Kkdccr,Kkdcrdr,TPK, SKdc, RKdc)/
+		%cloud(Clod, Cr, Rdr, H, Kcrcc,Krdrcc,TPK, RClod, SClod)
+		
+		
+		
+end role
+
+
+role environment()
+	def=
+		const
+			creator_cloud_pid, reader_cloud_pid : protocol_id,
+			cr,tr,kdc,clod,rdr :agent,
+			h:hash_func,
+			k1:text,
+			kcrcc,kcrtr,kcrkdc,krdrcc,krdrtr,krdrkdc,ktrcr,ktrrdr,kkdccr,kkdcrdr,tpk: public_key
+			
+			intruder_knowledge = {cr,tr,kdc,clod,rdr,kcrcc,kcrtr,kcrkdc,krdrcc,krdrtr,krdrkdc,ktrcr,ktrrdr,kkdccr,kkdcrdr,tpk,h}
+		composition
+			session(cr,tr,kdc,clod,rdr,h,kcrcc,kcrtr,kcrkdc,krdrcc,krdrtr,krdrkdc,ktrcr,ktrrdr,kkdccr,kkdcrdr,tpk) 
+			/ session(cr,tr,kdc,clod,rdr,h,kcrcc,kcrtr,kcrkdc,krdrcc,krdrtr,krdrkdc,ktrcr,ktrrdr,kkdccr,kkdcrdr,tpk) 
+			/ session(cr,tr,kdc,clod,rdr,h,kcrcc,kcrtr,kcrkdc,krdrcc,krdrtr,krdrkdc,ktrcr,ktrrdr,kkdccr,kkdcrdr,tpk)
+end role
+
+goal
+	secrecy_of k1
+	authentication_on creator_cloud_pid
+	authentication_on  reader_cloud_pid
+
+end goal
+
+environment()
+ 

@@ -1,0 +1,232 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% HLPSL code for the protocol
+%% Developed by: Dr. Ashok Kumar Das
+%%               IIIT Hyderabad, India
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Role for the mobile user MU 
+
+role mobileuser (MU, FA, HA: agent,
+           SKmuha: symmetric_key,
+           H : hash_func,
+           SND, RCV: channel(dy))
+%% Player: MU
+played_by MU 
+def=
+  local State: nat,
+        E : public_key,
+        F, Mul : hash_func,
+        R, PWmu, IDmu, IDi, B, IDha, P, Q, Nmu, Tm, V1,
+        Kh, V2, V3, V4, V5, Nfa, IDfa, Tff : text
+
+const mu_fa_tm, mu_fa_nmu, fa_mu_tff,  
+      sec2, sec2, sec3: protocol_id
+
+init State := 0
+transition
+%  Registration Phase  
+% Send registration request {h(PWmu || r), IDmu} to HA securely
+1. State = 0 /\ RCV(start) =|>
+State' := 1 /\ R' := new()
+            /\ SND({H(PWmu.R').IDmu}_SKmuha)
+            /\ secret({IDi}, sec1, {MU,HA})
+            /\ secret({PWmu,R'}, sec2, MU)
+% Receive smart card from the HA securely 
+2. State = 1 /\ RCV({xor(H(inv(E').B'), H(IDmu)).
+                    xor(H(inv(E').IDmu),H(PWmu.R'))
+                   .exp(B'.E').IDha.E'.Mul (P', Q').H}_SKmuha) =|> 
+State' := 2 /\ secret({P'.Q'.B'.inv(E')}, sec3, HA) 
+% Login and Authentication Phase
+% Send the message M1 to FA via a public channel
+           /\ Nmu' := new()
+           /\ Tm' := new()
+           /\ V1' := H(Kh'.B')
+           /\ V2' := xor(V1',Nmu')
+           /\ V3' := xor(H(V1'.Nmu'),IDmu)
+           /\ V4' := H(Kh'.IDmu)
+           /\ V5' := H(V2'.V3'.V4'.Tm')  
+           /\ SND(IDmu. xor(exp(B'.E'),Tm'). V2'.V3'.V5'.Tm')   
+% MU has freshly generated timestamp Tm for FA
+           /\ witness(MU, FA, mu_fa_tm, Tm')
+% MU has freshly generated random nonce Nmu for FA
+           /\ witness(MU, FA, mu_fa_nmu, Nmu')
+% Receive the message M4 from FA via a public channel 
+3. State = 2 /\ RCV(IDfa.H(H(H(H(inv(E').IDmu).Nmu').Nfa'.
+                    IDmu.IDfa).Nfa'.Tff').
+                    xor(Nfa',F(B'.Nmu')).Tff') =|> 
+% MU's acceptance of the value Tff generated for MU by FA 
+State' := 3 /\ request(FA, MU, fa_mu_tff, Tff') 
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Role for the home agent HA 
+
+role homeagent (MU, FA, HA: agent,
+           SKmuha: symmetric_key,
+           H : hash_func,
+           SND, RCV: channel(dy))
+%% Player: HA
+played_by HA 
+def=
+  local State: nat,
+        E : public_key,
+        Kfh : symmetric_key,
+        Mul, F : hash_func,
+        B, P, Q, N, Kh, IDha, IDmu, PWmu : text,
+        R, Amu, Bmu, X, IDfa, IDi, Tm, Nmu : text,
+        Tf, Th, SKfa, Nfa, Ht, Z : text 
+
+const  ha_fa_th, fa_ha_tf, fa_ha_nfa, 
+       sec1, sec2, sec3, sec4 : protocol_id
+
+init State := 0
+transition
+%  Registration Phase  
+% Send the registration request {h(PWmu || r), IDmu} to HA securely
+1. State = 0 /\ RCV({H(PWmu.R').IDmu}_SKmuha) =|>
+State' := 3 /\ secret({IDi}, sec1, {MU,HA})
+            /\ secret({PWmu,R'}, sec2, MU)
+% Send smart card to MU securely 
+            /\ B' := new()
+            /\ P' := new()
+            /\ Q' := new()
+            /\ E' := new()
+            /\ N' := Mul (P', Q')
+            /\ Kh' := inv(E')
+            /\ Amu' := xor(H(Kh'.B'), H(IDmu))
+            /\ Bmu' := xor(H(Kh'.IDmu),H(PWmu.R'))
+            /\ X' := exp(B'.E')
+            /\ secret({P'.Q'.B'.Kh'}, sec3, HA)
+            /\ SND({Amu'.Bmu'.X'.IDha.E'.N'.H}_SKmuha)
+% Recieve the message M2 from FA via a public channel
+2. State = 3 /\ RCV(IDfa.IDmu. xor(exp(B'.E'),Tm'). 
+                xor(H(inv(E').B'),Nmu').
+                xor(H(H(inv(E').B').Nmu'),IDmu).
+                H(xor(H(inv(E').B'),Nmu').xor(H(H(inv(E').B').
+                Nmu'),IDmu).H(inv(E').IDmu).Tm').Tm'.
+                {Nfa'}_Kfh.Tf') =|>
+% Send the message M3 to FA via a public channel 
+State' := 5 /\ secret(Kfh, sec4, {HA, FA})
+            /\ Th' := new()
+            /\ SKfa' := H(H(H(inv(E').IDmu).Nmu').Nfa'.IDmu.IDfa)
+            /\ Ht' := F(SKfa'.Nfa'.Kfh.Th')
+            /\ Z' := xor(Nfa',F(B'.Nmu'))
+            /\ SND({SKfa'.Ht'}_Kfh.Z'.Th')
+% HA has freshly generated timestamp Th for FA
+           /\ witness(HA, FA, ha_fa_th, Th')
+% HA's acceptance of the value Tf generated for HA by FA
+           /\ request(FA, HA, fa_ha_tf, Tf')
+% HA's acceptance of the value Nfa generated for HA by FA
+           /\ request(FA, HA, fa_ha_nfa, Nfa')
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Role for the foreign agent FA 
+
+role foreignagent (MU, FA, HA: agent,
+           H : hash_func,
+           SND, RCV: channel(dy))
+%% Player: FA
+played_by FA
+def=
+  local State: nat,
+        Kfh : symmetric_key,
+        E: public_key,
+        IDmu, B, Tm, Nmu, Nfa, Tf, IDfa, P, Q : text
+
+const  fa_ha_tf, fa_ha_nfa, fa_mu_tff,
+       mu_fa_tm, mu_fa_nmu, ha_fa_th, 
+       sec1, sec2, sec3, sec4: protocol_id
+
+init State := 0
+transition
+% Login and Authentication Phase
+% Receive the message M1 from MU via a public channel
+1. State = 0 /\ RCV(IDmu. xor(exp(B'.E'),Tm'). 
+                xor(H(inv(E').B'),Nmu').
+                xor(H(H(inv(E').B').Nmu'),IDmu).
+                H(xor(H(inv(E').B'),Nmu').xor(H(H(inv(E').B').
+                Nmu'),IDmu).H(inv(E').IDmu).Tm').Tm') =|>
+State' := 2 /\ secret({P'.Q'.B'.inv(E')}, sec3, HA)
+% Send the message M2 to HA via a public channel
+            /\ Nfa' := new()
+            /\ Tf' := new()
+            /\ secret(Kfh, sec4, {HA, FA})
+            /\ SND(IDfa.IDmu. xor(exp(B'.E'),Tm'). 
+                xor(H(inv(E').B'),Nmu').
+                xor(H(H(inv(E').B').Nmu'),IDmu).
+                H(xor(H(inv(E').B'),Nmu').xor(H(H(inv(E').B').
+                Nmu'),IDmu).H(inv(E').IDmu).Tm').Tm'.
+                {Nfa'}_Kfh.Tf')
+% FA has freshly generated timestamp Tf for HA
+           /\ witness(FA, HA, fa_ha_tf, Tf')
+% FA has freshly generated random nonce Nfa for HA
+           /\ witness(FA, HA, fa_ha_nfa, Nfa')
+% Receive the message M3 from HA via a public channel 
+2. State = 2 /\ RCV({H(H(H(inv(E').IDmu).Nmu').Nfa'.IDmu.IDfa)
+                     .F(SH(H(H(inv(E').IDmu).Nmu').Nfa'.IDmu.IDfa).
+                     Nfa'.Kfh.Th')}_Kfh.xor(Nfa',F(B'.Nmu')).Th') =|>
+% Send the message M4 to MU via a public channel 
+State' := 4 /\ Tff' := new()
+            /\ FV1' := H(H(H(H(inv(E').IDmu).Nmu').Nfa'.IDmu.IDfa).
+                       Nfa'.Tff')
+            /\ SND(IDfa.FV1'.xor(Nfa',F(B'.Nmu')).Tff')    
+% FA has freshly generated timestamp Tff for HA
+           /\ witness(FA, MU, fa_mu_tff, Tff')
+% FA's acceptance of the value Tm generated for FA by MU
+           /\ request(MU, FA, mu_fa_tm, Tm')
+% FA's acceptance of the value Nmu generated for FA by MU
+           /\ request(MU, FA, mu_fa_nmu, Nmu')
+% FA's acceptance of the value Th generated for FA by HA
+           /\ request(HA, FA, ha_fa_th, Th')
+end role
+
+
+%%%%%%% Role specification for the session %%%%%%%%
+role session(MU, HA, FA: agent,
+             SKmuha: symmetric_key,
+             H : hash_func)
+def=
+  local  SMU, RMU, SHA, RHA, SFA, RFA: channel (dy)
+  composition
+           mobileuser(MU, FA, HA, SKmuha, H, SMU, RMU)
+        /\ homeagent(MU, FA, HA, SKmuha, H,SHA, RHA)
+        /\ foreignagent(MU, FA, HA, H, SFA, RFA)
+end role
+
+
+%%%%%%% Role specification for the goal and environment %%%%%%%%
+
+role environment()
+def=
+  const mu, fa, ha  : agent,
+        skmuha : symmetric_key,
+        h : hash_func, 
+        e : public_key, 
+        tm, tf, th, tff : text,
+        fa_ha_tf, fa_ha_nfa, fa_mu_tff,
+        mu_fa_tm, mu_fa_nmu, ha_fa_th, 
+        sec1, sec2, sec3, sec4 : protocol_id
+intruder_knowledge = {mu, ha, fa, h, e, tm, tf, th, tff}
+composition
+	session(mu, ha, fa, skmuha, h) 
+     /\ session(i, ha, fa, skmuha, h) 
+     /\ session(mu, i, fa, skmuha, h) 
+     /\ session(mu, ha, i, skmuha, h)  
+end role
+
+goal
+secrecy_of sec1
+secrecy_of sec2
+secrecy_of sec3
+secrecy_of sec4
+
+authentication_on fa_ha_tf, fa_ha_nfa
+authentication_on mu_fa_tm, mu_fa_nmu
+authentication_on ha_fa_th
+authentication_on fa_mu_tff
+end goal
+environment()

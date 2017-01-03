@@ -1,0 +1,90 @@
+role capteur1 (A,B: agent, Mac:hash_func,H:hash_func,N: nat,Snd,Rcv: channel(dy))
+played_by A
+def=
+
+local State : nat,
+Key:message,
+Coeff:text set,
+Bioscrypt:text set,
+Index: nat,
+Ni: nat
+
+init State := 0 
+transition
+
+1. State = 0 /\ Rcv(start)
+=|>State' := 1
+			/\ Key'  := new()
+			/\ secret(Key',key,{A,B})
+			/\ Coeff'  := new()
+			/\ Bioscrypt'  := xor(Coeff', Key')
+			/\ Snd({Coeff'.Bioscrypt'}_H(N).Mac(H(N),Coeff'.Bioscrypt'))
+			%%/\ witness(A,B,capteur1_capteur2_coeff,Coeff')
+2. State = 1 
+			/\ Rcv({Index'}_Key'.Mac(Key',Ni'))
+			 			
+=|> State' := 2
+            /\ request(A,B,capteur1_capteur2_index,Index')
+			
+		   
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role capteur2(A,B: agent, Mac:hash_func,H:hash_func,N: nat,Snd,Rcv: channel(dy))
+played_by B
+def=
+
+local State : nat,
+Key:message,
+Coeff:text set,
+Bioscrypt:text set,
+Index: nat,
+Ni: nat
+
+init State := 0 
+transition
+
+1. State = 0/\ Rcv({Coeff'.Bioscrypt'}_H(N).Mac(H(N),Coeff'.Bioscrypt'))
+%%/\ request(B,A,capteur1_capteur2_coeff,Coeff')
+=|>
+State' := 1 
+            /\ Index':= new()
+			/\ Ni':= new()
+			/\ Snd({Index'}_Key.Mac(Key,Ni'))
+            /\ witness(B,A,capteur1_capteur2_index,Index')
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(A,B: agent, Mac:hash_func,H:hash_func,N: nat)
+def=
+local SA, RA, SB, RB: channel (dy)
+composition
+capteur1(A,B,Mac,H,N,SA,RA)
+/\ capteur2(A,B,Mac,H,N,SB,RB)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+def=
+const a, b, i : agent,
+mac:hash_func,
+h:hash_func,
+n:nat,
+key,capteur1_capteur2_index,capteur1_capteur2_coeff : protocol_id
+intruder_knowledge={a,b,mac,h}
+composition
+session(a,b,mac,h,n)
+/\ session(a,i,mac,h,n)%%% intruder impersonates coordinateur
+/\session(i,b,mac,h,n)%%% intruder impersonates noeud capteur
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+secrecy_of key
+
+authentication_on capteur1_capteur2_index
+authentication_on capteur1_capteur2_coeff
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

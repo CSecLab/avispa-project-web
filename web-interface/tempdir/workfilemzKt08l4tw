@@ -1,0 +1,111 @@
+%% PROTOCOL: NSPK: Needham-Schroeder Public-Key Protocol
+%% VARIANT: original version (of 1978) without key server
+%% PURPOSE: Two-party mutual autentication
+%% TERMINAL_CARTE:
+%% 1. T  - {Na.A}_Kb ----> C
+%% 2. C  C
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% définition du rôle alice, initiant le protocole
+role terminal (T, C: agent,            
+            PKcommune: public_key,      
+            SND, RCV: channel (dy))
+played_by T def=
+ 
+  local State : nat,
+        Nconfirm, Nprivatedata, Nmontant, Nchallenge, Npublicdatacrypt, Npublicdata, Nstart: text,
+        PKcarte: public_key
+ 
+  init State := 0
+ 
+  transition  
+   
+    0.  State  = 0 /\ RCV(start) =|>
+        State':= 1 /\ Nstart' := new() 
+               /\ SND({Nstart'.T})
+
+ 
+    2.  State  = 1 /\ RCV({{Npublicdatacrypt'.PKcarte'}_PKcommune.Npublicdata'}) =|>
+        State':= 2 /\ Nchallenge' := new() 
+                   /\ SND({Nchallenge'.T})
+     
+    %Vérification challenge et envoi du montant
+    4.  State  = 2 /\ RCV({Nchallenge'.C}_PKcarte) =|>
+        State':= 3 /\ Nmontant' := new() 
+                   /\ SND({Nmontant'.T})
+    
+    %Confirmation
+    8.  State  = 2 /\ RCV({Nprivatedata'.C}_PKcarte) =|>
+        State':= 3 /\ Nconfirm' := new() 
+                   /\ SND({Nconfirm'.T})
+     
+%    /\ witness(A,B,bob_alice_nb,Nb')
+%    /\ request(A,B,alice_bob_nb,Nb')
+ 
+end role
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role carte (T, C: agent,            
+          PKcarte, PKcommune: public_key,      
+          SND, RCV: channel (dy))
+played_by C def=
+ 
+  local State : nat,
+        Nmontant,Nprivatedata, Nchallenge, Npublicdata, Nstart: text
+ 
+  init State := 0
+ 
+  transition  
+   
+    0.  State  = 0 /\ RCV({Nstart'.T}) =|>
+        State':= 1 /\ Npublicdata' := new() 
+                   /\ SND({{Npublicdata'.PKcarte}_inv(PKcommune).Npublicdata'})
+
+    2.  State  = 1 /\ RCV({Nchallenge'.T}) =|>
+        State':= 2 /\ SND({Nchallenge'.C}_inv(PKcarte))
+    
+    4.  State  = 2 /\ RCV({Nmontant'.T}) =|>
+        State':= 3 /\ Nprivatedata' := new()
+                   /\ SND({Nprivatedata'.C}_inv(PKcarte))
+                   /\ secret(Nprivatedata',infospaiement,{T,C})
+end role
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% définition du rôle caractérisant une session
+role session(A, B: agent, PKcommune, PKcarte: public_key) def=
+ 
+  local SA, RA, SB, RB: channel (dy)
+ 
+  composition
+ 
+    terminal(A,B,PKcommune,SA,RA)
+    /\ carte  (A,B,PKcarte,PKcommune,SB,RB)
+ 
+end role
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% définition du rôle caractérisant le scenario à exécuter
+role environment() def=
+ 
+    const T, C         : agent,
+      PKcommune, PKcarte   : public_key,
+      infospaiement,    : protocol_id
+ 
+    intruder_knowledge = {T, C, PKcommune}
+ 
+    composition
+ 
+    session(T,C,PKcommune,PKcarte)
+    /\ session(T,C,PKcommune,PKcarte)
+
+ 
+end role
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% pour l'instant, pas de section goal ici (donc pas de propriété à vérifier)
+goal
+    secrecy_of infospaiement
+end goal
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% lancement du rôle principal
+environment()

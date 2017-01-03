@@ -1,0 +1,121 @@
+role server(S,M : agent,
+            Snd, Rec: channel(dy),
+            K: symmetric_key,
+            Seq : text,
+            F1,F2,F5: hash_func)
+played_by S
+def=
+
+  local State : nat,
+        RAND  : text
+
+  const r1,r2,sseq1 : protocol_id,
+        add         : hash_func
+
+  init  State := 1 
+
+  transition
+
+    1.  State   = 1 /\ Rec(M)
+        =|> 
+        State' := 2 /\ RAND' := new()
+                    /\ Snd(RAND'.{Seq}_F5(K.RAND').F1(K.Seq.RAND')) 
+                    /\ secret(Seq,sseq1,{S,M})
+                    /\ witness(S,M,r1,R')
+
+    2.  State   = 2 /\ Rec(F2(K.RAND))
+        =|> 
+        State' := 3 /\ Seq' := add(Seq,1) 
+                    /\ wrequest(S,M,r2,RAND)
+        
+end role
+
+
+
+role mobile(M,S:agent,
+            Snd, Rec: channel(dy),
+            K : symmetric_key,
+            Seq: text,
+            F1,F2,F5: hash_func)
+played_by M
+def=
+
+  local State :nat, 
+        RAND  :text
+
+  const
+        r1,r2,sseq2 : protocol_id
+
+  init  State := 1
+
+  transition
+
+    1.  State = 1 /\ Rec(start) =|> 
+        State':=2 /\ Snd(M)  
+
+    2.  State = 2 /\ Rec(RAND'.{Seq}_F5(K.RAND').F1(K.Seq.RAND')) =|>  
+        State':=3 /\ Snd(F2(K. R')) 
+                  /\ secret(Seq,sseq2,{M,S})
+                  /\ wrequest(M,S,r1,R') 
+                  /\ witness(M,S,r2,R')
+ 
+end role
+
+
+
+role session(M,S: agent,
+             K  : symmetric_key,
+             Seq: text,
+             F1,F2,F5: hash_func,
+             SA,RA,SB,RB: channel(dy)) def=
+
+   composition
+
+         mobile(M,S,SA,RA,K_M,Seq,F1,F2,F5)
+      /\ server(S,M,SB,RB,K_M,Seq,F1,F2,F5)
+
+end role
+
+
+
+role environment() def=
+
+ local Sa1,Ra1,Ss1,Rs1 : channel (dy)
+
+ const r1, r2                 : protocol_id,
+       a, i, s                : agent,
+       k_as, k_is, kai        : symmetric_key,
+       f1, f2, f5             : hash_func,
+       seq_as, seq_is, seq_ai : text
+
+ intruder_knowledge={a,s,i,f1,f2,f5}
+
+ composition
+ 
+        session(a,s,k_as,seq_as,f1,f2,f5,Sa1,Ra1,Ss1,Rs1) 
+% /\    session(i,s,k_is,seq_is,f1,f2,f5,si1,ri1,ss2,rs2) 
+% /\    session(a,i,k_ai,seq_ai,f1,f2,f5,sa2,ra2,si2,ri2)
+
+
+end role
+
+
+
+goal
+
+  % Confidentiality (G12)
+  secrecy_of sseq1,sseq2
+
+  % Message Authentication (G2)
+  % Mobile weakly authenticates Server on r1  % the nonce R
+  weak_authentication_on r1
+
+  % Message Authentication (G2)
+  % Server weakly authenticates Mobile on r2  % the nonce R
+  weak_authentication_on r2
+
+end goal
+
+
+
+environment()

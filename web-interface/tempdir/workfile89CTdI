@@ -1,0 +1,77 @@
+role mn(MN,HA,CN: agent, 
+	MNPUK,CNPUK,HAPUK: public_key,	
+	 HASH: hash_func,                 
+               SND,RCV: channel(dy)) 
+	played_by MN def= 
+	local MNN,CNN,CNTS,MNHOA,MNCOA,CNADDR,HAADDR,TSMN,MOD: text , State: nat  
+	init State :=0 
+	transition   
+    	0.State = 0 /\ RCV(start) =|> State':=3/\ CNTS' :=new() /\ CNN' :=new() /\ MNN':=new()/\SND({HASH(CNN'.MNN')}_CNPUK) 
+   
+
+	 
+end role 
+
+role ha(MN,HA,CN:agent,
+	MNPUK,HAPUK,CNPUK: public_key, 
+	 HASH: hash_func,
+                SND,RCV: channel(dy)) 
+	
+	played_by HA def= 
+	local MNN,HAN,MNHOA,MNCOA,CNADDR,HAADDR,TSMN,MOD,HATS,CNN,CNTS: text, State: nat
+	init State := 1 
+	transition 
+	1.State=1/\ RCV({HASH(CNN'.MNN')}_CNPUK) =|>State':=5
+
+end role 
+
+role cn(MN,HA,CN:agent,
+	MNPUK,HAPUK,CNPUK: public_key,
+	HASH: hash_func, 
+                 SND,RCV: channel(dy))
+	played_by CN def= 
+	local MNN,CNN,HAN,MNHOA,MNCOA,HAADDR,CNADDR,HATS,MOD,CNTS: text , State: nat 
+	init State := 2 
+	transition
+	2.State = 2 /\RCV({HASH(CNN'.MNN')}_CNPUK)  =|>
+	State':=4 
+	    
+end role
+
+role session( MN,HA,CN: agent,MNPUK,CNPUK,HAPUK: public_key,HASH: hash_func)
+	 
+def= 
+
+	local SENMN,RCVMN: channel(dy) 
+
+	composition 
+	mn( MN,HA,CN,MNPUK,HAPUK,CNPUK,HASH, SENMN,RCVMN)
+ /\ ha(   MN,HA,CN,MNPUK,HAPUK,CNPUK,HASH, SENMN,RCVMN)
+ /\cn(  MN,HA,CN,MNPUK,HAPUK,CNPUK,HASH, SENMN,RCVMN) 
+	 
+end role 
+
+
+role environment() 
+def= 
+
+const  mn1,ha1,cn1: agent,
+mnpuk,cnpuk,hapuk: public_key,
+has: hash_func,
+coa,cnn,mnn,han: protocol_id
+       
+   composition 
+	session(mn1,ha1,cn1,mnpuk,cnpuk,hapuk,has) 
+
+end role 
+goal
+
+secrecy_of coa
+secrecy_of mnn
+secrecy_of cnn
+secrecy_of han
+
+
+end goal
+environment() 
+

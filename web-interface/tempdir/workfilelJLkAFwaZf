@@ -1,0 +1,129 @@
+%% PROTOCOL:
+%% DH: Diddie-Helman Protocol
+
+ 
+%% ALICE_BOB:
+
+ %% 1. A  - G^(Na) ----> B
+ %% 2. A  B
+ 
+
+%% PROBLEMS: 3
+%% secrecy of na, nb
+%% strong authentication on alice_bob_nb
+%% strong authentication on bob_alice_na
+ 
+
+%% CLASSIFICATION:
+%% G1, G3, G12
+ 
+
+%% ATTACKS:
+%% Man-in-the-middle attack,
+%% where in the first session Alice talks with the intruder as desired and in the second session Bob wants to talk with Alice but actually talks to the intruder. Therefore, also the nonce Nb gets leaked.
+ 
+
+%% HLPSL:
+
+role alice (A, B: agent,             
+            G: text,      
+            SND, RCV: channel (dy)) 
+played_by A 
+def=
+
+  local State : nat, 
+        Na, Nb, Secret: text
+
+  init State := 0
+
+  transition  
+   
+    0.  State  = 0 /\ RCV(start) =|> 
+        State':= 2 /\ Na' := new() /\ SND(exp(G,Na'))
+                   /\ secret(Na',na,{A}) 
+                   /\ witness(A,B,bob_alice_na,Na')
+
+    2.  State  = 2 /\ RCV(exp(G, Nb')) =|> 
+        State':= 4 /\ Secret' := new()
+				   /\ SND({Secret'}_(exp(exp(G, Nb'),Na)))
+                   /\ request(A,B,alice_bob_nb,Nb')
+				   /\ witness(A,B,bob_alice_sa,Secret')
+				   /\ secret(Secret',sa,{A,B})
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob(A, B: agent,      
+         G: text,     
+         SND, RCV: channel (dy)) 
+played_by B def=
+
+  local State : nat, 
+        Na, Nb, Secret: text
+
+  init State := 1
+
+  transition 
+
+    1.  State  = 1 /\ RCV(exp(G, Na')) =|> 
+        State':= 3 /\ Nb' := new() /\ SND(exp(G, Nb'))
+                   /\ secret(Nb',nb,{B}) 
+                   /\ witness(B,A,alice_bob_nb,Nb')
+
+    3.  State  = 3 /\ RCV({Secret'}_(exp(exp(G, Na),Nb))) =|> 
+        State':= 5 /\ request(B,A,bob_alice_na,Na)
+				   /\ request(B,A,bob_alice_sa,Secret')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(A, B: agent, G: text) def=
+
+  local SA, RA, SB, RB: channel (dy)
+
+  composition 
+
+        alice(A,B,G,SA,RA)
+     /\ bob  (A,B,G,SB,RB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+    const a, b: agent,
+          g   : text,
+          na, nb, sa,
+          alice_bob_nb,
+          bob_alice_na,
+		  bob_alice_sa: protocol_id
+
+    intruder_knowledge = {a, b, g}
+
+    composition
+
+        session(a,b,g)
+%%	 /\ session(b,a,g)
+    /\ session(a,i,g)
+    /\ session(i,b,g)
+%%	 /\ session(i,a,g)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of na, nb, sa
+  authentication_on alice_bob_nb
+  authentication_on bob_alice_na
+	authentication_on bob_alice_sa
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+

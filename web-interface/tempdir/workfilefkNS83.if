@@ -1,0 +1,87 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilefkNS83
+
+section signature:
+
+state_role_T: agent * agent * text * text * text * nat * text * text * nat -> fact
+state_role_R: agent * agent * text * text * text * nat * text * text * nat -> fact
+
+
+section types:
+
+auth_1, auth_2: protocol_id
+MGoal, start: message
+2, State, 1, 0, 4, SID, Dummy_State, 3: nat
+alice, bob, R, T, i: agent
+pid, k1, k2, N2, N1, PID, K2, K1, Dummy_N2, Dummy_N1, dummy_nonce: text
+ASGoal: set(agent)
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(alice).
+ iknows(bob).
+ iknows(k1).
+ iknows(k2).
+ iknows(pid).
+ iknows(i).
+ state_role_R(bob,alice,k1,k2,pid,0,dummy_nonce,dummy_nonce,3).
+ state_role_T(alice,bob,k1,k2,pid,0,dummy_nonce,dummy_nonce,4)
+
+
+section rules:
+
+step step_0 (R,T,K1,K2,PID,Dummy_N1,N2,SID,N1) :=
+ state_role_R(R,T,K1,K2,PID,0,Dummy_N1,N2,SID).
+ iknows(start)
+=[exists N1]=>
+ state_role_R(R,T,K1,K2,PID,1,N1,N2,SID).
+ iknows(pair(xor(K1,N1),scrypt(K2,xor(PID,N1))))
+
+step step_1 (R,T,K1,K2,PID,N1,Dummy_N2,SID,N2) :=
+ state_role_R(R,T,K1,K2,PID,1,N1,Dummy_N2,SID).
+ iknows(pair(scrypt(PID,xor(K2,N2)),pair(scrypt(K2,xor(xor(K1,N1),N2)),N1)))
+ =>
+ state_role_R(R,T,K1,K2,PID,2,N1,N2,SID)
+
+step step_2 (T,R,K1,K2,PID,Dummy_N1,Dummy_N2,SID,N1,N2) :=
+ state_role_T(T,R,K1,K2,PID,0,Dummy_N1,Dummy_N2,SID).
+ iknows(pair(xor(K1,N1),scrypt(K2,xor(PID,N1))))
+=[exists N2]=>
+ state_role_T(T,R,K1,K2,PID,1,N1,N2,SID).
+ iknows(pair(scrypt(PID,xor(K2,N2)),pair(scrypt(K2,xor(xor(K1,N1),N2)),N1)))
+
+
+section properties:
+
+property secrecy_of_k2 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,k2,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_k1 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,k1,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_pid (MGoal,ASGoal) :=
+ [] ((secret(MGoal,pid,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_k2 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,k2,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_k1 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,k1,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_pid (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,pid,ASGoal) &
+ not(contains(i,ASGoal))
+

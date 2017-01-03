@@ -1,0 +1,235 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Avispa-users] Error message
+   </TITLE>
+   <LINK REL="Index" HREF="index.html" >
+   <LINK REL="made" HREF="mailto:avispa-users%40avispa-project.org?Subject=%5BAvispa-users%5D%20Error%20message&In-Reply-To=">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000250.html">
+   <LINK REL="Next"  HREF="000254.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Avispa-users] Error message</H1>
+    <B>Franziska B&#252;ndgens</B> 
+    <A HREF="mailto:avispa-users%40avispa-project.org?Subject=%5BAvispa-users%5D%20Error%20message&In-Reply-To="
+       TITLE="[Avispa-users] Error message">franziskab64 at gmx.net
+       </A><BR>
+    <I>Tue May 30 13:27:32 CEST 2006</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000250.html">[Avispa-users] Please help me
+</A></li>
+        <LI>Next message: <A HREF="000254.html">[Avispa-users] (no subject)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#253">[ date ]</a>
+              <a href="thread.html#253">[ thread ]</a>
+              <a href="subject.html#253">[ subject ]</a>
+              <a href="author.html#253">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi!
+Sorry for the  spam, but now I am facing a different problem: When trying to run my protocol with the options the computation stops after ca. 30 secs of running and produces the following error message:
+avispa schroeder.hlpsl --cl -atse -ns -lr 
+//opt/avispa/bin/backends/cl.bash: line 125: 1601 killed
+/cl/cl-atse $_unknown
+
+If I try to run it without any options I get the following error straight away:
+
+Fail: There are not enough numbers in the state fact [PCompT &quot;agent&quot; [PVar &quot;50&quot;],PCompT &quot;public_key&quot; [PVar &quot;51&quot;],PVar &quot;52&quot;,PCompT &quot;agent&quot; [PVar &quot;57&quot;],PCompT &quot;agent&quot; [PVar &quot;58&quot;],PCompT &quot;public_key&quot; [PVar &quot;59&quot;],PCompT &quot;nat&quot; [PVar &quot;56&quot;]]
+
+What is that supposed to mean?? I am running AVISPA under colinux with a debian distribution. I have a 1024 SWAP file and 512 MB of RAM. Am I running out of memory with the first option? But why in this case does the ofmc produce an error straight away?
+I attached my hlpsl file. Hope anyone can help me. Thanks a lot.
+Franziska
+ 
+-- 
+
+
+Bis zu 70% Ihrer Onlinekosten sparen: GMX SmartSurfer!
+      Kostenlos downloaden: <A HREF="http://www.gmx.net/de/go/smartsurfer">http://www.gmx.net/de/go/smartsurfer</A>
+    
+-------------- next part --------------
+role alice( A,B :agent,
+            Ka, Ks	:public_key,
+	    KeyRing:	(agent.public_key) set,
+	    SND, RCV:	channel(dy))
+
+played_by A
+
+def=
+
+local
+State: nat,
+Na, Nb	:text,
+Kb:	public_key
+
+const na, alice_bob_nb, bob_alice_na: protocol_id
+
+init
+
+State:= 0
+
+transition
+
+11.  State=0 /\ RCV(start) /\ in(B.Kb', KeyRing)
+	=|&gt; Na':=new() /\ SND({Na'.A}_Kb')
+	/\witness(A,B,bob_alice_na,Na')/\
+	secret(Na',na,{A,B}) /\ State':=2
+
+12. State=0 /\ RCV(start)/\ not(in(B.Kb', KeyRing))
+	=|&gt; SND(A.B) /\ State':=1
+
+2.  State=1 /\ RCV({B.Kb'}_inv(Ks)) 
+	=|&gt; KeyRing':= cons(B.Kb', KeyRing)
+	/\ Na':= new() /\ SND({Na'.A}_Kb') /\
+	witness(A,B,bob_alice_na, Na') /\
+	secret(Na',na,{A,B}) /\ State':=2
+
+3. State=2 /\ RCV({Na.Nb'}_Ka) =|&gt;
+	SND({Nb'}_Kb) /\
+	request(A,B,alice_bob_nb,Nb')/\ State':=3
+
+end role
+
+role bob(A,B:agent,
+	Kb, Ks:	public_key,
+	KeyRing: (agent.public_key) set,
+	SND,RCV: channel(dy))
+
+played_by B
+
+def=
+
+local
+
+State: nat,
+Na, Nb :text,
+Ka : public_key
+
+const nb, bob_alice_nb, alice_bob_na: protocol_id
+
+init State=0
+
+transition
+
+11. State=0 /\ RCV({Na'.A}_Kb) /\ in(A.Ka', KeyRing) =|&gt;
+	Nb':=new() /\ State':=2
+	/\ SND({Na'.Nb'}_Ka') /\ secret(Nb',nb,{B,A})
+	/\ witness(B,A,alice_bob_nb,Nb')
+
+12. State=0 /\ RCV({Na'.A}_Ka') /\ not(in(A.Ka', KeyRing)) =|&gt;
+	State':=1 /\ SND(B.A)
+
+2. State=1 /\ RCV({A.Ka'}_inv(Ks)) =|&gt;
+	KeyRing':=cons(A.Ka', KeyRing) /\ State'= 2/\ Nb':=new()/\
+	SND({Na.Nb'}_Ka')/\ secret(Nb',nb,{B,A}) /\
+	witness(B,A,alice_bob_nb,Nb')
+
+3. State=2 /\ RCV({Nb}_Kb) =|&gt;
+	State':=3 /\
+	wrequest(B,A,bob_alice_na,Na)
+
+end role
+
+role server(S:agent,
+	Ks: public_key,
+	KeyMap: (agent.public_key) set,
+	SND, RCV:	channel(dy))
+played_by S
+
+def=
+
+local
+
+A, B: agent,
+Kb:	public_key
+
+transition
+
+1. RCV(A'.B') /\ in(B'.Kb', KeyMap)
+=|&gt; SND({B'.Kb'}_inv(Ks))
+
+end role
+
+
+role session(A,B :agent,
+	Ka, Kb, Ks : public_key,
+	KeyRings : agent -&gt; (agent.public_key) set)
+
+def=
+
+local 
+SND, RCV : channel(dy)
+
+composition
+
+alice(A,B,Ka,Ks,KeyRings(A),SND,RCV) /\
+bob(A,B,Kb,Ks,KeyRings(B),SND,RCV)
+
+end role
+
+role environment()
+
+def=
+
+local
+
+KeyRings: agent-&gt; (agent.public_key) set,
+KeyRing: (agent.public_key) set,
+SND, RCV: channel(dy)
+
+const
+
+a,b,i,s :agent,
+ka, kb, ks, ki : public_key
+
+init 
+
+KeyRings= {(a.{}), (b.{a.ka}), (i.{a.ka, b.kb})} /\
+KeyRing= {a.ka, b.kb, s.ks, i.ki}
+
+intruder_knowledge={a,b,s,ka,kb,ks,ki,inv_ki}
+
+composition
+
+server(s,ks,KeyRing, SND, RCV) /\
+session(a,b,ka,kb,ks,KeyRings) /\
+session(i,b,ki,kb,ks,KeyRings) /\
+session(a,i,ka,ki,ks,KeyRings)
+
+end role
+
+goal
+
+authentication_on alice_bob_nb
+weak_authentication_on bob_alice_na
+secrecy_of na,nb
+end goal
+
+environment()
+</PRE>
+
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000250.html">[Avispa-users] Please help me
+</A></li>
+	<LI>Next message: <A HREF="000254.html">[Avispa-users] (no subject)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#253">[ date ]</a>
+              <a href="thread.html#253">[ thread ]</a>
+              <a href="subject.html#253">[ subject ]</a>
+              <a href="author.html#253">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="http://www.avispa-project.org/mailman/listinfo/avispa-users">More information about the Avispa-users
+mailing list</a><br>
+</body></html>

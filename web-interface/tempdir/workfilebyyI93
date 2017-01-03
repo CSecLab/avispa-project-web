@@ -1,0 +1,113 @@
+role alice(A,B,S : agent,
+	SND,RCV : channel(dy),
+	H : hash_func,
+	PA : symmetric_key,
+	G : text)
+played_by A
+def=
+local State : nat,
+	X,Z : text,
+	UA : public_key,
+	GY,Key,L : message
+%%const sec_m_Key : protocol_id
+init State := 0
+transition
+1. State=0/RCV(start)=|>
+State:=1/X'=new()
+	/SND(xor(exp(G,X'),H(PA.A.B)))
+2. State=1/RCV(xor(exp(GY',Z'),
+	/H(PA.A.B.exp(G,X).exp(GY',Z'))).L)=|>
+State:=2/Key':=exp(exp(GY',Z'),X)
+	/SND(H(A.B.Key'))
+	/witness(A,B,key1,Key')
+3. State=2/RCV(A.B.Key)=|>
+State':=3/equest(A,B,key,Key)
+	/secret(Key,sec_m_Key,A,B)
+end role
+role bob(A,B,S : agent,
+	SND,RCV : channel(dy),
+	H : hash_func,
+	PA,PB : symmetric_key
+	G : text)
+played_by B
+def=
+local State : nat,
+	X,Y,Z : text,
+	UB : public_key,
+	GX,GY,Key : message,
+	FM1: hash(symmetric-key.agent.agent.message.message).message,
+	FM1: hash(symmetric-key.agent.agent.message.message).message,
+	const sec_v_Key : protocol_id
+init State := 0
+transition
+1. State=0/RCV(xor(exp(G,X'),H(PA.A.B)))=|>
+State':=1/Y':=new()
+	/SND(xor(exp(G,X')
+	,H(PA.A.B)).xor(exp(G,Y'),H(PB.A.B)))
+2. State=1/RCV(xor(exp(GY,Z'),FM1').
+	xor(exp(GX',Z'),FM2'))=|>
+State':=2/SND(xor(exp(GY,Z'),FM1'))
+3. State=2/RCV(H(A.B.exp(exp(GX',Z'),Y)))=|>
+State':=3/Key'=exp(exp(GX',Z'),Y)
+	/SND(H(A.B.Key'))
+	/equest(B,A,key1,Key)
+	/secret(Key,sec_v_Key,B,A)
+	/witness(B,A,key,Key')
+end role
+role server(A,B,S : agent,
+	SND,RCV : channel(dy),
+	H : hash_func,
+	PA,PB : symmetric_key
+	G : text)
+played_by S
+def=
+local State : nat,
+	X,Y,Z : text,
+	UA,UB : public_key,
+	GX,GY : message
+init State := 0
+transition
+1. State=0/RCV(xor(exp(G,X')),
+	H(PA.A.B)).xor(exp(G,Y'),H(PB.A.B)))=|>
+State':=1/Z'=new()
+	/UA'=new()
+	/UB'=new()
+	/GX'=new()
+	/GY'=new()
+	/SND(xor(exp(GY',Z'),H(PA.A.B.exp(G,X').exp(UA',Z')).
+	exp(G,Z')).
+	xor(exp(GX',Z'),H(PB.A.B.
+	exp(G,Y').exp(UB',Z')).exp(G,Z')))
+end role
+role session(A,B,S : agent,
+	H : hash_func,
+	PA,PB : symmetric_key
+	UA,UB : public_key,
+	G : text)
+def=
+local SND,RCV : channel(dy)
+composition
+alice(A,B,S,SND,RCV,H,PA,G)/
+bob(A,B,S,SND,RCV,H,PA,PB,G)/
+server(A,B,S,SND,RCV,H,PA,PB,G)
+end role
+role environment()
+def=
+const a,b,s : agent,
+	h : hash_func
+	key1,key : protocol_id,
+	pa,pb,pi : symmetric_key,
+	ua,ub,ui : public_key,
+	g : text
+intruder knowledge={a,b,s,g,h,pi,ua,ub,ui}
+composition
+session(b,a,s,h,pa,pb,ua,ub,g)
+/session(i,b,s,h,pi,pb,ui,ub,g)
+/session(b,i,s,h,pa,pi,ua,ui,g)
+end role
+goal
+authentication_on key
+authentication_on key1
+secrecy_of sec_m_Key,sec_v_Key
+end goal
+environment() 

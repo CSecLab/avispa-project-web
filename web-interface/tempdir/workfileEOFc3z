@@ -1,0 +1,101 @@
+role mobile (M, S: agent,             
+	    Es: public_key,
+	    F, KeyGen: hash_func,
+	    P: text,
+      SND, RCV: channel (dy)) played_by M def=
+
+  local State : nat, 
+	Rm, Rs: text,
+	Kms: message
+
+  init State := 1
+
+  transition  
+    2.  State  = 1 /\ RCV(Rs') =|> 
+	State':= 3 /\ Rm' := new()
+  		   /\ Kms':= KeyGen(Rs'.Rm')
+                   /\ SND({Rm'}_Es.{F(Rs').M.P}_Kms')
+                   /\ witness(M,S,rm,Rm')
+		   /\ secret(Kms', sec_kms1, {M,S})
+ 
+    3.  State  = 3 /\ RCV({F(Rm)}_Kms) =|> 
+	State':= 5 /\ request(M,S,rs,Rs)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role server(S: agent,
+	    Es: public_key,
+	    F, KeyGen: hash_func,
+      Agents: (agent.text) set,
+      SND, RCV: channel (dy)) played_by S def=
+
+  local State : nat,
+	Rm, Rs, P: text,
+	Kms: message,
+	M: agent
+ 
+  init State := 0
+
+  transition 
+    1.  State  = 0 /\ RCV(start) =|> 
+	State':= 2 /\ Rs' := new()
+		   /\ SND(Rs')
+		   
+    2. State  = 2  /\ RCV({Rm'}_Es.{F(Rs).M'.P'}_KeyGen(Rs.Rm')) 
+                   /\ in(M'.P', Agents) =|> 
+       State':= 4  /\ Kms' := KeyGen(Rs.Rm')
+		   /\ SND({F(Rm')}_Kms')
+	 	   /\ secret(Kms', sec_kms2, {M',S})
+		   /\ request(S,M',rm,Rm') 
+		   /\ witness(S,M',rs,Rs) 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(M, S: agent, 
+	     Es: public_key,
+	     F, KeyGen: hash_func,
+	     P: text,
+       Agents: (agent.text) set) def=
+
+  local SS, RS, SM, RM: channel (dy)
+
+  composition 
+	   mobile (M,S,Es,F,KeyGen,P,SM,RM)
+	/\ server (S,Es,F,KeyGen,Agents,SS,RS)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+    local Agents: (agent.text) set
+    const m, s: agent,
+	  es: public_key,
+	  f, keygen: hash_func,
+	  rm, rs, sec_kms1, sec_kms2 : protocol_id,
+	  pm, pi: text
+
+    init Agents := {m.pm, i.pi}
+    intruder_knowledge = {m,s,f,keygen,pi,es,rs}
+
+    composition
+        session(m,s,es,f,keygen,pm,Agents)
+     /\ session(m,s,es,f,keygen,pm,Agents)
+     /\ session(i,s,es,f,keygen,pi,Agents)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of sec_kms1, sec_kms2
+  authentication_on rm
+  authentication_on rs
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

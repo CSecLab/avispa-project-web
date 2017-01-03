@@ -1,0 +1,125 @@
+%% LC changes: 
+%% - added macros for KEi and KEr. This requires also:
+%%   (i)  to write the value (and not the name) of the macro 
+%%        inside the first transition in which the role uses it;
+%%   (ii) to add the type declarations for DHX and DHY in Bob
+%%        and Alice respectively.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% IKEv2 -- CREATE_CHILD_SA exchange
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% In Alice/Bob notation, 
+%% CREATE_CHILD_SA
+%% A -> B: HDR, {SA, Ni, [KEi,] [TSi,] [TSr]}K
+%% B -> A: HDR, {SA, Nr, [KEr,] [TSi,] [TSr]}K
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role Alice(A,B:agent,
+	   G: text,
+	   F: function,
+	   SK: symmetric_key, 
+	   SND_B, RCV_B: channel (dy)) played_by A def=
+
+  exists Ni, SA, DHX: text (fresh), 
+	 Nr: text,
+	 KEr: message, %% more spefic: exp(text,text)
+         DHY: text,
+	 CSK: message, %% CHILD_SA to be established.
+	 State: nat,
+         MA: text (fresh),
+         MB: text
+
+  owns SND_B
+  init State = 0
+
+  knowledge(A)={A,B,G,F}
+
+  transition
+
+  1. State = 0 /\ RCV_B(start) =|>
+	   SND_B( {SA'.Ni'.exp(G,DHX')}SK ) 
+	/\ State' = 2
+	/\ witness(A,B,ni,Ni')
+
+  2. State = 2 /\ RCV_B({SA.Nr'.exp(G,DHY')}SK) =|>
+	   KEr'=exp(G,DHY')
+ 	/\ CSK' = F(Ni.Nr'.SA.exp(exp(G,DHY'),DHX))
+	/\ SND_B( {MA'.0}CSK' )
+	/\ State' = 4
+
+  4. State = 4 /\ RCV_B({MB'.1}CSK) =|> State' = 6
+	/\ request(A,B,nr,Nr)
+	/\ secret(CSK,B)
+
+end role
+
+role Bob (B,A:agent,
+	  G: text,
+	  F: function,
+	  SK: symmetric_key,
+	  SND_A, RCV_A: channel (dy)) played_by B def=
+
+  exists Ni, SA: text, 
+	 Nr, DHY: text (fresh),
+	 KEi, CSK: message,
+         DHX: text,	
+	 State: nat,
+         MA: text,
+         MB: text (fresh)
+
+  owns SND_A
+  init State = 1
+
+  knowledge(B)={A,B,G,F}
+
+  transition
+
+  1. State = 1 /\ RCV_A( {SA'.Ni'.exp(G,DHX')}SK ) =|>
+           KEi'=exp(G,DHX') 
+	/\ CSK' = F(Ni'.Nr'.SA'.exp(exp(G,DHX'),DHY')) 
+	/\ SND_A( {SA'.Nr'.exp(G,DHY')}SK )
+	/\ State' = 3
+	/\ witness(B,A,nr,Nr')
+
+  2. State = 3 /\ RCV_A( {MA'.0}CSK ) =|>
+	SND_A( {MB'.1}CSK ) /\
+	State' = 5 
+	/\ request(B,A,ni,Ni)
+	/\ secret(CSK,A)
+
+end role
+
+role Session(A, B: agent,
+	     SK: symmetric_key,
+	     G: text, F: function, 
+	     SAC, RA, SB, RB: channel (dy)) def=
+
+  composition
+	   Alice(A,B,G,F,SK,SAC,RA)
+	/\ Bob(B,A,G,F,SK,SB,RB)
+end role
+
+role Environment() def=
+ 
+  const ni,nr : protocol_id
+  knowledge(i) = {g,f,a,b,i,kai,kbi}
+
+  composition
+
+	Session(a,b,kab,g,f,s1,r1,s2,r2)
+     /\ Session(a,i,kai,g,f,s3,r3,s4,r4)
+     /\	Session(i,b,kbi,g,f,s5,r5,s6,r6)
+
+end role
+
+goal  	
+	secrecy_of CSK
+	Alice authenticates Bob on Nr
+	Bob authenticates Alice on Ni
+end goal
+
+Environment()
+

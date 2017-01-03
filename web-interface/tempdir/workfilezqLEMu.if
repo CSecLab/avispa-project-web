@@ -1,0 +1,203 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilezqLEMu
+
+section signature:
+
+state_relais: agent * public_key * nat * text * set(agent) * set(agent) * nat -> fact
+state_serveur: agent * agent * public_key * public_key * public_key * set(pair(text,text)) * nat * text * text * text * text * text * text * set(agent) * set(agent) * nat -> fact
+state_smartphone: agent * agent * public_key * public_key * text * text * nat * text * text * text * set(pair(text,text)) * set(agent) * nat -> fact
+
+
+section types:
+
+num, qrc, nb, smart_serv_nb, serv_smart_logging, logging: protocol_id
+MGoal, start: message
+ka, kb, kr, ki, Kr, Ka, Kb: public_key
+ASGoal, Set_60, Set_59, Set_49, Set_47, Dummy_Set_60, Set_22, Dummy_Set_59, Dummy_Set_49, Dummy_Set_47, Dummy_Set_22: set(agent)
+set_98, Idents, Set_20, Dummy_Set_20: set(pair(text,text))
+SID2, SID1, SID, State, 4, 13, 12, 9, 3, 2, 7, 5, 1, 0, Dummy_State: nat
+A2Goal, A1Goal, a, b, r, R, A, B, i: agent
+log, pass, Num, Na, Nb, M, Log, Pass, Dummy_Num, Dummy_M, Dummy_Nb, Dummy_Pass, Dummy_Log, dummy_nonce: text
+set_100, set_99, set_139, set_138, set_136, set_135, set_134, set_133, set_131, set_130, set_129, set_128, set_126, set_125, set_120, set_119, set_113, set_112, set_101: set
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(ka).
+ iknows(kb).
+ iknows(ki).
+ iknows(inv(ki)).
+ iknows(i).
+ state_smartphone(a,b,ka,kb,log,pass,0,dummy_nonce,dummy_nonce,dummy_nonce,set_100,set_101,3).
+ state_serveur(b,a,ka,kb,kr,set_98,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_112,set_113,4).
+ state_relais(r,kr,0,dummy_nonce,set_119,set_120,5).
+ state_smartphone(a,i,ka,ki,log,pass,0,dummy_nonce,dummy_nonce,dummy_nonce,set_125,set_126,7).
+ state_relais(r,kr,0,dummy_nonce,set_130,set_131,9).
+ state_serveur(b,i,ki,kb,kr,set_98,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_135,set_136,12).
+ state_relais(r,kr,0,dummy_nonce,set_138,set_139,13).
+ contains(pair(log,pass),set_98)
+
+
+section rules:
+
+step step_0 (A,B,Ka,Kb,Log,Pass,Na,Nb,M,Dummy_Set_20,Dummy_Set_22,SID) :=
+ state_smartphone(A,B,Ka,Kb,Log,Pass,0,Na,Nb,M,Dummy_Set_20,Dummy_Set_22,SID).
+ iknows(start)
+ =>
+ state_smartphone(A,B,Ka,Kb,Log,Pass,1,Na,Nb,M,Dummy_Set_20,Dummy_Set_22,SID).
+ iknows(crypt(Kb,pair(Log,pair(Pass,A)))).
+ secret(Dummy_Set_20,logging,Dummy_Set_22).
+ witness(A,B,serv_smart_logging,pair(Log,Pass)).
+ contains(pair(Log,Pass),Dummy_Set_20).
+ contains(A,Dummy_Set_22).
+ contains(B,Dummy_Set_22)
+
+step step_1 (A,B,Ka,Kb,Dummy_Log,Dummy_Pass,Na,Dummy_Nb,M,Set_20,Set_22,SID,Log,Pass,Nb) :=
+ state_smartphone(A,B,Ka,Kb,Dummy_Log,Dummy_Pass,1,Na,Dummy_Nb,M,Set_20,Set_22,SID).
+ iknows(crypt(Ka,pair(Log,pair(Pass,Nb))))
+ =>
+ state_smartphone(A,B,Ka,Kb,Log,Pass,2,Na,Nb,M,Set_20,Set_22,SID).
+ iknows(crypt(Kb,Nb)).
+ request(A,B,smart_serv_nb,Nb,SID)
+
+step step_2 (A,B,Ka,Kb,Log,Pass,Na,Nb,Dummy_M,Set_20,Set_22,SID,M) :=
+ state_smartphone(A,B,Ka,Kb,Log,Pass,2,Na,Nb,Dummy_M,Set_20,Set_22,SID).
+ iknows(crypt(Ka,pair(M,B)))
+ =>
+ state_smartphone(A,B,Ka,Kb,Log,Pass,3,Na,Nb,M,Set_20,Set_22,SID)
+
+step step_3 (B,A,Ka,Kb,Kr,Idents,Na,Dummy_Nb,M,Dummy_Log,Dummy_Pass,Num,Dummy_Set_47,Set_49,SID,Nb,Log,Pass) :=
+ state_serveur(B,A,Ka,Kb,Kr,Idents,0,Na,Dummy_Nb,M,Dummy_Log,Dummy_Pass,Num,Dummy_Set_47,Set_49,SID).
+ iknows(crypt(Kb,pair(Log,pair(Pass,A)))).
+ contains(pair(Log,Pass),Idents)
+=[exists Nb]=>
+ state_serveur(B,A,Ka,Kb,Kr,Idents,1,Na,Nb,M,Log,Pass,Num,Dummy_Set_47,Set_49,SID).
+ witness(B,A,smart_serv_nb,Nb).
+ iknows(crypt(Ka,pair(Log,pair(Pass,Nb)))).
+ secret(Nb,nb,Dummy_Set_47).
+ contains(A,Dummy_Set_47).
+ contains(B,Dummy_Set_47).
+ contains(pair(Log,Pass),Idents)
+
+step step_4 (B,A,Ka,Kb,Kr,Idents,Na,Nb,M,Log,Pass,Num,Set_47,Set_49,SID) :=
+ state_serveur(B,A,Ka,Kb,Kr,Idents,1,Na,Nb,M,Log,Pass,Num,Set_47,Set_49,SID).
+ iknows(crypt(Kb,Nb))
+ =>
+ state_serveur(B,A,Ka,Kb,Kr,Idents,2,Na,Nb,M,Log,Pass,Num,Set_47,Set_49,SID).
+ request(B,A,serv_smart_logging,pair(Log,Pass),SID)
+
+step step_5 (B,A,Ka,Kb,Kr,Idents,Na,Nb,Dummy_M,Log,Pass,Dummy_Num,Set_47,Dummy_Set_49,SID,M,Num) :=
+ state_serveur(B,A,Ka,Kb,Kr,Idents,2,Na,Nb,Dummy_M,Log,Pass,Dummy_Num,Set_47,Dummy_Set_49,SID).
+ iknows(crypt(inv(Kr),Num))
+=[exists M]=>
+ state_serveur(B,A,Ka,Kb,Kr,Idents,3,Na,Nb,M,Log,Pass,Num,Set_47,Dummy_Set_49,SID).
+ iknows(crypt(Ka,pair(M,B))).
+ secret(M,qrc,Dummy_Set_49).
+ contains(A,Dummy_Set_49).
+ contains(B,Dummy_Set_49)
+
+step step_6 (B,A,Ka,Kb,Kr,Idents,Na,Nb,M,Log,Pass,Num,Set_47,Set_49,SID) :=
+ state_serveur(B,A,Ka,Kb,Kr,Idents,3,Na,Nb,M,Log,Pass,Num,Set_47,Set_49,SID).
+ iknows(crypt(inv(Kr),Num))
+ =>
+ state_serveur(B,A,Ka,Kb,Kr,Idents,4,Na,Nb,M,Log,Pass,Num,Set_47,Set_49,SID)
+
+step step_7 (R,Kr,Dummy_Num,Dummy_Set_59,Set_60,SID,Num) :=
+ state_relais(R,Kr,0,Dummy_Num,Dummy_Set_59,Set_60,SID)
+=[exists Num]=>
+ state_relais(R,Kr,1,Num,Dummy_Set_59,Set_60,SID).
+ iknows(crypt(inv(Kr),Num)).
+ secret(Num,num,Dummy_Set_59).
+ contains(R,Dummy_Set_59)
+
+step step_8 (R,Kr,Num,Set_59,Dummy_Set_60,SID) :=
+ state_relais(R,Kr,1,Num,Set_59,Dummy_Set_60,SID)
+ =>
+ state_relais(R,Kr,2,Num,Set_59,Dummy_Set_60,SID).
+ iknows(crypt(inv(Kr),Num)).
+ secret(Num,num,Dummy_Set_60).
+ contains(R,Dummy_Set_60)
+
+
+section properties:
+
+property secrecy_of_logging (MGoal,ASGoal) :=
+ [] ((secret(MGoal,logging,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_nb (MGoal,ASGoal) :=
+ [] ((secret(MGoal,nb,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_qrc (MGoal,ASGoal) :=
+ [] ((secret(MGoal,qrc,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_num (MGoal,ASGoal) :=
+ [] ((secret(MGoal,num,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_smart_serv_nb (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,smart_serv_nb,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,smart_serv_nb,MGoal))
+     /\ ((request(A1Goal,A2Goal,smart_serv_nb,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,smart_serv_nb,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_serv_smart_logging (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,serv_smart_logging,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,serv_smart_logging,MGoal))
+     /\ ((request(A1Goal,A2Goal,serv_smart_logging,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,serv_smart_logging,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_logging (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,logging,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_nb (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,nb,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_qrc (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,qrc,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_num (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,num,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_smart_serv_nb (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,smart_serv_nb,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,smart_serv_nb,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_smart_serv_nb (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,smart_serv_nb,MGoal,SID1).
+ request(A1Goal,A2Goal,smart_serv_nb,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_serv_smart_logging (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,serv_smart_logging,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,serv_smart_logging,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_serv_smart_logging (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,serv_smart_logging,MGoal,SID1).
+ request(A1Goal,A2Goal,serv_smart_logging,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

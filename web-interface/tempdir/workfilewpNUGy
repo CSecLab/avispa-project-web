@@ -1,0 +1,83 @@
+%%PROTOCOL: Diffie-Hellman Key Exchange Protocol.
+%%PURPOSE: To establish a symmetric secret key between A and B.
+%%A -> B : 
+%%B -> A : 
+%%To simulate man-in-the-middle attack on this protocol.
+
+role initiator (WBAN, AP : agent,
+		H,MAC : hash_func,
+		Snd, Rcv: channel(dy))
+% A = sender, B = receiver
+played_by WBAN
+def=
+	local State : nat,
+	TC,R,T,U,Tdash, Idash, V,MACVAL: text
+	const sub2, sub3, sub1 : protocol_id 
+
+init State := 0
+
+transition
+1. 	State = 0 /\ Rcv(start) =|>
+	State' := 1 /\ V' := H(TC.R,T) /\ Snd(V.U.TC.Tdash.Idash)
+		  /\  secret(T, subs2, WBAN)
+2.	State = 1 /\ Rcv(MACVAL) =|>
+	State' := 2 /\ request(AP,WBAN,sub3,MACVAL)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role responder (WBAN, AP : agent,
+		H,MAC : hash_func,
+		Snd, Rcv: channel(dy))
+played_by AP
+def=
+	local State : nat,
+	TC,R,T,U,Tdash, Idash, V,MACVAL,V2: text
+	const sub2, sub3, sub1 : protocol_id 
+
+init State := 0
+
+transition
+1. State = 0 /\ Rcv(V.U.TC.Tdash.Idash) =|>
+   State' := 1 /\ V' := new() /\ MACVAL' := MAC(V) /\ T' := new()
+		/\secret({T'}, sub1, AP)
+		/\ Snd(MACVAL)
+		/\ witness (A, B, sub3, MACVAL)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(WBAN,AP: agent)
+def=
+	local 	SA, SB, RA, RB: channel (dy),
+	TC,R,T,U,Tdash, Idash, V,MACVAL,V2: text
+	const sub3, sub1, sub2 : protocol_id
+
+composition
+	initiator(WBAN, AP, SA, RA)
+	/\ responder(WBAN, AP, SB, RB)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+def= 
+	const 
+	WBAN, AP : agent,
+	TC,R,T,U,Tdash, Idash, V,MACVAL,V2: text,
+	sub3, sub1, sub2 : protocol_id
+
+%intruder_knowledge = {a, b, ya, yb, g, q}
+
+composition
+	session(WBAN, AP) /\
+	session(WBAN, AP)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+secrecy_of sub1
+secrecy_of sub2
+authentication_on sub3
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

@@ -1,0 +1,91 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilegcUL03
+
+section signature:
+
+state_responder: agent * agent * symmetric_key * hash_func * nat * text * text * text * text * text * text * text * set(text) * nat -> fact
+state_initiator: agent * agent * symmetric_key * hash_func * nat * text * text * text * text * text * text * set(text) * nat -> fact
+
+
+section types:
+
+sub2, kab: protocol_id
+Set_41, Set_24, Dummy_Set_41, Dummy_Set_24: set(text)
+State, 7, 6, 1, 0, 4, SID, Dummy_State, 3: nat
+UIDA, SK, TM, TK, TS, R, Kba, Dummy_Kba, Dummy_SK, Dummy_R, Dummy_TS, Dummy_TK, dummy_nonce: text
+set_75, set_73, set_68, set_58: set
+ASGoal: set(agent)
+start, MGoal: message
+Hash, h: hash_func
+K, k: symmetric_key
+A, B, a, b, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(i).
+ state_initiator(a,b,k,h,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_58,3).
+ state_responder(b,a,k,h,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_68,4).
+ state_initiator(a,b,k,h,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_73,6).
+ state_responder(b,a,k,h,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_75,7)
+
+
+section rules:
+
+step step_0 (A,B,K,Hash,UIDA,SK,Dummy_TK,Dummy_TS,Dummy_R,Kba,Set_24,SID,TS,R) :=
+ state_initiator(A,B,K,Hash,0,UIDA,SK,Dummy_TK,Dummy_TS,Dummy_R,Kba,Set_24,SID).
+ iknows(start)
+=[exists TS,R]=>
+ state_initiator(A,B,K,Hash,1,UIDA,SK,pair(Dummy_R,apply(Hash,UIDA)),TS,R,Kba,Set_24,SID).
+ iknows(pair(Dummy_TS,pair(Dummy_TK,UIDA)))
+
+step step_1 (A,B,K,Hash,UIDA,Dummy_SK,TK,TS,R,Kba,Dummy_Set_24,SID) :=
+ state_initiator(A,B,K,Hash,1,UIDA,Dummy_SK,TK,TS,R,Kba,Dummy_Set_24,SID).
+ iknows(scrypt(TK,Kba))
+ =>
+ state_initiator(A,B,K,Hash,1,UIDA,pair(kab,TS),TK,TS,R,Kba,Dummy_Set_24,SID).
+ secret(Dummy_Set_24,kab,A).
+ iknows(scrypt(TK,Dummy_SK)).
+ contains(Kba,Dummy_Set_24)
+
+step step_2 (B,A,K,Hash,UIDA,SK,TM,TK,TS,Dummy_R,Dummy_Kba,Dummy_Set_41,SID,R) :=
+ state_responder(B,A,K,Hash,0,UIDA,SK,TM,TK,TS,Dummy_R,Dummy_Kba,Dummy_Set_41,SID).
+ iknows(pair(TS,pair(TK,UIDA)))
+=[exists R]=>
+ state_responder(B,A,K,Hash,1,UIDA,SK,TM,TK,TS,R,pair(Dummy_R,apply(Hash,pair(TK,UIDA))),Dummy_Set_41,SID).
+ secret(Dummy_Set_41,sub2,B).
+ iknows(scrypt(TK,Dummy_Kba)).
+ contains(pair(Dummy_R,apply(Hash,pair(TK,UIDA))),Dummy_Set_41)
+
+step step_3 (B,A,K,Hash,UIDA,Dummy_SK,TM,TK,TS,R,Kba,Set_41,SID) :=
+ state_responder(B,A,K,Hash,1,UIDA,Dummy_SK,TM,TK,TS,R,Kba,Set_41,SID).
+ iknows(scrypt(TK,kab))
+ =>
+ state_responder(B,A,K,Hash,1,UIDA,pair(kab,TS),TM,TK,TS,R,Kba,Set_41,SID).
+ iknows(scrypt(TK,Dummy_SK))
+
+
+section properties:
+
+property secrecy_of_sub2 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sub2,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_kab (MGoal,ASGoal) :=
+ [] ((secret(MGoal,kab,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_sub2 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sub2,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_kab (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,kab,ASGoal) &
+ not(contains(i,ASGoal))
+

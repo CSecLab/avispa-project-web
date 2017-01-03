@@ -1,0 +1,80 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileSRU0yv
+
+section signature:
+
+state_bob: agent * agent * text * nat * message * message * text * text * nat -> fact
+state_alice: agent * agent * text * nat * text * text * message * message * set(agent) * nat -> fact
+
+
+section types:
+
+sec_alice_bob: protocol_id
+ASGoal, Set_21, Dummy_Set_21: set(agent)
+5, 3, State, 4, 2, 7, 1, 6, 0, SID, Dummy_State: nat
+MGoal, Y, K, start, X, Dummy_Y, Dummy_K, Dummy_X, dummy_msg: message
+a, b, A, B, i: agent
+g, Nb, Msg, G, Dummy_Nb, Na, Dummy_Msg, Dummy_Na, dummy_nonce: text
+set_68, set_65, set_50: set
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(g).
+ iknows(i).
+ state_alice(a,b,g,0,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,set_50,3).
+ state_bob(a,b,g,1,dummy_msg,dummy_msg,dummy_nonce,dummy_nonce,4).
+ state_alice(a,i,g,0,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,set_65,6).
+ state_bob(a,i,g,1,dummy_msg,dummy_msg,dummy_nonce,dummy_nonce,7)
+
+
+section rules:
+
+step step_0 (A,B,G,Dummy_Na,Msg,X,K,Set_21,SID,Na) :=
+ state_alice(A,B,G,0,Dummy_Na,Msg,X,K,Set_21,SID).
+ iknows(start)
+=[exists Na]=>
+ state_alice(A,B,G,2,Na,Msg,X,K,Set_21,SID).
+ iknows(exp(G,Na))
+
+step step_1 (A,B,G,Na,Dummy_Msg,Dummy_X,Dummy_K,Dummy_Set_21,SID,Msg,X) :=
+ state_alice(A,B,G,2,Na,Dummy_Msg,Dummy_X,Dummy_K,Dummy_Set_21,SID).
+ iknows(X)
+=[exists Msg]=>
+ state_alice(A,B,G,4,Na,Msg,X,exp(X,Na),Dummy_Set_21,SID).
+ iknows(scrypt(exp(X,Na),Msg)).
+ secret(Msg,sec_alice_bob,Dummy_Set_21).
+ contains(A,Dummy_Set_21).
+ contains(B,Dummy_Set_21)
+
+step step_2 (B,A,G,Dummy_Y,Dummy_K,Dummy_Nb,Msg,SID,Y,Nb) :=
+ state_bob(B,A,G,1,Dummy_Y,Dummy_K,Dummy_Nb,Msg,SID).
+ iknows(Y)
+=[exists Nb]=>
+ state_bob(B,A,G,3,Y,exp(Y,Nb),Nb,Msg,SID).
+ iknows(exp(G,Nb))
+
+step step_3 (B,A,G,Y,Dummy_K,Nb,Dummy_Msg,SID,K,Msg) :=
+ state_bob(B,A,G,3,Y,Dummy_K,Nb,Dummy_Msg,SID).
+ iknows(scrypt(K,Msg))
+ =>
+ state_bob(B,A,G,5,Y,K,Nb,Msg,SID)
+
+
+section properties:
+
+property secrecy_of_sec_alice_bob (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_alice_bob,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_sec_alice_bob (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_alice_bob,ASGoal) &
+ not(contains(i,ASGoal))
+

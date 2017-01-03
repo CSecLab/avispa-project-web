@@ -1,0 +1,83 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilem7gJSv
+
+section signature:
+
+state_server: agent * agent * symmetric_key * symmetric_key * hash_func * text * text * nat * text * nat -> fact
+state_client: agent * agent * symmetric_key * symmetric_key * hash_func * text * text * nat * text * nat -> fact
+
+
+section types:
+
+timestamp: protocol_id
+start, MGoal: message
+11, 10, State, 2, 7, 6, 4, 1, SID, 0, Dummy_State, 3, SID2, SID1: nat
+Timestamp, M1, M2, Dummy_Timestamp, dummy_nonce, m1, m2: text
+F, f: hash_func
+KC, KCS, kcs, kc: symmetric_key
+C, S, A2Goal, A1Goal, i, c, s: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(c).
+ iknows(s).
+ iknows(f).
+ iknows(i).
+ state_client(c,s,kcs,kc,f,m1,m2,0,dummy_nonce,3).
+ state_server(s,c,kcs,kc,f,m1,m2,10,dummy_nonce,4).
+ state_client(c,s,kcs,kc,f,m1,m2,0,dummy_nonce,6).
+ state_server(s,c,kcs,kc,f,m1,m2,10,dummy_nonce,7).
+ state_server(s,i,kcs,kc,f,m1,m2,10,dummy_nonce,10)
+
+
+section rules:
+
+step step_0 (C,S,KCS,KC,F,M1,M2,Dummy_Timestamp,SID,Timestamp) :=
+ state_client(C,S,KCS,KC,F,M1,M2,0,Dummy_Timestamp,SID).
+ iknows(start)
+=[exists Timestamp]=>
+ state_client(C,S,KCS,KC,F,M1,M2,1,Timestamp,SID).
+ iknows(pair(C,pair(scrypt(KC,M1),apply(F,pair(M1,pair(Timestamp,KCS)))))).
+ witness(C,S,timestamp,Timestamp)
+
+step step_1 (C,S,KCS,KC,F,M1,M2,Timestamp,SID) :=
+ state_client(C,S,KCS,KC,F,M1,M2,1,Timestamp,SID).
+ iknows(M2)
+ =>
+ state_client(C,S,KCS,KC,F,M1,M2,2,Timestamp,SID)
+
+step step_2 (S,C,KCS,KC,F,M1,M2,Dummy_Timestamp,SID,Timestamp) :=
+ state_server(S,C,KCS,KC,F,M1,M2,10,Dummy_Timestamp,SID).
+ iknows(pair(C,pair(scrypt(KC,M1),apply(F,pair(M1,pair(Timestamp,KCS))))))
+ =>
+ state_server(S,C,KCS,KC,F,M1,M2,11,Timestamp,SID).
+ iknows(M2).
+ request(S,C,timestamp,Dummy_Timestamp,SID)
+
+
+section properties:
+
+property authentication_on_timestamp (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,timestamp,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,timestamp,MGoal))
+     /\ ((request(A1Goal,A2Goal,timestamp,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,timestamp,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state authentication_on_timestamp (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,timestamp,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,timestamp,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_timestamp (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,timestamp,MGoal,SID1).
+ request(A1Goal,A2Goal,timestamp,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

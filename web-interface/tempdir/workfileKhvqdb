@@ -1,0 +1,320 @@
+% TEPANOM: Trust Extension Protocol for Authentication in Networks Oriented to Mobile-things by Antonio Jara (University of Murcia, Spain) - jara@um.es / 2011
+% TEPANOM is the gate guard in the temples from Thailand. It was chosen since the current internet is presented as an archipielago of islands/networks 
+% with multi-technologies and multi-domains. Therefore, TEPANOM is presented as the protocol which allows:
+% 1- Verify in which island/network/domain can be trusted.
+% 2- Authenticate to the Mobile Node
+% 3- Extend the trust domain to these new island/network/domain.
+%
+% TEPANOM-TRH: TEPANOM with the combination of the Trust Resource Handlers, to extension of the trust to new devices (scalability of the trust)
+% 4- Authentication and extension of the trust to NEW devices included in the network
+%
+% SECURITY ISSUES
+% 
+% Secrecy of the Symmetric keys
+% Verification of that SK0 is only known by the MN and the GWA (Secrecy of SK0)
+% Verification of that TunA is only known by the GWB and the ILMAB (Secrecy of TunA)
+% Verification of that TunB is only known by the ILMAA and the ILMAB (Secrecy of TunB)
+% Verification of that TunC is only known by the ILMAA and the GWA (Secrecy of TunC)
+%
+% Authentication
+% Authentication of the MN with the GWA through S (The signature)
+%
+% MESAGGES EXCHANGED
+%
+% M1. MN -> GWB: IDU.{S}_SK0 % This sends the IDU message with the fields related with new Locator, Device ID, etc. and the signature based on SK0 for authentication with the GWA (which follows the role of Home Agent in other mobility protocols)
+%						S is DeviceID.T0 (T0 is the timespam or the nonce)
+% M2. GWB -> ILMAB: {PB.IDU.Sciphered}_TunA % Key exchange, part B of SK1
+%						Sciphered is {S}_SK0
+% M3. ILMAB -> ILMAA: {PB.IDU.Sciphered}_TunB % Key exchange, part B of SK1
+%						Sciphered is {S}_SK0
+% M4. ILMAA -> GWA: {PB.IDU.Sciphered}_TunC % Key exchange, part B of SK1
+%						Sciphered is {S}_SK0
+% RETURN ROUTABILITY
+% M5. GWA -> ILMAA: {T1.PA.SK2.ESK2}_TunC %RETURN ROUTABILITY, this sends the new timestamp, public part of SK1, SK2 and ESK2  
+% M6. GWA -> GWB: {T1.PA.SK2.ESK2}_SK1  %through the domain trusted entities and directly from the GWA to the GWB
+%
+% M7. ILMAA -> ILMAB: {T1.PA.SK2.ESK2}_TunB %Return Routability forwarding through the trust domain entities
+%
+% M8. ILMAB -> GWB: {T1.PA.SK2.ESK2}_TunA %Return Routability forwarding through the trust domain entities
+% 			Verify with M6 and M8 the authenticity of the MN and establish the new tunnel between GWA and GWB (SK1) to transfer the binding, forward messages etc.
+% M9. GWB -> MN: {{T1}_SK2.ESK2} %Sends the SK2, and in addition encrypts the timestamp using SK2 in order to avoid reply attack
+%			Verify with M9 that the GWA has authenticated to him (MN), and establish a new tunnel between with its new gateway (SK2)
+%			This technique to send a key encrypted end to end, which is forwared by intermediate nodes which cannot understand it, is similar to the idea used in Kerbertos
+%
+% - request(A,B,protocol_ID,value): Agent A accepts the value and now relies on the guarantee that agent B exists and agrees with B on this value
+% - wrequest is the same, but without the confirmation that agent B exists % weak_authentication_on
+% - witness(B,A,protocol_ID,value): Agent B asserts that we want to be the peer of Agent A, agreeing on the value in an authentication effort 
+% identified by the protocol_IF 
+%
+% A authenticates to B, in our example Home Agent (GWA) authenticates to Mobile Node (MN). Therefore, MN is the witness and GWA the request.
+% MN generates the signature and GWA receives the Signature
+% That exchange is also a weak authentication of the GWA by the MN, it is weak because the MN is not sure that the GWA exists, but if GWA sends back 
+% some value to the MN then it is going to be strong authentication in both directions i.e. for both sides.
+%
+% User manual information
+% secret(E,id,S): declares the information E as secret shared by the agents of set S; this
+% secret will be identified by the constant id in the goal section;
+% • witness(A,B,id,E): for a (weak) authentication property of A by B on E, declares that
+% agent A is witness for the information E; this goal will be identified by the constant id in the goal section;
+% • request(B,A,id,E): for a strong authentication property of A by B on E, declares that
+% agent B requests a check of the value E; this goal will be identified by the constant id in the goal section;
+% • wrequest(B,A,id,E): similar to request, but for a weak authentication property.
+%
+%• exclusive or: this operator, ”xor(A,B)”, is associative, commutative and nilpotent:
+% xor(xor(A,B),C) = xor(A,xor(B,C))
+% xor(A,B) = xor(B,A)
+% xor(xor(A,A),B) = B
+%• exponential: this operator, ”exp(E,N)” representing E^N , can commute exponents, and admits an inverse for exponents:
+% exp(exp(E,N),M) = exp(exp(E,M),N)
+% exp(exp(E,N),inv(N)) = E
+
+
+role mn(
+	MobileNode,GatewayB,GatewayA : agent, %This indicates the agents which are involved
+	SK0 : symmetric_key, %Shared key between the MN and GWA
+	Hash : hash_func, %This hash functions is used to sign
+	SND,RCV : channel(dy) %This channel is limited to the link between MN and GWB
+	)
+	played_by MobileNode def=
+	
+	local
+		State2 : nat,
+		SK2 : symmetric_key,
+		T0, T1, DeviceID : text, %S is the Signature, IDU is the packet for Identification Update, T0 is a nonce or timestamp used for the signature, DeviceID is the DeviceID name
+		IDU : text,
+		Time : {text}_symmetric_key,
+		S: message,
+		ESK2 : {symmetric_key}_symmetric_key
+		
+	init
+		State2 := 0
+		
+	transition
+	1. State2 = 0 /\ RCV(start) 
+		=|> 
+		T0' := new() %Nonce right now, but it could be a timestamp
+		/\ S' := Hash(DeviceID.T0') %Hash of the DeviceID and the Nonce or Timestamp
+		/\ SND(MobileNode.GatewayB.IDU.DeviceID.T0'.{S'}_SK0) %The Hash ciphered
+		/\ State2' := 1
+		% M1. MN -> GWB: IDU.{S}_SK0
+		/\ secret(SK0,sk0_secret,{MobileNode, GatewayA})
+		/\ witness(MobileNode,GatewayA, authentication_ofMNbyGWA, S') %Verification of the MN by GWA with S (which is the signature ciphered with SK0)
+	
+	% M9. GWB -> MN: {{T1}_SK2.ESK2}
+	2. State2 = 1 /\ RCV(GatewayB.MobileNode.Time'.ESK2')
+		=|> 
+		State2' := 2
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role gwb(
+	MobileNode, GatewayA, GatewayB, ILMAB : agent,
+	TunA : symmetric_key,
+	Hash : hash_func,
+	SND,RCV : channel(dy))
+	played_by GatewayB def=
+	
+	local
+		State : nat,
+		PB, IDU, T0, DeviceID : text, %For M2
+		PA, T1 : text, %For M6
+		SK1, SK2 : symmetric_key,
+		ESK2: {symmetric_key}_symmetric_key,
+		M, N : message,
+		Sciphered : {message}_symmetric_key %This is the ciphered part with SK0 corresponding to {Hash(S)}_SK0
+	
+	init
+		State := 10
+		
+	transition
+	% M1. MN -> GWB: IDU.{S}_SK0
+	1. State = 10 /\ RCV(MobileNode.GatewayB.IDU'.DeviceID'.T0'.Sciphered')
+		=|> 
+		State':= 11 
+		/\ PB' := new() %Part B of the SK1
+		% M2. GWB -> ILMAB: {PB.IDU.Sciphered}_TunA 
+		/\ SND(GatewayB.ILMAB.{IDU'.DeviceID'.T0'.PB'.Sciphered'}_TunA) 
+		/\ secret(TunA,tunA_secret,{ILMAB, GatewayB})
+	
+	% M6. GWA -> GWB: {T1.PA.SK2.ESK2}_SK1 
+	2. State = 11 /\ RCV(GatewayA.GatewayB.M')
+		=|> 
+		State':= 12
+	
+	% M8. ILMAB -> GWB: {T1.PA.SK2.ESK2}_TunA
+	3. State = 12 /\ RCV(ILMAB.GatewayB.{T1'.PA'.SK2'.ESK2'}_TunA) % M' = {T1'.PA'.SK2'.ESK2'}_(PA'.PB')
+		=|>
+		State' := 13 
+		% M9. GWB -> MN: {{T1}_SK2.ESK2}
+		/\ SND(GatewayB.MobileNode.{T1'}_SK2'.ESK2')
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role ilmab(
+	GatewayB, ILMAB, ILMAA : agent,
+	TunA, TunB : symmetric_key,
+	Hash : hash_func,
+	SND,RCV : channel(dy))
+	played_by ILMAB def=
+	
+	local
+		State : nat,
+		PB, IDU, DeviceID, T0 : text,
+		T1, PA : text,
+		SK2 : symmetric_key,
+		Sciphered : {message}_symmetric_key, %This is the ciphered part with SK0 corresponding to {Hash(S)}_SK0
+		ESK2: {symmetric_key}_symmetric_key
+	init
+		State := 20
+		
+	transition
+	
+	% M2. GWB -> ILMAB: {PB.IDU.Sciphered}_TunA 
+	1. State = 20 /\ RCV(GatewayB.ILMAB.{IDU'.DeviceID'.T0'.PB'.Sciphered'}_TunA) 
+		=|> 
+		State':= 21 
+		% M3. ILMAB -> ILMAA: {PB.IDU.Sciphered}_TunB 
+		/\ SND(ILMAB.ILMAA.{IDU'.DeviceID'.T0'.PB'.Sciphered'}_TunB) 
+		/\ secret(TunA,tunA_secret,{ILMAB, GatewayB})
+		/\ secret(TunB,tunB_secret,{ILMAB, ILMAA})
+		
+	% M7. ILMAA -> ILMAB: {T1.PA.SK2.ESK2}_TunB 
+	2. State = 21 /\ RCV(ILMAA.ILMAB.{T1'.PA'.SK2'.ESK2'}_TunB) 
+		=|> 
+		% M8. ILMAB -> GWB: {T1.PA.SK2.ESK2}_TunA 
+		State':= 22 /\ SND(ILMAB.GatewayB.{T1'.PA'.SK2'.ESK2'}_TunA)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role ilmaa(
+	ILMAB, ILMAA, GatewayA : agent,
+	TunB, TunC : symmetric_key,
+	Hash : hash_func,
+	SND,RCV : channel(dy))
+	played_by ILMAA def=
+	
+	local
+		State : nat,
+		PB, IDU, DeviceID, T0 : text,
+		T1, PA : text,
+		SK2 : symmetric_key,
+		Sciphered : {message}_symmetric_key, %This is the ciphered part with SK0 corresponding to {Hash(S)}_SK0
+		ESK2: {symmetric_key}_symmetric_key
+		
+	init
+		State := 30
+		
+	transition
+	% M3. ILMAB -> ILMAA: {PB.IDU.Sciphered}_TunB 
+	1. State = 30 /\ RCV(ILMAB.ILMAA.{IDU'.DeviceID'.T0'.PB'.Sciphered'}_TunB) 
+		=|> 
+		State':= 31 
+		% M4. ILMAA -> GWA: {PB.IDU.Sciphered}_TunC 
+		/\ SND(ILMAA.GatewayA.{IDU'.DeviceID'.T0'.PB'.Sciphered'}_TunC)
+		/\ secret(TunB,tunB_secret,{ILMAB, ILMAA})
+		/\ secret(TunC,tunC_secret,{ILMAA, GatewayA})
+		
+	% M5. GWA -> ILMAA: {T1.PA.SK2.ESK2}_TunC
+	2. State = 31 /\ RCV(GatewayA.ILMAA.{T1'.PA'.SK2'.ESK2'}_TunC) 
+		=|> 
+		% M7. ILMAA -> ILMAB: {T1.PA.SK2.ESK2}_TunB 
+		State':= 32 /\ SND(ILMAA.ILMAB.{T1'.PA'.SK2'.ESK2'}_TunB)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role gwa(
+	MobileNode, ILMAA, GatewayA, GatewayB : agent,
+	SK0, TunC : symmetric_key,
+	Hash : hash_func,
+	SND,RCV : channel(dy))
+	played_by GatewayA def=
+	
+	local
+		State : nat,
+		PA, PB, IDU, DeviceID, T0, T1 : text,
+		SK1, SK2 : symmetric_key,
+		Sciphered : {message}_symmetric_key, %This is the ciphered part with SK0 corresponding to {Hash(S)}_SK0
+		ESK2: {symmetric_key}_symmetric_key
+	init
+		State := 40
+		
+	transition
+	% M4. ILMAA -> GWA: {PB.IDU.Sciphered}_TunC 
+	1. State = 40 /\ RCV(ILMAA.GatewayA.{IDU'.DeviceID'.T0'.PB'.Sciphered'}_TunC) 
+		/\ {Hash(DeviceID'.T0')}_SK0 = Sciphered' % Verification of the signature, in order to check that SK0 is known by the MN
+		=|> 
+		State':= 41 
+		/\ secret(SK0,sk0_secret,{MobileNode, GatewayA})
+		/\ secret(TunC,tunC_secret,{ILMAA, GatewayA})
+		/\ request(GatewayA,MobileNode,authentication_ofMNbyGWA, Hash(DeviceID'.T0')) %Sciphered') Authentication based on the signature
+		/\ PA' := new() %Generates the public part from the side A
+		/\ SK1' := PB'.PA' %Generates the SK1 with the union of both public parts (following Diffie Hellman algorithm)
+		/\ SK2' := new() %Generation of the new key between the GWB and the MN
+		/\ ESK2' := {SK2'}_SK0 %Encrypts SK2 with SK0 to be sent to the MN by the GWB (similar to the idea from Kerberos)
+		/\ T1' := new() % new timestamp to avoid reply attack
+		% M6. GWA -> GWB: {T1.PA.SK2.ESK2}_SK1 
+		/\ SND(GatewayA.GatewayB.{T1'.PA'.SK2'.ESK2'}_SK1') %RETURN ROUTABILITY, this sends the new timestamp, public part of SK1, SK2 and ESK2
+		% M5. GWA -> ILMAA: {T1.PA.SK2.ESK2}_TunC
+		/\ SND(GatewayA.ILMAA.{T1'.PA'.SK2'.ESK2'}_TunC) %through the domain trusted entities and directly from the GWA to the GWB
+		
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(
+	MobileNode, GatewayB, ILMAB, GatewayA, ILMAA : agent,
+	SK0, TunA, TunB, TunC: symmetric_key,
+	Hash : hash_func)
+	
+	def=
+	local
+		SND_MN, RCV_MN 			: channel (dy),
+		SND_GWB, RCV_GWB       	: channel (dy),
+		SND_ILMAB, RCV_ILMAB 	: channel (dy),
+		SND_ILMAA, RCV_ILMAA 	: channel (dy),
+		SND_GWA, RCV_GWA       	: channel (dy)
+		
+	composition
+		mn(MobileNode,GatewayB,GatewayA,SK0,Hash,SND_MN,RCV_MN)
+		/\ gwb(MobileNode,GatewayA,GatewayB,ILMAB,TunA,Hash,SND_GWB,RCV_GWB)
+		/\ ilmab(GatewayB,ILMAB,ILMAA,TunA,TunB,Hash,SND_ILMAB,RCV_ILMAB)
+		/\ ilmaa(ILMAB,ILMAA,GatewayA,TunB,TunC,Hash,SND_ILMAA,RCV_ILMAA)
+		/\ gwa(MobileNode,ILMAA,GatewayA,GatewayB,SK0,TunC,Hash,SND_GWA,RCV_GWA)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+	const sk0_secret, tunA_secret, tunB_secret, tunC_secret, authentication_ofMNbyGWA, authentication_ofGWAbyMN : protocol_id,
+		sk0, sk0v2, sk0v3, tunA, tunB, tunC: symmetric_key,
+		iMobile_Node,iGateway_B,iILMA_B,iGateway_B,iILMA_A,iGateway_A : agent,
+		h : hash_func
+	
+	intruder_knowledge = {iMobile_Node,iGateway_B,iILMA_B,iILMA_A,iGateway_A,h} %The intruder does not know about SK0
+	
+	composition
+		session(iMobile_Node,iGateway_B,iILMA_B,iGateway_A,iILMA_A,sk0,tunA,tunB,tunC,h) % normal session
+		/\ 
+		session(i,iGateway_B,iILMA_B,iGateway_A,iILMA_A,sk0v2,tunA,tunB,tunC,h) % the intruder is the Mobile Node
+		%/\ session(iMobile_Node,i,iILMA_B,iGateway_A,iILMA_A,sk0,tunA,tunB,tunC,h)
+		%/\ session(iMobile_Node,iGateway_B,i,iGateway_A,iILMA_A,sk0,tunA,tunB,tunC,h)
+		/\ session(iMobile_Node,iGateway_B,iILMA_B,i,iILMA_A,sk0v3,tunA,tunB,tunC,h) % the intruder is the Gateway A
+		%/\ session(iMobile_Node,iGateway_B,iILMA_B,iGateway_A,i,sk0,tunA,tunB,tunC,h)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+	secrecy_of sk0_secret
+	secrecy_of tunA_secret
+	secrecy_of tunB_secret
+	secrecy_of tunC_secret
+	authentication_on authentication_ofMNbyGWA
+	%weak_authentication_on authentication_ofMNbyGWA
+end goal
+
+environment()

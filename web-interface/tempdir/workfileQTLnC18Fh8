@@ -1,0 +1,124 @@
+role alice (A, B, S: agent, 
+            Ks: public_key,      
+            SND_SA, RCV_SA: channel (dy)) 
+played_by A def=
+
+  local State : nat, 
+        Na, C: nat,
+		K: symmetric_key
+	
+  init State := 0
+
+  transition  
+   
+    1.  State  = 0 /\ RCV_SA(start) =|> 
+		State':= 2 /\ Na' := new()
+				   /\ C' := new()
+				   /\ SND_SA(A.B.{xor(A.Na')}_Ks.{xor(Na'.B)}_Ks.{xor(Na'.C)}_Ks)
+				   
+	2.  State  = 2 /\ RCV_SA(K'.{Na}_Ks) =|> 
+		State':= 4 /\ request(A,B,alice_bob_na,Na)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob(A, B: agent,
+         Ks: public_key,      
+         SND_BA, RCV_BA: channel (dy)) 
+played_by B def=
+
+  local State : nat, 
+	Nb, C: nat,
+	K         : symmetric_key
+
+  init State := 4
+
+  transition 
+
+    1.  State  = 4 /\ RCV(start) =|> 
+		State':= 6 /\ Nb' := new() 
+				   /\ C' := new()
+				   /\ SND_BA(B.A.{xor(B.Nb')}_Ks.{xor(Nb'.A)}_Ks.{xor(Nb'.C)}_Ks)
+				   
+	2.  State  = 6 /\ RCV_BA(K'.{Nb}_Ks) =|> 
+		State':= 8 /\ request(B,A,bob_alice_nb,Nb)
+	
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role server(A, B, S: agent,
+		 Ks: public_key,
+         SND_AS, RCV_AS,
+		 SND_BS, RCV_BS: channel (dy)) 
+played_by B def=
+
+  local State 	  : nat, 
+		Na, Nb, C : nat,
+		K         : symmetric_key
+
+  init State := 1
+
+  transition 
+
+	1.  State  = 1 /\ RCV_AS(A.B.{xor(A.Na')}_Ks.{xor(Na'.B)}_Ks.{xor(Na'.C)}_Ks) =|> 
+		State':= 3 /\ K := new()
+				   /\ SND_AS(K'.{Na'}_inv(Ks))
+				   /\ secret(K',k,{A,B,S})
+				   
+	2. 	State  = 5 /\ RCV_BS(B.A.{xor(B.Nb')}_Ks.{xor(Nb'.A)}_Ks.{xor(Nb'.C)}_Ks) =|> 
+		State':= 7 /\ SND_BS(K'.{Nb'}_inv(Ks))
+				   /\ secret(K',k,{A,B,S})
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(A, B, S: agent, 
+			Ks: public_key) 
+def=
+
+  local SSA, RSA,
+		SBA, RBA,
+		SAS, RAS,
+		SBS, RBS: channel (dy)
+
+  composition 
+
+	alice (A,S,Ks,SSA,RSA)
+ /\ bob   (B,S,Ks,SBA,SBA)
+ /\	server(A, B, S, Ks, inv(Ks), SAS, RAS, SBS, RBS)
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+    const a, b, s : agent,
+	  ks, ki   	  : public_key,
+	  k           : protocol_id
+
+    intruder_knowledge = {a, b, s, ks}
+
+    composition
+		session(a, b, s, ks)
+	/\  session(a, i, s, ks)
+	/\  session(i, b, s, ks)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of k
+  authentication_on alice_bob_na
+  authentication_on bob_alice_nb
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

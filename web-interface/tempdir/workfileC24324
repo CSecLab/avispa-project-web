@@ -1,0 +1,36 @@
+role mn (  MN,CPAA,NPAA :agent,
+               PANA_Auth_Key :symmetric_key,                     
+               F1,F2,F3,F4,F5,F6,F9:hash_func,          
+              Pbit,Cbit,NPAA_ID,Key_ID,SessionIdentifier,Key_ID,Algorithm_ID:text,
+              RCV_NPAA,SND_NPAA,SND_CPAA:channel(dy))
+played_by MN def=
+
+
+local
+            
+            New_MN_ID,Key_ID,PseudoRandom,PAA_Nonce,MN_Nonce,New_Key_ID,Sbit:text,
+           New_PANA_Auth_Key,New_AAA_Key,AAA_Key_Int:symmetric_key                                            
+init State:=0
+
+transition
+
+1.State=0/\ RCV_CPAA(start)=|>
+   State':=1/\New_MN_ID'=F1(NPAA_ID)
+                /\SND_CPAA(New_MN_ID'.NPAA_ID)
+
+2.State=1/RCV_NPAA(Sbit'.PAA_Nonce')=|>     %**
+   State':=11/\MN_Nonce'=new()
+              /\SND_NPAA({Sbit'.MN-Nonce}_PANA_Auth_Key)   %**                
+
+3.State=11/\RCV_NPAA({Pbit.New-Key-ID,Algorithm_ID}_New_PANA_Auth_Key)=|>
+State':=16/\AAA_Key_Int'=F3(AAA_Key,New_MN_ID',SessoinIdentifier,Key_ID)
+/\New_AAA_Key'=F4(PAA_Nonce,MN_Nonce)
+  /\ PseudoRandom'=F5(Algorithm_ID)
+                  /\New_PANA_Auth_Key'=F6(PseudoRandom')
+/\Cbit'=F9(Cbit)/\New_Key_ID'=F8(New_PANA_Auth_Key')
+/\SND_NPAA({Cbit'}_NewPANA_Auth_Key'.New_Key_ID')                 
+
+end role
+%when we send  primed value , do we receive it as a primed value 
+%if something is not 
+%key-id corresponds to a pana key?

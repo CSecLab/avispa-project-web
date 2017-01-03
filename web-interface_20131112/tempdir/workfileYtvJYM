@@ -1,0 +1,110 @@
+role role_MR(MR:agent,MAP:agent,A:agent,HA:agent,AR2:agent,LK:symmetric_key,H:function,Ki:symmetric_key,NSK:symmetric_key,SND,RCV:channel(dy))
+played_by MR
+def=
+	local
+		State:nat,N1:text,N2:text,N4:text,N3:text,N7:text,N6:text
+const 
+		sec_n3:protocol_id
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ N2':=new() /\ N1':=new() /\ N3':=new() /\ SND(MR.N1'.N2'.{MR.N3'}_LK.H(N1'.Ki).H(MR.N2'.LK)) /\ secret(N3',sec_n3,{A,AR2,MR})/\ witness(MR,A,auth_1,H(MR.N2'.LK))
+		5. State=1 /\ RCV(MAP.MR.N4'.H(MR.A.N2'.N4'.LK)) =|> State':=2 /\ request(MR,A,auth_2, H(MR.A.N2'.N4'.LK))
+		10. State=2 /\ RCV(MR.MAP.{N6'.A}_LK.{N3.AR2}_NSK) =|> State':=3  /\ request(MR,AR2,auth_3,{N3.AR2}_NSK ) /\ SND(AR2.MR.{N3.AR2.MR}_NSK) /\ witness(MR,AR2,auth_4,{N3.AR2.MR}_NSK ) /\ SND(MAP.MR.H(N6'))
+end role
+
+role role_MAP(MAP:agent,A:agent,MR:agent,AR2:agent,KAM:symmetric_key,H:function,SND,RCV:channel(dy))
+played_by MAP
+def=
+	local
+		State:nat,N1:text,Ki:symmetric_key,N2:text,N4:text,N5:text,NSK:symmetric_key,N3:text,LK:symmetric_key,N6:text
+const 
+		sec_n6:protocol_id
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(MR.N1'.N2'.{MR.N3'}_LK'.H(N1'.Ki').H(MR.N2'.LK')) =|> State':=1 /\ SND(MAP.A.N1'.N2'.{MR.N3'}_LK'.H(N1'.Ki').H(N2'.LK'))
+		4. State=1 /\ RCV(MAP.A.N4'.H(MR.A.N2.N4'.LK).{N5'.A}_KAM) =|> State':=2 /\ SND(MAP.MR.N4'.H(MR.A.N2.N4'.LK)) /\ N6':=new() /\ secret(N6',sec_n6,{A,MAP,MR}) /\ SND(MAP.AR2.{N5'.A.MAP.N6'}_KAM)
+		9. State=2 /\ RCV(MAP.AR2.{N6.A}_LK.{N3.AR2}_NSK') =|> State':=3 /\ SND(MR.MAP.{N6.A}_LK.{N3.AR2}_NSK')
+		12. State=3 /\ RCV(MAP.MR.H(N6)) =|> State':=4
+end role
+
+role role_A(A:agent,LK:symmetric_key,MAP:agent,MR:agent,AR2:agent,HA:agent,KAM:symmetric_key,H:function,KAAR:symmetric_key,KAA:symmetric_key,NSK:symmetric_key,SND,RCV:channel(dy))
+played_by A
+def=
+	local
+		State:nat,Ki:symmetric_key,N1:text,N4:text,N2:text,N5:text,N3:text,N6:text
+	const 
+		sec_nsk:protocol_id
+	init
+		State := 0
+	transition
+		2. State=0 /\ RCV(MAP.A.N1'.N2'.{MR.N3'}_LK.H(N1'.Ki').H(N2'.LK)) =|> State':=1 /\ request(A,MR,auth_1,H(MR.N2'.LK))/\ SND(MAP.A.N1'.H(N1'.Ki')) /\ N5':=new() /\ N4':=new() /\ SND(MAP.A.N4'.H(MR.A.N2'.N4'.LK).{N5'.A}_KAM) /\ witness(A,MR, auth_2,H(MR.A.N2'.N4'.LK)) 
+		7. State=1 /\ RCV(A.AR2.{N5.A.MAP.N6'}_KAM) =|> State':=2 /\ SND(AR2.A.{N6'.A}_LK.{NSK.N3.A}_KAAR)/\ secret(NSK,sec_n3,{A,MR,AR2})
+end role
+
+role role_HA(HA:agent,A:agent,MR:agent,MAP:agent,Ki:symmetric_key,H:function,KAA:symmetric_key,SND,RCV:channel(dy))
+played_by HA
+def=
+	local
+		State:nat,N1:text
+	init
+		State := 0
+	transition
+		3. State=0 /\ RCV(MAP.A.N1'.H(N1'.Ki)) =|> State':=1
+end role
+
+role role_AR2(AR2:agent,MAP:agent,MR:agent,A:agent,KAAR:symmetric_key,H:function,SND,RCV:channel(dy))
+played_by AR2
+def=
+	local
+		State:nat,KAM:symmetric_key,N5:text,N6:text,LK:symmetric_key,NSK:symmetric_key,N3:text,N7:text
+	init
+		State := 0
+	transition
+		6. State=0 /\ RCV(MAP.AR2.{N5'.A.MAP.N6'}_KAM') =|> State':=1 /\ SND(A.AR2.{N5'.A.MAP.N6'}_KAM')
+		8. State=1 /\ RCV(AR2.A.{N6.A}_LK'.{NSK'.N3'.A}_KAAR) =|> State':=2 /\ SND(MAP.AR2.{N6.A}_LK'.{N3'.AR2}_NSK') /\ witness(AR2,MR,auth_3,{N3'.AR2}_NSK') 
+		11. State=2 /\ RCV(AR2.MR.{N3'.AR2.MR}_NSK) =|> State':=3 /\ request(AR2,MR,auth_4,{N3'.AR2.MR}_NSK )
+end role
+
+role session1(KAA:symmetric_key,Ki:symmetric_key,HA:agent,LK:symmetric_key,KAM:symmetric_key,NSK:symmetric_key,AR2:agent,MAP:agent,MR:agent,A:agent,KAAR:symmetric_key,H:function)
+def=
+	local
+		SND5,RCV5,SND4,RCV4,SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_AR2(AR2,MAP,MR,A,KAAR,H,SND5,RCV5) /\ role_HA(HA,A,MR,MAP,Ki,H,KAA,SND4,RCV4) /\ role_A(A,LK,MAP,MR,AR2,HA,KAM,H,KAAR,KAA,NSK,SND3,RCV3) /\ role_MAP(MAP,A,MR,AR2,KAM,H,SND2,RCV2) /\ role_MR(MR,MAP,A,HA,AR2,LK,H,Ki,NSK,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		hash_0:function,kaar:symmetric_key,mr:agent,ar2:agent,kam:symmetric_key,ha:agent,kaa:symmetric_key,ki:symmetric_key,lk:symmetric_key,nsk:symmetric_key,map:agent,aaa:agent,h:function,auth_1:protocol_id,auth_2:protocol_id,auth_3:protocol_id,sec_nsk:protocol_id,sec_n3:protocol_id,sec_n6:protocol_id,auth_4:protocol_id
+	intruder_knowledge = {map,aaa,ha,mr,ar2}
+	composition
+		session1(kaa,ki,ha,lk,kam,nsk,ar2,map,mr,aaa,kaar,h)
+end role
+
+goal
+	authentication_on auth_1
+	authentication_on auth_2
+	authentication_on auth_3
+	authentication_on auth_4
+	secrecy_of  sec_nsk,sec_n3,sec_n6
+end goal
+
+environment()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

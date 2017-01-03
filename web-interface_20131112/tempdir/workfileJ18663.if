@@ -1,0 +1,126 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileJ18663
+
+section signature:
+
+state_pserver: agent * set(pair(agent,pair(text,symmetric_key))) * hash_func * text * agent * nat * text * text * text * symmetric_key * set(agent) * nat -> fact
+state_watcher: agent * agent * text * symmetric_key * hash_func * text * nat * text * text * nat -> fact
+
+
+section types:
+
+set_98, set_96, set_93, set_83: set
+UserMap, set_76: set(pair(agent,pair(text,symmetric_key)))
+Set_43, Dummy_Set_43, ASGoal: set(agent)
+presenceinfo, wr_ps_presenceinfo, ps_wr_user: protocol_id
+MGoal, start: message
+13, 10, 9, 7, 6, 5, 3, 1, 4, SID, State, Dummy_State, 2, 0: nat
+Hash, h: hash_func
+Dummy_K, K, dummy_sk, k1, k2, ki: symmetric_key
+Dummy_Password, Challenge, Password, PresenceInfo, Dummy_PresenceInfo, Dummy_Challenge, Realm, dummy_nonce, subscribe, pass1, pass2, passi, domain: text
+Dummy_WR, dummy_agent, WR, PS, A2Goal, A1Goal, wr1, wr2, ps, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(wr1).
+ iknows(wr2).
+ iknows(ps).
+ iknows(ki).
+ iknows(passi).
+ iknows(h).
+ iknows(subscribe).
+ iknows(i).
+ state_watcher(wr1,ps,pass1,k1,h,domain,0,dummy_nonce,dummy_nonce,3).
+ state_pserver(ps,set_76,h,domain,dummy_agent,1,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,set_83,4).
+ state_watcher(wr1,ps,pass1,k1,h,domain,0,dummy_nonce,dummy_nonce,6).
+ state_pserver(ps,set_76,h,domain,dummy_agent,1,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,set_93,7).
+ state_watcher(wr2,ps,pass2,k2,h,domain,0,dummy_nonce,dummy_nonce,9).
+ state_pserver(ps,set_76,h,domain,dummy_agent,1,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,set_96,10).
+ state_pserver(ps,set_76,h,domain,dummy_agent,1,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,set_98,13).
+ contains(pair(wr1,pair(pass1,k1)),set_76).
+ contains(pair(wr2,pair(pass2,k2)),set_76).
+ contains(pair(i,pair(passi,ki)),set_76)
+
+
+section rules:
+
+step step_0 (WR,PS,Password,K,Hash,Realm,Challenge,PresenceInfo,SID) :=
+ state_watcher(WR,PS,Password,K,Hash,Realm,0,Challenge,PresenceInfo,SID).
+ iknows(start)
+ =>
+ state_watcher(WR,PS,Password,K,Hash,Realm,2,Challenge,PresenceInfo,SID).
+ iknows(subscribe)
+
+step step_1 (WR,PS,Password,K,Hash,Realm,Dummy_Challenge,PresenceInfo,SID,Challenge) :=
+ state_watcher(WR,PS,Password,K,Hash,Realm,2,Dummy_Challenge,PresenceInfo,SID).
+ iknows(pair(Challenge,Realm))
+ =>
+ state_watcher(WR,PS,Password,K,Hash,Realm,4,Challenge,PresenceInfo,SID).
+ iknows(apply(Hash,pair(WR,pair(Challenge,Password)))).
+ witness(WR,PS,ps_wr_user,pair(WR,Password))
+
+step step_2 (WR,PS,Password,K,Hash,Realm,Challenge,Dummy_PresenceInfo,SID,PresenceInfo) :=
+ state_watcher(WR,PS,Password,K,Hash,Realm,4,Challenge,Dummy_PresenceInfo,SID).
+ iknows(scrypt(K,pair(WR,PresenceInfo)))
+ =>
+ state_watcher(WR,PS,Password,K,Hash,Realm,6,Challenge,PresenceInfo,SID).
+ wrequest(WR,PS,wr_ps_presenceinfo,PresenceInfo,SID)
+
+step step_3 (PS,UserMap,Hash,Realm,WR,Dummy_Challenge,Password,PresenceInfo,K,Set_43,SID,Challenge) :=
+ state_pserver(PS,UserMap,Hash,Realm,WR,1,Dummy_Challenge,Password,PresenceInfo,K,Set_43,SID).
+ iknows(subscribe)
+=[exists Challenge]=>
+ state_pserver(PS,UserMap,Hash,Realm,WR,3,Challenge,Password,PresenceInfo,K,Set_43,SID).
+ iknows(pair(Challenge,Realm))
+
+step step_4 (PS,UserMap,Hash,Realm,Dummy_WR,Challenge,Dummy_Password,Dummy_PresenceInfo,Dummy_K,Dummy_Set_43,SID,WR,Password,PresenceInfo,K) :=
+ state_pserver(PS,UserMap,Hash,Realm,Dummy_WR,3,Challenge,Dummy_Password,Dummy_PresenceInfo,Dummy_K,Dummy_Set_43,SID).
+ iknows(apply(Hash,pair(WR,pair(Challenge,Password)))).
+ contains(pair(WR,pair(Password,K)),UserMap)
+=[exists PresenceInfo]=>
+ state_pserver(PS,UserMap,Hash,Realm,WR,5,Challenge,Password,PresenceInfo,K,Dummy_Set_43,SID).
+ iknows(scrypt(K,pair(WR,PresenceInfo))).
+ secret(PresenceInfo,presenceinfo,Dummy_Set_43).
+ witness(PS,WR,wr_ps_presenceinfo,PresenceInfo).
+ wrequest(PS,WR,ps_wr_user,pair(WR,Password),SID).
+ contains(WR,Dummy_Set_43).
+ contains(PS,Dummy_Set_43).
+ contains(pair(WR,pair(Password,K)),UserMap)
+
+
+section properties:
+
+property secrecy_of_presenceinfo (MGoal,ASGoal) :=
+ [] ((secret(MGoal,presenceinfo,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property weak_authentication_on_wr_ps_presenceinfo (A1Goal,A2Goal,MGoal,SID) :=
+ [] ((wrequest(A1Goal,A2Goal,wr_ps_presenceinfo,MGoal,SID)
+      /\ ~ equal(A2Goal,i))
+     => witness(A2Goal,A1Goal,wr_ps_presenceinfo,MGoal))
+
+property weak_authentication_on_ps_wr_user (A1Goal,A2Goal,MGoal,SID) :=
+ [] ((wrequest(A1Goal,A2Goal,ps_wr_user,MGoal,SID)
+      /\ ~ equal(A2Goal,i))
+     => witness(A2Goal,A1Goal,ps_wr_user,MGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_presenceinfo (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,presenceinfo,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state weak_authentication_on_wr_ps_presenceinfo (A1Goal,A2Goal,MGoal,SID) :=
+ wrequest(A1Goal,A2Goal,wr_ps_presenceinfo,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,wr_ps_presenceinfo,MGoal)) &
+ not(equal(A2Goal,i))
+
+attack_state weak_authentication_on_ps_wr_user (A1Goal,A2Goal,MGoal,SID) :=
+ wrequest(A1Goal,A2Goal,ps_wr_user,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,ps_wr_user,MGoal)) &
+ not(equal(A2Goal,i))
+

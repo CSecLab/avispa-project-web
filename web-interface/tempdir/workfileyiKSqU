@@ -1,0 +1,196 @@
+role alice (Ui, MRS, MS, SS : agent,
+SKuisj : symmetric_key,
+SK1: symmetric_key,
+% H is hash function
+H: hash_func, Snd, Rcv: channel(dy))
+played_by Ui
+def=
+local State : nat,
+IDi, IDmsj, IDk, PWi, Bi, Xc, Xj, Xk, Fi, PWDi, Aj, Pj, REGi, Rc, Rms, Rk: text,
+Ci, Di, Ei, Gi, Li, Nj, Oj,Sj,RANj, Qj, Tk, RANk, Vk, SK: message,
+Inc : hash_func
+const alice_server, server_mserver, mserver_special, special_alice, alice_mserver,
+subs1, subs2, subs3, subs4, subs5 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(start) =|>
+State' := 1 /\ PWDi' := H(IDi.PWi)
+/\ Snd({IDi.PWDi'.Bi}_SKuisj)
+/\ secret({PWi}, subs2, Ui)
+/\ secret({IDi}, subs3, {Ui,MRS,MS,SS})
+2. State = 1 /\ Rcv({Fi'. REGi'. Aj'. Pj'}_SKuisj) =|>
+State' := 2 /\ Rc' := new() 
+/\ IDmsj' := new()
+/\ IDk' := new()
+/\ Ci' := xor(Aj', REGi')
+/\ Di' := H(Ci'.Rc')
+/\ Ei' := xor(Pj', H(REGi'.Fi'))
+/\ Gi' := xor(IDi, Ei') % check
+/\ Li' := xor(Ei', Rc')
+/\ Snd(Fi'. Di'. Gi'. Li'. IDmsj'.IDk') % check
+/\ witness(Ui, MS, alice_mserver, Rc') % check
+
+3. State = 2 /\ Rcv(Tk'.RANk'.Vk') =|>
+State' := 3 /\  Rk' := new()
+/\ request(SS, Ui, special_alice, Rk')
+end role
+
+%******************************
+
+role server (MRS, Ui, MS, SS  : agent,
+SKuisj : symmetric_key,
+SK1: symmetric_key,
+% H is hash function
+H : hash_func,
+Snd, Rcv: channel(dy) )
+played_by MRS
+def=
+local State : nat,
+IDi, IDmsj, IDk, PWi, Bi, Xc, Xj, Xk, Fi, PWDi, Aj, Pj, REGi, Rc, Rms, Rk: text,
+Ci, Di, Ei, Gi, Li, Nj, Oj,Sj,RANj, Qj, Tk, RANk, Vk, SK: message,
+Inc : hash_func
+const alice_server, server_mserver, mserver_special, special_alice, alice_mserver,
+subs1, subs2, subs3, subs4, subs5 : protocol_id
+init State :=0
+transition
+
+1. State = 0 /\ Rcv(IDmsj') =|>
+State' := 1 /\ secret({Xj}, subs1, {MRS, MS})
+/\ secret({Xc}, subs4, {MRS})
+/\ Xj' := H(IDmsj' . Xc)
+/\ Snd({Xj'}_SK1)
+
+
+2. State = 1 /\ Rcv({IDi.H(IDi.PWi).Bi}_SKuisj) =|>
+State' := 2 /\ secret({Xj}, subs1, {MRS, MS})
+/\ secret({PWi}, subs2, Ui)
+/\ secret({IDi}, subs3, {Ui, MRS, MS, SS })
+/\ secret({Xc}, subs4, {MRS})
+/\ Fi' := H(Bi)
+/\ REGi' := H(IDi.H(IDi.PWi))
+/\ Aj':= xor(H(IDi.Xj), REGi')
+/\ Pj' := xor(H(IDmsj.Xj.Fi'), H(REGi'. Fi'))
+/\ Snd({Fi'. REGi'. Aj'. Pj'}_SKuisj)
+
+end role % line 75
+
+%******************************************
+role mserver (MS, Ui, MRS, SS : agent,
+SKuisj : symmetric_key,
+SK1: symmetric_key,
+% H is hash function
+H : hash_func,
+Snd, Rcv: channel(dy) )
+played_by MS
+def=
+local State : nat,
+IDi, IDmsj, IDk, PWi, Bi, Xc, Xj, Xk, Fi, PWDi, Aj, Pj, REGi, Rc, Rms, Rk: text,
+Ci, Di, Ei, Gi, Li, Nj, Oj,Sj,RANj, Qj, Tk, RANk, Vk, SK: message,
+Inc : hash_func
+const alice_server, server_mserver,
+mserver_special, special_alice, alice_mserver,
+subs1, subs2, subs3, subs4, subs5 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(start) =|>
+State' := 1 /\ IDmsj' := new()
+/\ Snd(IDmsj')
+2. State = 1 /\ Rcv({Xj'}_SK1, Fi'.Di'.Gi'.Li'.IDmsj'.IDk') =|>
+State' := 2 /\ Rms' := new() % line 99
+/\ Ei' := H(IDmsj.Xj'.Fi')
+/\ IDi' := xor(Gi', Ei')
+/\ Rc' := xor(Li', Ei')
+/\ Xk' := H(IDk' . Xj') 
+/\ Nj' := H(IDk'.Xk'.Fi')
+/\ Oj' := xor(IDi', Nj')
+/\ Sj' := xor(H(IDk'.Xk'), Rms')
+/\Qj'  := H(IDi' . Xk' . Nj' . Rms')
+/\RANj' := xor(Rc',Rms')
+/\ Snd (Oj'. Sj' . Qj'. IDk'. Fi'. RANj')
+/\ secret({Xk}, subs5, {MRS,SS})
+/\ witness(MS, SS, mserver_special_rms, Rms')
+/\ request(MS, SS, mserver_special, Rms') %newline
+end role
+
+%*********************
+
+role special (SS, Ui, MRS, MS  : agent,
+SKuisj : symmetric_key,
+SK1: symmetric_key,
+% H is hash function
+H: hash_func,
+Snd, Rcv: channel(dy) )
+played_by SS
+def=
+local State : nat,
+IDi, IDmsj, IDk, PWi, Bi, Xc, Xj, Xk, Fi, PWDi, Aj, Pj, REGi, Rc, Rms, Rk: text,
+Ci, Di, Ei, Gi, Li, Nj, Oj,Sj,RANj, Qj, Tk, RANk, Vk, SK: message,
+Inc : hash_func
+const alice_server, server_mserver, mserver_special, special_alice, alice_mserver,
+subs1, subs2, subs3, subs4, subs5 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(Oj'. Sj' . Qj'. IDk. Fi'. RANj') =|>
+State' := 1 /\ Rk' := new()
+/\ Xk' := new()  % value of Xk should be transmitted through secure channel
+/\ Nj' := H(IDk.Xk'.Fi')
+/\ IDi' := xor(Oj', Nj')
+/\ Rms' := xor(H(IDi'. Xk'), Sj') 
+/\ Rc' := xor(RANj', Rms')
+/\ SK' := H(IDi'. IDk. Rc'. Rk')
+/\ Tk':= H(H(IDi'. Xk'). SK')
+/\ RANk' := xor(Rc', Rk')
+/\ Vk' := xor(H(IDi'.Rk'))
+/\ Snd(Tk'.RANk'.Vk')
+/\ witness(SS,Ui,special_alice, Rk')
+/\ request(Ui, SS, special_alice, Rc')
+end role
+
+%***********************
+
+role session(Ui, MRS, MS, SS: agent,
+SKuisj : symmetric_key,
+SK1: symmetric_key,
+H: hash_func)
+def=
+local SI, SJ, RI, RJ, TI, TJ, PI, PJ: channel (dy)
+composition
+alice(Ui, MRS, MS, SS, SKuisj, SK1, H, SI, RI)
+/\ server(Ui, MRS, MS, SS, SKuisj, SK1, H, SJ, RJ)
+/\ mserver(Ui, MRS, MS, SS, SKuisj, SK1, H, TI, TJ)
+/\ special(Ui, MRS, MS, SS, SKuisj, SK1, H, PI, PJ)
+end role
+
+%****************************
+
+role environment()
+def=
+const ui, mrs,ms,ss: agent,
+skuisj : symmetric_key,
+sk1: symmetric_key,
+h: hash_func,
+idi, idmsj, idk, pwi, bi, xc, xj, xk, fi, pwdi, aj, pj, regi, rc, rms, rk : text,
+alice_server, server_mserver, mserver_special, special_alice, alice_mserver,
+subs1, subs2, subs3, subs4, subs5 : protocol_id
+intruder_knowledge = {ui, mrs, ms, ss, h, fi}
+composition
+session( ms, mrs, ui, ss, skuisj, sk1, h)
+/\ session(ui, mrs, ms, ss, skuisj, sk1, h)
+/\ session(ui, ms, ss, mrs, skuisj, sk1, h)
+/\ session(ms, ss, ui, mrs, skuisj, sk1, h)
+end role
+goal
+secrecy_of subs1
+secrecy_of subs2
+secrecy_of subs3
+secrecy_of subs4
+secrecy_of subs5
+authentication_on alice_server
+%authentication_on server_alice
+%authentication_on mserver_server
+%authentication_on server_mserver
+authentication_on alice_mserver
+authentication_on mserver_special
+authentication_on special_alice
+end goal
+environment()

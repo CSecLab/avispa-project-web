@@ -1,0 +1,57 @@
+role alice(A,B:agent,
+Ka,Kb:public_key,
+hash:hashfunc,
+SND,RCV:channel(dy))
+played_by A def=
+local
+state:nat,
+Nb,Nb:message,
+init state:=0
+transitions
+state=0^RCV(start)=1>
+state':=2 ^ Na'=new() ^ SND({Na.Nb}_Kb')
+state=2 ^RCV({Xor(Na.A).Nb)_ka'}) ^ request(B,A,alice_bob_na,Na)
+state':=4 ^ SND(hash(A.B))^secret(Ka',ka,{A,B})
+end role
+role Bob(A,B:agent,
+Ka,Kb:public_key,
+hash:hashfunc,
+SND,RCV:channel(dy))
+played_by B def=
+local
+state:nat,
+Nb,Nb:message,
+init state:=1
+transitions
+state=1^Nb'=new() ^ RCV({Na.Nb}_Kb')=1>
+state':=3^SND({Xor(Na.A).Nb}_Ka)
+state=3^RCV({hash(A.B)})^secret(Kb',kb,{A,B})
+end role
+role session (A,B:agent,
+hash:hashfunc,
+Ka,Kb:public_keys)
+def=
+local
+SND,RCV:channel(dy)
+composition
+Alice(A,B,Ka,Kb,hash,SND,RCV)
+^Bob(A,B,Ka,Kb,hash,SND,RCV)
+end role
+role environment(
+def=local const a,b:agent,
+ka,kb,ki:public_key,
+snd,rcv:channel,
+hash:hashfunc,
+alice_bob_na,ka,kb:protocol id
+intruder_knowledge=(a,b,i,ka,kb,ki)
+composition
+session(a,b,Ka,Kb,hash)
+^session(a,i,Ka,Ki,hash)
+^session(i,b,Kb,Ki,hash)
+end role
+goal
+secrecy_of_Ka,
+authentication_on_Na,
+authentication_on_Nb
+end goal
+environment()

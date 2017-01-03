@@ -1,0 +1,218 @@
+% A New Appliance 
+role sk_1(A,H,B,N,C:agent,
+          G:text,
+          Hsh:hash_func,
+	  Snd,Rcv:channel(dy),
+          Pwd:symmetric_key)
+played_by A
+def=
+	local State:nat,
+	Ra:text,
+	TKah:symmetric_key,
+	TKab:symmetric_key,
+	TKan:symmetric_key,
+	TKac:symmetric_key,
+	Xah,Xhb,Xbn,Xnc,Xcc:message,
+	Yh,Yhb,Yhbn,Yhbnc:message,
+	Kh,Kb,Kn,Kc:message
+const sec_K_AH,sec_K_AB,sec_K_AN,sec_K_AC:protocol_id
+init State:=0
+transition
+1. State = 0 / Rcv(start)=|>
+State':=1 /Ra':=new()
+          /Xah':=exp(G,Ra')
+	  /TKah':=Hsh(A.Pwd.H)
+	  /TKab':=Hsh(TKah'.B)
+          /TKan':=Hsh(TKab'.N)
+	  /TKac':=Hsh(TKan'.C)
+          /Snd(A.{Xah'}_TKah'.H)
+2. State=1 / Rcv(H.{Yh'}_TKah.{Yhb'}_TKah.{Yhbn'}_TKah.{Yhbnc'}_TKah.A) =|>
+   State':=2 /Xhb':=exp(Yh',Ra)/Xbn':=exp(Yhb',Ra)/Xnc':=exp(Yhbn',Ra)/Xcc':=exp(Yhbnc',Ra)/Kh':=Hsh(Xhb'.TKah.TKab.Xah)/Kb':=Hsh		
+
+	(Xbn'.TKah.TKab.Xah)/Kn':=Hsh(Xnc'.TKan.TKac.Xbn')/Kc':=Hsh(Xcc'.TKac.TKac.Xnc')
+	/witness(A,H,k_ah,Kh')
+	/secret(Kh',sec_K_AH,{A,H})
+	/witness(A,B,k_ab,Kb')
+	/secret(Kb',sec_K_AB,{A,B})
+	/witness(A,N,k_an,Kn')
+	/secret(Kn',sec_K_AN,{A,N})
+	/witness(A,C,k_ac,Kc')
+	/secret(Kc',sec_K_AC,{A,C})
+	/equest(A,H,k_ha,Kh')
+	/equest(A,B,k_ba,Kb')
+	/equest(A,N,k_na,Kn')
+	/equest(A,C,k_ca,Kc')
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%Home Controller
+role sk_2 (A,H,B,N,C:agent,
+          G:text,
+          Hsh:hash_func,
+	  Khb:symmetric_key,
+	  Snd,Rcv:channel(dy),      
+	  Pwd:symmetric_key)
+played_by H
+def=
+	local State:nat,
+	Rh:text,
+	TKah:symmetric_key,
+	TKab:symmetric_key,
+	Temp1,Xah,Xhb:message,
+	Yb,Ybn,Ybnc:message,
+	Yh,Yhb,Yhbnc,Yhbn:message,
+	Kh:message
+const sec_K_HA:protocol_id
+init State:=0
+transition
+1. State = 0 / Rcv(A,Temp1'.H)=|>
+State':=1 /TKah':=Hsh(A.Pwd.H)
+	  /Xah':={Temp1'}_TKah'
+	  /Rh':=new()
+	  /Xhb':=exp(Xah',Rh')
+	  /TKab':=Hsh(TKah'.B)
+	  /Snd(H.{TKab'}_Khb.{Xhb'}_Khb.B)
+2. State=1 / Rcv(B.{Yb'}_Khb.{Ybn'}_Khb.{Ybnc'}_Khb.H) =|>
+   State':=2 /Yh':=exp(G,Rh)/Yhb':=exp(Yb',Rh)/Yhbn':=exp(Ybn',Rh)/Yhbnc':=exp(Ybnc',Rh)/Snd(H.{Yh'}_TKah.{Yhb'}_TKah.{Yhbnc'}_TKah.A)
+	/ Kh':=Hsh(Xhb,TKah,TKab,Xah)
+	/witness(H,A,k_ha,Kh')
+	/secret(Kh',sec_K_HA,{H,A})
+	/equest(H,A,k_ah,Kh')
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Building Controller
+
+role sk_3(A,H,N,B,C:agent,
+          G:text,
+          Hsh:hash_func,
+	  Khb,Kbn:symmetric_key,
+	  Snd,Rcv:channel(dy))  
+played_by B
+def=
+	local State:nat,
+	Rb:text,
+	TKab:symmetric_key,
+	TKan:symmetric_key,
+	Xhb,Xbn,Yn,Ync,Yb,Ybn,Ybnc:message,
+	Yh,Yhb,Yhbnc,Yhbn:message,
+	Kb:message
+const sec_K_BA:protocol_id
+init State:=0
+transition
+1. State = 0 / Rcv(H.{TKab'}_Khb.{Xhb'}_Khb.B)=|>
+
+	State':=1 /Rb':=new() / Xbn':=exp(Xhb',Rb')/TKan':=Hsh(TKab',N)/Snd(B.{TKan'}_Kbn.{Xbn'}_Kbn.N)	 
+
+2. State=1 / Rcv(N.{Yn'}_Kbn.{Ync'}_Kbn.B) =|>
+   State':=2 /Yb':=exp(G,Rb)/Ybn':=exp(Yn',Rb)/Ybnc':=exp(Ync',Rb)/Snd(B.{Yb'}_Khb.{Ybn'}_Khb.{Ybnc'}_Khb.H)/Kb':=Hsh(Xbn,TKab,TKan,Xhb)
+	/witness(B,A,k_ab,Kb')
+	/secret(Kb',sec_K_BA,{B,A})
+	/equest(B,A,k_ab,Kb')
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Neighbourhood controller
+role sk_4(A,H,B,N,C:agent,
+          G:text,
+          Hsh:hash_func,
+	  Kbn,Knc:symmetric_key,
+	  Snd,Rcv:channel(dy))  
+played_by N
+def=
+	local State:nat,
+	Rn:text,
+	TKan:symmetric_key,
+	TKac:symmetric_key,
+	Xbn,Xnc,Yc,Yn,Ync:message,
+	%Yh,Yhb,Yhbnc,Yhbn:message,
+	Kn:message
+const sec_K_NA:protocol_id
+init State:=0
+transition
+1. State = 0 / Rcv(B.{TKan'}_Kbn.{Xbn'}_Kbn.N)=|>
+
+	State':=1 /Rn':=new() / Xnc':=exp(Xbn',Rn')/TKac':=Hsh(TKan',C)/Snd(N.{TKac'}_Knc.{Xnc'}_Knc.B)	 
+
+2. State=1 / Rcv(C.{Yc'}_Knc.N) =|>
+   State':=2 /Yn':=exp(G,Rn)/Ync':=exp(Yc',Rn)/Snd(N.{Yn'}_Kbn.B)/Kn':=Hsh(Xnc,TKan,TKac,Xbn)
+	/witness(N,A,k_na,Kn')
+	/secret(Kn',sec_K_NA,{N,A})
+	/equest(N,A,k_an,Kn')
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Central controller
+role sk_5(A,H,B,N,C:agent,
+          G:text,
+          Hsh:hash_func,
+	  Knc:symmetric_key,
+	  Snd,Rcv:channel(dy))  
+played_by C
+def=
+	local State:nat,
+	Rc:text,
+	TKac:symmetric_key,
+	Xnc,Yc,Xcc:message,
+	Kc:message
+
+const sec_K_CA:protocol_id
+
+init State:=0
+transition
+1. State = 0 / Rcv(N.{TKac'}_Knc.{Xnc'}_Knc.C)=|>
+
+	State':=1 /Rc':=new() / Yc':=exp(G,Rc')/Xcc':=exp	
+		  (Xnc',Rc')/Snd(C.{Yc'}_Knc.N)	 
+
+        /Kc':=Hsh(Xcc.TKac'.TKac,Xnc')
+	/witness(C,A,k_ca,Kc')
+	/secret(Kc',sec_K_CA,{C,A})
+	/equest(C,A,k_ac,Kc')
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session (A,H,B,N,C:agent,
+		G:text,
+		Hsh:hash_func,
+		Khb,Kbn,Knc:symmetric_key,
+		Pwd:symmetric_key)
+def=
+  local SA,RA,SH,RH,SB,RB,SN,RN,SC,RC:channel(dy)
+  composition
+       sk_1(A,H,B,N,C,G,Hsh,SA,RA,Pwd) /
+       sk_2(A,H,B,N,C,G,Hsh,Khb,SH,RH,Pwd) /
+       sk_3(A,H,B,N,C,G,Hsh,Khb,Kbn,SB,RB) /
+       sk_4(A,H,B,N,C,G,Hsh,Kbn,Knc,SN,RN) /
+       sk_5(A,H,B,N,C,G,Hsh,Knc,SC,RC)
+end role
+role environment() 
+def=
+const k_ah,k_ab,k_an,k_ac:protocol_id,
+      k_ha,k_ba,k_na,k_ca:protocol_id,
+      a,h,b,n,c:agent,
+      khb,kbn,knc:symmetric_key,
+      kai,kia,khi,kih,kbi,kib,kni,kin,kci,kic:symmetric_key,
+      pwd:symmetric_key,
+      g:text,
+      hsh:hash_func
+intruder_knowledge={a,h,b,n,c,kai,kia,khi,kih,kbi,kib,kni,kin,kci,kic}
+composition
+    session(a,h,b,n,c,g,hsh,khb,kbn,knc,pwd)
+end role
+
+goal
+    % secrecy_of GK
+    secrecy_of  sec_K_AH, sec_K_HA, sec_K_AB, sec_K_BA, sec_K_AN, sec_K_NA,sec_K_AC,sec_K_CA
+    % authentication
+	authentication_on k_ah   
+	authentication_on k_ha
+	authentication_on k_ab
+	authentication_on k_ba
+	authentication_on k_an
+	authentication_on k_na
+	authentication_on k_ac
+	authentication_on k_ca
+
+end goal
+
+environment()
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ 

@@ -1,0 +1,187 @@
+role alice (A, B, S : agent,G:text,
+                 Snd, Rcv   : channel (dy))
+played_by A
+def=
+
+  local State              : nat,
+       N1,N2,YA,YB,XA,SA1,SA2,SA3 : text,
+        H:hash_func,
+        H1,H2,H3,H4:text,
+        Comp1,Comp2:text,
+        KAB:text
+
+  const  idi,idr,pa : text,
+        sk1:protocol_id,
+        sec_KA : protocol_id
+
+  init  State := 0
+
+  transition
+
+1. State = 0  /\ Rcv(start) =|> 
+      State':= 1  /\ SA1':=new()
+                    /\ Snd(SA1')
+2.State =1 /\ Rcv(SA2')=|> State':= 2
+                 /\ Snd(idi.idr)
+3.State =2 /\ Rcv(xor(N1',pa))=|> State':= 3 
+                  /\ N2':= xor(xor(N1',pa),pa) 
+                  /\ XA':=new()
+                  /\ YA':= exp(G,XA')
+                  /\  H1':=H(YA'.N2')
+                  /\  H2':=H(SA2.N2')
+                  /\ Snd (YA'.H1.H2)
+                  /\ witness(A,S,sk1,N1')
+
+4. State =3 /\ Rcv(YB.H3'.H4')=|> State':= 4
+            /\ Comp1':=H(YB.N2)
+            /\ Comp2':=H(SA1.N2)            
+
+%5. State = 4 /\( Comp1 /= H3) /\( Comp2 /= H4)=|> State':=5 
+
+5. State = 4 /\(Comp1 = H3) /\( Comp2 = H4) =|>
+               State':=5   
+                /\  KAB':= exp(YA,YB)
+                /\  SA3':= new()
+                /\  Snd({SA3'.H(SA3')}_KAB')
+                
+
+6. State=5 /\ Rcv({SA3.H(SA3)}_KAB) =|> State':=6 
+                    /\ secret(KAB,sec_KA,{A,B})
+
+end role 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role serveur  (A, B, S : agent,G:text,
+                 Snd, Rcv   : channel (dy))
+played_by S
+def=
+
+local State : nat ,
+      IDA,IDB,N1 :text
+
+const pa,pb:text,
+      sk1, sk2 : protocol_id
+
+
+init  State := 0
+  
+
+transition
+
+1. State=0 /\ Rcv(IDA.IDB)=|> State':=1 /\ N1':=new()
+
+/\ Snd(xor(N1',pa))/\ Snd(xor(N1',pb))
+/\ witness(S,A,sk1,N1)/\ witness(S,B,sk2,N1)
+
+
+end role 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob (A, B, S : agent,G:text,
+                 Snd, Rcv   : channel (dy))
+played_by B
+def=
+
+  local State              : nat,
+        N1,N2,YB,YA,XB,SA1,SA2,SA3 : text,
+        H:hash_func,
+        H1,H2,H3,H4:text,
+        Comp1,Comp2:text,
+        KAB:text
+
+  const  idi,idr : text,
+         sk2: protocol_id,
+         pb:text,
+        sec_KB : protocol_id
+
+  init  State := 0
+
+  transition
+
+1. State = 0  /\ Rcv(SA1') =|> 
+      State':= 1 /\ SA2':= new() 
+                  /\  Snd(SA2)
+
+2. State = 1  /\ Rcv(xor(N1'.pb)) =|>  State':= 2
+              /\ witness(B,S,sk2,N1')
+              /\ N2':= xor(xor(N1',pb),pb) 
+              
+2.State =2 /\ Rcv(YA'.H1'.H2')=|> State':= 3 
+
+                  /\ XB':=new()
+                  /\ YB':= exp(G,XB')
+                 /\ Comp1':=H(YA'.N2)
+                 /\ Comp2':=H(SA2.N2)
+
+%3. State = 3 /\( Comp1 /= H1)
+              % /\( Comp2 /= H2)=|> State':=4
+
+3. State = 3 /\( Comp1 = H1)
+              /\( Comp2 = H2) =|> State':=4   
+              /\  H3':=H(YB.N2)
+               /\  H4':=H(SA1.N2)
+              /\  KAB':= exp(YB,YA)
+              /\ Snd (YB.H3'.H4')
+
+
+4. State = 4 /\ Rcv({SA3'.H(SA3')}_KAB)   =|> State':=5  
+             /\ Snd({SA3.H(SA3)}_KAB)
+             /\ secret(KAB,sec_KA,{A,B})   
+                 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(A,B,S : agent,G:text,Rcv,Snd : channel (dy))
+def= 
+   composition
+
+         alice(A,B,S,G,Snd,Rcv) 
+      /\ serveur (A,B,S,G,Snd,Rcv)
+      /\ bob (A,B,S,G,Snd,Rcv)
+    
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+  const  a , b ,s,i           : agent,
+          rcv,snd : channel (dy),
+          g:text
+
+	  intruder_knowledge = {a,b,s}
+
+  composition
+	session(a,b,s,g,snd,rcv)
+     /\ session(a,b,s,g,snd,rcv)
+    % /\session(a,i,s,g,snd,rcv)
+    % /\session(i,b,s,g,snd,rcv)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+secrecy_of  sec_KB, sec_KA
+weak_authentication_on sk1,sk2
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+
+
+
+
+
+
+
+
+ 
+
+
+

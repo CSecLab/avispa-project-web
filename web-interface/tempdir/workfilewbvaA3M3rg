@@ -1,0 +1,166 @@
+%%%%%%% Role for user Ui %%%%%
+
+role user (Ui, RS, AS : agent,
+           SKuirs : symmetric_key,
+           % H is one-way hash function
+           H: hash_func,
+           SND, RCV: channel(dy))
+% Player: the user Ui
+played_by Ui
+def=
+local State: nat, IDu, PWu, B, Au, USK: text,
+      SIDs, PSK, N1, N2, M1, M2, M4 : text 
+      Pubs: public_key
+const ui_as_n1, as_ui_n2, 
+      sc1, sc2, sc3: protocol_id
+init  State := 0
+transition
+% User registration phase
+1. State = 0 /\ RCV(start) =|>
+State' := 1 /\ B' := new() /\ Au' := H(PWu.B')
+            /\ secret({PWu.B'}, sc1, {Ui})
+            /\ secret({IDu}, sc2, {Ui,RC})
+% Send registration request to RS securely
+            /\ SND({IDu.Au'}_SKuirs)  
+% Receive smart card from RS securely          
+2. State = 1 /\ RCV({H(IDu.H(PWu.B').USK).SIDs.xor(H(PWu.B'),
+                H(IDu.H(SIDs.PSK))).H}_SKuirs) =|>
+State' := 2 /\ secret({USK,PSK}, sc3, {RC})
+% Login phase
+            /\ N1' := new()
+            /\ M1' := H(IDu.H(IDu.H(SIDs.PSK)).N1')
+            /\ M2' := {IDu.SIDs.N1'.M1'}_Pubs
+% Send login request to AS publicly
+            /\ SND(M2')
+% Ui has freshly generated random value N1 for AS
+     /\ witness(Ui, AS, ui_as_n1, N1')
+% Authentication phase
+% Receive authentication request from AS publicly
+3. State = 2 /\ RCV(N2'.H(H(H(IDu.H(SIDs.PSK)).
+                    N1'.N2').IDu.N2')) =|>
+% Send authentication reply to AS publicly
+State' := 3 /\ M4' := H(H(H(IDu.H(SIDs.PSK)).N1'.N2').N2') 
+            /\ SND(M4')
+% Ui's acceptance of the value N2 generated for Ui by AS  
+            /\ request(AS, Ui, as_ui_n2, N2')
+end role
+
+
+%%%%%%% Role for registration server RS %%%%%
+
+role registrationserver (Ui, RS, AS : agent,
+           SKuirs : symmetric_key,
+           % H is one-way hash function
+           H: hash_func,
+           SND, RCV: channel(dy))
+% Player: RS
+played_by RS
+def=
+local State: nat, IDu, PWu, B: text,
+      Bu, Cus, Dus, SIDs, USK, PSK, Ks: text
+const sc1, sc2, sc3: protocol_id
+init  State := 0
+transition
+% User registration phase
+% Receive user registration request from Ui securely
+1. State = 0 /\ RCV({IDu.H(PWu.B')}_SKuirs) =|>
+ State' := 2 /\ secret({PWu.B'}, sc1, {Ui})
+            /\ secret({IDu}, sc2, {Ui,RC})
+            /\ secret({USK,PSK}, sc3, {RC})
+            /\ Bu' := H(IDu.H(PWu.B').USK)
+            /\ Cus' := H(IDu.H(SIDs.PSK))
+            /\ Dus' := xor(H(PWu.B'),H(IDu.H(SIDs.PSK)))
+% Send smart card to Ui securely
+            /\ SND({Bu'.SIDs.Dus'.H}_SKuirs)
+% Application server registration phase
+% Receive registration request from AS publicly
+2. State = 2 /\ RCV(SIDs) =|>
+% Send registration reply to AS publicly
+State' := 4 /\ Ks' := H(SIDs.PSK)
+            /\ SND(Ks')
+end role
+
+
+
+%%%%%%% Role for application server AS %%%%%
+
+role applicationserver (Ui, RS, AS : agent,
+           % H is one-way hash function
+           H: hash_func,
+           SEND, RECV: channel(dy))
+% Player: AS
+played_by AS
+def=
+local State: nat, IDu, PWu, B: text,
+      SIDs, Ks, N1, N2, SK, M3: text,
+      Pubs : public_key
+cconst ui_as_n1, as_ui_n2, 
+      sc1, sc2, sc3: protocol_id
+init  State := 0
+transition
+% Application server registration phase
+1. State = 0 /\ RCV(start) =|>
+% Send registration request to RC publicly
+State' := 3 /\ SND(SIDs)
+% Receive registration reply from RS publicly
+2. State = 3 /\ RCV(H(SIDs.PSK)) =|>
+State' := 5 /\ secret({USK,PSK}, sc3, {RC})
+% Login phase
+% Receive login request from Ui publicly
+3. State = 5 /\ RCV({IDu.SIDs.N1'.H(IDu.H(IDu.H(SIDs.PSK))
+                .N1')}_Pubs) =|>
+% Authentication phase
+State' := 7 /\ N2' := new() 
+            /\ SK' := H(H(IDu.H(SIDs.PSK)).N1'.N2')
+            /\ M3' := H(SK'.IDu.N2')
+% Send authentication request to Ui publicly
+            /\ SND(N2'.M3')
+% AS has freshly generated random value N2 for Ui
+            /\ witness(AS, Ui, as_ui_n2, N2')
+4. State = 7 /\ RCV(H(H(H(IDu.H(SIDs.PSK)).N1'.N2').N2')) =|>
+% AS's acceptance of the value N1 generated for AS by Ui  
+State' :=  9 /\ request(Ui, AS, ui_as_n1, N1')
+end role
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session (Ui, RS, AS : agent,
+            SKuirs : symmetric_key,
+            % H is one-way hash function
+            H: hash_func)
+def=
+  local  T1, T2, T3, R1, R2, R3 : channel (dy)
+composition
+   user (Ui, RS, AS, SKuirs, H, T1, R1)
+/\ registrationserver (Ui, RS, AS, SKuirs, H, T2, R2)
+/\ applicationserver (Ui, RS, AS, H, T3, R3)
+end role 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role environment()
+def=
+  const ui, rs, as: agent,
+        skuirs: symmetric_key,
+        h : hash_func,
+        pubs: public_key,
+        sids, m1, m2, m3, m4 : text,
+        as_rs_n1, as_ui_n2,
+        sc1, sc2, sc3: protocol_id
+  intruder_knowledge = {ui, rs, as, h, sids, 
+                        m1, m2, m3, m4, pubs}
+  composition
+	   session(ui, rs, as, skuirs, h) 
+	/\ session(i, rs, as, skuirs, h)
+        /\ session(ui, i, as, skuirs, h)
+        /\ session(ui, rs, i, skuirs, h)
+end role
+goal
+  secrecy_of sc1, sc2, sc3
+  authentication_on ui_as_n1, as_ui_n2 
+end goal
+environment()
+

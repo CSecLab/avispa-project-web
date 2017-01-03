@@ -1,0 +1,129 @@
+%%HLPSL:
+%reader
+role lwAKE_Init (A,B: agent,
+               K1,K2: symmetric_key,
+	       TID : text,
+               Snd,Rcv: channel(dy))
+played_by A
+def=
+
+  local State   : nat,
+        Na,Nb   : text
+
+  const sec_kab1 : protocol_id,
+        sec_kab2 : protocol_id,
+        sec_tid1 : protocol_id
+
+  init  State := 0
+
+  transition
+
+   1. State = 0
+      /\ Rcv(start)
+      =|> 
+      State' := 1
+      /\ Na' := new()
+      /\ Snd({Na'}_K1.{xor(TID,Na')}_K2) 
+      /\ witness(A,B,na,Na')
+      /\ secret(K1,sec_kab1,{A,B})
+      /\ secret(K2,sec_kab2,{A,B})
+      /\ secret(TID,sec_tid1,{A,B})
+
+   2. State = 1
+      /\ Rcv({xor(K2,Nb')}_TID.{xor(xor(K1,Na'),Nb')}_K2)
+      =|> 
+      State' := 2
+      /\ request(A,B,nb,Nb')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%tag
+role lwAKE_Resp (B,A: agent,
+               K1,K2: symmetric_key,
+	       TID : text,
+ 	       Snd,Rcv: channel(dy))
+played_by B
+def=
+
+  local State   : nat,
+        Na,Nb   : text
+
+  const sec_kba1 : protocol_id,
+        sec_kba2 : protocol_id,
+        sec_tid2 : protocol_id
+
+  init  State := 0
+
+  transition
+
+   1. State = 0 /\ Rcv({Na'}_K1.{xor(TID,Na')}_K2) 
+      =|> 
+      State' := 1
+      /\ Nb' := new()
+      /\ witness(B,A,nb,Nb')
+      /\ Snd({xor(K2,Nb')}_TID.{xor(xor(K1,Na'),Nb')}_K2)
+      /\ secret(K1,sec_kba1,{A,B})
+      /\ secret(K2,sec_kba2,{A,B})
+      /\ secret(TID,sec_tid1,{A,B})
+      /\ request(B,A,na,Na')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(A,B: agent,
+	     K1,K2: symmetric_key,
+	     TID: text)
+def=
+
+  local SA, RA, SB, RB: channel (dy)
+
+  composition
+     lwAKE_Init(A,B,K1,K2,TID,SA,RA)
+  /\ lwAKE_Resp(B,A,K1,K2,TID,SB,RB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role environment()
+def=
+
+  const a, b   : agent,
+        k1,k2, kai1,kai2, kbi1,kbi2    : symmetric_key,
+        tid  : text, 
+        na, nb : protocol_id
+
+  intruder_knowledge={a,b,kai1,kbi1,kai2,kbi2}
+
+  composition
+      session(a,b,k1,k2,tid)
+   /\ session(b,a,k1,k2,tid)
+   %/\ session(a,i,kai1,kai2,tid)
+   /\ session(i,a,kai1,kai2,tid)
+   %/\ session(b,i,kbi1,kbi2,tid)
+   /\ session(i,b,kbi1,kbi2,tid)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+ % Confidentiality (G12)
+ %secrecy_of sec_kab1, sec_kab2, sec_kba1, sec_kba2, sec_tid1, sec_tid2
+
+ % Message authentication (G2)
+ % lwAKE_Init authenticates lwAKE_Resp on nb
+ authentication_on nb
+
+ % Message authentication (G2)
+ % lwAKE_Resp authenticates lwAKE_Init on na
+ authentication_on na
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

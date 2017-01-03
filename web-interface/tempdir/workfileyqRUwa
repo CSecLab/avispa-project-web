@@ -1,0 +1,182 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% DNP3 Secure Authentication %
+% Session Key Init           %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%%% Alice-Bob description :
+%
+% (4)  M -> O : M
+% (5)  M  KSQ'.M.{Kc'.Km'.KSQ'.M.Status.PRCD'}_Ku
+%
+% (5') : Session Key Status (2)
+%	- KSQ : incrémenté de 1 par rapport à (5) (à 2 donc vu qu'on est en situation d'initialisation)
+%	- User Number : le même que (4)
+%	- Key Wrap Algorithm (on suppose qu'il est fixé, non inclu dans le modèle)
+%	- Key Status. À 1 (OK)
+% 	- MAC Algorithm (idem que pour la key wrap, fixé)
+%	- Challenge Data Length (indépendant de la sécurité)
+%	- Pseudo-random Challenge Data
+%	- MAC calculé à l'aide de la clé Km, contient (6).
+% => KSQ'.M.Status'.PRCD'.H(KSQ.M.{Kc'.Km'.KSQ.M.Status.PRCD}_Ku)
+%
+% 
+%%% Goal :
+%
+% Secrecy of Kc and Km
+% Authentication of the master by the outstation with the PRCD
+%
+%
+%%% State Machine :
+%
+% M :
+%  R(start)  R(5)
+% 0 -----> 2 -----> 4
+%   S(4)     S(6) + witness(M,O)
+%
+% O :
+%   R(4)     R(6)
+% 1 -----> 3 -----> 5
+%   S(5)     S(5') + request(O,M)
+%
+%
+%%% Remarque : cas du Session Key Update
+%
+% Très similaire au Session Key Init.
+%
+% Les différences sont :
+% - KSQ variable (pas nécessairement à 1 ; déterminable par un intrus cependant, simplement en écoutant le dernier KSQ envoyé).
+% - Le premier (5) contient également un MAC calculé à l'aide de la clé Km, et contenant le dernier (6) reçu. Le (6) doit être retenu tel quel et non pas recalculé (problème notamment au niveau des KSQ ; en effet, une outstation peut recevoir plusieurs (4) de la part du Master sans forcément devoir changer de clés, changeant donc le KSQ).
+% - Le Status du premier (5) n'est pas à NOT_INIT, mais à OK (ou COMM_FAIL ou AUTH_FAIL dans certains cas)
+%
+% D'un point de vue général, on considère que cet échange est suffisament proche du Session Key Init pour suivre le même modèle.
+%
+%
+%%% Implementation :
+%
+%
+role master (M, O: agent,
+	     K : symmetric_key,
+	     H : function,
+	     SND, RCV : channel(dy))
+played_by M
+def=
+
+local 
+Km, Kc : symmetric_key,
+KSQ : text,
+Status, State : nat,
+PRCD : text
+
+init 
+State := 0
+
+transition
+% RS => S1
+1. State  = 0 /\ RCV(start) =|>
+   State':= 2 /\ SND(M)
+
+% R2 => S3
+2. State  = 2 /\ RCV(KSQ'.M.Status'.PRCD') =|>
+   State':= 4 /\ Km' := new()
+	      /\ secret(Km', km,{M,O})
+	      /\ Kc' := new()
+	      /\ secret(Kc', kc,{M,O})
+	      /\ SND(KSQ'.M.{Kc'.Km'.KSQ'.M.Status'.PRCD'}_K)
+	      /\ witness(M,O,outstation_master_prcd,PRCD')
+
+% R4
+3. State  = 4 /\ RCV(KSQ'.M.Status'.PRCD'.H({KSQ.M.{Kc.Km.KSQ.M.Status.PRCD}_K}_Km)) =|>
+   State':= 6
+
+
+end role
+
+
+% -------------------------------------------------------
+
+
+role outstation (M, O: agent,
+	         K : symmetric_key,
+	         H : function,
+	         SND, RCV : channel(dy))
+played_by O
+def=
+	
+local 
+Km, Kc : symmetric_key,
+PRCD : text,
+Status, State : nat,
+KSQ : text
+
+init 
+State := 1
+
+transition
+% R1 => S2
+1. State  = 1 /\ RCV(M) =|>
+   State':= 3 /\ PRCD' := new()
+   	      /\ Status' := 2
+	      /\ KSQ' := 1
+	      /\ SND(KSQ'.M.Status'.PRCD')
+% R3 => S4
+2. State  = 3 /\ RCV(KSQ.M.{Kc'.Km'.KSQ.M.Status.PRCD}_K) =|>
+   State':= 5 /\ KSQ' := 2
+	      /\ Status' := 1
+	      /\ PRCD' := new()
+	      /\ SND(KSQ'.M.Status'.PRCD'.H({KSQ.M.{Kc'.Km'.KSQ.M.Status.PRCD}_K}_Km))
+	      /\ request(O,M,outstation_master_prcd,PRCD)
+end role
+
+
+% -------------------------------------------------------
+
+
+role session(M, O : agent,
+	     K : symmetric_key,
+	     H : function)
+def=
+
+local
+SND, RCV : channel (dy)
+
+composition
+master(M, O, K, H, SND, RCV)
+/\ outstation(M, O, K, H, SND, RCV)
+
+end role
+
+
+% -------------------------------------------------------
+
+
+role environment()
+def=
+
+const km, kc, outstation_master_prcd : protocol_id,
+h : hash_func,
+m, o : agent,
+kmo, kio, kmi : symmetric_key
+
+intruder_knowledge = { m, o, h, kmi, kio }
+
+composition
+
+session(m,o,kmo,h)
+/\ session(m,i,kmi,h)
+/\ session(i,o,kio,h)
+end role
+
+
+% -------------------------------------------------------
+
+
+goal
+secrecy_of kc, km
+authentication_on outstation_master_prcd
+end goal
+
+
+% -------------------------------------------------------
+
+
+environment()

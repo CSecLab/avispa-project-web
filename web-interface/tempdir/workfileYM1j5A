@@ -1,0 +1,131 @@
+%%Protocole EAP-EHash
+%%auteur: Cheikhrouhou Omar
+%%date: 31/03/2006
+%%Alice & Bob Notation
+% S -> P: request_id
+% P -> S: respond_id.peerId
+% S -> P: challenge.serverId.randS.{MIC(AK,challenge.serverId.randS)}_EK
+%AK=F(PSK.randS)
+%EK=F(PSK.randS.serverId.peerId)
+%F est une fonction de hachage à sens unique (exemple SHA, HMAC-SHA)
+% P -> S: randP.{HMAC(AK,challenge.randP}_EK
+%HMAC est une fonction de hachage à sens unique (exemple MD5)
+% S -> P: success
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role server(
+P,S: agent,
+PSK: symmetric_key,
+MIC, HMAC, PRF: hash_func,
+SND,RCV:channel(dy)
+)
+played_by S def=
+local
+State :nat,
+Challenge,RandS,RandP:text,
+MAC,HASH :message,
+AK,EK :message %clés dérivées de la clé partagée PSK
+const 
+rp,rs,ch,
+sec_ak,sec_ek :protocol_id,
+request_id, respond_id,success,
+peerId,serverId:text
+init
+State:=0
+transition
+0.State=0 /\ RCV(start)=|>
+State' :=1 /\ SND(request_id)
+1.State=1 /\ RCV(respond_id.peerId)=|>
+State':=2 /\ RandS':=new()
+/\ Challenge':=new()
+/\ AK':=PRF(PSK.RandS')
+/\ EK':=PRF(PSK.RandS'.serverId.peerId)
+/\ MAC':={MIC(AK',Challenge'.serverId.RandS')}_EK'
+/\ SND(Challenge'.serverId.RandS'.MAC')
+/\ witness(S,P,rs,RandS')
+/\ witness(S,P,ch,Challenge')
+/\ secret(AK',sec_ak,{P,S})
+/\ secret(EK',sec_ek,{P,S})
+2. State=2 /\ RCV(RandP'.HASH')
+/\HASH'={HMAC(AK,Challenge.RandP')}_EK
+%Challenge and not Challenge' 
+=|>
+State':=3 /\ request(S,P,RandP')
+/\ SND(success)
+end role %server
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role peer(
+P,S: agent,
+PSK: symmetric_key,
+MIC, HMAC, PRF: hash_func,
+SND,RCV:channel(dy)
+)
+played_by P def=
+local
+State :nat,
+Challenge,RandS,RandP:text,
+MAC,HASH:message,
+AK,EK :message %clés dérivées de la clé partagée PSK
+const
+rp,rs,ch,
+sec_ak,sec_ek :protocol_id,
+request_id, respond_id,success,
+peerId,serverId:text
+init
+State:=0
+transition
+0.State=0 /\ RCV(request_id)=|>
+State' :=1 /\ SND(respond_id.peerId)
+1.State=1 /\ RCV(Challenge'.serverId.RandS'.MAC')
+%Peer doit vérifier la validité du champ MIC
+/\ AK'=PRF(PSK.RandS')
+/\ EK'=PRF(PSK.RandS'.serverId.peerId)
+/\ MAC'={MIC(AK',Challenge'.serverId.RandS')}_EK'
+=|>
+State':=2 /\ RandP':=new()
+/\ HASH':={HMAC(AK',Challenge'.RandP')}_EK'
+/\ SND(RandP'.HASH')
+/\ witness(P,S,rp,RandP')
+/\ request(P,S,rs,RandS')
+/\ request(P,S,ch,Challenge')
+/\ secret(AK',sec_ak,{P,S})
+/\ secret(EK',sec_ek,{P,S})
+2. State=2 /\ RCV(success)=|>
+State':=3
+end role %peer 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(
+P,S: agent,
+PSK: symmetric_key,
+MIC,HMAC,PRF: hash_func,
+SND,RCV:channel(dy)
+)
+def= 
+ local
+Speer,Rpeer,Sserver,Rserver : channel (dy)
+composition
+peer(P,S,PSK,MIC,HMAC,PRF,Speer,Rpeer)
+/\ server(P,S,PSK,MIC,HMAC,PRF,Sserver,Rserver)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environnement()
+def=
+const 
+p,s,i:agent,
+mic,hmac,prf:hash_func,
+psk_ps,psk_pi,psk_is:symmetric_key
+intruder_knowledge={p,s,mic,hmac,prf,psk_pi,psk_is}
+composition
+session(p,s,mic,hmac,prf,psk_ps)
+/\session(p,i,mic,hmac,prf,psk_pi)
+/\session(i,s,mic,hmac,prf,psk_is)
+end role 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+authentication_on ch,rs
+authentication_on rp
+%secrecy_of key
+secrecy_of sec_ak,sec_ek
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%exécution du protocole
+environnement() 

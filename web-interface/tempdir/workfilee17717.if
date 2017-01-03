@@ -1,0 +1,80 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilee17717
+
+section signature:
+
+state_mobile: agent * agent * text * nat * public_key * symmetric_key * set(agent) * nat -> fact
+state_base: agent * agent * public_key * text * nat * symmetric_key * nat -> fact
+
+
+section types:
+
+secx, x: protocol_id
+Set_31, Dummy_Set_31: set(agent)
+scm1, scm2, scm3, SCm: text
+set_66, set_65, set_58: set
+kb, ki, PKb, Dummy_PKb, dummy_pk: public_key
+X, Dummy_X, dummy_sk: symmetric_key
+start, MGoal: message
+State, 2, 10, 1, 6, 0, 4, SID, Dummy_State, 3: nat
+A1Goal, m, B, M, b, i, A2Goal: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(b).
+ iknows(m).
+ iknows(scm2).
+ iknows(scm3).
+ iknows(ki).
+ iknows(inv(ki)).
+ iknows(i).
+ state_base(b,m,kb,scm1,0,dummy_sk,3).
+ state_mobile(m,b,scm1,0,dummy_pk,dummy_sk,set_58,4).
+ state_base(b,i,kb,scm2,0,dummy_sk,6).
+ state_mobile(m,i,scm3,0,dummy_pk,dummy_sk,set_66,10)
+
+
+section rules:
+
+step step_0 (B,M,PKb,SCm,X,SID) :=
+ state_base(B,M,PKb,SCm,0,X,SID).
+ iknows(start)
+ =>
+ state_base(B,M,PKb,SCm,1,X,SID).
+ iknows(pair(b,PKb))
+
+step step_1 (B,M,PKb,SCm,Dummy_X,SID,X) :=
+ state_base(B,M,PKb,SCm,1,Dummy_X,SID).
+ iknows(pair(crypt(PKb,X),scrypt(X,pair(M,SCm))))
+ =>
+ state_base(B,M,PKb,SCm,2,X,SID).
+ wrequest(B,M,x,X,SID)
+
+step step_2 (M,B,SCm,Dummy_PKb,Dummy_X,Dummy_Set_31,SID,PKb,X) :=
+ state_mobile(M,B,SCm,0,Dummy_PKb,Dummy_X,Dummy_Set_31,SID).
+ iknows(pair(B,PKb))
+=[exists X]=>
+ state_mobile(M,B,SCm,1,PKb,X,Dummy_Set_31,SID).
+ iknows(pair(crypt(PKb,X),scrypt(X,pair(M,SCm)))).
+ witness(M,B,x,X).
+ contains(B,Dummy_Set_31).
+ contains(M,Dummy_Set_31)
+
+
+section properties:
+
+property weak_authentication_on_x (A1Goal,A2Goal,MGoal,SID) :=
+ [] ((wrequest(A1Goal,A2Goal,x,MGoal,SID)
+      /\ ~ equal(A2Goal,i))
+     => witness(A2Goal,A1Goal,x,MGoal))
+
+
+section attack_states:
+
+attack_state weak_authentication_on_x (A1Goal,A2Goal,MGoal,SID) :=
+ wrequest(A1Goal,A2Goal,x,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,x,MGoal)) &
+ not(equal(A2Goal,i))
+

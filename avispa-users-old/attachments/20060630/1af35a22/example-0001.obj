@@ -1,0 +1,98 @@
+%-------------------------------------------------------------------------------%
+%                                                                               %
+% Example file showing problem (bug?) with CL-AtSe.                             %
+%                                                                               %
+% - Running with -short -ns options causes the attack to be found               %
+% - Running with just the -short option causes the attack to not be found       %
+%                                                                               %
+%-------------------------------------------------------------------------------%
+
+role r1(S : agent, Snd, Rcv : channel(dy))
+played_by S
+def=
+
+  local
+    M1,X1,Y1 : message,
+    State : nat
+
+  init State := 0
+
+  transition
+    step1. State = 0 /\ Rcv({X1'}_xor(a,x))
+           =|> State' := 1
+
+    step2. State = 1 /\ Rcv({M1'}_xor(X1,Y1'))
+           =|> State' := 2
+
+    step3. State = 2 /\ Rcv(Y1)
+           =|> State' := 0 /\ Snd({M1}_xor(a,Y1))
+
+end role
+
+%-------------------------------------------------------------------------------%
+
+role r2(S : agent, Snd, Rcv : channel(dy))
+played_by S
+def=
+
+  local
+    M2,X2,Y2 : message,
+    State : nat
+
+  init State := 0
+
+  transition
+    step1. State = 0 /\ Rcv({X2'}_xor(a,y))
+           =|> State' := 1
+
+    step2. State = 1 /\ Rcv({M2'}_xor(a,Y2'))
+           =|> State' := 2
+
+    step3. State = 2 /\ Rcv(Y2)
+           =|> State' := 0 /\ Snd({M2}_xor(X2,Y2))
+
+end role
+
+%-------------------------------------------------------------------------------%
+
+role session(S : agent) def=
+
+  local
+    SndCh, RcvCh : channel(dy)
+
+  init
+    secret({m}_xor(a,q), the_secret, {S})
+
+  composition
+    r1(S, SndCh, RcvCh) /\ r2(S, SndCh, RcvCh)
+
+end role
+
+%-------------------------------------------------------------------------------%
+
+role environment() def=
+
+  const
+    s, i                : agent,
+    m, x, y, p, q, a, b : message,
+    the_secret          : protocol_id
+
+  intruder_knowledge
+    = {s, i, x, y, {m}_xor(a,p), {xor(b,p,q)}_xor(a,x), {b}_xor(a,y), p, q}
+
+  composition
+    session(s)
+
+end role
+
+%-------------------------------------------------------------------------------%
+
+goal
+  secrecy_of the_secret
+end goal
+
+%-------------------------------------------------------------------------------%
+
+environment()
+
+%-------------------------------------------------------------------------------%

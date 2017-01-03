@@ -1,0 +1,183 @@
+%%%%%%%%%%% Role for the client (user) U %%%%%%%%%%%%%%%%%%
+
+role client (U, S : agent,
+% U: user; S: server
+% symmetric key between U and S
+        SKus : symmetric_key,
+% H is hash function
+         H : hash_func,
+         SEND, RECV: channel(dy))
+played_by U
+def=
+local State : nat,
+      IDu, PWu, Bu, Tu, Ts : text,
+      Ss, Uu, A, B, DIDu, Yu : text,
+      RPW, Ppub, P, C1, Cu, Mu : text,
+      Realm, C2, Ms, SK, Auth : text, 
+      F : hash_func
+
+const subs1, subs2, subs3, subs4, subs5,
+      user_server_tu, user_server_u, user_server_a, 
+      server_user_b, server_user_s, server_user_ts : protocol_id
+init State := 0
+transition
+% Registration phase
+1. State = 0 /\ RECV(start) =|>
+% Send the registration message to S securely
+State' := 1  /\ Uu' := new()
+             /\ RPW' := H(IDu.PWu.Uu')
+             /\ secret({PWu,Bu,Uu'}, subs1, U)
+             /\ secret(IDu, subs2, {U, S})
+             /\ SEND({IDu.RPW'}_SKus) 
+% U has freshly generated the value u for S
+            /\ witness(U, S, user_server_u, Uu')
+
+% Receive the smart card SC from S
+2. State = 1 /\ RECV({xor(H(Ss'.IDu), H(IDu.PWu.Uu')).
+                      F(Ss'.P).H}_SKus) =|>
+% Authentication phase
+% Send the REQUEST message to S via a public channel
+State' := 2 /\ Tu' := new()
+            /\ A' := new()
+            /\ C1' := F(A'.P)
+            /\ DIDu' := xor(IDu,F(A'.F(Ss'.P)))
+            /\ Mu' := H(IDu.Tu'.H(Ss'.IDu).F(A'.F(Ss'.P)).F(A'.P))
+            /\ secret(A', subs3, U)
+            /\ SEND(DIDu'.Mu'.C1'.Tu')
+% U has freshly generated the value Tu for S
+            /\ witness(U, S, user_server_tu, Tu')
+% U has freshly generated the value a for S
+            /\ witness(U, S, user_server_a, A')
+
+% Receive the CHALLENGE message from S via a public channel
+3. State = 2 /\ RECV(Realm.F(B'.P).H(H(IDu.H(Ss'.IDu).Tu'.
+                F(B'.F(A'.P)).F(Ss'.F(A'.P))).Tu'.Ts'.
+                H(Ss'.IDu).IDu).Ts') =|> 
+% Send the RESPONSE message to S via a public channel
+State' := 3 /\ Auth' := H(IDu.H(Ss'.IDu).Realm.
+                        H(IDu.H(Ss'.IDu).Tu'.F(A'.F(B'.P)).
+                        F(A'.F(Ss'.P))).Ts')
+            /\ SEND(Realm.Auth') 
+% U's acceptance of the value Ts generated for U by S
+ /\ request(S, U, server_user_ts, Ts')
+% U's acceptance of the value b generated for U by S
+            /\ request(S, U, server_user_b, B')
+end role
+
+
+
+%%%%%%%%%%% Role for the server S %%%%%%%%%%%%%%%%%%
+
+role server (U, S : agent,
+% U: user; S: server
+% symmetric key between U and S
+        SKus : symmetric_key,
+% H is hash function
+         H : hash_func,
+         SEND, RECV: channel(dy))
+played_by S
+def=
+local State : nat,
+      IDu, PWu, Bu, Tu, Ts : text,
+      Ss, Uu, A, B, DIDu, Yu : text,
+      RPW, Ppub, P, C1, Cu, Mu : text,
+      Realm, C2, Ms, SK, Auth : text, 
+      F : hash_func
+
+const subs1, subs2, subs3, subs4, subs5,
+      user_server_tu, user_server_u, user_server_a, 
+      server_user_b, server_user_s, server_user_ts : protocol_id
+init State := 0
+transition
+% Registration phase
+% Receive the registration request from user U securely
+1. State = 0 /\ RECV({IDu.H(IDu.PWu.Uu')}_SKus) =|>
+ State' := 1 /\ Ss' := new()
+             /\ Yu' := xor(H(Ss'.IDu), H(IDu.PWu.Uu'))
+             /\ Ppub' := F(Ss'.P)
+             /\ secret(IDu, subs2, {U, S})
+             /\ secret(Ss', subs4, S)
+% Send the smart card SC to U securely
+             /\ SEND({Yu'.Ppub'.H}_SKus)
+% S has freshly generated the value s for U
+            /\ witness(S, U, server_user_s, Ss')
+
+
+
+% Authentication phase
+% Receive the REQUEST message from U via a public channel
+2. State = 1 /\ RECV(xor(IDu,F(A'.F(Ss'.P))).
+                H(IDu.Tu'.H(Ss'.IDu).F(A'.F(Ss'.P)).F(A'.P)).
+                F(A'.P).Tu') =|>
+% Send the CHALLENGE message to U via a public channel
+ State' := 2 /\ Ts' := new()
+             /\ B' := new()
+             /\ secret(B', subs5, S)
+             /\ C2' := F(B'.P)
+             /\ SK' := H(IDu.H(Ss'.IDu).Tu'.F(B'.F(A'.P)).
+                       F(Ss'.F(A'.P)))
+             /\ Ms' := H(SK'.Tu'.Ts'.H(Ss'.IDu).IDu)
+             /\ SEND(Realm.C2'.Ms'.Ts') 
+% S has freshly generated the value Ts for U
+            /\ witness(S, U, server_user_ts, Ts')
+% S has freshly generated the value b for U
+            /\ witness(S, U, server_user_b, B')
+% Receive the RESPONSE message from U via a public channel
+3. State = 2 /\ RECV(Realm.H(IDu.H(Ss'.IDu).Realm.
+                        H(IDu.H(Ss'.IDu).Tu'.F(A'.F(B'.P)).
+                        F(A'.F(Ss'.P))).Ts')) =|>
+% S's acceptance of the value u generated for S by U
+State' := 3 /\ request(U, S, user_server_u, Uu')
+% S's acceptance of the value Tu generated for S by U
+            /\ request(U, S, user_server_tu, Tu')
+% S's acceptance of the value a generated for S by U
+            /\ request(U, S, user_server_a, A')
+end role
+
+
+%%%%%%%%%%% Role for session %%%%%%%%%%%%%%%%%%
+role session(U, S : agent,
+        SKus : symmetric_key,
+        H : hash_func)
+def=
+  local S1, S2, R1, R2: channel (dy)
+composition
+   client (U, S, SKus, H, S1, R1)
+/\ server (U, S, SKus, H, S2, R2)
+end role
+
+
+%%%%%%%%%%% Role for goal and environment %%%%%%%%%%%%%%%%%%
+
+role environment()
+def=
+  const u, s: agent, skus : symmetric_key,
+      h : hash_func, f : hash_func,
+      tu, ts, realm : text,
+      subs1, subs2, subs3, subs4, subs5, 
+      user_server_tu, user_server_u, user_server_a, 
+      server_user_b, server_user_s, 
+      server_user_ts : protocol_id
+intruder_knowledge = {u, s,  h, f, realm, tu, ts}
+composition
+   session(u, s, skus, h)
+/\ session(u, s, skus, h)
+/\ session(u, i, skus, h)
+/\ session(i, s, skus, h)
+end role
+
+goal
+  secrecy_of subs1
+  secrecy_of subs2
+  secrecy_of subs3
+  secrecy_of subs4  
+  secrecy_of subs5 
+ 
+  authentication_on user_server_u
+  authentication_on user_server_tu
+  authentication_on user_server_a
+  authentication_on server_user_ts  
+  authentication_on server_user_b
+end goal
+environment()
+

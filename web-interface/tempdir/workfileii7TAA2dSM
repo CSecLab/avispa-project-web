@@ -1,0 +1,122 @@
+role peke_A (A,B,S:agent,
+           Snd,Rcv:channel(dy),
+           Pwa,Pwb:symmetric_key,
+	G:text,
+	Hash:hash_func)
+played_by A def=
+local
+	State:nat,
+	Nz,Nb:text,
+	Gx,Gy:message,
+	Gyz,Gxz:message
+init
+	State:=0
+transition
+1.State = 0 /\ Rcv(Start)=|>
+  State' :=5 /\ Snd(A.Gx'.{A.Gx'}_Hash(A.Gx'.Pwa))
+             
+2.State = 5 /\ Rcv ({Gx'.B.Gyz'.Nb}_Hash(A.Gx'.Pwa).{Gy'.A.Gxz'}_Hash(B.Gy'.Pwb))=|>
+  State':=7 /\ Nz'=new()
+            
+            /\Gxz'=exp(Gx',Nz')
+            /\K:= exp(Gxz',Gy')
+            /\Snd(Gy'.A.Gxz'_Hash(B.Gy'.Pwd).{A.Nb'.Gx'}_K )
+            /\witnesses(A,B, auth_a_b_gyz,Gyz')
+            /\witnesses(B,A, auth_b_a_gxz,Gxz')
+           
+end role
+          
+
+role peke_B(A,B,S:agent,
+           Snd,Rcv:channel(dy),
+           Pwa,Pwb:symmetric_key,
+	G:text,
+	Hash:hash_func)
+played_by B def=
+local
+	State:nat,
+	Nz,Nb:text,
+	Gx,Gy:message,
+	Gyz,Gxz:message
+init
+        State:=  1 
+transition
+1.State = 1 /\ Rcv(A.Gx'.{A.Gx'}_Hash(A.Gx'.Pwa)=|>
+  State':=3 /\Nb':=new()
+            /\ Snd(B.Gy'.{B.Gy'.Nb'}_Hash(B.Gy'.Pwb).A.Gx'.{A.Gx'}_Hash(A.Gx'.Pwa))
+            /\Gyz'=exp(Gx',Nz')
+            /\K:= exp(Gyz',Gx')
+2. State =6 /\Rcv(Gy'.A.Gxz'_Hash(B.Gy'.Pwd).{A.Nb'.Gx'}_K )=|>
+   State':= 7/\request (B,A,auth_b_a_nb,Nb)
+
+end role
+
+
+role peke_S(A,B,S:agent,
+           Snd,Rcv:channel(dy),
+           Pwa,Pwb:symmetric_key,
+	G:text,
+	Hash:hash_func)
+played_by S def=
+local
+	State:nat,
+	Nz,Nb:text,
+	Gx,Gy:message,
+	Gyz,Gxz:message
+init
+        State:=  2 
+transition
+1.State = 2 /\Rcv(B.Gy'.{B.Gy'.Nb'}_Hash(B.Gy'.Pwb).A.Gx'.{A.Gx'}_Hash(A.Gx'.Pwa)) =|>
+  State':=4 /\ Nz'=new()
+            /\ Gyz':=exp(Gx',Nz')
+            /\ Gyz':=exp(Gy'.Nz')
+            /\ Snd ({Gx'.B.Gyz'.Nb}_Hash(A.Gx'.Pwa).{Gy'.A.Gxz'}_Hash(B.Gy'.Pwb))
+            /\ witnesses (S,A,auth_a_s_gx,Gx')
+            /\ witnesses (S,B,auth_b_s_gy,Gy')
+end role
+
+role session(A,B,S :agent,
+            Pwa,Pwb:symmetric_key,
+	    G:text,
+	    Hash:hash_func)
+ def=
+local A_Snd, A_Rcv,B_Snd,B_Rcv,S_Snd,S_Rcv:channel (dy)
+composition
+   peke_A(A,B,S,A_Snd, A_Rcv,Pwa,G,Hash)
+ /\peke_B(A,B,S,B_Snd, B_Rcv,Pwb,G,Hash)
+ /\peke_S(A,B,S,S_Snd, S_Rcv,Pwa,Pwb,G,Hash)
+
+end role
+
+role environment()
+def=
+const
+a,b,s,i :agent,
+pwa,pwb,pwi :symmetric_key,
+g           :text,
+hhash	    : hash_func,
+auth_a_b_nb : protocol_id,
+auth_b_a_gx : protocol_id,
+auth_a_s_gx : protocol_id,
+auth_b_s_gx : protocol_id,
+sec_a_b_gxyz : protocol_id
+intruder_knowledge= {i,a,b,s,pwi,g,hhash}
+composition
+session(a,b,s,pwa,pwb,g,hhash)
+/\session(a,b,s,pwa,pwb,g,hhash)
+/\session(i,b,s,pwi,pwb,g,hhash)
+/\session(a,i,s,pwa,pwi,g,hhash)
+
+end role
+
+goal
+ authentication_on auth_a_s_gx
+ authentication_on auth_b_s_gy
+ authentication_on auth_a_b_nb
+ authentication_on auth_b_a_gx
+ secrecy_of sec_a_b_gxyz
+end goal
+
+environment()
+ 
+                 

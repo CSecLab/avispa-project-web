@@ -1,0 +1,169 @@
+role client(
+C, IdP, SP : agent,
+KIdP : public_key,
+Ch_C2SP, Ch_SP2C,
+Ch_C2IdP, Ch_IdP2C : channel,
+URI : protocol_id
+)
+played_by C
+def=
+local
+State : nat,
+ID, Resource : text
+
+init
+State:=0
+
+transition
+1. State=0 /\ Ch_SP2C(start)
+=|>
+State':=2 /\ snd(Ch_C2SP, SP, URI)
+/\ witness(C, SP, sp_c_uri, URI)
+
+2. State=2 /\ rcv(Ch_SP2C, SP, C.IdP.(ID'.SP).URI)
+=|>
+State':=4 /\ snd(Ch_C2IdP, IdP, C.IdP.(ID'.SP).URI)
+
+3. State=4 /\ rcv(Ch_IdP2C, IdP, SP.{SP.C.IdP.ID'}_inv(KIdP).URI)
+=|>
+State':=6 /\ snd(Ch_C2SP, SP, SP.{SP.C.IdP.ID'}_inv(KIdP).URI)
+
+4. State=6 /\ rcv(Ch_SP2C, SP, Resource')
+=|>
+State':=8 /\ request(C, SP, c_sp_resource, Resource')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role serviceProvider (
+C, IdP, SP : agent,
+KIdP : public_key,
+Ch_SP2C, Ch_C2SP : channel,
+URI : protocol_id
+)
+
+played_by SP
+def=
+local
+State : nat,
+ID, Resource : text
+
+init State:=1
+
+transition
+1. State=1 /\ rcv(Ch_C2SP, C, URI)
+=|>
+State':=3 /\ ID' := new()
+/\ snd(Ch_SP2C, C, C.IdP.(ID'.SP).URI)
+
+%% NOTE: SP check that ID is equal to what it generated before
+2. State=3 /\ rcv(Ch_C2SP, C, SP.{SP.C.IdP.ID'}_inv(KIdP).URI)
+=|>
+State':=5 /\ Resource' := new()
+/\ snd(Ch_SP2C, C, Resource')
+/\ request(SP, C, sp_c_uri, URI)
+/\ witness(SP, C, c_sp_resource, Resource')
+/\ secret(Resource', c_sp_resource, {C,SP})
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role identityProvider (
+C, IdP, SP : agent,
+KIdP : public_key,
+Ch_IdP2C, Ch_C2IdP : channel
+)
+played_by IdP
+def=
+local
+URI : protocol_id,
+ID : text,
+State : nat
+
+init State:=7
+
+transition
+1. State=7 /\ rcv(Ch_C2IdP, C, C.IdP.(ID'.SP).URI')
+=|>
+State':=9 /\ snd(Ch_IdP2C, C, SP.{SP.C.IdP.ID'}_inv(KIdP).URI')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session (
+C, IdP, SP : agent,
+KIdP : public_key,
+Ch_C2SP, Ch_SP2C,
+Ch_C2IdP, Ch_IdP2C : channel,
+URI : protocol_id
+)
+def=
+
+init
+
+%% Channel assumptions
+%% C  IdP
+confidential(IdP, Ch_C2IdP)
+/\ weakly_authentic(Ch_C2IdP)
+/\ authentic(IdP, Ch_IdP2C)
+/\ confidential(C, Ch_IdP2C)
+/\ link(Ch_C2IdP, Ch_IdP2C)
+
+%% C  Service Providers
+/\ unilateral_conf_auth(C, SP, Ch_C2SP, Ch_SP2C)
+
+composition
+
+client(C, IdP, SP, KIdP, Ch_C2SP, Ch_SP2C, Ch_C2IdP, Ch_IdP2C, URI)
+/\ serviceProvider(C, IdP, SP, KIdP, Ch_SP2C, Ch_C2SP, URI)
+/\ identityProvider(C, IdP, SP, KIdP, Ch_IdP2C, Ch_C2IdP)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role enviroment()
+def=
+
+const
+sp_c_uri, c_sp_resource : protocol_id,
+c, idp, sp : agent,
+c2idp_s1, idp2c_s1,
+c2idp_s2, idp2c_s2,
+c2i, i2c,
+c2sp, sp2c : channel,
+kidp, ki : public_key,
+uri_i, uri_sp : protocol_id,
+n : text,
+snd, rcv : channel
+
+intruder_knowledge={c, sp, idp, kidp, ki, inv(ki), n,
+uri_i, uri_sp,
+c2i, i2c, c2sp, sp2c,
+c2idp_s1, idp2c_s1, c2idp_s2, idp2c_s2}
+
+composition
+
+session(c, idp, i, kidp, c2i, i2c, c2idp_s1, idp2c_s1, uri_i)
+/\ session(c, idp, sp, kidp, c2sp, sp2c, c2idp_s2, idp2c_s2, uri_sp)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+% secrecy_of c_sp_resource
+
+authentication_on sp_c_uri
+
+% authentication_on c_sp_resource
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+enviroment()

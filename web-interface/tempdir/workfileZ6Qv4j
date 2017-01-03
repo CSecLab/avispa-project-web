@@ -1,0 +1,92 @@
+role role_EMS(EMS:agent,ID:agent,HH:agent,M:agent,SM:agent,Inc:function,PKems:public_key,PKsm:public_key,PKm:public_key,SND,RCV:channel(dy))
+played_by EMS
+def=
+	local
+		State:nat,APARAM:text,CDs:text,Ns:text,S:agent
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ APARAM':=new() /\ secret(APARAM',sec_1,{}) /\ SND({APARAM'}_PKems)
+		4. State=1 /\ RCV({Ns'.S'.{CDs'.{APARAM}_PKems}_PKems}_PKems) =|> State':=2 /\ secret(APARAM',sec_1,{}) /\ SND({Ns'.S'.CDs'}_PKsm.{EMS}_inv(PKems))
+end role
+
+role role_ID(EMS:agent,ID:agent,PKems:public_key,SND,RCV:channel(dy))
+played_by ID
+def=
+	local
+		State:nat,APARAM:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV({APARAM'}_PKems) =|> State':=1 /\ secret(APARAM',sec_1,{}) /\ SND({APARAM'}_PKems)
+end role
+
+role role_HH(EMS:agent,ID:agent,HH:agent,S:agent,Inc:function,PKems:public_key,SND,RCV:channel(dy))
+played_by HH
+def=
+	local
+		State:nat,CDs:text,APARAM:text
+	init
+		State := 0
+	transition
+		2. State=0 /\ RCV({APARAM'}_PKems) =|> State':=1 /\ secret(APARAM',sec_1,{}) /\ CDs':=new() /\ SND(CDs'.HH.{CDs'.{APARAM'}_PKems}_PKems)
+end role
+
+role role_S(EMS:agent,ID:agent,HH:agent,S:agent,SM:agent,Inc:function,PKems:public_key,SND,RCV:channel(dy))
+played_by S
+def=
+	local
+		State:nat,APARAM:text,CDs:text,Nsm:text,Rs:text,Ns:text
+	init
+		State := 0
+	transition
+		3. State=0 /\ RCV(CDs'.HH.{CDs'.{APARAM'}_PKems}_PKems) =|> State':=1 /\ secret(APARAM',sec_1,{}) /\ Ns':=new() /\ SND({Ns'.S.{CDs'.{APARAM'}_PKems}_PKems}_PKems)
+		6. State=1 /\ RCV({Inc(Ns).Nsm'}_Ns) =|> State':=2 /\ witness(S,SM,auth_3,Nsm') /\ Rs':=new() /\ SND({Rs'.Inc(Inc(Ns))}_Nsm')
+end role
+
+role role_M(EMS:agent,M:agent,SM:agent,Inc:function,PKems:public_key,PKsm:public_key,PKm:public_key,SND,RCV:channel(dy))
+played_by M
+def=
+	local
+		State:nat
+	init
+		State := 0
+	transition
+end role
+
+role role_SM(EMS:agent,M:agent,SM:agent,Inc:function,PKems:public_key,PKsm:public_key,PKm:public_key,SND,RCV:channel(dy))
+played_by SM
+def=
+	local
+		State:nat,CDs:text,S:agent,Nsm:text,Rs:text,Ns:text
+	init
+		State := 0
+	transition
+		5. State=0 /\ RCV({Ns'.S'.CDs'}_PKsm.{EMS}_inv(PKems)) =|> State':=1 /\ Nsm':=new() /\ SND({Inc(Ns').Nsm'}_Ns')
+		7. State=1 /\ RCV({Rs'.Inc(Inc(Ns))}_Nsm) =|> State':=2
+end role
+
+role session1(ID:agent,HH:agent,S:agent,EMS:agent,M:agent,SM:agent,Inc:function,PKems:public_key,PKsm:public_key,PKm:public_key)
+def=
+	local
+		SND6,RCV6,SND5,RCV5,SND4,RCV4,SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_SM(EMS,M,SM,Inc,PKems,PKsm,PKm,SND6,RCV6) /\ role_M(EMS,M,SM,Inc,PKems,PKsm,PKm,SND5,RCV5) /\ role_S(EMS,ID,HH,S,SM,Inc,PKems,SND4,RCV4) /\ role_HH(EMS,ID,HH,S,Inc,PKems,SND3,RCV3) /\ role_ID(EMS,ID,PKems,SND2,RCV2) /\ role_EMS(EMS,ID,HH,M,SM,Inc,PKems,PKsm,PKm,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		hash_0:function,k2:public_key,inc:function,m:agent,s:agent,id:agent,hh:agent,ems:agent,sm:agent,k1:public_key,k3:public_key,sec_1:protocol_id,auth_2:protocol_id,auth_3:protocol_id
+	intruder_knowledge = {}
+	composition
+		session1(id,hh,s,ems,m,sm,inc,k1,k2,k3)
+end role
+
+goal
+	secrecy_of sec_1
+	authentication_on auth_2
+	authentication_on auth_3
+end goal
+
+environment()

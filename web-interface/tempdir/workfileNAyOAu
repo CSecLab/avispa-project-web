@@ -1,0 +1,115 @@
+role alice (A, B    : agent,
+            Hash    : hash_func,
+            Cs      : nat,
+            SND, RCV: channel(dy))
+played_by A def=
+
+  local State,
+        Ra, Ea, Eb: nat,
+        Na, Nb    : text,
+        Eab, Kb, K: symmetric_key
+
+  init State := 0
+
+  transition
+
+    0.  State  = 0 /\ RCV(start) =|>
+        State':= 2 /\ Ra':= new() /\ Ea':=exp(Cs,Ra') /\ SND(Ea')
+
+    2.  State  = 2 /\ RCV(Eb') =|>
+        State':= 4 /\ Eab':=exp(Eb',Ra) /\ Na':= new() /\ SND({Na'.A}_Eab')
+                   /\ witness(A,B,bob_alice_na,Na')
+
+    4.  State  = 4 /\ RCV({Na.Nb'.B}_Eab) =|>
+        State':= 6 /\ Kb':= Nb'.Na /\ K':= new() /\ SND({K'}_Kb')
+                   /\ secret(K',k,{A,B})
+
+    6.  State  = 6 /\ RCV(Hash(K)) =|>
+        State':= 8 /\ request(A,B,alice_bob_nb,Nb)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob(A, B    : agent,
+         Hash    : hash_func,
+         Cs      : nat,
+         SND, RCV: channel(dy))
+played_by B def=
+
+  local State,
+        Rb, Ea, Eb: nat,
+        Na, Nb    : text,
+        Eab, Kb, K: symmetric_key
+
+  init State := 1
+
+  transition
+
+    1.  State  = 1 /\ RCV(Ea') =|>
+        State':= 3 /\ Rb':= new() /\ Eab':=exp(Ea',Rb') /\ Eb':=exp(Cs,Rb') /\ SND(Eb')
+
+    3.  State  = 3 /\ RCV({Na'.A}_Eab) =|>
+        State':= 5 /\ Nb':= new() /\ Kb':= Nb'.Na' /\ SND({Na'.Nb'.B}_Eab)
+                   /\ witness(B,A,alice_bob_nb,Nb')
+
+    5.  State  = 5 /\ RCV({K'}_Kb) =|>
+        State':= 7 /\ SND(Hash(K'))
+				   /\ request(B,A,bob_alice_na,Na)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(A, B : agent,
+			 Hash : hash_func,
+             Cs   : nat)
+def=
+
+  local SA, RA, SB, RB: channel(dy)
+
+  composition
+
+       alice(A,B,Hash,Cs,SA,RA)
+    /\ bob  (A,B,Hash,Cs,SB,RB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+def=
+
+  const a, b         : agent,
+        h            : hash_func,
+        csab, 
+        csai, 
+        csib         : nat,
+        k,
+        alice_bob_nb,
+        bob_alice_na : protocol_id
+
+  intruder_knowledge = {a, b, h, csab, csai, csib}
+
+  composition
+
+       session(a,b,h,csab)
+    /\ session(a,i,h,csai)
+    /\ session(i,b,h,csib)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of k
+  authentication_on alice_bob_nb
+  authentication_on bob_alice_na
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+ 

@@ -1,0 +1,118 @@
+%% PROTOCOLE: IMS-AKA+
+%% BUT: 
+%% Authentication and Key Agreement
+%% Mobile_Serveur:
+%% S est le serveur (S-CSCF), M est le terminal (UE), ils partagent une clé secète Sk.
+%% S publie une courbe elliptique , un  point de base P sur la courbe , deux fonctions de hachage H et H1
+%% M ---> S : V=a*P 
+%%            M génère aléatoirement sa clé privée a et calcule clé publique V=a*P
+%%
+%% S ---> M : W= c*P , Auths= H1 (W | c*h(Sk)*V)
+%%            A la réception de V, S génère sa clé privée c et calcule une clé AICK= c*h(Sk)*V
+%%            ensuite, il calcule sonjeton d'authentification Auths
+%% 
+%% M ---> S : Authu= H1( V| a*h(Sk)*W
+%%            A la réception de Auths, M calcule une clé AICK= a*h(Sk)*W
+%%            et vérifie Auths, si ok , il envoie Authu
+%% S ---> M : 200OK
+%%      S vérifie si Authu est correcte 
+%%      Si oui, S envoie 200OK à M
+%%n
+%% Le but est qu'à la fin, les deux (serveurs et mobile) s'authentifie mutuellement et partagent 
+%% un point AICK
+%%
+%% HLPSL
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role server ( 
+              S,UE: agent,  
+              Sk: symmetric_key, %% clé secrète partagée entre serveur client
+              P: public_key, %% clé publique
+              H,H1: hash_func, %% foncions de hachage
+              SND,RCV: channel(dy) %% 
+
+            ) played_by S def=
+local 
+     State: nat,
+     Ra,Rs,Kms, Sks: text
+const
+     sec_rs, sec_kms : protocol_id
+init State := 1
+transition
+0. State = 1   /\ RCV (sipregister.{Ra'}_P) =|>
+   State':= 2  /\  Rs':=new()
+   %%/\  Sks':=  {Rs'.H(Sk).Ra}_P
+   /\  SND(sip401.{Rs'}_P.H1({Rs'}_P.{Rs'.H(Sk).Ra}_P)) 
+   /\  witness (S, UE, ns, H1({Rs'}_P.{Rs'.H(Sk).Ra}_P)) 
+   /\  secret (Rs', sec_rs, S) 
+   %%/\  secret (Sks', sec_kms, {S,M}) 
+   
+1. State = 2 /\ RCV (sipregister.H1({Ra}_P.{Ra.H(Sk).Rs}_P)) =|>  
+   State' := 3
+    /\ SND(sip200)
+    /\ request (S ,UE, na , H1({Ra}_P.{Ra.H(Sk).Rs}_P))
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role user_equipement ( 
+              UE,S: agent,
+              Sk: symmetric_key,
+              P: public_key,
+              H,H1: hash_func,
+              SND,RCV: channel(dy)) played_by UE def=
+local 
+     State: nat,
+     Ra,Rs,Kms: text
+const
+     sec_ra, sec_kms1: protocol_id
+init State:=1
+transition
+2. State = 1 /\ RCV(start) =|>
+   State':=2 /\ Ra':= new()
+             /\ SND(sipregister.{Ra'}_P)
+             /\ secret(Ra', sec_ra ,UE)
+
+3. State=2 /\ RCV (sip401.{Rs'}_P.H1({Rs'}_P.{Rs'.H(Sk).Ra}_P)) =|>
+   State':= 3
+    /\ SND(sipregister.H1({Ra}_P.{Ra.H(Sk).Rs}_P))
+   /\ witness (UE,S,na, H1({Ra}_P.{Ra.H(Sk).Rs}_P))
+   /\ request (UE,S,ns, H1({Rs}_P.{Rs.H(Sk).Ra}_P))
+   %%/\ Kms':= {Ra.H(Sk).Rs}_P 
+   %%/\ secret (Kms',sec_kms1,{M,S})
+
+4. State = 3 /\ RCV(sip200) =|> State':= 4
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session ( UE, S  : agent , 
+Sk: symmetric_key,
+P  : public_key ,
+H,H1  : hash_func 
+) 
+def= local SND, RCV : channel(dy)
+composition
+      server (S, UE,Sk, P, H,H1,SND, RCV)
+   /\ user_equipement (UE, S,Sk,P,H,H1, SND, RCV)  
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment ( ) 
+def= 
+const  
+ue,s   : agent , 
+na, ns  : protocol_id ,
+sip401,sip200,sipregister: protocol_id,        
+sk: symmetric_key,
+p  : public_key,
+h, h1  : hash_func  
+ 
+intruder_knowledge={ue, s, h, h1, p,sip401,sip200,sipregister,i} 
+
+composition 
+    session (ue, s, sk,p, h, h1)  
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal 
+secrecy_of  sec_rs,   sec_ra
+%%sec_kms, sec_kms1,
+authentication_on na 
+authentication_on ns 
+end goal 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment ()

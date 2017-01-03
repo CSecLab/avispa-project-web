@@ -1,0 +1,80 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileoP78nH
+
+section signature:
+
+state_icc: agent * agent * text * nat * message * message * message * text * text * nat -> fact
+state_ifd: agent * agent * text * nat * text * text * message * message * message * set(agent) * nat -> fact
+
+
+section types:
+
+sec_ifd_dhvalue: protocol_id
+5, 3, State, 4, 10, 2, 6, 1, 0, SID, Dummy_State: nat
+g, Ni, Nsecret, G, Dummy_Ni, Nf, Dummy_Nsecret, Dummy_Nf, dummy_nonce: text
+set_69, set_67, set_52: set
+a, b, B, A, i: agent
+Set_22, Dummy_Set_22, ASGoal: set(agent)
+X, Y, K, start, Dummy_Y, Dummy_K, Dummy_X, dummy_msg, MGoal: message
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(g).
+ iknows(i).
+ state_ifd(a,b,g,0,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,set_52,3).
+ state_icc(b,a,g,1,dummy_msg,dummy_msg,dummy_msg,dummy_nonce,dummy_nonce,4).
+ state_ifd(a,i,g,0,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,set_67,6).
+ state_icc(b,i,g,1,dummy_msg,dummy_msg,dummy_msg,dummy_nonce,dummy_nonce,10)
+
+
+section rules:
+
+step step_0 (A,B,G,Dummy_Nf,Nsecret,Dummy_X,K,Y,Set_22,SID,Nf) :=
+ state_ifd(A,B,G,0,Dummy_Nf,Nsecret,Dummy_X,K,Y,Set_22,SID).
+ iknows(start)
+=[exists Nf]=>
+ state_ifd(A,B,G,2,Nf,Nsecret,exp(G,Nf),K,Y,Set_22,SID).
+ iknows(exp(G,Nf))
+
+step step_1 (A,B,G,Nf,Dummy_Nsecret,X,Dummy_K,Dummy_Y,Dummy_Set_22,SID,Nsecret,Y) :=
+ state_ifd(A,B,G,2,Nf,Dummy_Nsecret,X,Dummy_K,Dummy_Y,Dummy_Set_22,SID).
+ iknows(Y)
+=[exists Nsecret]=>
+ state_ifd(A,B,G,4,Nf,Nsecret,X,exp(Y,Nf),Y,Dummy_Set_22,SID).
+ iknows(scrypt(exp(Y,Nf),Nsecret)).
+ secret(Nsecret,sec_ifd_dhvalue,Dummy_Set_22).
+ contains(A,Dummy_Set_22).
+ contains(B,Dummy_Set_22)
+
+step step_2 (B,A,G,Dummy_X,Dummy_Y,Dummy_K,Dummy_Ni,Nsecret,SID,X,Ni) :=
+ state_icc(B,A,G,1,Dummy_X,Dummy_Y,Dummy_K,Dummy_Ni,Nsecret,SID).
+ iknows(X)
+=[exists Ni]=>
+ state_icc(B,A,G,3,X,exp(G,Ni),exp(exp(G,Ni),Ni),Ni,Nsecret,SID).
+ iknows(exp(exp(G,Ni),Ni))
+
+step step_3 (B,A,G,X,Y,Dummy_K,Ni,Dummy_Nsecret,SID,K,Nsecret) :=
+ state_icc(B,A,G,3,X,Y,Dummy_K,Ni,Dummy_Nsecret,SID).
+ iknows(scrypt(K,Nsecret))
+ =>
+ state_icc(B,A,G,5,X,Y,K,Ni,Nsecret,SID)
+
+
+section properties:
+
+property secrecy_of_sec_ifd_dhvalue (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_ifd_dhvalue,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_sec_ifd_dhvalue (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_ifd_dhvalue,ASGoal) &
+ not(contains(i,ASGoal))
+

@@ -1,0 +1,33 @@
+role cPAA (
+		LcP,LcA,LnP,M : agent,
+		PKnPaa,SKnAaa,PKnAaa : symmetric_key,
+		KeyID : text,
+		DeriveAAAKeyInt : text,text,text -> symmetric_key,
+		ScPcA,RcPcA,
+		ScPnP,RcPnP,
+		RMNcP : channel(dy))
+
+	played_by cP def=
+
+		local
+			State : nat,
+			nPaaID,newMNID : text,
+			DTR,DTA,CTR,CTD : message
+			PAN,PCI: text.text
+			ikAAA : symmetric_key
+
+		init
+			State := 1
+
+		transition
+		1. State = 1 /\ RMNcP({newMNID'.nPaaID}_PCI') =|>
+		   State':= 2 /\ ScPcA({nPaaID}_DTR')
+				/\ request(LcP,LcA,npaaid,nPaaID)
+
+		2. State = 3 /\ RcPcA({PKnAaa}_DTA') =|>
+		   State':= 4 /\ ScPnP(PCI')
+		
+		3. State = 4 /\ RcPnP({{SesIden'.Sbit'.nPaaNonce'}_PAR'.{nPaaID.PKnPaa}_SKnAaa}_CTR')
+		   State':= 10 /\ ikAAA':= DeriveAAAKeyInt(SesIden',newMNID',KeyID)
+				/\ ScPnP({{ikAAA'}_PKnPaa}_CTD')
+end role

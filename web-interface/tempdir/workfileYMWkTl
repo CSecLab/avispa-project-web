@@ -1,0 +1,114 @@
+%%HLPSL:
+
+role eke_Init (P,S: agent,
+           PSK: symmetric_key,
+           Snd,Rcv: channel(dy))
+played_by S
+def=
+
+  local  State    : nat,
+ 
+
+  init  State := 1
+
+  transition
+
+   1. State = 1
+      /\ Rcv(respond_id.pid)
+      =|> 
+      State' := 2
+      /\ NS' := new()
+/\ C' := new()
+/\ AK' := PRF(PSK.NS')
+/\ EK' := PRF(PSK.NS’.sid.pid)
+/\ MAC' := {MIC(AK,C.sid.NS')}_EK'
+      /\ Snd(C'.sid. NS'. MAC') 
+/\ witness(S,P,rs,NS')
+/\ witness(S,P,ch,C')
+/\ secret(AK',sec_ak,{P,S})
+/\ secret(EK',sec_ek,{P,S})
+
+   2. State = 2
+      /\ Rcv(NP'.HASH')
+/\ HASH'={HMAC(AK,C.NP')}_EK'
+      =|> 
+      State' := 3
+      /\request(s,p, NP')
+      /\ Snd(success) 
+     
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role eke_Resp (P,S: agent,
+            PSK: symmetric_key,
+ 	        Snd,Rcv: channel(dy))
+played_by P
+def=
+
+  local  State    : nat,
+      
+
+ 
+
+  init  State := 1
+
+  transition
+
+1.State = 1 /\ Rcv(C'.sid. NS'.MAC')
+/\ AK' := PRF(PSK.NS')
+/\ EK' := PRF(PSK.NS’.sid.pid)
+/\ MAC' := {MIC(AK,C.sid.NS')}_EK'
+      =|> 
+      State' := 2
+      /\ NP' := new()
+/\ HASH'={HMAC(AK,C.NP')}_EK'
+      /\ Snd(NP'.HASH') 
+/\ witness(P,S,rp,NP')
+/\ request(P,S,rs,NS')
+/\ request(P,S,ch,C')
+/\ secret(AK',sec_ak,{P,S})
+/\ secret(EK',sec_ek,{P,S})
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role environment()
+def=
+
+        const p, s,i   : agent,
+        mic,h,prf :function
+        psk_ps,psk_pi,psk_is    : symmetric_key,
+        
+  intruder_knowledge={p,s,mic,h,prf,psk_pi,psk_is }
+
+  composition
+   session(p,s,psk_ps,mic,h,prf)
+   /\ session(p,s,psk_pi,mic,h,prf)
+   /\ session(p,s,psk_is,mic,h,prf)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+ % Confidentiality (G12)
+ secrecy_of sec_ak, sec_ek
+
+ % Message authentication (G2)
+ % EKE_Init authenticates EKE_Resp on nb
+ authentication_on mic
+
+ % Message authentication (G2)
+ % EKE_Resp authenticates EKE_Init on na
+ authentication_on h
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+ 

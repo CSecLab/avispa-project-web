@@ -1,0 +1,214 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilevREuivn3T4
+
+section signature:
+
+state_rfidtag: agent * agent * public_key * public_key * hash_func * nat * text * text * text * text * text * text * text * text * text * text * hash_func * nat -> fact
+state_rfidserver: agent * agent * public_key * public_key * hash_func * nat * text * text * text * text * text * text * text * text * text * text * hash_func * nat -> fact
+
+
+section types:
+
+ASGoal: set(agent)
+start, MGoal: message
+r1, r2, id, xtt, xss, server_tag_r11, tag_server_r22, tag_server_autht, server_tag_auths, server_tag_id: protocol_id
+4, State, SID, Dummy_State, 2, 3, 1, SID2, 0, SID1: nat
+H, dummy_hash, f, h, F: hash_func
+Xt, Xs, xt, xs: public_key
+S, T, A2Goal, A1Goal, s, t, i: agent
+Id, Dummy_Auths, Dummy_Tk5, Dummy_Tk3, Dummy_Autht, Dummy_R22, Dummy_R11, Dummy_R1, dummy_nonce, p, R1, R11, P, R2, R22, Autht, Tk3, Tk5, Auths, TK1, TK2, Dummy_R2, Dummy_TK2, Dummy_TK1: text
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(s).
+ iknows(t).
+ iknows(xs).
+ iknows(xt).
+ iknows(h).
+ iknows(f).
+ iknows(p).
+ iknows(i).
+ state_rfidserver(s,t,xs,xt,h,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_hash,3).
+ state_rfidtag(t,s,xs,xt,h,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_hash,4)
+
+
+section rules:
+
+step step_0 (S,T,Xt,Xs,H,Dummy_R1,Dummy_R11,P,R2,R22,Autht,Tk3,Tk5,Auths,Id,F,SID,R1) :=
+ state_rfidserver(S,T,Xt,Xs,H,0,Dummy_R1,Dummy_R11,P,R2,R22,Autht,Tk3,Tk5,Auths,Id,F,SID).
+ iknows(start)
+=[exists R1]=>
+ state_rfidserver(S,T,Xt,Xs,H,1,R1,apply(F,pair(R1,P)),P,R2,R22,Autht,Tk3,Tk5,Auths,Id,F,SID).
+ iknows(crypt(Xt,pair(apply(F,pair(R1,P)),Id))).
+ secret(R1,r1,S).
+ witness(S,T,server_tag_id,Id).
+ witness(S,T,server_tag_r11,apply(F,pair(R1,P)))
+
+step step_1 (S,T,Xt,Xs,H,R1,R11,P,R2,Dummy_R22,Dummy_Autht,Dummy_Tk3,Dummy_Tk5,Dummy_Auths,Id,F,SID,R22,Autht) :=
+ state_rfidserver(S,T,Xt,Xs,H,1,R1,R11,P,R2,Dummy_R22,Dummy_Autht,Dummy_Tk3,Dummy_Tk5,Dummy_Auths,Id,F,SID).
+ iknows(pair(R22,Autht))
+ =>
+ state_rfidserver(S,T,Xt,Xs,H,2,R1,R11,P,R2,R22,Autht,apply(H,Id),apply(H,apply(F,pair(R22,inv(Xs)))),apply(H,pair(apply(H,Id),apply(H,apply(F,pair(R22,inv(Xs)))))),Id,F,SID).
+ iknows(apply(H,pair(apply(H,Id),apply(H,apply(F,pair(R22,inv(Xs))))))).
+ secret(inv(Xs),xss,S).
+ witness(S,T,server_tag_auths,apply(H,pair(apply(H,Id),apply(H,apply(F,pair(R22,inv(Xs)))))))
+
+step step_2 (T,S,Xt,Xs,H,R1,Dummy_R11,P,Dummy_TK1,Dummy_TK2,Dummy_Autht,Auths,Dummy_R2,Dummy_R22,Id,F,SID,R11,R2) :=
+ state_rfidtag(T,S,Xt,Xs,H,0,R1,Dummy_R11,P,Dummy_TK1,Dummy_TK2,Dummy_Autht,Auths,Dummy_R2,Dummy_R22,Id,F,SID).
+ iknows(crypt(Xt,pair(R11,Id)))
+=[exists R2]=>
+ state_rfidtag(T,S,Xt,Xs,H,1,R1,R11,P,apply(H,Id),apply(H,apply(F,pair(R11,inv(Xt)))),apply(H,pair(apply(H,Id),apply(H,apply(F,pair(R11,inv(Xt)))))),Auths,R2,apply(F,pair(R2,P)),Id,F,SID).
+ request(S,T,server_tag_r11,R11,SID).
+ request(S,T,server_tag_id,Id,SID).
+ iknows(pair(apply(F,pair(R2,P)),apply(H,pair(apply(H,Id),apply(H,apply(F,pair(R11,inv(Xt)))))))).
+ secret(inv(Xt),xtt,T).
+ secret(R2,r2,T).
+ witness(T,S,tag_server_r22,apply(F,pair(R2,P))).
+ witness(T,S,tag_server_autht,apply(H,pair(apply(H,Id),apply(H,apply(F,pair(R11,inv(Xt)))))))
+
+step step_3 (T,S,Xt,Xs,H,R1,R11,P,TK1,TK2,Autht,Dummy_Auths,R2,R22,Id,F,SID,Auths) :=
+ state_rfidtag(T,S,Xt,Xs,H,1,R1,R11,P,TK1,TK2,Autht,Dummy_Auths,R2,R22,Id,F,SID).
+ iknows(Auths)
+ =>
+ state_rfidtag(T,S,Xt,Xs,H,2,R1,R11,P,TK1,TK2,Autht,Auths,R2,R22,Id,F,SID).
+ request(S,T,server_tag_auths,Auths,SID)
+
+
+section properties:
+
+property secrecy_of_r1 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,r1,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_r2 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,r2,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_xtt (MGoal,ASGoal) :=
+ [] ((secret(MGoal,xtt,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_xss (MGoal,ASGoal) :=
+ [] ((secret(MGoal,xss,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_server_tag_r11 (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,server_tag_r11,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,server_tag_r11,MGoal))
+     /\ ((request(A1Goal,A2Goal,server_tag_r11,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,server_tag_r11,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_tag_server_r22 (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,tag_server_r22,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,tag_server_r22,MGoal))
+     /\ ((request(A1Goal,A2Goal,tag_server_r22,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,tag_server_r22,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_tag_server_autht (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,tag_server_autht,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,tag_server_autht,MGoal))
+     /\ ((request(A1Goal,A2Goal,tag_server_autht,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,tag_server_autht,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_server_tag_auths (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,server_tag_auths,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,server_tag_auths,MGoal))
+     /\ ((request(A1Goal,A2Goal,server_tag_auths,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,server_tag_auths,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_server_tag_id (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,server_tag_id,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,server_tag_id,MGoal))
+     /\ ((request(A1Goal,A2Goal,server_tag_id,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,server_tag_id,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_r1 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,r1,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_r2 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,r2,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_xtt (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,xtt,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_xss (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,xss,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_server_tag_r11 (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,server_tag_r11,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,server_tag_r11,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_server_tag_r11 (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,server_tag_r11,MGoal,SID1).
+ request(A1Goal,A2Goal,server_tag_r11,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_tag_server_r22 (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,tag_server_r22,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,tag_server_r22,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_tag_server_r22 (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,tag_server_r22,MGoal,SID1).
+ request(A1Goal,A2Goal,tag_server_r22,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_tag_server_autht (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,tag_server_autht,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,tag_server_autht,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_tag_server_autht (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,tag_server_autht,MGoal,SID1).
+ request(A1Goal,A2Goal,tag_server_autht,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_server_tag_auths (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,server_tag_auths,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,server_tag_auths,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_server_tag_auths (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,server_tag_auths,MGoal,SID1).
+ request(A1Goal,A2Goal,server_tag_auths,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_server_tag_id (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,server_tag_id,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,server_tag_id,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_server_tag_id (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,server_tag_id,MGoal,SID1).
+ request(A1Goal,A2Goal,server_tag_id,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

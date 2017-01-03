@@ -1,0 +1,144 @@
+role session(A,B,C		:agent,
+		SK,Sj		:symmetric_key,
+		H		:hash_func,	
+		Ppub		:public_key,	
+		G		:text)
+def=
+	local
+		SA,SB,SC,RA,RB,RC:channel(dy)
+	composition
+		smartMeter(A,B,C,SK,H,Ppub,G,SA,RA)	
+	/\	idsSensor(A,B,C,Sj,H,Ppub,G,SB,RB)	
+	/\	controlCenter(A,B,C,Sj,H,Ppub,G,SC,RC)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+	const	a_b, b_c, c_b, b_a	:protocol_id,
+		a,b,c			:agent,
+		sk,sj			:symmetric_key,
+		kia,kai,kbi,kib,kci,kic	:symmetric_key,
+		h			:hash_func,
+		ppub			:public_key,
+		g			:text
+
+	intruder_knowledge={a,b,c,ppub,kia,kai,kbi,kib,kci,kic}
+	composition
+		session(a,b,c,sk,sj,h,ppub,g)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+	secrecy_of	a_b, b_c, c_b, b_a
+
+	authentication_on a_b
+	authentication_on b_c
+	authentication_on c_b
+	authentication_on b_a
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+
+role smartMeter(A,B,C		:agent,			%A:Smart meter, B:IDS Sensor, C:Control center
+		SK		:symmetric_key,		%session key
+		H		:hash_func,		%One-way hash function
+		Ppub		:public_key,		%public key of Control center
+		G		:text,
+		SND,RCV		:channel(dy))
+played_by A
+def=
+	local 
+		State		:nat			%Natural number
+		MIDi		:text			%ID of Smart meter
+		Ra		:text			%Random variable
+		D,C,SMi		:text
+	const a_b, b_c, c_b, b_a:protocol_id
+	init state:=0
+	transition
+1.	State=0	 	/\	RCV(Ppub)=|>			%get public key of control center
+	State':=1	/\	Ra':=new()			%a
+			/\	C':=exp(Ppub,Ra')		%(g^Pr)^a=(g^a)^Pr=D^Pr
+			/\	D':=exp(G,Ra')			%g^a
+			/\	SMi':=xor(MIDi',H(C'))		%masked ID
+			/\	K':=H(MIDi'.C'.D')
+			/\	request(A,C,A_C,K')
+			/\	secret({Ra',C',MIDi'},A_B,A)
+			/\	SND(SMi'.K'.D')
+			/\	RCV(SIDi'.F'.Y'.IDcs')
+			/\	w2':=H(IDcs'.C'.MIDi')
+			/\	SK:=exp(F,Ra')
+			/\	Y':=H(MIDi'.SIDi'.SK.F'.W2')
+			/\	request(A,B,A_B,Y')	
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role idsSensor(A,B,C		:agent,			%A:Smart meter, B:IDS Sensor, C:Control center
+		Sj		:symmetric_key,		%shared key between sensor and control center
+		H		:hash_func,		%One-way hash function
+		Ppub		:public_key,		%public key of Control center
+		G		:text,
+		SND,RCV		:channel(dy))
+played_by B
+def=
+	local 
+		State		:nat			%Natural number
+		SIDi		:text			%ID of IDS Sensor
+		Rb		:text			%Random variable
+		F,E,X		:text
+	const a_b, b_c, c_b, b_a:protocol_id
+	init state:=0
+	transition
+1.	State=0	 	/\	RCV(Ppub)=|>			%get public key of control center
+			/\	RCV(SMi'.K'.D')				
+	State':=1	/\	Rb':=new()			%b
+			/\	E':=exp(Ppub,Rb')		%Ppub^b=(g^Pr)^b=(g^b)^Pr=F^Pr
+			/\	F':=exp(G,Rb')			%g^b
+			/\	secret({Rb',E'},B_C,B)
+			/\	X':=H(SIDi'.E'.F'.SMi'.D'.K'.Sj)
+			/\	request(B,C,B_C,X')
+			/\	SND({SIDi'.F'.X'.SMi'.D'.K'}_Sj)
+			/\	RCV({W1.W2.IDcs.MIDi}_Sj)
+			/\	W1':=H(IDcs'.E'.SIDi'.Sj)
+			/\	request(B,C,B_C,W1')
+			/\	SK':=exp(D',Rb')
+			/\	Y':=H(MIDi'.SIDi'.SK.F'.W2')
+			/\	SND(SIDi'.F'.Y'.IDcs')
+			/\	request(B,A,B_A,Y')
+				
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role controlCenter(A,B,C	:agent,			%A:Smart meter, B:IDS Sensor, C:Control center
+		Sj		:symmetric_key,		%session key
+		H		:hash_func,		%One-way hash function
+		Ppub		:public_key,		%public key of Control center
+		G		:text,
+		SND,RCV		:channel(dy))
+played_by C
+def=
+	local 
+		State		:nat			%Natural number
+		IDcs		:text			%ID of Control center
+		Pr		:text			%Private key of control center
+		D,C,SMi		:text
+	const a_b, b_c, c_b, b_a:protocol_id
+	init state:=0
+	transition
+1.	State=0	 	/\	RCV(start)=|>			%Start
+	State':=1	/\	Ppub:=exp(G,Pr)			%g^Pr
+			/\	SND(Ppub)
+2.	State=1		/\	RCV({SIDi'.F'.X'.SMi'.D'.K'}_Sj)				
+			/\	C':=exp(D',Pr')			%(g^a)^Pr
+			/\	E':=exp(F',Pr')			%(g^b)^Pr
+			/\	X':=H(SIDi'.E'.F'.SMi'.D'.K'.Sj)		
+			/\	request(C,B,C_B,X')
+			/\	MIDi':=xor(SMi',H(C'))
+			/\	K':=H(MIDi'.C'.D')
+			/\	request(C,B,C_B,K')
+			/\	secret({Pr',C',MIDi',E'},C_B,C)
+			/\	W1':=H(IDcs'.E'.SIDi'.Sj)
+			/\	W2':=H(IDcs'.C'.MIDi')
+			/\	SND({W1.W2.IDcs.MIDi}_Sj)
+			/\	request(C,B,C_B,W1')
+			/\	request(C,B,C_B,W2')
+				
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

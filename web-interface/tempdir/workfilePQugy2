@@ -1,0 +1,76 @@
+role role_Mn(Mn:agent,Ro:agent,N:agent,K:public_key,Mac:text,SND,RCV:channel(dy))
+played_by Mn
+def=
+	local
+		State:nat
+             const 
+                         bu:text,tmp:text,back:text, lifetime:text,
+                          sec_n1: protocol_id,
+                           auth_1,auth_2: protocol_id
+                       
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ SND(bu({Mac}_inv(K).tmp.lifetime)) /\  witness(Mn,Ro,auth_1,{Mac}_inv(K)) /\ secret({Mac}_inv(K),sec_n1,{Mn,Ro})
+		2. State=1 /\ RCV(back) =|> State':=2 /\ SND(bu({Mac}_inv(K).tmp.lifetime))% /\ witness(Mn,N,auth_2,{Mac}_inv(K))
+		4. State=2 /\ RCV(back) =|> State':=3 
+end role
+
+role role_Ro(Ro:agent,Mn:agent,N:agent,K:public_key,SND,RCV:channel(dy))
+played_by Ro
+def=
+	local
+		State:nat,Mac:text
+              const 
+                          lifetime:text,bu:text,tmp:text,back:text,ns:text,na:text,
+                           sec_N2: protocol_id,
+                           auth_1 : protocol_id
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV((bu({Mac'}_inv(K).tmp.lifetime))) =|> State':=1  /\ request(Ro,Mn,auth_1,{Mac'}_inv(K)) /\ SND(back) 
+
+		5. State=1 /\ RCV(ns) =|> State':=2 /\ SND(na)   
+end role
+
+role role_N(N:agent,Ro:agent,Mn:agent,K:public_key,SND,RCV:channel(dy))
+played_by N
+def=
+	local
+		State:nat,Mac:text
+             const 
+                           auth_2: protocol_id,
+                           lifetime:text,bu:text,tmp:text,back:text,ns:text,na:text
+	init
+		State := 0
+	transition
+		3. State=0 /\ RCV(bu({Mac'}_inv(K).tmp.lifetime)) =|> State':=1   /\ SND(back)  /\ SND(ns) %/\ request(N,Mn,auth_2,{Mac'}_inv(K)) 
+		6. State=1 /\ RCV(na) =|> State':=2
+end role
+
+role session1(K:public_key,Mac:text,N:agent,Ro:agent,Mn:agent)
+def=
+	local
+		SND4,RCV4,SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_N(N,Ro,Mn,K,SND4,RCV4) /\ role_Ro(Ro,Mn,N,K,SND3,RCV3)  /\ role_Mn(Mn,Ro,N,K,Mac,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		router:agent,key:public_key,node:agent,mobilenode:agent,auth_1:protocol_id,auth_2:protocol_id, macaddress:text
+	intruder_knowledge = {mobilenode,router,node}
+	composition
+		session1(key,macaddress,node,router,mobilenode)
+end role
+
+goal
+	authentication_on auth_1
+	authentication_on auth_2
+             secrecy_of sec_n1
+              %secrecy_of sec_N2
+end goal
+
+environment()
+

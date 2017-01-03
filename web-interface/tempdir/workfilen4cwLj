@@ -1,0 +1,248 @@
+role voter ( hostv : principal ; skv : privkey ; pka , pkm, pktm : pubkey ; v : message )
+declare
+r1 , r2 , r3 : nonce ;
+pkv : pubkey ;
+cer t v : message ;
+x , e , s : message ;
+y , c , sigma , p , d : message ;
+b : (message , message ) ;
+begin
+# registration stage
+pkv ? inv ( skv ) ;
+cer t v ? sign (asym, inv ( pka ) , [ hostv , pkv ] ) ;
+# voting stage
+new( r1 ) ; new( r2 ) ; new( r3 ) ;
+x ? pencrypt ( v , pktm , r1 ) ;
+e ? f a i r b l i n d ( x , r2 ) ;
+s ? sign (asym, skv , e ) ;
+send ( [ hostv , cer tv , e , s ] ) ;
+recv ( d ) ;
+y ? unbl ind ( d , r2 ) ;
+b ? [ x , y ] ;
+c ? pencrypt ( b , pkm, r3 ) ;
+sigma ? sign (asym, skv , c ) ;
+p ? proof ( c , b , pkm) ;
+send ( [ hostv , cer tv , c , sigma , p ] ) ;
+end
+
+role a dmi n i s t r a t o r ( ska : pr i v key ; voter s : mutable l i s t ( pubkey ) ;
+l i s tAS : mutable l i s t (message ) )
+declare
+hv : p r i n c i p a l ;
+ev , dv : message ;
+pubkeyv : pubkey ;
+begin
+# voting stage
+recv ( [ hv , sign (asym, ska , [ hv , pubkeyv ] ) , ev , sign (asym, inv ( pubkeyv ) , ev ) ] ) ;
+dv ? sign (asym, ska , ev ) ;
+# test if it is a legitimate voter
+i f element ( pubkeyv , voter s )
+then
+voter s ? remove ( pubkeyv , voter s ) ;
+dv ? sign (asym, ska , ev ) ;
+send( dv ) ;
+# add to List_AS and publish List_AS
+l i s tAS ? [ hv ,
+sign (asym, ska , [ hv , pubkeyv ] ) ,
+ev ,
+sign (asym, inv ( pubkeyv ) , ev ) ] : : l i s tAS ;
+else
+f a i l ;
+f i ;
+end
+role publ i sherLi s tAS ( l i s tAS : mutable l i s t (message ) )
+begin
+send( l i s tAS ) ;
+end
+
+role b u l l e t i nBo a r d ( pkadmin , pkmix : pubkey ; l i s tBB : mutable l i s t (message ) )
+declare
+hvoter : p r i n c i p a l ;
+cb , pb :message ;
+pkvoter : pubkey ;
+begin
+# voting stage
+recv ( [ hvoter ,
+sign (asym, inv ( pkadmin ) , [ hvoter , pkvoter ] ) ,
+cb ,
+sign (asym, inv ( pkvoter ) , cb ) ,
+pb ] ) ;
+i f checkproof ( pb , cb , pkmix ) = ok
+then
+# add to List_BB and publish List_BB
+l i s tBB ? [ hvoter ,
+sign (asym, inv ( pkadmin ) , [ hvoter , pkvoter ] ) ,
+cb ,
+sign (asym, inv ( pkvoter ) , cb ) ,
+pb ] : : l i s tBB ;
+else
+f a i l ;
+f i ;
+end
+role publ i sherLi s tBB ( l i s tBB : mutable l i s t (message ) )
+begin
+# publish ListBB
+send( l i s tBB ) ;
+end
+
+role revocat ion ( b l a c k l i s t , l i s tAS , l i s tBB : mutable l i s t (message ) )
+declare
+l i s t 1 , l i s t f , l i s t 2 : l i s t (message ) ;
+begin
+# compare ListAS et ListBB
+# si element dans AS, et pas d’ element correspondant dans BB
+l i s t 1 ? compare1 ( l i s tAS , l i s tBB ) ;
+i f l i s t 1 = [ [ ] ]
+then
+# skip;
+else
+# revocation
+l i s t f ? r e v o c a t i o n l i s t ( l i s t 1 ) ;
+b l a c k l i s t ? a d d l i s t ( l i s t f , b l a c k l i s t ) ;
+f i ;
+# si element dans BB et pas d’ element correspondant dans AS
+l i s t 2 ? compare2 ( l i s tAS , l i s tBB ) ;
+i f l i s t 2 = [ [ ] ]
+then
+# skip
+else
+# remove
+l i s tBB ? removel i s t ( l i s t 2 , l i s tBB ) ;
+f i ;
+end
+role p u b l i s h e r L i s t 0 ( l i s tBB : mutable l i s t (message ) )
+declare
+l i s t 0 : l i s t (message ) ;
+begin
+# extract L0 (c) from ListBB (id, C, c,sigma,P)
+l i s t 0 ? map3( l i s tBB ) ;
+send( l i s t 0 ) ;
+end
+
+role mixnetM( skm: pr i v key ; l i s t B a l l o t : mutable l i s t (message ) )
+declare
+r : nonce ;
+l i s t 0 , l i s t b : l i s t (message ) ;
+begin
+# Step 1: counting stage
+recv ( l i s t 0 ) ;
+# decrypt each element of a list
+l i s t b ? mapDecrypt ( l i s t 0 , skm) ;
+# permute the elements of list_b to obtain list_k
+# Given an element [x,y] of list_k, we can retrieve the
+# corresponding element c of list0 by assoc([x,y],list_k,r)
+new( r ) ;
+l i s t B a l l o t ? permute ( l i s t b , r ) ;
+# publish ListBallot
+send( l i s t B a l l o t ) ;
+end
+
+role mixnetTM( sktm : pr i v key ; pka : pubkey ;
+l i s tVo t e , l i s t B a l l o t , b l a c k l i s t : mutable l i s t (message ) )
+declare
+z : i n t ;
+x , y :message ;
+l i s t s : l i s t (message ) ;
+l i s t d o u b l o n s , l i s t n o n s i g n , l i s t i n t e r : l i s t (message ) ;
+begin
+# counting stage
+# Step 2: tests whether there are some duplicated pairs
+l i s t d o u b l o n s ? doublons ( l i s t B a l l o t ) ;
+i f l i s t d o u b l o n s = [ [ ] ]
+then
+# skip;
+else
+# back tracing procedure for each elements in list_doublons
+# BTP procedure updates blacklist and listBallot
+# for each [x,y] in list_doublons
+z ? BTProcedure ( x , y ) ;
+f i ;
+# Step 3: tests whether the signatures yi of elements (xi,yi)
+# in ListBallot are valid
+l i s t n o n s i g n ? mapChecksign ( l i s t B a l l o t , pka ) ;
+i f l i s t n o n s i g n = [ [ ] ]
+then
+# skip;
+else
+# back tracing process for each elements in list_nonsign
+# updating of black_list and list_k
+# for each [x,y] in list_nonsign
+z ? BTProcedure ( x , y ) ;
+f i ;
+# Step 4: tests whether or ¬ (black_list \cap listBallot) is empty
+l i s t i n t e r ? i n t e r s e c t i o n ( l i s t B a l l o t , b l a c k l i s t ) ;
+#while (list_inter 6= [[]])
+#do {
+# back tracing process for each element on list_inter
+# updating of black_list and list_k
+#for each [x,y] in list_inter
+z ? BTProcedure ( x , y ) ;
+#}
+# reveal sktm
+before publ i shed : send( sktm ) ;
+l i s t s ? map1( l i s t B a l l o t ) ;
+l i s t V o t e ? mapDecrypt ( l i s t s , sktm ) ;
+send( l i s t V o t e ) ;
+end
+
+role BTProcedure ( x , y : message )
+declare
+c : message ;
+begin
+# retrieve the c corresponding to [x,y] in List0
+# Il faut interroger le MixNet pour obtenir cette information
+c ? assoc ( [ xt , y t ] , l i s t B a l l o t , r ) ;
+# retrieve the corresponding tuple in listBB
+[ id , cer t , c , sigma ,P] ? assoc ( [ , , c , , ] , l i s tBB ) ;
+L i s t v o t e r b l a c k ? i d : : L v o t e r b l a c k l i s t ;
+# retrieve the correponding tuple in ListAS
+[ id , cer t , e , s ] ? assoc ( [ id , cer t , , ] , l i s tAS ) ;
+# with e and thanks to unfairblind signature mechanism,
+# retrieve the "real" ballot
+x ? revmsg ( e , f a i r b l i n d ( e , inv ( pka ) ) ) ;
+y ? revsign ( e , f a i r b l i n d ( e , inv ( pka ) ) ) ;
+# add [x,y] in blacklist
+b l a c k l i s t ? [ x , y ] : : b l a c k l i s t ;
+# remove [xt,yt] from listBallot
+remove ( [ xt , y t ] , l i s t B a l l o t ) ;
+end
+
+var iables
+voter key ( p r i n c i p a l ) : pr i v key ;
+admin key , mix key , tmix key : pr i v key ;
+l i s t o f v o t e r s : mutable l i s t ( pubkey ) ;
+vote ( p r i n c i p a l ) : message ;
+l i s tAS , l i s tBB , l i s t B a l l o t , l i s t V o t e : mutable l i s t (message ) ;
+b l a c k l i s t : mutable l i s t (message ) ;
+end
+scenario
+begin
+makekey (asym, voter key ) ;
+makekey (asym, admin key ) ;
+makekey (asym, mix key ) ;
+makekey (asym, tmix key ) ;
+l i s t o f v o t e r s ? [ [ inv ( voter key ) ] ] ;
+l i s tAS ? [ [ ] ] ;
+l i s tBB ? [ [ ] ] ;
+l i s t B a l l o t ? [ [ ] ] ;
+l i s t V o t e ? [ [ ] ] ;
+b l a c k l i s t ? [ [ ] ] ;
+# phase 1
+pa r a l l e l # eventuellement plusieurs
+voter ( host ( inv ( voter key ) ) , voter key , inv ( admin key ) ,
+inv ( mix key ) , inv ( tmix key ) , vote ) |
+a dmi n i s t r a t o r ( admin key , l i s t o f v o t e r s , l i s tAS ) |
+b u l l e t i nBo a r d ( inv ( admin key ) , inv ( mix key ) , l i s tBB )
+end ;
+# phase 2;
+pa r a l l e l # un seul process de chaque
+publ i sherLi s tAS ( l i s tAS ) |
+publ i sherLi s tBB ( l i s tBB )
+end ;
+# phase 3; un seul process de chaque
+revocat ion ( b l a c k l i s t , l i s tAS , l i s tBB ) ;
+p u b l i s h e r L i s t 0 ( l i s tBB ) ;
+mixnetM( mix key , l i s t B a l l o t ) ;
+mixnetTM( tmix key , inv ( admin key ) , l i s tVo t e , l i s t B a l l o t , b l a c k l i s t ) ;
+end
+end

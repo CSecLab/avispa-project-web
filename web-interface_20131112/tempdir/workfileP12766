@@ -1,0 +1,113 @@
+
+role acerole(
+   	ACE,ASE		: agent,
+ 	F,Prf			:  function,
+	KACE,KASE	: public_key,
+	SND,RCV    	: channel(dy)
+)
+played_by ACE def=
+local
+	State      	: nat,
+	KREe,KREs	: public_key,
+	RE		: agent,
+	ACENonce,RENonce,AKMaterial,Result : text
+const sec_m_key 	: protocol_id 
+init  State := 0
+transition
+1. State = 0 /\ RCV(start) =|> 		
+   State':= 1 /\ SND({ACE.KACE}_inv(KASE).{{ACE.KACE}_inv(KASE)}_inv(KACE))
+2. State =  1 /\ RCV(RENonce'.{RE'.KREs'}_inv(KASE).{RE'.KREe'}_inv(KASE).{RENonce'.{RE'.KREs'}_inv(KASE).{RE'.KREe'}_inv(KASE)}_inv(KREs'))   =|>
+   State' := 2 /\ ACENonce':=new()
+	      /\ SND(ACENonce'.RENonce'.{RE'.KREs'}_inv(KASE).{RE'.KREe'}_inv(KASE).{ACE.KACE}_inv(KASE).{ACENonce'.RENonce'.{RE'.KREs'}_inv(KASE).{RE'.KREe'}_inv(KASE).{ACE.KACE}_inv(KASE)}_inv(KACE))
+		/\witness(ACE, RE', sec_re_ace, ACENonce')
+3.State = 2 /\ RCV(ACENonce.RENonce.Result'.{ACENonce.RENonce.Result'}_inv(KASE)) =|>
+State'=3 /\ AKMaterial':=new() /\
+                SND(ACENonce.RENonce.Result'.{ACENonce.RENonce.Result'}_inv(KASE).caksa.{AKMaterial'}_KREe.
+		{ACENonce.RENonce.Result'.{ACENonce.RENonce.Result'}_inv(KASE).caksa.{AKMaterial'}_KREe}_inv(KACE))
+		/\secret(AKMaterial',sec_m_key,{ACE,RE})
+4.State = 3 /\RCV(ACENonce.caksa.F(Prf(AKMaterial.ACENonce.RENonce.cexplain).ACENonce.caksa)) =|>
+State'=4 /\request(ACE,RE,sec_ace_re,RENonce)
+end role
+%%%%%%%%%%%%
+role rerole(
+   	RE,ASE			: agent,
+   	
+	F,Prf				: function,
+	KREe,KREs,KASE	: public_key,
+	SND,RCV    		: channel(dy))
+played_by RE def=
+local
+	State      						: nat,
+	KACE							: public_key,
+	ACE							: agent,
+	ACENonce,RENonce,AKMaterial,MACKeyre,Result		: text
+const sec_m_key 						: protocol_id 
+init  State := 0 
+transition
+1. State = 0 /\ RCV({ACE'.KACE'}_inv(KASE).{{ACE'.KACE'}_inv(KASE)}_inv(KACE')) =|> 
+   State':= 1 /\RENonce':=new()
+		/\ SND(RENonce'.{RE.KREs}_inv(KASE).{RE.KREe}_inv(KASE).{RENonce'.{RE.KREs}_inv(KASE).{RE.KREe}_inv(KASE)}_inv(KREs))
+		/\witness(RE,ACE',sec_ace_re, RENonce')
+2. State =  1 /\ RCV(ACENonce'.RENonce.Result'.{ACENonce'.RENonce.Result'}_inv(KASE).caksa.{AKMaterial'}_KREe.
+		{ACENonce'.RENonce.Result'.{ACENonce'.RENonce.Result'}_inv(KASE).caksa.{AKMaterial'}_KREe}_inv(KACE))   =|>
+   State' := 2 	/\ MACKeyre':=Prf(AKMaterial'.ACENonce'.RENonce.cexplain)
+	      /\ SND(ACENonce'.caksa.F(MACKeyre'.ACENonce.caksa))
+		/\request(RE,ACE,sec_re_ace,ACENonce')
+		/\secret(AKMaterial',sec_m_key,{ACE,RE})
+end role
+%%%%%%%%%%
+role aserole(
+   	ASE,RE,ACE		: agent,
+   	
+	F,Prf				: function,
+	KASE				: public_key,
+	SND,RCV    		: channel(dy),)
+played_by ASE def=
+local
+	State 		     	: nat,
+	ACENonce,RENonce	: text,
+	KREe,KREs,KACE		: public_key
+init  State := 0 
+transition
+1. State = 0 /\ RCV(ACENonce'.RENonce'.{RE.KREs'}_inv(KASE).{RE.KREe'}_inv(KASE).{ACE.KACE'}_inv(KASE).{ACENonce'.RENonce'.{RE.KREs'}_inv(KASE).
+		{RE.KREe'}_inv(KASE).{ACE.KACE'}_inv(KASE)}_inv(KACE')) =|>  		
+   State':= 1 /\ SND(ACENonce'.RENonce'.cresult.{ACENonce'.RENonce'.cresult}_inv(KASE))
+end role
+%%%%%%%%
+role session(
+    ACE,RE,ASE 		: agent,
+    F,Prf          		: function,
+    KACE,KASE,KREe,KREs	: public_key
+   )
+def=
+  local SND,RCV : channel (dy)
+  composition
+   acerole(ACE,ASE,F,Prf,KACE,KASE,SND,RCV)
+ /\ rerole(RE,ASE,F,Prf,KREe,KREs,KASE,SND,RCV)
+ /\ aserole(ASE,RE,ACE,F,Prf,KASE,SND,RCV)
+end role
+%%%%%%%%%
+role environment()
+def=
+  const
+    ace,re,ase      		: agent,
+    f,prf            		: function,
+    sec_re_ace, sec_ace_re    	: protocol_id,
+    kacee,kaces,kree,kres,kase,kie,kis	: public_key,
+    caksa,cresult,cexplain	: text
+ intruder_knowledge = {ace,re,ase,kase,kie,kis,inv(kie),inv(kis),f,prf,{i.kie}_inv(kase),{i.kis}_inv(kase)}
+  composition
+     session(ace,re,ase,f,prf,kaces,kase,kree,kres)
+ % /\ session(re,ace,ase,f,prf,kres,kase,kacee,kaces)
+  /\ session(i,re,ase,f,prf,kis,kase,kree,kres)
+  /\ session(ace,i,ase,f,prf,kaces,kase,kie,kis)
+end role
+%%%%%%%%
+goal
+  authentication_on sec_re_ace
+  authentication_on sec_ace_re
+  secrecy_of sec_m_key
+end goal
+%%%%%%%%
+environment()
+

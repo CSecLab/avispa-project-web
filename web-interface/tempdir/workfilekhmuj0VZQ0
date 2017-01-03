@@ -1,0 +1,44 @@
+role alice (Ui, MRS, MS, PS : agent,
+SKuisj : symmetric_key,
+SK1: symmetric_key,
+% H is hash function
+H: hash_func, Snd, Rcv: channel(dy))
+played_by Ui
+def=
+local State : nat,
+IDi, IDmsj, IDk, PWi, Bi, Xc, Xj, Xk, Fi,
+PWDi, Aj, Pj, REGi, Rc, Rms, Rk: text,
+Ci, Di, Ei, Gi, Li, Nj, Oj,Sj,RANj, Qj,
+Tk, RANk, Vk, SK: message,
+Inc : hash_func
+const alice_server, server_mserver, mserver_pserver,
+pserver_alice, alice_mserver, subs1, subs2, subs3,
+subs4, subs5, subs6, subs7, subs8 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(start) =|>
+State' := 1 /\ PWDi' := H(IDi.PWi)
+/\ Snd({IDi.PWDi'.Bi}_SKuisj)
+%send registration request message to MRS
+/\ secret({PWi}, subs2, Ui)
+/\ secret({IDi}, subs3, {Ui,MRS,MS,PS})
+2. State = 1 /\ Rcv({Fi'. REGi'. Aj'. Pj'}_SKuisj) =|>
+% Receive smart card securely from the MRS
+% Start login phase
+State' := 2 /\ Rc' := new()
+/\ IDmsj' := new()
+/\ IDk' := new()
+/\ Ci' := xor(Aj', REGi')
+/\ Di' := H(Ci'.Rc')
+/\ Ei' := xor(Pj', H(REGi'.Fi'))
+/\ Gi' := xor(IDi, Ei')
+/\ Li' := xor(Ei', Rc')
+/\ Snd(Fi'. Di'. Gi'. Li'. IDmsj'.IDk')
+%sends login message to the MRS through public channel
+/\ witness(Ui, MS, alice_mserver, Rc')
+/\secret({Rc'},subs6,{Ui,MS,PS})
+% Receive reply message from the PS
+3. State = 2 /\ Rcv(Tk'.RANk'.Vk') =|>
+State' := 3 /\ Rk' := new()
+/\ request(PS, Ui, pserver_alice, Rk')
+end role

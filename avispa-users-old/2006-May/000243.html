@@ -1,0 +1,214 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Avispa-users] Question on Needham-Schroeder protocol(Denning Sacco
+	attack)
+   </TITLE>
+   <LINK REL="Index" HREF="index.html" >
+   <LINK REL="made" HREF="mailto:avispa-users%40avispa-project.org?Subject=%5BAvispa-users%5D%20Question%20on%20Needham-Schroeder%20protocol%28Denning%20Sacco%0A%09attack%29&In-Reply-To=">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000242.html">
+   <LINK REL="Next"  HREF="000244.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Avispa-users] Question on Needham-Schroeder protocol(Denning Sacco
+	attack)</H1>
+    <B>Kostas Ch.</B> 
+    <A HREF="mailto:avispa-users%40avispa-project.org?Subject=%5BAvispa-users%5D%20Question%20on%20Needham-Schroeder%20protocol%28Denning%20Sacco%0A%09attack%29&In-Reply-To="
+       TITLE="[Avispa-users] Question on Needham-Schroeder protocol(Denning Sacco
+	attack)">kchad1979 at yahoo.com
+       </A><BR>
+    <I>Wed May 24 13:16:51 CEST 2006</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000242.html">[Avispa-users] iknows
+</A></li>
+        <LI>Next message: <A HREF="000244.html">Fwd: Re: [Avispa-users] Question on Needham-Schroeder
+	protocol(Denning Sacco attack)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#243">[ date ]</a>
+              <a href="thread.html#243">[ thread ]</a>
+              <a href="subject.html#243">[ subject ]</a>
+              <a href="author.html#243">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi all,
+
+As part of a research on the AVISPA tool I am trying
+to evaluate the Needham-Schroeder protocol with
+symmetric keys with the server so that I will be able
+to conclude if the tool finds the known Denning-Sacco
+attack on this protocol. My protocol specification is
+as such:
+
+A -&gt; S : A,B,na
+S -&gt; A : {na,B,Kab,{Kab,A}_Kbs}_Kas
+A -&gt; B : {Kab,A}_Kbs
+B -&gt; A : {nb}_Kab
+A -&gt; B : {nb-1}_Kab
+
+where Kas and Kbs are the keys shared between A and S
+and B and S respectively, Kab is the generated key
+from the server and na,nb are nonces. I would like to
+ask you if there is a specific way to model the
+protocol so that this attack is found (using a
+compromised key Kab from a previous session).
+
+Here is my HLSPL file:
+
+role alice(A,B,S : agent,
+           Kas : symmetric_key,
+           Pred : function,
+           Snd_SA,Rcv_SA,Snd_BA,Rcv_BA : channel(dy))
+played_by A def=
+
+  local 
+    State : nat,
+    Na,Nb : text,
+    Msg : {symmetric_key.text}_symmetric_key,
+    Kab : symmetric_key
+
+  init State := 0
+
+  transition
+  0. State   = 0 /\ Rcv_BA(start) =|&gt;
+     State' := 2 /\ Na' := new()
+                 /\ Snd_SA(A.B.Na')
+
+  1. State   = 2 /\ Rcv_SA({Na.B.Kab'.Msg'}_Kas) =|&gt;
+     State' := 4 /\ Snd_BA(Msg')
+                 /\ secret(Kab',k,{A,B,S})
+
+  2. State   = 4 /\ Rcv_BA({Nb'}_Kab) =|&gt;
+     State' := 6 /\ Snd_BA({Pred(Nb')}_Kab)
+                 /\ request(A,B,bob_alice_nb,Nb')
+
+end role
+
+role bob(A,B,S : agent,
+         Kbs : symmetric_key,
+         Pred : function,
+         Snd_AB,Rcv_AB : channel(dy))
+played_by B def=
+
+  local 
+    State : nat,
+    Na,Nb : text,
+    Kab : symmetric_key
+
+  init State := 5
+
+  transition
+  0. State   = 5 /\ Rcv_AB({Kab'.A}_Kbs)  =|&gt;
+     State' := 7 /\ Nb' := new()
+                 /\ Snd_AB({Nb'}_Kab')
+                 /\ witness(B,A,bob_alice_nb,Nb')
+
+end role
+
+role server(A,B,S : agent,
+            Kas,Kbs : symmetric_key,
+            Snd_AS,Rcv_AS : channel(dy))
+played_by S def=
+
+  local
+    State : nat,
+    Kab : symmetric_key,
+    Na : text
+
+  const
+    k : protocol_id
+
+  init State := 1
+
+  transition
+  1. State   = 1 /\ Rcv_AS(A.B.Na') =|&gt;
+     State' := 3 /\ Kab' := new()
+                 /\
+Snd_AS({Na'.B.Kab'.{Kab'.A}_Kbs}_Kas)
+                 /\ secret(Kab',k,{A,B,S})
+
+end role
+
+role session(A,B,S : agent,
+             Kas,Kbs : symmetric_key,
+             Pred : function)
+def=
+
+  local
+    SSA,RSA,SBA,RBA,SAS,RAS,SAB,RAB : channel(dy)
+
+  composition
+     alice(A,B,S,Kas,Pred,SSA,RSA,SBA,RBA)
+  /\ bob(A,B,S,Kbs,Pred,SAB,RAB)
+  /\ server(A,B,S,Kas,Kbs,SAS,RAS)
+
+end role
+
+role environment() 
+def=
+
+  const
+    a,b,s : agent,
+    kas,kbs,kis : symmetric_key,
+    pred : function,
+    bob_alice_nb : protocol_id,  %% Authentication on
+nonce Nb 
+    k : protocol_id  %% Keep the key Kab secret
+    
+  intruder_knowledge = {a,b,s,pred,kis}
+
+  composition
+     session(a,b,s,kas,kbs,pred)
+  /\ session(a,b,s,kas,kbs,pred)
+  /\ session(i,b,s,kis,kbs,pred)
+  /\ session(a,i,s,kas,kis,pred)
+
+end role
+
+goal
+  authentication_on bob_alice_nb
+  secrecy_of k
+end goal
+
+environment()
+
+I tried to run it both with OFMC and CL-Atse but no
+attack is found. Is there a problem with my
+specification? Any help would be very much
+appreciated.
+
+Best regards to all,
+Konstantinos Chadolias
+
+__________________________________________________
+Do You Yahoo!?
+Tired of spam?  Yahoo! Mail has the best spam protection around 
+<A HREF="http://mail.yahoo.com">http://mail.yahoo.com</A> 
+</PRE>
+
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000242.html">[Avispa-users] iknows
+</A></li>
+	<LI>Next message: <A HREF="000244.html">Fwd: Re: [Avispa-users] Question on Needham-Schroeder
+	protocol(Denning Sacco attack)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#243">[ date ]</a>
+              <a href="thread.html#243">[ thread ]</a>
+              <a href="subject.html#243">[ subject ]</a>
+              <a href="author.html#243">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="http://www.avispa-project.org/mailman/listinfo/avispa-users">More information about the Avispa-users
+mailing list</a><br>
+</body></html>

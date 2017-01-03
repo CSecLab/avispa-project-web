@@ -1,0 +1,106 @@
+
+%%HLPSL:
+role chap_Init (S,C   : agent,
+           	Kcs   : symmetric_key,
+		H     : hash_func,
+           	Snd, Rcv: channel(dy))
+played_by S
+def=
+           
+  local State  : nat,
+        Rs, Rc : text
+
+  const sec_kcs1 : protocol_id
+
+  init  State := 0
+
+  transition
+   1. State   = 0 /\ Rcv(start) =|>
+      State' := 1 /\ Snd(S)
+
+   2. State   = 1 /\ Rcv(Rc') =|> 
+      State' := 2 /\ Rs' := new() /\ Snd(Rs'.H(Kcs.Rs'.Rc'.S))
+           	/\ witness(S,C,ns,Rs') 
+		/\ secret(Kcs,sec_kcs1,{S,C})
+
+   3. State   = 2 /\ Rcv(H(Kcs.Rs)) =|> 
+      State' := 3 /\ request(S,C,nc,Rc) 
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role chap_Resp (C,S : agent,
+                Kcs : symmetric_key,
+ 		H: hash_func,
+                Snd, Rcv: channel(dy))
+played_by C
+def=
+           
+  local State  : nat,
+        Rs, Rc : text
+
+  const sec_kcs2 : protocol_id
+
+  init  State := 0
+
+  transition
+   1. State   = 0 /\ Rcv(S') =|>  
+      State' := 1 /\ Rc' := new() /\ Snd(Rc')
+	           /\ witness(C,S,nc,Rc')
+
+   2. State   = 1 /\ Rcv(Rs'.H(Kcs.Rs'.Rc.S)) =|>
+      State' := 2 /\ Snd(H(Kcs.Rs'))
+	           /\ request(C,S,ns,Rs') 
+		   /\ secret(Kcs,sec_kcs2,{S,C})
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(S,C: agent,
+      Kcs: symmetric_key,
+      H: hash_func)
+def=
+
+  local LC, LS, MC, MS: channel (dy)
+
+  composition
+           chap_Init(C, S, Kcs, H, LC, MC)
+       /\  chap_Resp(S, C, Kcs, H, LS, MS)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+
+  const c, s          : agent,
+        kcs, kci, ksi : symmetric_key,
+        h             : hash_func,
+        nc, ns        : protocol_id
+
+  intruder_knowledge = {c, s, h, kci, ksi}
+
+  composition
+ session(c,s,kcs,h) /\ session(c,i,kci,h) /\ session(s,i,ksi,h)
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+ %secrecy of the shared key
+ secrecy_of sec_kcs1, sec_kcs2 % Addresses G12
+                         
+ %CHAP_Init authenticates CHAP_Resp on nb
+ authentication_on ns  % Addresses G1, G2
+ %CHAP_Resp authenticates CHAP_Init on na
+ authentication_on nc  % Addresses G1, G2
+  
+end goal
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+}
+ 

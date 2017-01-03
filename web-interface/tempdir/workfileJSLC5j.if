@@ -1,0 +1,86 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileJSLC5j
+
+section signature:
+
+state_server: agent * agent * hash_func * hash_func * nat * nat * message * message * message * message * message * message * message * nat -> fact
+state_user: agent * agent * hash_func * hash_func * nat * nat * nat * symmetric_key * message * message * message * message * message * set(agent) * nat -> fact
+
+
+section types:
+
+set_85, set_65: set
+Dummy_P, dummy_sk, P: symmetric_key
+Set_25, Dummy_Set_25, ASGoal: set(agent)
+HPasswd, HashPasswd, C1, C2, C3, F, B, Dummy_B, Dummy_F, Dummy_HPasswd, Dummy_C3, Dummy_C2, Dummy_C1, Dummy_HashPasswd, start, dummy_msg, MGoal: message
+7, 5, 3, State, N, Dummy_N, 4, SID, Dummy_M, 2, 1, Dummy_State, 0, dummy_nat, M: nat
+ep, a_s_c2, a_s_c3: protocol_id
+Succ, H, succ, h: hash_func
+S, A, a, s, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(s).
+ iknows(succ).
+ iknows(i).
+ state_user(a,s,succ,h,0,1,dummy_nat,dummy_sk,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,set_65,3).
+ state_server(s,a,succ,h,1,dummy_nat,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,4).
+ state_server(s,i,succ,h,1,dummy_nat,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,7)
+
+
+section rules:
+
+step step_0 (A,S,Succ,H,N,M,Dummy_P,Dummy_HashPasswd,HPasswd,C1,C2,C3,Dummy_Set_25,SID,P) :=
+ state_user(A,S,Succ,H,0,N,M,Dummy_P,Dummy_HashPasswd,HPasswd,C1,C2,C3,Dummy_Set_25,SID).
+ iknows(start)
+=[exists P]=>
+ state_user(A,S,Succ,H,2,N,M,P,apply(H,apply(H,xor(P,1))),HPasswd,C1,C2,C3,Dummy_Set_25,SID).
+ iknows(A).
+ secret(P,ep,Dummy_Set_25).
+ contains(A,Dummy_Set_25).
+ contains(S,Dummy_Set_25)
+
+step step_1 (A,S,Succ,H,N,Dummy_M,P,HashPasswd,HPasswd,Dummy_C1,Dummy_C2,Dummy_C3,Set_25,SID,M) :=
+ state_user(A,S,Succ,H,2,N,Dummy_M,P,HashPasswd,HPasswd,Dummy_C1,Dummy_C2,Dummy_C3,Set_25,SID).
+ iknows(M)
+ =>
+ state_user(A,S,Succ,H,4,N,M,P,HashPasswd,HPasswd,xor(apply(H,xor(P,Dummy_M)),apply(H,apply(H,xor(P,Dummy_M)))),xor(apply(H,xor(P,Dummy_M)),apply(H,apply(H,xor(P,apply(Succ,Dummy_M))))),apply(H,apply(H,apply(H,xor(P,apply(Succ,Dummy_M))))),Set_25,SID).
+ iknows(xor(apply(H,xor(P,Dummy_M)),apply(H,apply(H,xor(P,Dummy_M)))))
+
+step step_2 (S,A,Succ,H,N,HPasswd,HashPasswd,C1,C2,C3,F,B,SID) :=
+ state_server(S,A,Succ,H,1,N,HPasswd,HashPasswd,C1,C2,C3,F,B,SID).
+ iknows(start)
+ =>
+ state_server(S,A,Succ,H,3,N,HPasswd,HashPasswd,C1,C2,C3,F,B,SID).
+ iknows(N)
+
+step step_3 (S,A,Succ,H,Dummy_N,Dummy_HPasswd,Dummy_HashPasswd,C1,C2,C3,F,B,SID,HashPasswd) :=
+ state_server(S,A,Succ,H,3,Dummy_N,Dummy_HPasswd,Dummy_HashPasswd,C1,C2,C3,F,B,SID).
+ iknows(A)
+ =>
+ state_server(S,A,Succ,H,5,Dummy_N,HashPasswd,Dummy_HashPasswd,C1,C2,C3,F,B,SID)
+
+step step_4 (S,A,Succ,H,Dummy_N,Dummy_HPasswd,HashPasswd,Dummy_C1,Dummy_C2,B,Dummy_F,Dummy_B,SID,C1,C3) :=
+ state_server(S,A,Succ,H,5,Dummy_N,Dummy_HPasswd,HashPasswd,Dummy_C1,Dummy_C2,B,Dummy_F,Dummy_B,SID).
+ iknows(C1)
+ =>
+ state_server(S,A,Succ,H,7,apply(Succ,N),xor(C2,xor(C1,HPasswd)),HashPasswd,C1,Dummy_C2,C3,xor(C1,xor(C2,xor(C1,HPasswd))),xor(C2,xor(C1,xor(C2,xor(C1,HPasswd)))),SID)
+
+
+section properties:
+
+property secrecy_of_ep (MGoal,ASGoal) :=
+ [] ((secret(MGoal,ep,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_ep (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,ep,ASGoal) &
+ not(contains(i,ASGoal))
+

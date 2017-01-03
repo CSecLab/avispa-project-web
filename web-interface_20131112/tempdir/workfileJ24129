@@ -1,0 +1,148 @@
+role cardholder(C,M,P: agent,
+                CardInf : text,
+                PurchAmt : nat,
+                OrderDesc : text,
+                PubK_C,PubK_M,PubK_PG : public_key
+               ) played_by C def=
+
+ local State : nat,
+       Sid, Response : text,
+       OI,PI,DualSig : message,
+       Kcm,Kcp : symmetric_key,
+       SND, RCV : channel (dy)
+
+ init State := 0
+
+ transition
+
+ 1. State = 0 /\ RCV(start) 
+    =|>
+     State' := 1 /\ Kcm' := new()
+ 	       /\ SND({PubK_C}_Kcm'.{Kcm'}_PubK_M)
+
+ 2. State = 1 /\ RCV({Sid'.{h(Sid')}_inv(PubK_M)}_Kcm)
+    =|> 
+    State' := 2 /\ Kcp' := new()
+	      /\ OI' := h(OrderDesc.PurchAmt.Sid)
+	      /\ PI' := h(CardInf.PurchAmt.Sid).PurchAmt.M 
+	      /\ DualSig' := h(OI').h(PI').{h(h(OI').h(PI'))}_inv(PubK_C)
+	      /\ SND(OI'.DualSig'.{DualSig'.PI'}_Kcp'.{CardInf.Kcp'}_PubK_PG)  
+	      /\ witness(C,M,deal,OI'.h(PI')) 
+	      /\ witness(C,P,deal,OI'.PI') 
+	      /\ secret(OrderDesc,order,{C,M})
+	      /\ secret(PurchAmt,order,{C,M,P}) 
+	      /\ secret(CardInf,payment,{C,P})
+
+ 3. State = 2 /\ RCV({Response'.Sid'.{h(Response'.Sid')}_inv(PubK_PG)}_Kcm.{Kcm}_PubK_C)
+    =|>
+    State' := 3 /\ request(C,M,deal,OI.h(PI))
+	      /\ request(C,P,deal,OI.h(PI))
+   
+end role
+
+role merchant  (C,M,P: agent,
+	          CardInf : text,
+                        PurchAmt : nat,
+                        OrderDesc : text,
+                        PubK_C,PubK_M,PubK_PG : public_key
+                        ) played_by M def=
+
+ local State : nat,
+       Sid,Response : text,
+       OI,PI,DualSig,AuthReq : message,
+       Kcm,Kmp,Kcp : symmetric_key,
+       SND, RCV: channel (dy)
+
+ init State := 0
+
+ transition
+
+ 1. State = 0  /\ RCV({PubK_C}_Kcm'.{Kcm'}_PubK_M) 
+    =|>
+    State' := 1 /\ Sid' := new() 
+	      /\ SND({Sid'.{h(Sid')}_inv(PubK_M)}_Kcm)
+
+ 2. State = 1 /\ RCV(OI'.DualSig'.{DualSig'.PI'}_Kcp'.{CardInf.Kcp'}_PubK_PG) 
+    =|>
+    State' := 2 /\ Kmp' := new() 
+	      /\ AuthReq' := h(OI').h(OrderDesc.PurchAmt).DualSig'
+	      /\ SND({AuthReq'.{h(AuthReq')}_inv(PubK_M)}_Kmp'.{Kmp'}_PubK_PG.{DualSig'.PI'}_Kcp'.{CardInf.Kcp'}_PubK_PG)  
+	      /\ witness(M,C,deal,OI'.h(PI'))
+	      /\ witness(M,P,deal,OI'.h(PI'))
+
+ 3. State = 2 /\ RCV({Response'.Sid'.{h(Response'.Sid')}_inv(PubK_PG)}_Kmp.{Kmp}_PubK_M)
+    =|>
+    State' := 3 /\ SND({Response'.Sid'.{h(Response'.Sid')}_inv(PubK_PG)}_Kcm.{Kcm}_PubK_C) 
+	      /\ request(M,C,deal,OI.h(PI)) 
+	      /\ request(M,P,deal,OI.h(PI))
+
+end role
+
+
+role paymentgateway(C,M,P : agent,
+                CardInf : text,
+                PubK_C,PubK_M,PubK_PG : public_key
+               ) played_by P def=
+
+ local State : nat,
+       Sid,Response : text,
+       AuthReq,OI,PI,DualSig : message,
+       Kmp,Kcp : symmetric_key,
+       SND, RCV : channel (dy)
+
+ init State := 0
+
+ transition
+
+ 1. State = 0 /\ RCV({AuthReq'.{h(AuthReq')}_inv(PubK_M)}_Kmp'.{Kmp'}_PubK_PG.{DualSig'.PI'}_Kcp'.{CardInf.Kcp'}_PubK_PG)	     
+    =|>
+    State' := 1 /\ Sid' := new()
+	      /\ SND({Response'.Sid'.{h(Response'.Sid')}_inv(PubK_PG)}_Kmp.{Kmp}_PubK_M) 
+	      /\ wrequest(P,C,deal,OI'.PI') 
+	      /\ wrequest(P,M,deal,OI'.h(PI'))
+	      /\ witness(P,C,deal,OI'.PI') 
+	      /\ witness(P,M,deal,OI'.h(PI'))
+
+end role
+
+
+role session(C,M,P: agent,
+                CardInf : text,
+                PurchAmt : nat,
+                OrderDesc : text,
+                PubK_C,PubK_M,PubK_PG : public_key
+               ) def=
+
+ composition
+  cardholder(C,M,P,CardInf,PurchAmt,OrderDesc,PubK_C,PubK_M,PubK_PG) /\
+  merchant  (C,M,P,CardInf,PurchAmt,OrderDesc,PubK_C,PubK_M,PubK_PG) /\
+  paymentgateway(C,M,P,CardInf,PubK_C,PubK_M,PubK_PG)
+end role
+
+
+role environment() def=
+ 
+  const h: hash_func, 
+        deal,order,payment : protocol_id,
+        c,m,p: agent,
+        pubk_c,pubk_m,pubk_pg,pubk_i : public_key,
+        cardinf_c,cardinf_i,oderdesc1,oderdesc2,oderdesc3,oderdesc4 : text,
+        purchamt1,purchamt2,purchamt3,purchamt4 : nat
+
+ intruder_knowledge = {c,m,p,pubk_c,pubk_m,pubk_pg,h}
+
+ composition
+  session(c,m,p,cardinf_c,purchamt1,oderdesc1,pubk_c,pubk_m,pubk_pg)
+  
+end role
+
+goal
+
+  authentication_on deal
+  weak_authentication_on deal
+  secrecy_of order
+  secrecy_of payment
+
+end goal
+
+environment()

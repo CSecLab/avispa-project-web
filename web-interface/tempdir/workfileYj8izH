@@ -1,0 +1,61 @@
+role alice (
+A,B : agent,
+Succ, Hash : hash_func,
+KPa, KPb : public_key,
+SND, RCV : channel(dy))
+played_by A def=
+local
+State : nat,
+TS, Nm : text,
+M1, M2 : message
+init
+State := 0
+transition
+1. State = 0 /\ RCV(start) =|>
+State' := 2 /\ TS' := new() /\ M1' := new() /\ M2' := new() /\ Nm' := new() /\
+SND(TS'.M1'.M2'.Nm'.{Hash(TS'.M1'.M2'.Nm')}_inv(KPa)) /\
+witness(A,B,bob_alice_m1_m2, M1'.M2')
+2. State = 2 /\ RCV(TS'.Succ(Nm').{Hash(TS'.Succ(Nm'))}_inv(KPb)) =|>
+State' := 4 /\ SND(TS.Nm.Succ(Nm).{Hash(TS.Nm.Succ(Nm))}_inv(KPa))
+end role
+role bob (A,B :agent,
+Succ, Hash : hash_func,
+KPa, KPb : public_key,
+SND, RCV : channel(dy))
+played_by B def=
+local
+State : nat,
+Na, Nb, TS, Nm : text,
+M1, M2 : message
+init
+State := 1
+transition
+1. State = 1 /\ RCV(TS'.M1'.M2'.Nm'.{Hash(TS'.M1'.M2'.Nm')}_inv(KPa)) =|>
+State' := 3 /\ SND(TS'.Succ(Nm').{Hash(TS'.Succ(Nm'))}_inv(KPb))
+2. State = 3 /\ RCV(TS.Nm.Succ(Nm).{Hash(TS.Nm.Succ(Nm))}_inv(KPa)) =|>
+State' := 5 /\ request(B,A,bob_alice_m1_m2, M1.M2)
+end role
+role session(
+A,B : agent,
+Succ, Hash : hash_func,
+KPa, KPb : public_key)
+def=
+local
+SA, SB, RA, RB : channel (dy)
+composition
+alice(A,B,Succ,Hash,KPa,KPb,SA,RA) /\ bob(A,B,Succ,Hash,KPa,KPb,SB,RB)
+end role
+role environment() def=
+const
+bob_alice_m1_m2 : protocol_id,
+a,b : agent,
+succ,h : hash_func,
+kpa,kpb,kpi : public_key
+intruder_knowledge = {a,b,succ,h,kpa,kpb,kpi,inv(kpi)}
+composition
+session(a,b,succ,h,kpa,kpb) /\ session(a,i,succ,h,kpa,kpi) /\ session(i,b,succ,h,kpi,kpb)
+end role
+goal
+authentication_on bob_alice_m1_m2
+end goal
+environment()

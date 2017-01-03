@@ -1,0 +1,140 @@
+% ***********************************************************
+% *   The user Party role of the OpenID Connect protocol    *
+% ***********************************************************
+role user(U, C, R : agent, 		%the End-User Agent, a client third-party, and an IdP Provider (an Operator)
+		SND_RU, SND_CU, RCV_RU, RCV_CU : channel(dy),
+		Ku: public_key,		% the public key of the user, used in its SSL certificate
+		Kca: public_key, 	% SSL certificate authority
+		Kru,Kcu: symmetric_key, % imitate SSL between end-user and the other parties
+		Certificate: message)	% the certificate provided by the CA
+	played_by U	def=
+	local State : nat, 		% internal state 
+		X : nat,		% unknown message of type int (simulaton of redirectURI)
+		Y,CACertificate : message,		% unknown message (token returned by the IdP)
+		Na : text, 		% The nonce variable in the OpenID protocol.
+		Nb : text 		%nonce for auth simulation
+	init State := 0
+	transition
+		% first transition, send dummy message that initiates the delegated authentication process:
+	1. State = 0 /\ RCV_CU(start) =|>
+		% Contact the relying party
+	State' := 2 /\ SND_CU({U.X}_Kcu)
+		% Receive redirect from the client, send it to the OpenID provider with 
+		% authentication information included (certificate)
+	2. State = 2 /\ RCV_CU({U.C.R.X'.Na'}_Kcu)  =|>
+		% Send the redirect message to the OpenID provider with 
+		% authentication information included
+	State' := 4 /\ SND_RU({R.U.C.Na'.X'.Certificate}_Kru) 
+		% Additional step for auth - the End-User proves that he has the private key related to the
+		% certificate sent along with the last transition
+	3. State = 4 /\ RCV_RU({{Nb'}_Ku}_Kru) =|> 
+	State' := 6 /\ SND_RU({Nb'}_Kru) /\ witness(U,R,op_user_authentication, Nb')
+		% Receive redirect from the IdP and send the redirect information to the Relying Party
+	4. State = 6 /\ RCV_RU({U.R.C.Na'.CACertificate'.Y'}_Kru) =|>
+	State' := 8 /\ SND_CU({U.R.C.Na'.CACertificate'.Y'}_Kcu) /\
+	witness(U, C, authenticate_user, {U.R.C.Na}_Kcu)
+end role
+
+% ***********************************************************
+% *  The client Party role of the OpenID Connect protocol   *
+% ***********************************************************	
+role client(C, R : agent, 		% The client and the IdP (here, root domain) agent
+		SND_RC, RCV_RC : channel(dy),
+		Kc, Kca: public_key, 	% public keys of the client and CA
+		Kcr: symmetric_key,	% imitate SSL with the IdP
+		Certificate: message,	% certificate provided by the CA
+		RedirectionURI: nat)	% simulate redirectURI with Integer
+	played_by C	def=
+	local State : nat ,
+		U : agent, %the user wanting access to the third party
+		Na : text, % The nonce variable in the OpenID protocol.
+		Kcert : public_key, %public key used by any party
+		X: nat,
+		SignedToken: message
+	init State := 1
+	transition
+	% first transition: message requiring authentication from the user
+ 	1. State = 1 /\ RCV_RC({U'.X}_Kcr) =|>
+		%redirect with auth request
+	State' := 3 /\ 
+	SND_RC({U'.C.R.RedirectionURI.Na}_Kcr)
+	% Receives the positive assertion message from the OpenID provider 
+	% redirected from the user
+	2. State = 3 /\ RCV_RC({U.R.C.Na.{R.Kcert'}_inv(Kca).SignedToken'}_Kcr) /\
+	SignedToken' = {U.R.C.Na}_inv(Kcert') =|>
+	State' := 5 /\	request(C, U, authenticate_user, {U.R.C.Na}_Kcr)
+end role
+
+% ***********************************************************
+% *    The IdP Party role of the OpenID Connect protocol    *
+% ***********************************************************	
+role idp(R : agent, 
+		SND_UR, RCV_UR : channel(dy),
+		Kca: public_key,
+		Kru: symmetric_key,
+		URIMap: (agent.nat) set)
+	played_by R	def=
+	local State : nat,
+		C, U : agent, 		% the requesting client, and a aser to authenticate
+		Na : text, 		% The nonce variable in the OpenID protocol.
+		Nb : text, 		% for auth simulation
+		Kcert : public_key, 	% public key used by any party
+		RedirectionURI: nat,	
+		CACertificate: message
+	init State := 11 /\ CACertificate := {R.Kca}_inv(Kca)
+	transition
+		% first transition:
+		% authentication request (with the certificate of the user)
+	1. State = 11 /\ RCV_UR({R.U'.C'.Na'.RedirectionURI'.{U'.Kcert'}_inv(Kca)}_Kru) /\ 
+	in(C'.RedirectionURI', URIMap)
+		% ask for signature with the private key corresponding to the previous certificate
+	=|> State' := 13 /\ Nb' := new() /\ SND_UR({{Nb'}_Kcert'}_Kru)
+		% Receive the signature and delivers a signed token asserting the valifity of the user
+	2. State = 13 /\ RCV_UR({Nb}_Kru)=|>
+	State' := 15 /\ SND_UR({U.R.C.Na.CACertificate.{U.R.C.Na}_inv(Kca)}_Kru) /\ request(R, U, op_user_authentication, Nb) 
+end role
+
+%The session role binds the different parts of the OpenID protocol together
+role session(R, C, U : agent,
+	Kroo, Koc : symmetric_key,
+	Kca, Kroot, Ko, Kc : public_key,
+	RedirectionURI : nat)
+def=
+local SND_UR, RCV_UR,	
+	SND_CU, SND_RU, RCV_CU, RCV_RU,
+	SND_RC, RCV_RC : channel(dy),
+	URIMap: (agent.nat) set
+init URIMap := {C.RedirectionURI}
+
+composition
+%The different roles bound together.
+user(U, C, R, SND_RU, SND_CU, RCV_RU, RCV_CU, Ko, Kca, Kroo, Koc,{U.Ko}_inv(Kca))
+/\ idp(R, SND_UR, RCV_UR, Kroot, Kroo, URIMap)
+/\ client(C, R, SND_RC, RCV_RC, Kc, Kca, Koc, {C.Kc}_inv(Kca), RedirectionURI)
+end role
+
+role environment()
+def=
+const u,r,c : agent,
+authenticate_user,  op_user_authentication : protocol_id,
+kru, kuc, kiro, koi, kic, kri : symmetric_key,
+redirectionURI: nat,
+kca, ku, kc, ki_o, ki_c, kca_fake : public_key,
+fakeNa: text
+intruder_knowledge = {u,r,c,kca,ku,kc,ki_o,ki_c,i,redirectionURI,fakeNa}
+composition
+session(r, c, u, kru, kuc, kca, kca, ku, kc, redirectionURI)
+/\ session(r, c, i, kru, kic, kca, kca, ki_o, kc, redirectionURI)
+/\ session(r, i, u, kru, koi, kca, kca, ku, ki_c, redirectionURI)
+/\ session(i, c, u, kri, kuc, kca, kca_fake, ku, kc, redirectionURI)
+end role
+
+goal
+% The authentication goal of the authentication procedure - user to client
+authentication_on authenticate_user
+% The authentication goal of the OpenID protocol - user to IdP
+authentication_on op_user_authentication
+end goal
+
+environment()
+

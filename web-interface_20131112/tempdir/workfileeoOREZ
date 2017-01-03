@@ -1,0 +1,94 @@
+role ifd(A ,B : agent,
+           G:text,
+           SND,RCV:channel(dy))
+
+played_by A def=
+
+local
+         State       :nat,
+         Nf,Nsecret  :text,
+         X,K,Y         :message
+
+init State:=0
+
+transition
+
+         1. State=0
+                                    /\ RCV(start) =|>
+
+            State':=2               /\ Nf':=new()
+                                    /\ X' := exp(G,Nf')
+                                    /\ SND (X')
+
+         2. State=2                 /\ RCV(Y') =|>
+
+            State':=4               /\ K':=exp(Y',Nf)
+                                    /\ Nsecret':= new()
+                                    /\ SND({Nsecret'}_K')
+                                    /\
+secret(Nsecret',sec_ifd_dhvalue,{A,B})
+end role
+
+role icc (B,A:agent,
+          G:text,
+          SND,RCV:channel(dy))
+
+played_by B def=
+
+local
+                State  :   nat,
+                X,Y,K    :   message,
+                Ni,Nsecret: text
+init
+            State:=1
+
+transition
+
+              1. State=1
+                             /\ RCV(X') =|>
+
+                 State':=3
+                             /\ Ni':=new()
+                             /\ Y':=exp(G,Ni')
+                             /\ K' := exp(Y',Ni')
+                             /\ SND(Y')
+
+             3. State=3
+                            /\ RCV({Nsecret'}_K') =|>
+                State':=5
+
+end role
+
+
+role session (A,B:agent,
+             G:text)
+             def=
+
+local SND_A,RCV_A,SND_B,RCV_B:channel(dy)
+
+composition
+
+                ifd(A,B,G,SND_A,RCV_A)
+               /\ icc(B,A,G,SND_B,RCV_B)
+end role
+
+role environment() def=
+              const a,b:agent,
+                    g:text,
+                    sec_ifd_dhvalue  : protocol_id
+
+ intruder_knowledge = {a,b,g}
+
+composition
+              session(a,b,g)
+            /\ session(a,i,g)
+            /\ session (i,b,g)
+end role
+
+goal
+
+  secrecy_of sec_ifd_dhvalue
+
+
+end goal
+environment()

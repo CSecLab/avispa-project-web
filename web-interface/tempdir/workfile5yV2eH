@@ -1,0 +1,148 @@
+role alice(
+A,B,G,R   :agent,
+K         :symmetric_key,
+Hash      :hash_func,
+SND,RCV   :channel(dy))
+played_by A def=
+
+  local
+    State   :nat,
+    Na,Nb   :text,
+    K1      :message
+
+  init 
+   State :=0
+
+transition
+
+1. State  =0 /\RCV(start)=|>
+   State':=2 /\SND(0)
+2. State  =2 /\RCV(1)=|>
+   State':=4 /\Na':=new()
+             /\SND({Na'}_K)
+
+3. State  =4 /\RCV({Nb'}_K)=|>
+   State':=6 /\K1':=Hash(Na.Nb')
+             /\SND({Nb'}_K1)
+             /\witness(A,B,bob_alice_nb,Nb')
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role gateway(
+A,B,G,R   :agent,
+K         :symmetric_key,
+Hash      :hash_func,
+SND,RCV   :channel(dy))
+played_by G def=
+
+  local
+    State   :nat,
+    Na,Nb   :text,
+    K1      :message
+
+  init 
+   State :=10
+
+transition
+1.State  =10 /\RCV(0)=|>
+  State':=12 /\SND(0)
+2.State  =12 /\RCV(1)=|>
+  State':=14 /\SND(1)
+3.State  =14 /\RCV({Na'}_K)=|>
+  State':=16 /\SND({Na'}_K)
+4.State  =16 /\RCV({Nb'}_K)=|>
+  State':=18 /\SND({Nb'}_K)
+5.State  =18 /\RCV({Nb'}_K1)=|>
+  State':=20 /\SND({Nb'}_K1)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role relay(
+A,B,G,R         :agent,
+K               :symmetric_key,
+Hash            :hash_func,
+SND,RCV         :channel(dy))
+played_by R def=
+
+local
+   State     :nat,
+   Na,Nb     :text,
+   K1        :message
+init
+   State :=10
+transition
+1.State  =10 /\RCV(0)=|>
+  State':=12 /\SND(0)
+2.State  =12 /\RCV(1)=|>
+  State':=14 /\SND(1)
+3.State  =14 /\RCV({Na'}_K)=|>
+  State':=16 /\SND({Na'}_K)
+4.State  =16 /\RCV({Nb'}_K)=|>
+  State':=18 /\SND({Nb'}_K)
+5.State  =18 /\RCV({Nb'}_K1)=|>
+  State':=20 /\SND({Nb'}_K1)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role bob(
+A,B,G,R     :agent,
+K           :symmetric_key,
+Hash        :hash_func,
+SND,RCV     :channel(dy))
+played_by B def=
+
+   local
+    State   :nat,
+    Na,Nb   :text,
+    K1      :message
+
+  init 
+   State :=1
+
+transition
+1.State   =1 /\RCV(0)=|>
+  State' :=3 /\SND(1)   
+2.State   =3 /\RCV({Na'}_K)=|>
+  State' :=5 /\Nb':=new()
+             /\SND({Nb'}_K)
+             /\K1':=Hash(Na'.Nb')
+             /\secret(K1,k1,{A,B})
+3.State   =5 /\RCV({Nb}_K1)=|>
+  State' :=7 /\request(B,A,bob_alice_nb,Nb)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(
+A,B,G,R       :agent,
+K           :symmetric_key,
+Hash        :hash_func)
+def=
+local SA,SB,RA,RB,SG,RG,SR,RR :channel(dy)
+
+composition
+  alice  (A,B,G,R,K,Hash,SA,RA)
+/\gateway(A,B,G,R,K,Hash,SG,RG)
+/\relay  (A,B,G,R,K,Hash,SR,RR)
+/\bob    (A,B,G,R,K,Hash,SB,RB)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+const
+bob_alice_nb,k1   :protocol_id,
+kagrb,kagri,kairb,kagib,kigrb:symmetric_key,
+a,b,g,r           :agent,
+h                 :hash_func
+
+intruder_knowledge = {a,b,g,r,h,kagri,kagib,kairb,kigrb}
+
+composition
+    session(a,b,g,r,kagrb,h)
+ % /\session(a,g,r,i,kagri,h)
+ % /\session(a,g,i,b,kagib,h)
+ % /\session(a,i,r,b,kairb,h)
+ % /\session(i,g,r,b,kigrb,h)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+secrecy_of k1
+authentication_on bob_alice_nb
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

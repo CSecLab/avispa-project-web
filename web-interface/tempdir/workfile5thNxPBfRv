@@ -1,0 +1,184 @@
+role user (
+Ui,Sj,G : agent,
+SND,RCV : channel(dy),
+% symmetric key between GWN and user
+SKgui   : symmetric_key ,
+% symmetric key between GWN and sensor node
+SKgsj   : symmetric_key ,
+H       :hash_func)
+played_by Ui
+def=
+local State : nat,
+T1, T2, T3, T4, TS1, TS2, Ki, Kj, IDi, SIDj, ,Ri, Rj, PWi, Kus, Xgwn: text,
+constant    : message
+const sec_pw, sec_ri,sec_ki, sec_xgwn, sec_kus, gwn_user_ki, gwn_sensor_kj,
+gwn_sensor_rj, user_sensor_kj,sensor_user_ki :protocol_id
+init State := 0
+transition
+%Registration phase
+1. State = 0/\ RCV(start) =|>
+State’ := 1/\ Ri’ := new()
+/\secret({PWi}, sec_pw, Ui)
+/\SND({(H(Ri’.PWi).IDi}_SKgui)
+
+2. State=1/\RCV({H(H(Ri'.PWi).IDi).xor(H(IDii.Xgwn),H(H(Ri'.PWi).H(H(Ri'.PWi).IDi))).xor(H(Xgwn),H(H(Ri'.PWi).H(IDi.Xgwn)))}_SKgui)=|>
+State':=2/\secret({Ri’} , sec_ri ,Ui)
+%Login and authentication phase
+/\T1’:=new()
+/\Ki’:=new()
+/\SND(xor(IDi, H (xor(xor(H(Xgwn) , H(H(Ri ' . PWi).H(IDi.Xgwn))) , H(H(Ri'.PWi) , H(H(Ri ' . PWi) . H(IDi. Xgwn)))), T 1')).xor(Ki' ,H(H(IDi .Xgwn) T1 ')).H(xor(IDi , H (xor (xor ( H ( Xgwn).H(H(Ri ' . PWi ) . H (IDi . 
+Xgwn))) , H(H( Ri ' . PWi) , H(H(Ri ' . PWi) . H(IDi . Xgwn )))) , T 1 ' )). xor (Ki ' , H(H(IDi .Xgwn) . T1')).Ki' . T1 ' ) . T1 ')
+/ \ secret ({Xgwn} , sec_xgwn , G)
+/ \ witness ( Ui , Sj , sensor_user _ki , Ki')
+/ \ witness ( Ui , G , gwn_user_ki,ki')
+
+3. State=2 /\RCV(xor(xor(H(H(IDi.Xgwn).T1'.T2'),xor(H(H(SIDj.Xgwn).T1'.
+T2'),Kj')),H(H(IDi.Xgwn).	T3')),H(xor(xor(H(H(IDi.Xgwn).T1'.
+T2'),xor(H(H(SIDj.Xgwn).T1'.T2'),Kj')),H(H(IDi.Xgwn).T3')).
+H(IDi.Xgwn).T3'),H(Kus'.xor(xor(H(H(IDi.Xgwn).T1'.T2'),
+xor(H(H(SIDj.Xgwn).T1'.T2'),xor(H(H(SIDj.Xgwn).T1'.
+T2'),Kj')),H(H(IDi.Xgwn).T3')).H(IDi.Xgwn).T3').T3'.
+T4').T3'.T4')=|>
+
+State ': = 3
+/\Kus': = H(xor(Ki',xor(xor(Kj'H(H(IDi.Xgwn).T3')),H(H(IDi.Xgwn),T3'))))
+/\secret ({Kus'},sec_kus,{Ui,Sj})
+/\ request (Sj,Ui, user_sensor_kj,Kj')
+end role
+
+
+
+
+
+role sensor(
+Ui,Sj,G     :agent
+SND,RCV     :channel (dy)
+SKgui      : symmetric_key,
+SKgsj   :symmetric_key,
+H        : hash_func)
+played_by Sj
+def=
+local state  : nat,
+T1,T2,T3,T4,TS1,TS2,Ki,Kj,IDi,SIDj,Ri,Rj,PWi,Kus,Xgwn : text,
+Constant     : message
+const sec_pw , sec_ri, sec_ki, sec_xgwn, sec_kus , gwn_user_ki , gwn_sensor_kj.
+gwn_sensor_rj,user_sensor_kj , sensor_user_ki: protocol_id
+init State : = 0
+transition 
+% Registration Phase
+1. State = 0 /\ RCV (start)=|>
+State':=1 /\Ri' : = new ()
+/\ TS1' : = new ()
+/\ SND (SIDj.H(SKgsj.Rj'.SIDj.TS1'). xor (Rj', SKgsj).TS1')
+/\ witness ( Sj,G,gwn_sensor_rj, Rj')
+2. State=1/\RCV(xor(H(SIDj.Xgwn), SKgsj).H(H(SIDj.Xgwn).xor(H(Xgwn.1),
+H(SKgsj.TS2')).SKgsj.TS2').xor(H(Xgwn.1), H(SKgsj.TS2)).TS2')=|>
+State' : = 2/\secret({Xgwn},sec_xgwn,G)
+
+% login and authentication phase
+ 3. State =2/\RCV(xor(IDi,H(xor(xor(H(Xgwn),H(H(Ri'.PWI).H(IDi,Xgwn))),
+H(H(Ri'.PWi),H(H(Ri'.PWi).H(IDi.Xgwn)))),T1')).xor (Ki',H(H(IDi.Xgwn).
+T1'')).H(xor(IDi,H(xor(xor(H(Xgwn),H(H(Ri'.PWi).H(IDi.Xgwn))),
+H(H(Ri'.PWi),H(H(Ri'.PWi).H(IDi.Xgwn)))),T1')).xor (Ki',H(H(IDi.Xgwn).
+T1')).Ki'.T1').T1')=|>
+/\ secret ({PWi},sec_pw,Ui)
+State':=3
+/\Kj':=new()
+/\T2':=new()
+/\SND(xor(IDi,H(xor(xor(H(Xgwn),H(H(Ri'.PWi).H(IDi.Xgwn))),
+H(H(Ri'.PWi),H(H(Ri'.PWi).H(IDi.Xgwn)))),T1')).xor(Ki',
+H(H(IDi.Xgwn).T1')).H(xor(IDi,H(xor(xor(H(Xgwn),H(H(Ri'.PWi).
+H(IDi.Xgwn))),H(H(Ri'.PWi), H(H(Ri'.PWi).H(IDi.Xgwn)))),T1')).
+xor(Ki',H(H(IDi.Xgwn).T1')).Ki'.T1').T1'.T2'xor(H(H(SIDj.Xgwn).
+T1'.T2'),Kj').H(SIDj.xor(H(H(SIDj.Xgwn).T1'.T2'),Kj').T1'.T2'.
+Kj'),xor(SIDj,H(SKgsj.T2')))
+/\ WITNESS (Sj,Ui,user_sensor_kj, Kj')
+/\ WITNESS (Sj,G,gwn_sensor_kj, Kj')
+4. State=3/\RCV(xor(xor(H(H(IDi.Xgwn).T1'.T2'),xor(H(H(SIDj.Xgwn)
+.T1'.T2'),Kj')),H(H(IDi.Xgwn).T3')).xor(xor(xor(Ki' ,H(H(IDi.Xgwn)
+.T1')),H(H(IDi.Xgwn).T1')),H((H(SIDj.Xgwn).T3')).H(xor(xor(H(H(IDi
+.Xgwn).T1'.T2').xor (H(H(SIDj.Xgwn).T1'.T2'),Kj')),H(H(IDi.Xgwn).
+T3')).H(IDi.Xgwn).T3').H(xor(xor(xor(Ki',H(H(IDi.Xgwn).T1')),
+H(H(IDi.Xgwn).T1')),H(H(SIDj.Xgwn).T3')).H(SIDj.Xgwn).T3').T3')=|>
+State':=4
+/\ T4':=new()
+/\ Kus':=H(xor(xor(xor(xor(xor(Ki',H(H(IDi.Xgwn).T1')),H(H(IDi.Xgwn).
+    T1')),H(H(SIDj.Xgwn).T3')),H(H(SIDj.Xgwn).T3')),Kj'))
+/\SND(xor(xor(H(H(IDi.Xgwn).T1'.T2'),xor(H(H(SIDj.Xgwn)T1'.T2'),Kj'))
+    ,H(H(IDi.Xgwn).T3')),H(xor(xor(H(H(IDi.Xgwn).T1'.T2').xor(H(H(SIDj.Xgwn).
+     T1'.T2'),Kj')),H(H(IDi.Xgwn).T3')).H(IDi.Xgwn).T3'),H(Kus'.xor(xor(H
+     (H(IDi.Xgwn).T1'.T2'),xor(H(H(SIDj.Xgwn).T1'.T2').Kj')),H(H(IDi.Xgwn).
+     T3')).H(xor(xor(H(H(IDi.xgwn)T1'.T2'),xor(H(H(SIDj.Xgwn).T1'.T2'),Kj')),
+     H(H(IDi.Xgwn).T3')).H(IDi.Xgwn).T3').T3'T4').T3'.T4')
+/\secret(Kus',sec_kus,{Ui,Sj})
+/\request(Sj,Ui,sensor_user_ki,Ki')
+end role
+
+
+
+
+
+
+
+
+
+
+
+
+
+role gwn (
+Ui.Sj.G                   :agent,
+SND,RCV                   :channel(dy),
+SKgui                     :symmetric_key,
+SKgsj                     :symmetric_key,
+H                         :hash_func)
+played_by G
+def=
+local State               :nat,
+T1,T2,T3,T4,TS1,TS2,Ki,Kj,IDi,SIDj,Ri,Rj,PWi,Kus,Xgwn: text,
+Constant                  :message
+const sec_pw,sec_ri,sec_ki,sec_xgwn,sec_kus,gwn_user_ki,gwn_sensor_kj,
+  gwn_sensor_rj,user_sensor_kj,sensor_user_ki  :protocol_id
+init State:=0
+transition
+% Registration phase
+1.State =0/\RCV({H(Ri'.PWi).IDi}_SKgui)=|>
+State':=1/\secret({PWi},sec_pw,Ui)
+/\SND({H(H(Ri'.PWi).IDi).xor(H(IDi.Xgwn),H(H(Ri'.PWi).H(H(Ri'.PWi).IDi))).
+  xor(H(Xgwn),H(H(Ri'.PWi).H(IDi.Xgwn)))}_SKgui)
+2.State=1/\RCV(SIDj.H(SKgsj.Rj'.SIDj.TS1').xor(Rj',SKgsj).TS1')=|>
+State':=2/\request(Sj,G,gwn_sensor_rj,Rj')
+/\SND(xor(H(SIDj.Xgwn),SKgsj).H(H(SIDj.Xgwn).xor(H(Xgwn.1),H(SKgsj.TS2)).
+   SKgsj.TS2').xor(H(Xgwn.1),H(SKgsj.TS2)).TS2')
+/\secret({Xgwn},sec_xgwn,G).
+
+
+%login and authentication phase
+3.State=2/\RC(xor(IDi.H(xor(xor(H(Xgwn),H(H(Ri'.PWi).H(IDi.Xgwn))).
+   H(H(Ri'.PWi),H(H(Ri'.PWi).H(IDi.Xgwn)))),T1')).xor(Ki',H(H(IDi.Xgwn).
+   T1')).H(xor(IDi,H(xor(xor(H(Xgwn),H(H(Ri'.PWi).H(IDi.Xgwn))),H(H(Ri'.
+   PWi),H(H(Ri'PWi).H(IDi.Xgwn)))),T1')).xor(Ki',H(H(IDi.Xgwn).T1')).
+   Ki'.T1').T1'.T2'.xor(H(H(SIDj.Xgwn).T1'.T2'),Kj').H(SIDj.xor(H(H(SIDj.
+   Xgwn).T1'.T2'),Kj').T1'.T2'.Kj').xor(SIDj.H(SKgsj.T2'))) =|>
+
+State':=3
+/\SND(xor(xor(H(H(IDi.Xgwn).T1'.T2'),xor(H(H(SIDj.Xgwn).T1'.T2'),Kj')),H(H(
+    IDi.Xgwn).T3')).xor(xor(xor(Ki',H(H(IDi.Xgwn).T1')).H(H(IDi.Xgwn).T1')).
+    H(H(SIDj.Xgwn).T3')).H(xor(xor(H(H(IDi.Xgwn).T1'.T2'),xor(H(H(SIDj.Xgwn).
+    T1'.T2'),Kj')),H(H(IDi.Xgwn).T3')).H(IDi.Xgwn).T3').H(xor(xor(xor(Ki',H(H(
+    IDi.Xgwn).T1')),H(H(IDi.Xgwn).T1')),H(H(SIDj.Xgwn).T3')).
+    H(SIDj.Xgwn).T3').T3')
+/\  request ( Ui,G,gwn_user_ki,Ki')
+/\  request ( Sj,G,wn_sensor_kj,Kj')
+end role
+
+
+
+
+
+
+
+
+
+
+

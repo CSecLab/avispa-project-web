@@ -1,0 +1,195 @@
+%%%%% Role of the user Ui %%%%%%%%%%%%%%%%%%%%%
+role user (Ui, SP, CSj: agent,
+           SKuisp: symmetric_key,
+           H : hash_func,
+           TX, RX: channel(dy))
+played_by Ui 
+def=
+  local St: nat,
+  IDi, IDsj, RIDi, PWi, RPWi, Bi, K, SK : text,
+  T1, T2, T3, Xu, Xs, Ni, Nj, M1, M2, M7, Tt : text,
+  Gen, Rep : hash_func
+const ui_csj_t1, csj_ui_t2, ui_csj_t3, 
+      ui_csj_ni, csj_ui_nj, sk1, sk2, sk3: protocol_id
+
+% Initialize state St to 0
+init St := 0
+transition
+% User registration phase
+1. St = 0 /\ RX(start) =|>
+ St' := 1 /\ Xu' := new() /\ RIDi' := H(IDi.Xu')
+          /\ RPWi' := H(PWi.Xu')
+          /\ secret({IDi.PWi.Xu'}, sk1, {Ui})
+% Send registration request to SP securely
+          /\ TX({RIDi'.RPWi'}_SKuisp)
+% Receive smart card SCi from SP securely
+2. St = 1 /\ RX({H(K.H(IDi.Xu').H(PWi.Xu').
+             H(IDsj.Xs')).H(IDsj.Xs').H.Gen.
+             Rep.Tt}_SKuisp)  =|>
+% Login phase
+% Send login request to CSj publicly
+St' := 2 /\ Ni' := new() /\ T1' := new()
+         /\ M1' := H(H(H(K.H(IDi.Xu').H(PWi.Xu').
+             H(IDsj.Xs'))).Ni'.T1')
+         /\ M2' := xor(Ni',H(H(H(K.H(IDi.Xu').H(PWi.Xu').
+             H(IDsj.Xs'))).T1'.H(IDi.Xu')))  
+         /\ TX(M1'.M2'.H(IDi.Xu').T1')
+% Ui has freshly generated the values Ni and T1 for CSj
+         /\ witness (Ui, CSj, ui_csj_ni, Ni')
+         /\ witness (Ui, CSj, ui_csj_t1, T1')
+% Authentication phase
+% Receive authentication request from CSj publicly
+3. St = 2 /\ RX(H(H(H(H(K.H(IDi.Xu').H(PWi.Xu').
+          H(IDsj.Xs'))).Ni'.Nj'.H(IDi.Xu').H(IDsj.Xs')).
+          T1'.T2').xor(Nj',H(H(H(K.H(IDi.Xu').H(PWi.Xu').
+      H(IDsj.Xs'))).T2'.H(IDsj.Xs'))).H(IDsj.Xs').T2') =|>
+% Send authentication reply to CSj publicly
+ St' := 3 /\ T3' := new()
+          /\ SK' := H(H(H(K.H(IDi.Xu').H(PWi.Xu').
+             H(IDsj.Xs'))).Ni'.Nj'.H(IDi.Xu').H(IDsj.Xs'))
+          /\ M7' := H(SK'.T3'.H(IDsj.Xs'))
+          /\ TX(M7'.T3')
+% Ui has freshly generated the value T3 for CSj
+         /\ witness (Ui, CSj, ui_csj_t3, T3')
+% Ui's acceptance of the values Nj and T2 generated for Ui by CSj 
+         /\ request(CSj, Ui, csj_ui_nj, Nj')
+         /\ request(CSj, Ui, csj_ui_t2, T2')
+end role
+
+
+
+
+
+%%%%% Role of the cloud server CSj %%%%%%%%%%%%%%%%%%%%%
+role cloudserver (Ui, SP, CSj: agent,
+           SKcsjsp: symmetric_key,
+           H : hash_func,
+           TX, RX: channel(dy))
+played_by CSj 
+def=
+  local St: nat,
+  IDi, IDsj, RIDi, PWi, RPWi, Bi, K, Ni, Nj : text,
+  T1, T2, T3, Xu, Xs, RSIDj, SK, M4, M5 : text
+const ui_csj_t1, csj_ui_t2, ui_csj_t3, 
+      ui_csj_ni, csj_ui_nj, sk1, sk2, sk3: protocol_id
+
+init St := 0
+transition
+% Cloud server registration phase
+1. St = 0 /\ RX(start) =|>
+ St' := 3 /\ Xs' := new() 
+          /\ secret({IDsj.Xs'}, sk2, {CSj})
+          /\ RSIDj' := H(IDsj.Xs')
+% Send registration request to SP securely
+          /\ TX({RSIDj'}_SKcsjsp)
+% Receive registration reply from SP securely
+2. St = 3 /\ RX({H(H(K.H(IDi.Xu').H(PWi.Xu').
+             H(IDsj.Xs'))).H(IDi.Xu')}_SKcsjsp) =|>
+ St' := 5 /\ secret({K}, sk3, {SP})
+% Login phase
+% Receive login request from Ui publicly
+3. St = 5 /\ RX(H(H(H(K.H(IDi.Xu').H(PWi.Xu').
+             H(IDsj.Xs'))).Ni'.T1').
+             xor(Ni',H(H(H(K.H(IDi.Xu').H(PWi.Xu').
+   H(IDsj.Xs'))).T1'.H(IDi.Xu'))).H(IDi.Xu').T1')=|>
+% Authentication phase
+ St' := 7 /\ Nj':= new() /\ T2' := new()
+    /\ SK' := H(H(H(K.H(IDi.Xu').H(PWi.Xu').
+       H(IDsj.Xs'))).Ni'.Nj'.H(IDi.Xu').H(IDsj.Xs'))
+    /\ M4' := H(SK'.T1'.T2')
+    /\ M5' := xor(Nj',H(H(H(K.H(IDi.Xu').H(PWi.Xu').
+             H(IDsj.Xs'))).T2'.H(IDsj.Xs')))
+% Send authentication request to Ui publicly
+   /\ TX(M4'.M5'.H(IDsj.Xs').T2')
+% CSj has freshly generated the values Nj and T2 for Ui
+         /\ witness (CSj, Ui, csj_ui_nj, Nj')
+         /\ witness (CSj, Ui, csj_ui_t2, T2')
+% Receive authentication reply from Ui publicly		 
+4. St = 7 /\ RX(H(H(H(H(K.H(IDi.Xu').H(PWi.Xu').
+             H(IDsj.Xs'))).Ni'.Nj'.H(IDi.Xu').
+             H(IDsj.Xs')).T3'.H(IDsj.Xs')).T3') =|>
+% CSj's acceptance of T1, Ni and T3 generated for CSj by Ui
+ St' := 9 /\ request(Ui, CSj, ui_csj_ni, Ni')
+          /\ request(Ui, CSj, ui_csj_t1, T1')
+          /\ request(Ui, CSj, ui_csj_t3, T3')
+end role
+
+
+
+
+%%%%% Role of the service provider SP %%%%%%%%%%%%%%%%%%%%%
+role serviceprovider (Ui, SP, CSj: agent,
+           SKuisp, SKcsjsp: symmetric_key,
+           H : hash_func,
+           TX, RX: channel(dy))
+played_by SP 
+def=
+  local St: nat,
+  IDi, IDsj, RIDi, PWi, RPWi, Bi, K : text,
+  T1, T2, T3, Xu, Xs, RSIDj, A, B, Tt : text,
+  Gen, Rep : hash_func
+const sk1, sk2, sk3: protocol_id
+
+init St := 0
+transition
+% User registration phase
+% Receive registration request from Ui securely
+1. St = 0 /\ RX({H(IDi.Xu').H(PWi.Xu')}_SKuisp)  =|>
+ St' := 2 /\ secret({IDi.PWi.Xu'}, sk1, {Ui})
+% Cloud server registration phase
+% Receive registration request from CSj securely
+2. St = 2 /\ RX({H(IDsj.Xs')}_SKcsjsp) =|>
+ St' := 4 /\ secret({IDsj.Xs'}, sk2, {CSj}) 
+% Send smart card SCi to Ui securely
+          /\ secret({K}, sk3, {SP})
+          /\ A' := H(K.H(IDi.Xu').H(PWi.Xu').H(IDsj.Xs'))
+          /\ TX({A'.H(IDsj.Xs').H.Gen.Rep.Tt}_SKuisp)
+% Send registration reply to CSj securely
+          /\ B' := H(A')
+          /\ TX({B'.H(IDi.Xu')}_SKcsjsp)
+end role
+
+
+%%%%%%% Role specification for the session %%%%%%%%
+role session(Ui, SP, CSj: agent,
+	     SKuisp, SKcsjsp : symmetric_key,
+             H : hash_func)
+def=
+  local Tx1, Rx1, Tx2, Rx2, Tx3, Rx3: channel (dy)
+  composition
+    user(Ui, SP, CSj, SKuisp, H, Tx1, Rx1)
+ /\ serviceprovider(Ui, SP, CSj, SKuisp, SKcsjsp, H, Tx2, Rx2)
+ /\ cloudserver(Ui, SP, CSj, SKcsjsp, H, Tx3, Rx3)     
+end role
+
+
+%%%%%%% Role specification for the goal and environment %%%%%%%%
+role environment()
+def=
+  const ui, sp, csj  : agent,
+      skuisp, skcsjsp : symmetric_key,
+      h : hash_func, 
+      gen, rep : hash_func,
+      t1, t2, t3 : text,
+      ui_csj_t1, csj_ui_t2, ui_csj_t3, 
+      ui_csj_ni, csj_ui_nj, sk1, sk2, sk3: protocol_id
+intruder_knowledge = {h, gen, rep, t1, t2, t3}
+composition
+   session(ui, sp, csj, skuisp, skcsjsp, h) 
+/\ session(i, sp, csj, skuisp, skcsjsp, h) 
+/\ session(ui, i, csj, skuisp, skcsjsp, h) 
+/\ session(ui, sp, i, skuisp, skcsjsp, h) 
+end role
+
+goal
+secrecy_of sk1
+secrecy_of sk2
+secrecy_of sk3
+authentication_on ui_csj_t1
+authentication_on csj_ui_t2
+authentication_on ui_csj_t3
+authentication_on ui_csj_ni
+authentication_on csj_ui_nj
+end goal
+environment()
+

@@ -1,0 +1,273 @@
+role user1(U1: agent, K1,Ppub:public_key,ID1,ID2,ID3 :text, H1,H,M,A: hash_func,S1,R1,P: text, SND,RCV : channel(dy))
+played_by U1 def=
+
+local
+
+State : nat,
+U2,U3 : agent,
+K2,K3 : public_key,
+T3,T2,T1,R2,R3,X1,K12,K13,K1r,K2r,K3r,EX1,EX2,EX3,K1R,K1L : text,
+SK: symmetric_key,
+IDRing: (agent.text)set
+
+
+init  
+
+State:= 0 /\ IDRing:= {U1.ID1,U2.ID2,U3.ID3}
+
+
+transition
+
+1. State=0 /\ RCV(start) =|>
+	State':=1 /\
+	
+	X1':=new()/\ T1':= M(P,X1') /\
+	SND({U1.ID1.T1'.R1}_inv(K1)) /\
+	%witness(U1,U5,u5_u1_t,T1'.R1)/\
+	%witness(U1,U4,u4_u1_t,T1'.R1)/\
+	witness(U1,U2,u2_u1_t,T1'.R1)/\
+	witness(U1,U3,u3_u1_t,T1'.R1)
+
+
+2.State=1 /\ 	RCV( {U2'.ID2'.T2'.R2'}_inv(K2')) /\ in(U2'.ID2',IDRing)/\
+		RCV( {U3'.ID3'.T3'.R3'}_inv(K3')) /\ in(U3'.ID3',IDRing)=|>
+State':=2/\
+
+request(U1,U2,u1_u2_t,T2'.R2')/\
+request(U1,U3,u1_u3_t,T3'.R3')/\
+
+
+
+K12':= A(M(T2',S1),M(A(R2',M(Ppub,H(ID2))),X1))/\
+K13':= A(M(T3',S1),M(A(R3',M(Ppub,H(ID2))),X1))/\
+
+K1R' := H1(K12')/\
+K1L' := H1(K13')/\
+EX1' := xor(K1L',K1R')/\
+
+SND(EX1')
+%witness(U1,U2,u2_u1_ex,EX1')/\
+%witness(U1,U3,u3_u1_ex,EX1')
+
+3. State = 2 /\ RCV(EX2',EX3')/\xor(EX1,xor(EX2',EX3')) = 0 =|>
+	State':= 3 /\
+%request(U1,U2,u1_u2_ex,EX2')/\
+%request(U1,U3,u1_u3_ex,EX3')/\
+
+K2r':= xor(EX2',K1R)/\
+K3r':= xor(EX3',K2r')/\
+
+
+SK':= H(K1R.K2r'.K3r')/\
+secret(SK',sk,{U1,U2,U3})
+
+end role
+
+
+
+
+role user2(U2: agent, K2,Ppub:public_key,ID1,ID2,ID3 :text, H1,H,M,A: hash_func,S2,R2,P: text, SND,RCV : channel(dy))
+played_by U2 def=
+
+local
+
+State : nat,
+U1,U3 : agent,
+K1,K3 : public_key,
+T3,T2,T1,R1,R3,X2,K23,K21,K1r,K2r,K3r,EX1,EX2,EX3,K2R,K2L : text,
+SK: symmetric_key,
+IDRing: (agent.text)set
+
+
+init  
+
+State:= 0 /\ IDRing:= {U1.ID1,U2.ID2,U3.ID3}
+
+
+transition
+
+1. State=0 /\ RCV(start) =|>
+	State':=1 /\
+	
+	X2':=new()/\ T2':= M(P,X2') /\
+	SND({U2.ID2.T2'.R2}_inv(K2)) /\
+	%witness(U1,U5,u5_u1_t,T1'.R1)/\
+	%witness(U1,U4,u4_u1_t,T1'.R1)/\
+	witness(U2,U3,u3_u2_t,T2'.R2)/\
+	witness(U2,U1,u1_u2_t,T2'.R2)
+
+
+2.State=1 /\ 	RCV( {U1'.ID1'.T1'.R1'}_inv(K1')) /\ in(U1'.ID1',IDRing)/\
+		RCV( {U3'.ID3'.T3'.R3'}_inv(K3')) /\ in(U3'.ID3',IDRing)=|>
+State':=2/\
+
+request(U2,U1,u2_u1_t,T1'.R1')/\
+request(U2,U3,u2_u3_t,T3'.R3')/\
+
+
+
+K21':= A(M(T1',S2),M(A(R1',M(Ppub,H(ID1))),X2))/\
+K23':= A(M(T3',S2),M(A(R3',M(Ppub,H(ID3))),X2))/\
+
+K2R' := H1(K23')/\
+K2L' := H1(K21')/\
+EX2' := xor(K2L',K2R')/\
+
+SND(EX2')
+%witness(U2,U1,u1_u2_ex,EX2')/\
+%witness(U2,U3,u3_u2_ex,EX2')
+
+3. State = 2/\ RCV(EX1',EX3')/\xor(EX2,xor(EX1',EX3')) = 0 =|>
+	State':= 3/\
+%request(U2,U1,u2_u1_ex,EX1')/\
+%request(U2,U3,u2_u3_ex,EX3')/\
+
+
+K3r':= xor(EX3',K2R)/\
+K1r':= xor(EX1',K3r')/\
+
+
+SK':= H(K1r'.K2R.K3r')/\
+secret(SK',sk,{U1,U2,U3})
+
+end role
+
+
+
+
+
+role user3(U3: agent, K3,Ppub:public_key,ID1,ID2,ID3 :text, H1,H,M,A: hash_func,S3,R3,P: text, SND,RCV : channel(dy))
+played_by U3 def=
+
+local
+
+State : nat,
+U1,U2 : agent,
+K1,K2 : public_key,
+T3,T2,T1,R1,R2,X3,K32,K31,K1r,K2r,K3r,EX1,EX2,EX3,K3R,K3L : text,
+SK: symmetric_key,
+IDRing: (agent.text)set
+
+
+init  
+
+State:= 0 /\ IDRing:= {U1.ID1,U2.ID2,U3.ID3}
+
+
+transition
+
+1. State=0 /\ RCV(start) =|>
+	State':=1 /\
+	
+	X3':=new()/\ T3':= M(P,X3') /\
+	SND({U3.ID3.T3'.R3}_inv(K3)) /\
+	%witness(U1,U5,u5_u1_t,T1'.R1)/\
+	%witness(U1,U4,u4_u1_t,T1'.R1)/\
+	witness(U3,U2,u2_u3_t,T3'.R3)/\
+	witness(U3,U1,u3_u1_t,T3'.R3)
+
+
+2.State=1 /\ 	RCV( {U1'.ID1'.T1'.R1'}_inv(K1')) /\ in(U1'.ID1',IDRing)/\
+		RCV( {U2'.ID2'.T2'.R2'}_inv(K2')) /\ in(U2'.ID2',IDRing)=|>
+State':=2/\
+
+request(U3,U1,u3_u1_t,T1'.R1')/\
+request(U3,U2,u3_u2_t,T2'.R2')/\
+
+
+
+K31':= A(M(T1',S3),M(A(R1',M(Ppub,H(ID1))),X3))/\
+K32':= A(M(T2',S3),M(A(R2',M(Ppub,H(ID2))),X3))/\
+
+K3R' := H1(K31')/\
+K3L' := H1(K32')/\
+EX3' := xor(K3L',K3R')/\
+
+SND(EX3')
+%witness(U3,U1,u1_u3_ex,EX3')/\
+%witness(U3,U2,u2_u3_ex,EX3')
+
+3. State = 2/\ RCV(EX1',EX2')/\xor(EX3,xor(EX1',EX2')) = 0 =|>
+	State':= 3/\
+%request(U3,U1,u3_u1_ex,EX1')/\
+%request(U3,U2,u3_u2_ex,EX2')/\
+
+
+
+K1r':= xor(EX1',K3R)/\
+K2r':= xor(EX2',K1r')/\
+
+
+SK':= H(K1r'.K2r'.K3R)/\
+secret(SK',sk,{U1,U2,U3})
+
+end role
+
+
+
+
+
+role session(U1,U2,U3 : agent, K1,K2,K3,Ppub : public_key ,H,H1,M,A : hash_func,P,ID1,ID2,ID3: text)
+
+def=
+
+local
+SND1,RCV1,SND2,RCV2,SND3,RCV3: channel(dy),
+IDRing: (agent.text)set,
+S1,R1,S2,R2,S3,R3 : text
+
+
+composition
+
+user1(U1,K1,Ppub,ID1,ID2,ID3,H1,H,M,A,S1,R1,P,SND1,RCV1)
+/\ user2(U2,K2,Ppub,ID1,ID2,ID3,H1,H,M,A,S2,R2,P,SND2,RCV2)
+/\ user3(U3,K3,Ppub,ID1,ID2,ID3,H1,H,M,A,S3,R3,P,SND3,RCV3)
+
+
+end role
+
+
+
+
+role environment()
+
+def=
+ const u1,u2,u3: agent,
+ h,h1,m,a : hash_func,
+ p,id1,id2,id3,idi : text,
+u2_u1_t,u3_u1_t, u1_u2_t,u3_u2_t,u2_u3_t,u1_u3_t,sk : protocol_id,
+k1,k2,k3,k4,k5,ki,pub: public_key
+
+
+intruder_knowledge= {u1,u2,u3,k1,k2,k3,p,pub,h,h1,m,a,ki,idi}
+
+composition
+
+session(u1,u2,u3,k1,k2,k3,pub,h,h1,m,a,p,id1,id2,id3)
+/\session(i,u2,u3,ki,k2,k3,pub,h,h1,m,a,p,idi,id2,id3)
+/\session(u1,u2,i,k1,k2,ki,pub,h,h1,m,a,p,id1,id2,idi)
+/\session(u1,i,u3,k1,ki,k3,pub,h,h1,m,a,p,id1,idi,id3)
+
+
+end role
+
+
+goal
+
+secrecy_of sk
+
+authentication_on u2_u1_t
+authentication_on u3_u1_t
+authentication_on u1_u2_t 
+authentication_on u3_u2_t
+authentication_on u2_u3_t
+authentication_on u1_u3_t
+
+end goal
+
+
+environment()
+
+
+
+

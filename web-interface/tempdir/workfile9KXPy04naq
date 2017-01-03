@@ -1,0 +1,139 @@
+role embeddeddevice (EDi, CS: agent,
+           SKedics: symmetric_key,
+           H : hash_func,
+           TX, RX: channel(dy))
+played_by EDi
+def=
+local State: nat,
+      Idi, Pwi, Ii, PIdi, Ckk, Idcs, Rs, Xcs, Et: text,
+      G, R1, P1, P2, R2, SK, Vi: text
+const sec1, sec2, alice_bob_r1, bob_alice_r2 : protocol_id
+init State := 0
+transition
+% Registration phase
+1. State = 0 /\ RX(start) =|>
+ State' := 1 /\ Ii' := H(Idi.Pwi)
+             /\ secret({Idi,Pwi}, sec1, EDi)
+% Send the registration request {Ii} to CS securely
+% via secure channel
+             /\ TX({Ii'}_SKedics)
+% Receive resgistration reply {PIdi, Ck'} from CS securely
+2. State = 1 /\ RX({xor(H(Rs'.Idcs.H(Idi.Pwi)), Idcs).
+                F(H(Rs'.Xcs.Et.xor(H(Rs'.Idcs.
+                H(Idi.Pwi)), Idcs)).G)}_SKedics) =|>
+ State' := 3 /\ secret({Idcs,Xcs,Et}, sec2, EDi)
+% Login and authentication phase
+             /\ R1' := new() /\ P1' := F(R1'.G)
+             /\ P2' := H(R1'.H(Rs'.Xcs.Et.xor(H(Rs'.
+                       Idcs.H(Idi.Pwi)), Idcs)))    
+% Send login request {P1, P2, PIdi} to CS via open channel
+/\ TX(P1'.P2'.xor(H(Rs'.Idcs.H(Idi.Pwi)), Idcs))  
+%% Edi has generated r1 freshly for  CS
+             /\ witness(Edi, CS, alice_bob_r1, R1')
+% Receive message {P3, P4, Ti} from CS via open channel
+3. State = 3 /\ RX(F(R2'.G).F(R2'.F(H(xor(xor(Rs',H(Xcs.
+                xor(H(Rs'.Idcs.H(Idi.Pwi)), Idcs))), 
+                xor(H(Idi.Pwi),F(CH(Rs'.Xcs.Et.
+                xor(H(Rs'.Idcs.H(Idi.Pwi)), Idcs)).G)))).G)).
+                xor(Rs',H(Xcs.xor(H(Rs'.Idcs.
+                H(Idi.Pwi)), Idcs))) ) =|>
+ State' := 5 /\ SK' := F(R1'.F(R2'.G))
+             /\ Vi' := H(F(R1'.F(H(Rs'.Xcs.Et.PIdi').G)).SK')
+% Send message {Vi} to CS via open channel
+             /\ TX(Vi')
+% Edi's acceptance of random nonce r2 generated for Edi by CS
+             /\ request(CS, Edi, bob_alice_r2, R2')             
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role cloudserver (EDi, CS: agent,
+           SKedics: symmetric_key,
+           H : hash_func,
+           TX, RX: channel(dy))
+played_by CS
+def=
+  local State: nat,
+        Idi, Pwi, Idcs, Rs, Ck, Ckk : text,
+        PIdi, Xcs, Et, G, R1, R2, P3, P4 : text,
+        Ai, Ai1, Ti  : text,
+        F : hash_func
+const sec1, sec2, alice_bob_r1, bob_alice_r2 : protocol_id
+init State := 0
+transition
+% Registration phase
+% Receive registration request  from Edi securely
+% embedded device securely
+1. State = 0 /\ RX({H(Idi.Pwi)}_SKedics) =|>
+ State' := 2 /\ secret({Idi,Pwi}, sec1, EDi)
+             /\ Rs' := new()
+             /\ PIdi' := xor(H(Rs'.Idcs.H(Idi.Pwi)), Idcs)
+             /\ Ck' := H(Rs'.Xcs.Et.PIdi')
+             /\ Ckk' := F(Ck'.G)
+             /\ secret({Idcs,Xcs,Et}, sec2, EDi)
+% Send resgistration reply {PIdi, Ck'} to Edi securely
+             /\ TX({PIdi'.Ckk'}_SKedics)
+% Login and authentication phase 
+% Receive login request {P1, P2, PIdi} from Edi via open channel
+2. State = 2 /\ RX(F(R1'.G).H(R1'.H(Rs'.Xcs.Et.xor(H(Rs'.
+                   Idcs.H(Idi.Pwi)), Idcs))).
+                   xor(H(Rs'.Idcs.H(Idi.Pwi)), Idcs)) =|>
+ State' := 4 /\ R2' := new() /\ P3' := F(R2'.G)
+             /\ Ai' := H(xor(xor(Rs',H(Xcs.xor(H(Rs'.Idcs.
+                       H(Idi.Pwi)), Idcs))), xor(H(Idi.Pwi),
+                       F(CH(Rs'.Xcs.Et.xor(H(Rs'.Idcs.
+                       H(Idi.Pwi)), Idcs)).G))))
+             /\ Ai1' := F(Ai'.G)
+             /\ P4' := F(R2'.Ai1')
+             /\ Ti' := xor(Rs',H(Xcs.xor(H(Rs'.Idcs.
+                       H(Idi.Pwi)), Idcs))) 
+% Send message {P3, P4, Ti} to Edi via open channel
+             /\ TX(P3'.P4'.Ti') 
+%% CS has generated r2 freshly for Edi
+             /\ witness(CS, Edi, bob_alice_r2, R2')
+% Receive message {Vi} from Edi via open channel
+3. State = 4 /\ RX(H(F(R1'.F(H(Rs'.Xcs.Et.PIdi').G)).
+                F(R1'.F(R2'.G)))) =|>
+% CS's acceptance of random nonce r1 generated for CS by Edi                
+ State' := 6 /\ request(Edi, CS, alice_bob_r1, R1') 
+            
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session (Edi, CS: agent,
+              SKedics: symmetric_key,
+              H: hash_func)
+def=
+local TX1, RX1, TX2, RX2: channel(dy)
+composition
+   embeddeddevice (EDi, CS, SKedics, H, TX1, RX1)
+/\ cloudserver (EDi, CS, SKedics, H, TX2, RX2)
+end role
+              
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+def=
+const edi, cs: agent,
+      skedics: symmetric_key,
+      h, f: hash_func,
+      p1, p2, pidi, p3, p4, ti, vi: text,
+      sec1, sec2, alice_bob_r1, bob_alice_r2: protocol_id
+  intruder_knowledge = {edi, cs, h, f, 
+                        p1, p2, pidi, p3, p4, ti, vi}
+  composition
+      session(edi, cs, skedics, h)
+   /\ session (i, cs, skedics, h)
+   /\ session (ui, i, skedics, h)
+end role
+
+goal
+  secrecy_of sec1
+  secrecy_of sec2
+  authentication_on alice_bob_r1
+  authentication_on bob_alice_r2
+end goal
+environment()

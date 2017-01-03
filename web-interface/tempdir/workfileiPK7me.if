@@ -1,0 +1,151 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileiPK7me
+
+section signature:
+
+state_identityProvider: agent * agent * agent * text * text * symmetric_key * set(symmetric_key) * hash_func * nat * text * text * text * symmetric_key * symmetric_key * apply(hash_func,pair(text,pair(text,pair(symmetric_key,pair(text,symmetric_key))))) * pair(symmetric_key,pair(text,pair(text,pair(text,apply(hash_func,pair(text,pair(text,pair(symmetric_key,pair(text,symmetric_key))))))))) * nat -> fact
+state_serviceProvider: agent * agent * agent * text * symmetric_key * hash_func * nat * text * text * text * symmetric_key * apply(hash_func,pair(text,pair(text,pair(symmetric_key,pair(text,symmetric_key))))) * set(agent) * nat -> fact
+state_client: agent * agent * agent * set(symmetric_key) * nat * text * text * symmetric_key * pair(symmetric_key,pair(text,pair(text,pair(text,apply(hash_func,pair(text,pair(text,pair(symmetric_key,pair(text,symmetric_key))))))))) * nat -> fact
+
+
+section types:
+
+otherresourceid, sp_idp_sig: protocol_id
+h, Hash: hash_func
+Sig, Dummy_Sig: apply(hash_func,pair(text,pair(text,pair(symmetric_key,pair(text,symmetric_key)))))
+ASGoal, Set_47, Dummy_Set_47: set(agent)
+Session, Dummy_Session: pair(symmetric_key,pair(text,pair(text,pair(text,apply(hash_func,pair(text,pair(text,pair(symmetric_key,pair(text,symmetric_key)))))))))
+SSLKey, Dummy_SSLKey: set(symmetric_key)
+SID2, SID1, SID, State, 9, 5, 8, 4, 7, 3, 2, 1, 0, Dummy_State: nat
+MGoal, otherresource, otherresourcereq, resource, credentials, sessionreq, resourcereq, start, dummy_msg: message
+apisecret, CIDPKey, Key, APISecret, Dummy_Key, Dummy_CIDPKey, dummy_sk: symmetric_key
+A2Goal, A1Goal, c, sp, idp, C, SP, IDP, i: agent
+apikey, uid, Lsd, Expires, Ss, APIKey, Uid, Dummy_Ss, Dummy_Expires, Dummy_Uid, Dummy_Lsd, Dummy_APIKey, dummy_nonce: text
+set_125, set_113, set_101: set
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(otherresourcereq).
+ iknows(i).
+ state_client(c,sp,idp,set_101,0,dummy_nonce,dummy_nonce,dummy_sk,pair(dummy_sk,pair(dummy_nonce,pair(dummy_nonce,pair(dummy_nonce,dummy_msg)))),3).
+ state_serviceProvider(sp,c,idp,apikey,apisecret,h,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,dummy_msg,set_113,4).
+ state_identityProvider(idp,c,sp,apikey,uid,apisecret,set_101,h,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,dummy_sk,dummy_msg,pair(dummy_sk,pair(dummy_nonce,pair(dummy_nonce,pair(dummy_nonce,dummy_msg)))),5).
+ state_client(c,sp,idp,set_101,0,dummy_nonce,dummy_nonce,dummy_sk,pair(dummy_sk,pair(dummy_nonce,pair(dummy_nonce,pair(dummy_nonce,dummy_msg)))),7).
+ state_serviceProvider(sp,c,idp,apikey,apisecret,h,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,dummy_msg,set_125,8).
+ state_identityProvider(idp,c,sp,apikey,uid,apisecret,set_101,h,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,dummy_sk,dummy_msg,pair(dummy_sk,pair(dummy_nonce,pair(dummy_nonce,pair(dummy_nonce,dummy_msg)))),9)
+
+
+section rules:
+
+step step_0 (C,SP,IDP,SSLKey,APIKey,Lsd,CIDPKey,Session,SID) :=
+ state_client(C,SP,IDP,SSLKey,0,APIKey,Lsd,CIDPKey,Session,SID).
+ iknows(start)
+ =>
+ state_client(C,SP,IDP,SSLKey,1,APIKey,Lsd,CIDPKey,Session,SID).
+ iknows(resourcereq)
+
+step step_1 (C,SP,IDP,SSLKey,Dummy_APIKey,Lsd,CIDPKey,Session,SID,APIKey) :=
+ state_client(C,SP,IDP,SSLKey,1,Dummy_APIKey,Lsd,CIDPKey,Session,SID).
+ iknows(pair(IDP,APIKey))
+ =>
+ state_client(C,SP,IDP,SSLKey,2,APIKey,Lsd,CIDPKey,Session,SID).
+ iknows(pair(sessionreq,APIKey))
+
+step step_2 (C,SP,IDP,Dummy_SSLKey,APIKey,Dummy_Lsd,Dummy_CIDPKey,Session,SID,Lsd,CIDPKey) :=
+ state_client(C,SP,IDP,Dummy_SSLKey,2,APIKey,Dummy_Lsd,Dummy_CIDPKey,Session,SID).
+ iknows(Lsd)
+=[exists CIDPKey]=>
+ state_client(C,SP,IDP,Dummy_SSLKey,3,APIKey,Lsd,CIDPKey,Session,SID).
+ iknows(scrypt(CIDPKey,pair(APIKey,pair(credentials,Lsd)))).
+ contains(CIDPKey,Dummy_SSLKey)
+
+step step_3 (C,SP,IDP,SSLKey,APIKey,Lsd,CIDPKey,Dummy_Session,SID,Session) :=
+ state_client(C,SP,IDP,SSLKey,3,APIKey,Lsd,CIDPKey,Dummy_Session,SID).
+ iknows(scrypt(CIDPKey,pair(SP,Session)))
+ =>
+ state_client(C,SP,IDP,SSLKey,4,APIKey,Lsd,CIDPKey,Session,SID).
+ iknows(pair(resourcereq,Session))
+
+step step_4 (C,SP,IDP,SSLKey,APIKey,Lsd,CIDPKey,Session,SID) :=
+ state_client(C,SP,IDP,SSLKey,4,APIKey,Lsd,CIDPKey,Session,SID).
+ iknows(resource)
+ =>
+ state_client(C,SP,IDP,SSLKey,5,APIKey,Lsd,CIDPKey,Session,SID)
+
+step step_5 (SP,C,IDP,APIKey,APISecret,Hash,Uid,Expires,Ss,Key,Sig,Set_47,SID) :=
+ state_serviceProvider(SP,C,IDP,APIKey,APISecret,Hash,0,Uid,Expires,Ss,Key,Sig,Set_47,SID).
+ iknows(resourcereq)
+ =>
+ state_serviceProvider(SP,C,IDP,APIKey,APISecret,Hash,1,Uid,Expires,Ss,Key,Sig,Set_47,SID).
+ iknows(pair(IDP,APIKey))
+
+step step_6 (SP,C,IDP,APIKey,APISecret,Hash,Dummy_Uid,Dummy_Expires,Dummy_Ss,Dummy_Key,Sig,Set_47,SID,Uid,Expires,Ss,Key) :=
+ state_serviceProvider(SP,C,IDP,APIKey,APISecret,Hash,1,Dummy_Uid,Dummy_Expires,Dummy_Ss,Dummy_Key,Sig,Set_47,SID).
+ iknows(pair(resourcereq,pair(Key,pair(Uid,pair(Expires,pair(Ss,apply(Hash,pair(Expires,pair(Ss,pair(Key,pair(Uid,APISecret)))))))))))
+ =>
+ state_serviceProvider(SP,C,IDP,APIKey,APISecret,Hash,2,Uid,Expires,Ss,Key,Sig,Set_47,SID).
+ iknows(resource).
+ request(SP,IDP,sp_idp_sig,apply(Hash,pair(Expires,pair(Ss,pair(Key,pair(Uid,APISecret))))),SID)
+
+step step_7 (SP,C,IDP,APIKey,APISecret,Hash,Dummy_Uid,Dummy_Expires,Dummy_Ss,Dummy_Key,Sig,Dummy_Set_47,SID,Uid,Expires,Ss,Key) :=
+ state_serviceProvider(SP,C,IDP,APIKey,APISecret,Hash,1,Dummy_Uid,Dummy_Expires,Dummy_Ss,Dummy_Key,Sig,Dummy_Set_47,SID).
+ iknows(pair(otherresourcereq,pair(Key,pair(Uid,pair(Expires,pair(Ss,apply(Hash,pair(Expires,pair(Ss,pair(Key,pair(Uid,APISecret)))))))))))
+ =>
+ state_serviceProvider(SP,C,IDP,APIKey,APISecret,Hash,2,Uid,Expires,Ss,Key,Sig,Dummy_Set_47,SID).
+ iknows(otherresource).
+ secret(otherresource,otherresourceid,Dummy_Set_47).
+ request(SP,IDP,sp_idp_sig,apply(Hash,pair(Expires,pair(Ss,pair(Key,pair(Uid,APISecret))))),SID).
+ contains(SP,Dummy_Set_47)
+
+step step_8 (IDP,C,SP,APIKey,Uid,APISecret,SSLKey,Hash,Dummy_Lsd,Expires,Ss,CIDPKey,Key,Sig,Session,SID,Lsd) :=
+ state_identityProvider(IDP,C,SP,APIKey,Uid,APISecret,SSLKey,Hash,0,Dummy_Lsd,Expires,Ss,CIDPKey,Key,Sig,Session,SID).
+ iknows(pair(sessionreq,APIKey))
+=[exists Lsd]=>
+ state_identityProvider(IDP,C,SP,APIKey,Uid,APISecret,SSLKey,Hash,1,Lsd,Expires,Ss,CIDPKey,Key,Sig,Session,SID).
+ iknows(Lsd)
+
+step step_9 (IDP,C,SP,APIKey,Uid,APISecret,Dummy_SSLKey,Hash,Lsd,Dummy_Expires,Dummy_Ss,Dummy_CIDPKey,Dummy_Key,Dummy_Sig,Dummy_Session,SID,Expires,Ss,CIDPKey,Key) :=
+ state_identityProvider(IDP,C,SP,APIKey,Uid,APISecret,Dummy_SSLKey,Hash,1,Lsd,Dummy_Expires,Dummy_Ss,Dummy_CIDPKey,Dummy_Key,Dummy_Sig,Dummy_Session,SID).
+ iknows(scrypt(CIDPKey,pair(APIKey,pair(credentials,Lsd)))).
+ contains(CIDPKey,Dummy_SSLKey)
+=[exists Ss,Expires,Key]=>
+ state_identityProvider(IDP,C,SP,APIKey,Uid,APISecret,Dummy_SSLKey,Hash,2,Lsd,Expires,Ss,CIDPKey,Key,apply(Hash,pair(Expires,pair(Ss,pair(Key,pair(Uid,APISecret))))),pair(Key,pair(Uid,pair(Expires,pair(Ss,apply(Hash,pair(Expires,pair(Ss,pair(Key,pair(Uid,APISecret))))))))),SID).
+ iknows(scrypt(CIDPKey,pair(SP,pair(Key,pair(Uid,pair(Expires,pair(Ss,apply(Hash,pair(Expires,pair(Ss,pair(Key,pair(Uid,APISecret)))))))))))).
+ witness(IDP,SP,sp_idp_sig,apply(Hash,pair(Expires,pair(Ss,pair(Key,pair(Uid,APISecret))))))
+
+
+section properties:
+
+property authentication_on_sp_idp_sig (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,sp_idp_sig,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,sp_idp_sig,MGoal))
+     /\ ((request(A1Goal,A2Goal,sp_idp_sig,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,sp_idp_sig,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property secrecy_of_otherresourceid (MGoal,ASGoal) :=
+ [] ((secret(MGoal,otherresourceid,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state authentication_on_sp_idp_sig (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,sp_idp_sig,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,sp_idp_sig,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_sp_idp_sig (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,sp_idp_sig,MGoal,SID1).
+ request(A1Goal,A2Goal,sp_idp_sig,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state secrecy_of_otherresourceid (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,otherresourceid,ASGoal) &
+ not(contains(i,ASGoal))
+

@@ -1,0 +1,156 @@
+role role_SourceTree(SourceTree, SourceOs, Server, TargetTree : agent,
+SourceSealKey, Pwd : symmetric_key,
+PKSource, PKServerCA : public_key,
+SND, RCV : channel(dy))
+played_by SourceTree def=
+local
+State : nat,
+SealedPwd, SealedCred : message,
+Cred : text,
+PKServer : public_key
+init
+State := 0
+transition
+1. State=0 /\ RCV(start) =|>
+State’:=1 /\ Cred’ := new() /\
+SND(SourceTree.SourceOs.{Cred’.Pwd}_SourceSealKey)
+2. State=1 /\ RCV(SourceOs.SourceTree.{PKServer’}_inv(PKServerCA).
+{Cred’.Pwd’}_SourceSealKey) =|>
+State’:=2 /\ SND(SourceTree.SourceOs.{Cred’.Pwd’}_PKServer’) /\
+secret(Cred, sr, {SourceTree, Server, TargetTree})
+end role
+
+
+role role_SourceOs(SourceOs, SourceTree, Server : agent,
+PKSource, PKDevCA : public_key,
+SND, RCV : channel(dy))
+played_by SourceOs def=
+local
+State : nat,
+SealedCred, ServerCert, SourceCert, EncCred : message
+init
+State := 0
+transition
+1. State=0 /\ RCV(SourceTree.SourceOs.SealedCred’) =|>
+State’:=1
+2. State=1 /\ RCV(Server.SourceOs.ServerCert’) =|>
+State’:=2 /\ SND(SourceOs.SourceTree.ServerCert’.SealedCred)
+3. State=2 /\ RCV(SourceTree.SourceOs.EncCred’) =|>
+State’:=3 /\ SND(SourceOs.Server.EncCred’.SourceCert)
+end role
+
+
+role role_Server(Server, SourceOs, TargetOs : agent,
+PKServer, PKDevCA, PKServerCA : public_key,
+SND, RCV : channel(dy))
+played_by Server def=
+local
+State : nat,
+Cred, Nonce : text,
+Pwd : symmetric_key,
+PKSource, PKTarget : public_key,
+EncCred : message
+init
+State := 0
+transition
+1. State=0 /\ RCV(start) =|>
+State’:=1 /\ SND(Server.SourceOs.{PKServer}_inv(PKServerCA))
+2. State=1 /\ RCV(Server.SourceOs.{Cred’.Pwd’}_PKServer.
+{PKSource’}_inv(PKDevCA)) =|>
+State’:=2 /\ Nonce’:= new() /\
+SND(Server.TargetOs.Nonce’.{PKServer}_inv(PKServerCA))
+3. State=2 /\ RCV(TargetOs.Server.{Pwd.Nonce.PKTarget’}_PKServer.
+{PKTarget’}_inv(PKDevCA) ) =|>
+State’:=3 /\ EncCred’ := {Cred.Pwd}_PKTarget’ /\
+SND(Server.TargetOs.EncCred’)
+end role
+
+role role_TargetOs(TargetOs, TargetTree, Server : agent,
+PKTarget, PKDevCA : public_key,
+SND, RCV : channel(dy))
+played_by TargetOs def=
+local
+State : nat,
+Nonce : text,
+SealedPwd, ServerCert, PwdToken, EncCred : message
+init
+State := 0
+transition
+1. State=0 /\ RCV(TargetTree.TargetOs.SealedPwd’) =|>
+State’:=1
+2. State=1 /\ RCV(Server.TargetOs.Nonce’.ServerCert’) =|>
+State’:=2 /\ SND(TargetOs.TargetTree.Nonce’.ServerCert’.SealedPwd)
+3. State=2 /\ RCV(TargetTree.TargetOs.PwdToken’) =|>
+State’:=3 /\ SND(TargetOs.Server.PwdToken’.{PKTarget}_inv(PKDevCA))
+4. State=3 /\ RCV(Server.TargetOs.EncCred’) =|>
+State’:=4 /\ SND(TargetOs.TargetTree.EncCred’)
+end role
+
+
+role role_TargetTree(TargetTree, TargetOs, SourceTree : agent,
+TargetSealKey, Pwd : symmetric_key,
+PKTarget, PKServerCA : public_key,
+SND,RCV : channel(dy))
+played_by TargetTree def=
+local
+State : nat,
+Nonce, Cred : text,
+PKServer : public_key
+init
+State := 0
+transition
+1. State=0 /\ RCV(start) =|>
+State’:=1 /\ SND(TargetTree.TargetOs.{Pwd}_TargetSealKey)
+2. State=1 /\ RCV(TargetOs.TargetTree.Nonce’.{PKServer’}_inv(PKServerCA).
+{Pwd’}_TargetSealKey) =|>
+State’:=2 /\ SND(TargetTree.TargetOs.{Pwd’.Nonce’.PKTarget}_PKServer’)
+3. State=2 /\ RCV(TargetOs.TargetTree.{Cred’.Pwd’}_PKTarget) =|>
+State’:=3
+end role
+
+
+role session(Provisioner, SourceOs, SourceTree, Server : agent,
+TargetOs, TargetTree : agent,
+PKSource, PKTarget, PKServer : public_key,
+PKDevCA, PKServerCA : public_key,
+SourceSealKey, TargetSealKey : symmetric_key,
+SourcePwd, TargetPwd : symmetric_key)
+def=
+local
+SND1, RCV1, SND2, RCV2, SND3, RCV3,
+SND4, RCV4, SND5, RCV5 : channel(dy)
+composition
+role_SourceTree(SourceTree, SourceOs, Server,
+TargetTree, SourceSealKey, SourcePwd, PKSource,
+PKServerCA, SND1, RCV1) /\
+role_SourceOs(SourceOs, SourceTree, Server,
+PKSource, PKDevCA, SND2, RCV2) /\
+role_Server(Server, SourceOs, TargetOs, PKServer,
+PKDevCA, PKServerCA, SND3, RCV3) /\
+role_TargetOs(TargetOs, TargetTree, Server,
+PKTarget, PKDevCA, SND4, RCV4) /\
+role_TargetTree(TargetTree, TargetOs, SourceTree,
+TargetSealKey, TargetPwd, PKTarget, PKServerCA, SND5, RCV5)
+end role
+
+role environment()
+def=
+const
+provisioner, sourceos, sourcetree, server, targetos, targettree : agent,
+pksource, pktarget, pki, pkserver, pkdevca, pkserverca : public_key,
+sourcesealkey, targetsealkey, isealkey, pwd, pwdi : symmetric_key,
+sr : protocol_id
+intruder_knowledge = {provisioner, sourceos, sourcetree, server,
+targetos, targettree, pksource, pktarget,
+pki, inv(pki), pkdevca, pkserverca}
+composition
+session(provisioner, sourceos, sourcetree, server, targetos, i,
+pksource, pki, pkserver, pkdevca, pkserverca,
+sourcesealkey, isealkey, pwd, pwi)
+end role
+
+goal
+secrecy_of sr
+end goal
+
+environment()

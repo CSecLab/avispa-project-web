@@ -1,0 +1,214 @@
+role user(Ui,SNk,GWj,RC:agent,
+SK1:symmetric_key,
+%Hishashfunction
+H:hash_func,Snd,Rcv:channel(dy))
+played_by Ui
+def=localState:nat,
+IDi,PWi,Bi, Ri, CIDi, HBi, HPWi, Ai,PIDi, GIDj,SIDk, Ru,Rg, Rs,SGjk,Xj,Cj,Dj,TS1,TS2,TS3,TS4,TS5,TS6 :text,
+Fi, Ki, Li,Gi, Nj, Oj, Sj,Pi,  Authj,Wk, Tk, VERk:message,
+Inc:hash_func
+const user_gateway,gateway_snode,snode_user,
+subs1,subs2,subs3,subs4,subs5,subs6,subs7,subs8:protocol_id
+init State:=0
+transition
+%Start registration phase of the user
+1.State=0/\Rcv(start)=|>
+State':=1/\Ri':=new()
+/\HPWi' = H(PWi.Ri')
+/\HBi' = H(IDi.Bi.Ri')
+/\Snd({IDi,HPWi',HBi'}_SK1)
+%Send registration request to the RC
+/\secret({IDi, PWi,Bi,Ri'}, subs1, Ui)
+2.State=1/\Rcv({Ai, Pi,Vi, CIDi}_SK1)=|>
+%Receives smart card information from RC
+3. Start=2/\Rcv({PIDj',GIDj', H(IDi.Xj), H(GIDj'.Xj)}_SK1)=|>
+%receive message from RCsecurely
+State':=2
+/\Cj' = xor(H(IDi.Xj),Ai,HBi )
+/\Dj' = xor(H(GIDj.Xj), H(Ai,IDi))
+4. State=3
+State':=3/\Ru':=new()  /\TS1':=new()
+/\Ei' = xor(Cj,Ai,HBi )
+/\Fi' = H(Ei'.Ru')
+/\Gi' = xor(Dj,h(Ai.IDi))
+/\Ki' = xor(IDi,Gi)
+/\Li' = xor(Gi , (ru.TS1) )
+/\Snd(GIDj,SIDk, CIDi, Fi', Ki', Li')
+%Send login message to the GWj
+/\witness(Ui,GWj,user_gateway,Ru')
+/\secret({Ru'},subs2,{Ui,GWj,SNk})
+/\request(Ui,GWj,user_gateway,Ru')
+5.State=4/\Rcv(Wk, xor(Ru,(Rs,TS5)), VERk)=|>
+%Receives messages from SNk
+State':=4 /\TS6':=new()
+/\SKik' = H(IDi.SIDk.Ru.Rs)
+/\VERk' = H(xor(Wk ,Rs).SKik)
+endrole
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role regis(Ui,SNk,GWj,RC:agent,
+SK1: symmetric_key,
+%H is hash function
+H: hash_func, 
+Snd,Rcv: channel(dy))
+played_by RC
+def=
+local State : nat,
+IDi,PWi,Bi, Ri, CIDi, HBi, HPWi, Ai,PIDi,Vi, GIDj,SIDk, Ru,Rg, Rs,SGjk,Xj,Cj,Dj,TS1,TS2,TS3,TS4,TS5,TS6 :text,
+Fi, Ki, Li,Gi, Nj, Oj, Sj,Pi,  Authj,Wk, Tk, VERk:message,
+Inc: hash_func
+const user_gateway, gateway_snode, snode_user,subs1,subs2,subs3,subs4,subs5,subs6,subs7,subs8:protocol_id
+init State:=0
+transition
+1.State=0/\Rcv(start)=|>
+State':=1
+/\Xc':=new()
+2.State=1/\Rcv({IDi,HPWi,HBi}_SK1)=|>
+/\CIDi'= H(IDi.HBi))
+/\Ai' = xor(CIDi' ,H(IDi.Xc'), HPWi)
+/\Pi' = H(H(IDi.Xc).HPWi)
+/\Vi' = xor(H(xor(CIDi , H(IDi.HBi)), HPWi. )
+/\Snd({Ai', Pi',Vi', CIDi'}_SK1)
+%Send smart card information securely
+/\secret({Xc'},subs3,{RC})
+3. State=2
+State':=2
+/\GIDj':=new() /\PDj':=new()/\Tj':=new()
+/\Xj' = H(PDj'.GIDj'.Xc.Tj') 
+/\PIDj'=xor(PDj,IDi)
+/\SIDk':=new() /\SGjk':=new() 
+/\secret({PDj'},subs4,{RC})
+/\secret({Xj'},subs5,{GWj,RC})
+/\secret({SGjk'},subs6,{GWj,RC,SNk})
+/\Snd({GIDj', Xj', SIDk', SGjk'}_SK1)
+%send message to GWj securely
+/\Snd({SIDk', SGjk'}_SK1)
+%send message to SNk securely
+/\Snd({PIDj',GIDj', H(IDi.Xj), H(GIDj'.Xj)}_SK1)
+%send message to Ui securely
+
+ end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role gateway(GWj,Ui,SNk:agent,
+SK1:symmetric_key,
+%H is hash function
+H: hash_func, 
+Snd,Rcv:channel(dy))
+played_by GWj
+def=
+local State : nat,
+IDi,PWi,Bi, Ri, CIDi, HBi, HPWi, Ai,PIDi,Vi, GIDj,SIDk, Ru,Rg, Rs,SGjk,Xj,Cj,Dj,TS1,TS2,TS3,TS4,TS5,TS6 :text,
+Fi, Ki, Li,Gi, Nj, Oj, Sj,Pi,  Authj,Wk, Tk, VERk:message,
+Inc: hash_func
+const user_gateway, gateway_snode, snode_user,subs1,subs2,subs3,subs4,subs5,subs6,subs7,subs8:protocol_id
+init State:=0
+transition
+1.State=0/\Rcv({GIDj', Xj', SIDk', SGjk'}_SK1)=|>
+State':=1
+/\secret({Xj'},subs5,{GWj,RC})
+/\secret({SGjk'},subs6,{GWj,RC,SNk})
+
+2.State=1/\Rcv(GIDj, SIDk, CIDi, Fi, Ki, xor(Gi , (Ru.TS1)) )=|>
+%Receives login message from user 
+State':=2
+/\Gi' = H(GIDi.Xj)
+/\IDi' = xor(Ki , Gi')
+/\Ei' = H(IDi'.Xj)
+/\Fi' = H(Ei'.Ru).
+State':=3
+/\Rg'=new()/\ TS3'=new()
+/\Mj' = H(SIDk||SGjk ||CIDi)
+/\Nj' = xor(IDi', Mj')
+/\Oj' = xor(H(IDi'.SGjk),(Rg'.TS3'))
+/\Sj' = xor(Ru,Rg)
+/\Authj' = H(IDi'.SGjk.Mj'.Rg')
+
+/\Snd(SIDk, Nj', Oj', Sj', CIDi, Authj')
+%Send message to the sensor node
+
+/\secret({Rg'},subs7,{Ui,GWj,SNk})
+/\request(GWj,SNk,gateway_snode,Rg')
+
+ end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role snode (SNk,Ui,GWj : agent,
+SK1:symmetric_key,
+%H is hash function 
+H: hash_func,
+Snd, Rcv:channel(dy))
+played_by SNk 
+def=
+local State: nat,
+IDi,PWi,Bi, Ri, CIDi, HBi, HPWi, Ai,PIDi,Vi, GIDj,SIDk, Ru,Rg, Rs,SGjk,Xj,Cj,Dj,TS1,TS2,TS3,TS4,TS5,TS6 :text,
+Fi, Ki, Li,Gi, Nj, Oj, Sj,Pi,  Authj,Wk, Tk, VERk:message,
+Inc: hash_func
+const user_gateway,gateway_snode,snode_user,subs1,subs2,subs3,subs4,subs5,subs6,subs7,subs8: protocol_id
+init State:=0
+transition
+%Start node registration phase
+1.State=0/\Rcv({SIDk.SGjk}_SK1)=|>
+%Recieve secret values from RC
+State':=1
+/\secret({SGjk'},subs6,{GWj,RC,SNk})
+
+2.State=1/\Rcv(SIDk, Nj, xor((Rg.TS3) ,H(IDi.SGjk)), xor(Ru',Rg'), CIDi, Authj)=|>
+%Receives message from GWj
+State':=2
+/\Mj' = H(SIDk.SGjk.CIDi)
+/\IDi' = xor(Nj,Mj')
+/\Authj' = H(IDi'.SGjk.Mj'.Rg'), 
+State':=3/\Rs':=new() /\TS5':=new()
+/\SKki' = h(IDi'.SIDk.Ru'.Rs')
+/\VERk' = h(h(IDi'.SGjk).SKik)
+/\Tk' = xor(Ru',(Rs'.TS5'))
+/\Wk' = xor(IDi'.SGjk) ,Rs')
+ /\Snd(Wk', Tk', VERk')
+%Send message to the Ui
+/\secret({Rs'},subs8,{Ui,GWj,SNk})
+/\witness(SNk,Ui,snode_user,Rs')
+/\request(SNk,GWj,snode_gateway,Rs')
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(Ui,SNj,HGWN:agent,
+SK1: symmetric_key,
+H: hash_func)
+def=localSI,SJ,RI,RJ,TI,TJ,PI,PJ: channel(dy)
+composition
+user(Ui,GWj,SNk,SK1,H,SI,RI)
+/\gateway(GWj,Ui,SNk,SK1,H,SJ,RJ)
+/\snode(SNk,GWj,Ui,SK1,H,TI,TJ)
+end role
+
+role environment()
+def=
+const ui,snj,hgwn: agent, sk1: symmetric_key,
+h:hash_func,
+idi,pwi,bi, ri, cidi, hbi, hpwi, ai,pidi,vi, gidj,sidk, ru,rg, rs,sgjk,xj,cj,dj,ts1,ts2,ts3,ts4,ts5,ts6 :text,
+
+user_gateway,gateway_snode,snode_user,subs1,subs2,subs3,subs4:protocol_id
+%Represents Intruder knowledge
+intruder_knowledge={cidi,ri, ai,pidi,vi, gidj,sidk,cj,dj,fi, ki, li,gi, nj, oj, sj,pi,  authj,wk, tk, verk}
+composition 
+session(gwj,snk,ui,rc,sk1,h)
+/\session(gwj,snk,ui,rc,sk1,h)
+/\session(gwj,snk,ui,rc,sk1,h)
+/\session(gwj,snk,ui,rc,sk1,h)
+end role
+goal
+%Verifies secrecy of the confidential information 
+secrecy_of subs1	secrecy_of subs2
+secrecy_ofsubs3	secrecy_of subs4
+secrecy_ofsubs5	secrecy_ofsubs6
+secrecy_ofsubs7	secrecy_ofsubs8
+%Verifies authenticity of the random numbers used in the protocol
+authentication_on user_gateway_ru
+authentication_on gateway_snode_rg
+authentication_on snode_user_rs
+end goal 
+environment()

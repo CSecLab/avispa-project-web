@@ -1,0 +1,164 @@
+%% Projet Méthode formelle
+%% RATREMA Ny Hakanto - Stepienik Yann
+%% M2 MIAGE SID - 2016
+%% Définition de protocole pour
+%% La récupération d'un pli recommandé à la Poste, avec informations sur son smartphone 
+
+%% Définition des acteurs :
+%% 4 acteurs principaux : 
+%% Le serveur (Sr) , le smartphone (S) , le terminal (T) , le "certificate authority" (CA) 
+
+%% Echanges de messages entre les acteurs
+%% 1. S->Sr : {message,S} 
+%% 2. Sr->S : {Certificate,Sr} 
+%% 3. S->CA : {Certificate, Sr, S}
+%% 4. SSr : {SecretKey, S}_PbKeySr
+%% 6. S->Sr : {HTTPRequest, S}_SecretKey 
+%% 7. Sr->S : {HTTPAnswer, Sr}_SecretKey
+%% 8. S->T {OTP,S}
+%% 9. T->Sr{OTP,S,T}_SecretKey2
+%% 10. Sr->T{isValid2,OTP,Sr}_SecretKey2
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Définition du role Smartphone , initiant le protocole 
+role smartphone ( S , Sr , CA , T : agent,
+                                  PbKeySr : public_key,
+                                  SecretKey : symetric_key,
+                                  SND , RCV : channel (dy))
+played_by S def =
+
+        local State : nat,
+                  message : message,
+                  Certificate,SecretKey,HTTPRequest,HTTPAnswer,OTP : text,
+                  isValid : bool 
+                  
+        init State := 0
+        
+        transition 
+        
+        0. State = 0 /\ RCV (start) =|>
+        State':=1 /\ message' : new() /\ SND({message.S})
+        
+        2. State = 1 /\ RCV ({Certificate'.Sr}) =|>
+        State':=2 /\ SND ({Certificate'.Sr.S})
+        
+        4. State = 2 /\ RCV ({isValid'.CA}) =|>
+        State':=3 /\ SecretKey': new() /\  SND ({SecretKey'.S}_PbKeySr)
+        
+        6. State = 3 /\ HTTPRequest' : new() /\ SND({HTTPRequest.S}_SecretKey) =|>  % Le message demandant la liste des colis disponibles au bureau
+        State':=4 /\ RCV ({HTTPAnswer'.Se}_SecretKey)  % Le message contient la liste des colis ainsi que les OTP
+        
+        %% récupération de la commande
+        8. State = 4 /\ OTP' : new() /\ SND({OTP'.S})
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Définition du role Serveur 
+role serveur ( S , Sr ,T : agent,
+                                  PbKeySr : public_key,
+                                  SecretKey ,SecretKey2 : symetric_key,
+                                  SND , RCV : channel (dy))
+played_by Sr def =
+
+        local State : nat,
+                  message : message,
+                  Certificate,SecretKey,HTTPRequest,HTTPAnswer,OTP : text,
+                  isValid : bool 
+                  
+        init State := 0
+        
+        transition 
+        
+        0. State = 0 /\ RCV ({message.S}) =|>
+        State':=1 /\ Certificate' : new() /\ SND({Certificate.Sr})
+        
+        5. State':=3 /\ RCV ({SecretKey'.S}_PbKeySr)
+        
+        6. State = 3 /\ RCV ({HTTPRequest'.S}_SecretKey) =|>
+        State':= 4 /\ HTTPAnswer' : new() /\ SND({HTTPAnswer.Sr}_SecretKey)
+        
+        9. State':= 5 /\ RCV ({OTP'.S.T}_SecretKey2) 
+        
+        10.State = 5 /\ isValid2' : new() /\ SND({isValid2.OTP.Sr}_SecretKey2)
+        
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Définition du role Certificate Authority
+role certificate_authority ( S, CA: agent,
+                                  SND , RCV : channel (dy))
+played_by CA def =
+
+        local State : nat,
+                  message : message,
+                  Certificate,SecretKey,HTTPRequest,HTTPAnswer,OTP : text,
+                  isValid : bool 
+                  
+        init State := 0
+        
+        transition 
+        
+        3. State':=2  RCV({Certificate'.Sr.S})
+        
+        4. State = 2 /\  isValid' : new() /\ SND({isValid.CA}_SecretKey2)
+        
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Définition du role Terminal 
+role terminal ( S , Sr, T : agent,
+                                  PbKeySr : public_key,
+                                  SecretKey2 : symetric_key,
+                                  SND , RCV : channel (dy))
+played_by T def =
+
+        local State : nat,
+                  message : message,
+                  Certificate,SecretKey,HTTPRequest,HTTPAnswer,OTP : text,
+                  isValid2 : bool 
+                  
+        init State := 0
+        
+        transition 
+        %% protocole depuis la commande jusqu'à la génération de clé
+        
+        8. State = 4  /\ RCV({OTP'.S}) =|>
+        State':= 5  /\ SND({OTP'.S.T})        
+        
+        10. State = 5  /\ RCV({isValid2'.OTP.Sr}) 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% definition du role caractérisant une session
+
+role session(S, Sr,T,CA : agent, 
+                                PbKeySr : public_key, 
+                                SecretKey2,SecretKey : symmetric_key) def=
+
+  local SS, RS, SSr, RSr, ST, RT, RCA, SCA : channel (dy)
+
+  composition 
+
+        smartphone (S,Sr,CA,T,PbKeySr,SecretKey,SS,RS)
+     /\ terminal (S,Sr,T,PbKeySr,ST,RT)
+         /\ serveur (S , Sr ,T,PbKeySr,SecretKey,SecretKey2,SSr,RSr)
+         /\ certificate_authority (S, CA,SCA,RCA)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% definition du role caractérisant le scenario à éxécuter
+role environment() def=
+
+const terminal, serveur,certificate_authority,smartphone, i  : agent,
+          PbKeySr : public_key ,
+          SecretKey,SecretKey2: symmetric_key
+
+    intruder_knowledge = {terminal, serveur, certificate_authority, smartphone, ki, inv(ki)}
+
+    composition
+
+        session(smartphone,serveur,PbKeySr,SecretKey,ki)
+        /\session(smartphone,certificate_authority)
+        /\session(smartphone,terminal)
+        /\session(terminal,serveur,SecretKey2)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% lancement du role principal
+environment()        

@@ -1,0 +1,109 @@
+role client(
+		C,S: agent,
+		Kc, Kca: public_key,
+		SND, RCV: channel(dy),
+		H, PRF: hash_func
+		)
+	played_by C def=
+	
+	local State: nat,
+		Nc, Ns: text,
+		Vc, Vs,Sid: text,
+		PMS, MS: text,
+		Ks: public_key,
+		Sk, Ck: symmetric_key,
+		Ca: agent
+	
+
+	init State:= 0
+
+	transition
+
+	1. State = 0 /\ RCV(start) =|>
+	   State':=2 /\ Nc' := new() /\
+	   Vc':=new() /\ Sid':=new() /\
+	   SND(Nc'.Sid'.Vc')
+
+	2. State = 2 /\ RCV(Ns'.Sid.Vs'.{Ca'.S.Ks'}_inv(Kca)) =|>
+	   State':=4 /\ PMS':= new() 
+			/\ MS' := PRF(PMS, Nc, Ns) 
+			/\ Ck' := PRF(MS', Nc, Ns, C) 
+			/\ Sk' := PRF(MS', Nc, Ns, S) 
+			/\ SND({Ca'.C.Kc}_inv(Kca).{PMS'}_Ks'.{H(MS',H(Nc,Ns', PMS', Kc, Ks', Sid, MS'))}_inv(Kc).{H(MS',H(Nc,Ns', PMS', Kc, Ks', Sid, MS'))}_Ck') %Client certificate,PMS, client verification, finished 
+			/\ secret(PMS', pms, {C, S})
+
+	3. State = 4 /\ RCV({H(MS',H(Nc,Ns', PMS', Kc, Ks', Sid, MS'))}_Sk) =|>
+	   State' := 6
+
+end role
+
+role server(
+		C, S, Ca: agent,
+		Ks, Kca: public_key,
+		SND, RCV: channel(dy),
+		H, PRF: hash_func
+	)
+	played_by S def=
+
+	local State: nat, 
+		Nc, Ns: text,
+		Vc, Vs, Sid: text, 
+		PMS, MS: text,
+		Kc: public_key,
+		Sk, Ck: symmetric_key,
+		Ca: agent
+
+	init Sate:= 0
+
+	transition
+	
+	1. State = 1 /\ RCV(Nc', Sid', Vc') 
+		=|> 
+		State' := 3 
+		/\ Ns' := new() 
+		/\ Vs' := new()
+		/\ SND(Ns'.Sid'.Vs'.{Ca.S.Ks}_inv(Kca))
+	 
+	2. State = 3 /\ RCV({Ca.C.Kc'}_inv(Kca).{PMS'}_Ks.{H(PRF(PMS', Nc, Ns),H(Nc,Ns, PMS', Kc', Ks, Sid,PRF(PMS', Nc, Ns)))}_inv(Kc).{H(PRF(PMS', Nc, Ns),H(Nc,Ns', PMS', Kc, Ks', Sid, PRF(PMS', Nc, Ns)))}_PRF(PRF(PMS', Nc, Ns), Nc, Ns, C))
+			=|> MS' := PRF(PMS', Nc, Ns)
+			/\ Sk' := PRF(MS', Nc, Ns, S)
+			/\ Ck' := PRF(MS', Nc, Ns, C)
+			/\ SND({H(MS',H(Nc,Ns, PMS', Kc', Ks, Sid, MS'))}_Sk') =|>
+	   State' := 5
+end role
+
+role ssl(C, S, Ca:agent,
+	 Kc, Ks, Kca: public_key,
+	 H, PRF: hash_func)
+	def=
+
+	local SC,RC, SS, RS
+
+	composition
+
+		client(C,S,Kc, Kca, SC, RC, H, PRF)
+		/\ server( C, S, Ca, Ks, Kca, SS,RS, H, PRF) 
+end role
+				
+role environment()
+	local 
+		const c, s, ca: agent,
+		      kc, ks, kca: public_key,
+		      h, prf: hash_func
+	intruder_knowledge = {c, s, ca, kc, ks, ki, kca, h, prf, inv(ki)}
+
+	composition
+		
+		ssl(c, s, ca, kc, ks, kca, h, prf)
+		/\ ssl(i, s, ca, ki, ks, kca, h, prf)
+		/\ ssl(c, i, ca, kc, ki, kca, h, prf)
+
+end role
+
+goal
+	secrecy_of pms
+
+end goal
+
+environment()
+	   

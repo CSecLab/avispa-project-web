@@ -1,0 +1,76 @@
+role role_Mn(Mn:agent,Ro:agent,K:public_key,N:agent,SND,RCV:channel(dy))
+played_by Mn
+def=
+	local
+		State:nat,Lifetime:text,Mac:text,BU:text,Tmp:text,Back:text
+             const 
+                           sec_N1 : protocol_id
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ Lifetime':=new() /\ Tmp':=new() /\ Mac':=new() /\ BU':=new() /\ SND(BU'.{Mac'}_inv(K).Tmp'.Lifetime') /\ witness(Mn,Ro,auth_1,Mac')/\ secret(Mac',sec_N1,{Mn,Ro})
+		2. State=1 /\ RCV(Back') =|> State':=2 /\ SND(BU'.{Mac}_inv(K).Tmp.Lifetime)/\ wrequest (Mn,Ro,auth_1,Back')
+		4. State=2 /\ RCV(Back') =|> State':=3 /\ request(Mn,Ro,auth_1,Back')
+end role
+
+role role_Ro(Ro:agent,Mn:agent,N:agent,SND,RCV:channel(dy))
+played_by Ro
+def=
+	local
+		State:nat,Lifetime:text,K:public_key,Mac:text,BU:text,Tmp:text,Back:text,NS:text,NA:text
+              const 
+                           sec_N2 : protocol_id
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(BU'.{Mac'}_inv(K').Tmp'.Lifetime') =|> State':=1 /\ Back':=new() /\ SND(Back')/\ witness(Ro,Mn,auth_1,Back')
+/\ secret(Back',{Mn,Ro})
+		5. State=1 /\ RCV(NS') =|> State':=2 /\ NA':=new() /\ SND(NA')   /\ request(Ro,Mn,auth_1,NA')
+end role
+
+role role_Cn(Cn:agent,Mn:agent,K:public_key,SND,RCV:channel(dy))
+played_by Cn
+def=
+	local
+		State:nat
+	init
+		State := 0
+	transition
+end role
+
+role role_N(N:agent,Ro:agent,Mn:agent,SND,RCV:channel(dy))
+played_by N
+def=
+	local
+		State:nat,Lifetime:text,K:public_key,Mac:text,BU:text,Tmp:text,Back:text,NS:text,NA:text
+	init
+		State := 0
+	transition
+		3. State=0 /\ RCV(BU'.{Mac'}_inv(K').Tmp'.Lifetime') =|> State':=1 /\ witness(N,Mn,auth_2,Mac')  /\ Back':=new() /\ SND(Back') /\ NS':=new() /\ SND(NS') /\ witness(N,Ro,auth_2,NS')
+		6. State=1 /\ RCV(NA') =|> State':=2
+end role
+
+role session1(Cn:agent,K:public_key,N:agent,Ro:agent,Mn:agent)
+def=
+	local
+		SND4,RCV4,SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_N(N,Ro,Mn,SND4,RCV4) /\ role_Ro(Ro,Mn,N,SND3,RCV3) /\ role_Cn(Cn,Mn,K,SND2,RCV2) /\ role_Mn(Mn,Ro,K,N,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		%hash_0:function,  
+                      router:agent,key:public_key,correnode:agent,node:agent,mobilenode:agent,auth_1:protocol_id,auth_2:protocol_id
+	intruder_knowledge = {mobilenode,correnode,router,node}
+	composition
+		session1(correnode,key,node,router,mobilenode)
+end role
+
+goal
+	authentication_on auth_1
+	authentication_on auth_2
+end goal
+
+environment()

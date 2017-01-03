@@ -1,0 +1,119 @@
+role alice ( A, S, B: agent,
+             Ka    : symmetric_key,
+             SND_SA, RCV_SA,SND_BA, RCV_BA: channel(dy))
+			 
+played_by A
+def=
+     local State     : nat,
+	       Na   : text,
+		   K, Ks, Kd : symmetric_key
+		   
+     const id  : text
+	 
+     init  State := 0
+	 
+	 transition
+	 1. State   = 0 /\ RCV_SA(start) =|>
+	    State' := 2 /\ Na' := new()
+		            /\ SND_SA(A.B.{id.M}_K)
+					
+	 2. State   = 2 /\ RCV_SA(A.B.AR.Ws.{Kd}_K') =|>
+	    State' := 4 /\ SND_BA(A.B.id.AR.Ws.Na')
+		
+	 3. State   = 4 /\ RCV_BA(A.B.H1.R1) =|>
+	    State' := 6 /\ SND_BA(A.B.H2.Ok)
+		
+	 4. State   = 6 /\ RCV_BA(A.B.Ok) =|>
+	    State'  := 8 /\ request(A,B,alice_bob_na,Na)
+		
+end role
+	 
+
+role server (A, S, B : agent,
+             Kd, Kc  : symmetric_key,
+             SND_AS, RCV_AS: channel(dy))
+
+played_by S
+def= 
+
+     local State : nat,
+           Ns, Na: text,
+           K, Kd : symmetric_key,
+           AR, Ws: text
+init State  := 1
+
+transition
+
+1. State  = 1 /\ RCV_AS(A.B.{id.M}_K) =|>
+   State':=	3 /\ Ws' := new() /\ AR' := new()
+              /\ SND_AS(A.B.AR'.Ws'.{Kd}_K) 
+			  /\ secret(K', Kd, {A,B,S})
+			  
+end role
+
+
+role bob( A, S, B: agent,
+          Kd : symmetric_key,
+		  SND_AB, RCV_AB: channel(dy))
+		  
+played_by B
+def= 
+
+local State   : nat,
+      H1, R1  : text,
+	  Kc      : symmetric_key,
+	  Hash    : hash_func
+	  
+init State  := 5
+
+transition
+
+1. State  =  5 /\ RCV_AB(A.B.id.AR'.Ws'.Na') =|>
+   State' :=  7 /\ R1' := new() /\ Kd' := Hash(id.AR.Ws)
+               /\ H1' := Hash(Na'.R1')
+               /\ SND_AB(A.B.H1'.R1')
+			   
+2. State   = 7 /\ RCV_AB(A.B.H2'.Ok) =|>
+   State' := 9 /\ SND_AB(A.B.Ok)  % Missing Calculation for H2
+			   /\ witness(N,A, alice_bob_na, Na')
+			   
+end role
+
+role session (A, S, B : agent,
+              K, Ks   : symmetric_key)
+def=
+
+    local			  
+		SSA, RSA, 
+        SBA, RBA,
+        SAS, RAS,
+		SAB, RAB   : channel(dy)
+		
+	composition
+	
+	     alice (A, S, B, K, Kd, SSA, RSA, SBA, RBA)
+	/\	 server(A, S, B, K, Kc, Kd, SAS, RAS)
+    /\   bob   (A, S, B, Kc, SAB, RAB)
+	
+end role
+
+role environment()
+def=
+   const a, b, s        : agent,
+         ka, kd, ki     : symmetric_key,
+		 alice_bob_na, k: protocol_id
+		 
+	intruder_knowledge = {a, b, s, ki}
+	
+composition
+    session(a,s,b,k,kd)
+	/\ session (a,s,i,AR,Ws,id)
+	/\ session (i,s,b,ki)
+end role
+
+goal
+    secrecy_of kd
+    authentication_on alice_bob_na
+end goal
+
+environment()

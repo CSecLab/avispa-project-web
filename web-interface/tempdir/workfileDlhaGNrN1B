@@ -1,0 +1,47 @@
+%%%%%%%%%%%%%%%%%%%%%% UE %%%%%%%%%%%%%%%%%
+role ue (
+U,N,B,H : agent,
+Ksnaf : symmetric_key, % ksnaf
+Kuh : symmetric_key, %sk
+Kpub_u : public_key,
+Sign : hash_func,
+Request,
+Initiation_Required,Success : text,
+SND_UN, RCV_UN, SND_UB, RCV_UB : channel(dy))
+played_by U def=
+local State , N1, A1, B1 : nat,
+IMPI, IMPU, RAND, B_TID : text,
+Key_U, Key_B : message,
+Pkg_param, Q : nat set
+const sec_u_kuh : protocol_id,
+sec_u_ksnaf : protocol_id,
+auth_R : protocol_id,
+auth_B : protocol_id 
+init State := 0
+transition
+1. State = 0 / RCV_UN(start) =|>
+State’:= 1 / SND_UN(Request)
+2. State = 1 / RCV_UN(Initiation_Required) =|>
+State’:= 2 / IMPI’:= new()
+/ IMPU’:= new()
+/ SND_UB(IMPI’.IMPU’)
+3. State = 2 / RCV_UB(Kpub_u’.
+{inv(Kpub_u)}_Kuh.RAND’.Pkg_param’) =|>
+State’:= 3 / N1’:=new()
+/ Q’ :=new()
+/ A1’ :=new()
+/ SND_UB(Sign(RAND’,N1’,Q’).N1’.Q’.exp(A1’,Kpub_u’))
+/ secret(Kuh,sec_u_kuh,{U,H})
+/ witness(U,B,auth_R,Sign(RAND’,N1’,Q’))
+/ request(U,B,auth_R,Sign(RAND’,N1’,Q’))
+4. State = 3 / RCV_UB({B_TID’.Key_B’}_Kpub_u) =|>
+State’:= 4 / Ksnaf’ := exp(A1, Key_B’)
+/ N1’:=new()
+/ Q’ :=new()
+/ SND_UN(B_TID’.Sign(B_TID’,N1’,Q’).N1’.Q’.IMPU)
+/ witness(U,B,auth_B,Sign(B_TID’,N1’,Q’))
+/ request(U,B,auth_B,Sign(B_TID’,N1’,Q’))
+/ secret(Ksnaf’,sec_u_ksnaf,{U,B})
+5. State = 4 / RCV_UN(Success) =|>
+State’:= 5
+end role  

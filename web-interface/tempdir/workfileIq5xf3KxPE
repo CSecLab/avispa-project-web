@@ -1,0 +1,95 @@
+role tag(T,R: agent,
+         Snd, Rec: channel(dy),
+          SQN: nat,ID_H:text,
+          H: hash_func)
+played_by T
+def=
+
+  local State,RN : nat,ID1,M:text
+   const  ih,i : protocol_id
+
+  transition
+
+    1.  State   = 2 /\Rec(RN')
+        =|> 
+        State' := 3 /\ ID1':=H(ID_H.SQN)
+                    /\ M':=(ID_H.RN')
+                    /\ Snd(ID1')/\ Snd(M') 
+                     /\secret(ID1',ih,{S})/\secret(M',i,{S})
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role reader(R,T:agent,
+            Snd,Rec,Snd1: channel(dy),
+            K_M: symmetric_key)
+played_by R
+def=
+  local State,RN:nat,ID1,M:text
+          
+  init  State := 1
+  transition
+    1.  State = 1 /\Rec(start) =|>
+        State':=2 /\ RN':=new()/\Snd(RN')
+
+    2.State=3/\ Rec( ID1')/\Rec(M')  =|> State':=4/\ Snd1(ID1')/\Snd1(M')/\Snd1(RN')
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role server(S,R: agent,
+        Snd, Rec: channel(dy),
+         M2,IDS:text,
+         SQN:nat,H: hash_func)
+played_by S
+def=
+local  State,R :nat,ID_T,M,RN:text
+          
+  transition
+1.State=4 /\  Rec(ID1')/\ Rec(M')/\Rec(RN')=|> State':=5/\Snd(M2)/\Snd(RN')/\Snd(IDS)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(S,R,T: agent,
+	      K_M: symmetric_key,
+                    SQN :nat,
+	      ID_H,M2,IDS: text, HT: hash_func)
+         def=
+                   local
+                   RT, TR,RS,
+                   RS1, SR,
+                   RT1,TR1:channel (dy)
+   composition 
+                 reader(R,T,RT,TR,RS,K_M)
+          /\    tag(T,R,TR1,RT1,SQN,ID_H,H)
+          /\    server(S,R,SR,RS1,M2,IDS,SQN,H)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+ local  tr,rt,tr1,rt2,sr,rs: channel (dy)
+ const r1, r2                 : protocol_id,
+        t,r,s  : agent,
+        k_as  : symmetric_key,
+        ht           : hash_func,
+        sqn1:net,
+       ide,me,ide1: text,
+
+ composition
+         session(s,r,t,k_as,sqn1,ide,me,ide1) 
+  %  /\session(i,s,k_is,seq_is,f1,f2,f5,si1,ri1,ss2,rs2) 
+  %  /\session(a,i,k_ai,seq_ai,f1,f2,f5,sa2,ra2,si2,ri2)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+  % Confidentiality (G12)
+  secrecy_of r1,r2,ih,i
+
+  % Message Authentication (G2)
+  % Mobile weakly authenticates Server on r1  % the nonce R
+  weak_authentication_on r1
+
+  % Message Authentication (G2)
+  % Server weakly authenticates Mobile on r2  % the nonce R
+  %weak_authentication_on r2
+
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+

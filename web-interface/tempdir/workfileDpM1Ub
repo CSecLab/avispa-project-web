@@ -1,0 +1,61 @@
+role role_R(R:agent,D:agent,Rr:text,Key_set_R_D:(symmetric_key) set,Key_set_D_R:(symmetric_key) set,SND,RCV:channel(dy))
+played_by R
+def=
+	local
+		State:nat,K:text,ID:text,Rt:text,H:hash_func,Key_2:symmetric_key,Key_1:symmetric_key
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ SND(Rr)
+		2. State=1 /\ RCV(xor(Rt',K').H(xor(xor(Rt',Rr),ID'))) =|> State':=2 /\ Key_1':=new() /\ Key_set_R_D':=cons(Key_1',Key_set_R_D) /\ SND({xor(Rt',K').H(xor(xor(Rt',Rr),ID')).Rt'}_Key_1')
+		4. State=2 /\ in(Key_2',Key_set_D_R) /\ RCV({H(xor(xor(ID,Rt),K))}_Key_2') =|> State':=3 /\ Key_set_D_R':=delete(Key_2',Key_set_D_R)
+		5. State=3 /\ RCV(H(xor(xor(ID,Rt),K))) =|> State':=4
+end role
+
+role role_T(T:agent,Rt:text,ID:text,K:text,H:hash_func,SND,RCV:channel(dy))
+played_by T
+def=
+	local
+		State:nat,Rr:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(Rr') =|> State':=1 /\ SND(xor(Rt,K).H(xor(xor(Rt,Rr'),ID)))
+end role
+
+role role_D(D:agent,ID:text,K:text,H:hash_func,Key_set_R_D:(symmetric_key) set,Key_set_D_R:(symmetric_key) set,SND,RCV:channel(dy))
+played_by D
+def=
+	local
+		State:nat,Rr:text,Rt:text,Key_2:symmetric_key,Key_1:symmetric_key
+	init
+		State := 0
+	transition
+		3. State=0 /\ in(Key_1',Key_set_R_D) /\ RCV({xor(Rt',K).H(xor(xor(Rt',Rr'),ID)).Rt'}_Key_1') =|> State':=1 /\ Key_set_R_D':=delete(Key_1',Key_set_R_D) /\ witness(D,T,auth_3,Rt') /\ witness(D,T,auth_4,Rr') /\ Key_2':=new() /\ Key_set_D_R':=cons(Key_2',Key_set_D_R) /\ SND({H(xor(xor(ID,Rt'),K))}_Key_2') /\ SND(H(xor(xor(ID,Rt'),K)))
+end role
+
+role session1(Rt:text,T:agent,R:agent,Rr:text,D:agent,ID:text,K:text,H:hash_func,Key_set_R_D:(symmetric_key) set,Key_set_D_R:(symmetric_key) set)
+def=
+	local
+		SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_D(D,ID,K,H,Key_set_R_D,Key_set_D_R,SND3,RCV3) /\ role_T(T,Rt,ID,K,H,SND2,RCV2) /\ role_R(R,D,Rr,Key_set_R_D,Key_set_D_R,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		hash_0:hash_func,k:text,database:agent,reader:agent,randomt:text,tag:agent,randomr:text,id:text,hash:hash_func,auth_1:protocol_id,auth_2:protocol_id,auth_3:protocol_id,auth_4:protocol_id
+	intruder_knowledge = {}
+	composition
+		session1(randomt,tag,reader,randomr,database,id,k,hash,{},{})
+end role
+
+goal
+	authentication_on auth_1
+	authentication_on auth_2
+	authentication_on auth_3
+	authentication_on auth_4
+end goal
+
+environment()

@@ -1,0 +1,47 @@
+role role_T(T:agent,R:agent,K:text,Ks:text,TID:text,SND,RCV:channel(dy))
+played_by T
+def=
+	local
+		State:nat,Nr:text,H:hash_func,Nt:text,Ns:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(Nr') =|> State':=1 /\ Nt':=new() /\ SND({xor(xor(TID,Nt'),H(xor(K,Nt')))}_Ks)
+		2. State=1 /\ RCV({xor(Ns',H(K.Nt.Ns'))}_Ks) =|> State':=2
+end role
+
+role role_R(T:agent,R:agent,K:text,Ks:text,TID:text,SND,RCV:channel(dy))
+played_by R
+def=
+	local
+		State:nat,Nr:text,H:hash_func,Nt:text,Ns:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ Nr':=new() /\ SND(Nr')
+		1. State=1 /\ RCV({xor(xor(TID,Nt'),H(xor(K,Nt')))}_Ks) =|> State':=2 /\ witness(R,T,auth_2,Nt') /\ Ns':=new() /\ SND({xor(Ns',H(K.Nt'.Ns'))}_Ks)
+end role
+
+role session1(T:agent,R:agent,K:text,Ks:text,TID:text)
+def=
+	local
+		SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_R(T,R,K,Ks,TID,SND2,RCV2) /\ role_T(T,R,K,Ks,TID,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		alice:agent,bob:agent,const_1:text,const_1:text,const_1:text,auth_1:protocol_id,auth_2:protocol_id
+	intruder_knowledge = {}
+	composition
+		session1(alice,bob,const_1,const_1,const_1)
+end role
+
+goal
+	authentication_on auth_1
+	authentication_on auth_2
+end goal
+
+environment()

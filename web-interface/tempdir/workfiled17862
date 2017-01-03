@@ -1,0 +1,72 @@
+role handy(
+	A,B,H: agent,
+	Khb: symmetric_key,
+	SNDtoA: channel(ota),
+	RCVfromB: channel(dy))
+played_by H def=
+local	Transaktionsdaten : message,
+	Tan : text
+transition
+	1. RCVfromB({Transaktionsdaten'.Tan'}_Khb) =|> SNDtoA(Transaktionsdaten'.Tan')
+end role
+
+
+role anwender(
+	A,B,H : agent,
+	SNDtoB : channel(dy),
+	RCVfromH : channel(ota),
+	RCVfromB : channel(dy))
+played_by A def=
+local	State : nat,
+	Transaktionsdaten : message,
+	Tan : text
+init	State := 0
+	
+	transition
+	1. State = 0 /\ RCVfromB(start) =|> State':= 2 /\ Transaktionsdaten' := new() /\ SNDtoB(Transaktionsdaten')
+	2. State = 2 /\ RCVfromH(Transaktionsdaten.Tan') =|> State':= 4 /\ witness(A,B,bank_anwender_T,Transaktionsdaten)
+end role
+
+role bank(
+	A,B,H : agent,
+	Khb : symmetric_key,
+	SNDtoH,RCVfromA : channel(dy))
+played_by B def=
+local	State : nat,
+	Transaktionsdaten : message,
+	Tan : text
+init	State := 1
+
+transition
+	1. State = 1 /\ RCVfromA(Transaktionsdaten') =|> State':= 3 /\ Tan' := new() /\ SNDtoH({Transaktionsdaten'.Tan'}_Khb)
+	2. State = 3 /\ RCVfromA(Tan) =|> State':= 5 /\ request(A,B,bank_anwender_T,Transaktionsdaten)
+end role
+
+role session(
+	A,B,H : agent,
+	Kah : symmetric_key)
+	def=
+local	SA, RAfB, SB, RB, RH: channel (dy),
+	RAfH, SH : channel(ota)
+
+composition
+	anwender (A, B, H, SA, RAfH, RAfB) /\ bank (A, B, H, Kah, SB, RB) /\ handy(A, B, H, Kah, SH, RH)
+end role
+
+role environment()
+	def=
+	const
+		bank_anwender_T : protocol_id,
+		khb,khi,kib : symmetric_key,
+		a,b,h,i : agent
+	intruder_knowledge = {a,b,h,khi,kib}
+
+composition
+	session(a,b,h,khb) /\ session(a,b,i,khb) /\ session(a,i,h,khb) /\ session(i,b,h,khb)
+end role
+
+goal
+	authentication_on bank_anwender_T
+end goal
+
+environment()

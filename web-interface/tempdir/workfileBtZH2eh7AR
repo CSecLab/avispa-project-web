@@ -1,0 +1,113 @@
+role alice (A,B,S:agent,
+             Ka:symmetric_key,
+               SND_SA,RCV_SA,SND_BA,RCV_BA:channel(dy))
+
+played_by A
+def=
+local state : nat,
+Na,Ns:text,
+k:symmetric_key
+X: {symmetric_key.text.text}_symmetric_key
+init state :- 0
+
+transition
+1. state=0 /\ RCV_BA(start)=|>
+   state' :=2/\NA' :=new()
+   /\SND_SA(A.B.{Na'}_Ka)
+
+2.state=2/\RCV_SA(A.B.{K'.Na.Ns'}_Ka.X')=|>
+  state' :=4 /\SND_BA(A.B.X'.{Na.Ns'}_K')
+ 
+3. state=4/\RCV_BA(A.B.{Ns.Na}_K) =|>
+    state' :=6/\ request(A,B,alice_bob_na,Na)
+end role
+
+
+
+role server (A,B,S:agent,
+             Ka,Kb:symmetric key,
+               SND_AS,RCV_AS:channel(dy))
+
+played_by S
+def=
+local state : nat,
+Na,Ns:text,
+k:symmetric_key
+
+init state :- 1
+
+transition
+1. state=1 /\ RCV_AS(A.B.{Na'}_Ka)=|>
+   state' :=3 /\ Ns' :=new()
+              /\ K' :=new()
+              /\SND_AS(A.B.{K'.Na'.Ns'}_Ka.{K'.Na'.Ns'}_Kb)
+              /\secret(K',K,{A,B,S})
+end role
+
+
+
+role bob (A,B,S:agent,
+             Kb:symmetric key,
+               SND_AB,RCV_AB:channel(dy))
+
+played_by B
+def=
+local state : nat,
+Na,Ns:text,
+k:symmetric_key
+
+init state :- 5
+
+transition
+1. state=5 /\ RCV_A(A.B.{K'.Na'.Ns'}_Kb.{Na'.Ns'}_K')=|>
+  
+state':=7/\SND_AB(A.B.{Ns'.Na'}_K')
+         /\witness(B,A,alice_bob_na,Na')
+ 
+
+end role
+
+role session(A,B,S:agent,
+             Ka,Kb:symmetric key,)
+def=
+
+local
+   SSA,RSA,
+   SBA,RBA,
+   SAS,RAS,
+   SAB,RAB:channel(dy)
+
+composition  
+
+  alice (A,S,B,Ka, SSA,RSA,SBA,RBA)
+/\server(A,S,B,Ka,Kb,SAS,RAS) 
+/\bob(A,S,B,Kb,SAB,RAB)
+
+end role
+
+role environment()
+
+def=
+
+const a,b,s:agent,
+ Ka,Kb,Ki:symmetric key,
+alice_bob_na_K:protocol_id
+
+intruder_knowledge={a,b,s,Ki}
+
+composition
+
+session(a,s,b,Ka,Kb)
+/\ session(a,s,i,Ka,Ki)
+/\session(i,s,b,Ki,Kb)
+end role
+
+
+
+Goal
+
+      secrecy_of K
+      authentication_on_alice_bob_na
+      end roal
+
+environment()

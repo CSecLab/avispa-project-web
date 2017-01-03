@@ -1,0 +1,157 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileQuwLWc
+
+section signature:
+
+state_s_cscf: agent * agent * symmetric_key * symmetric_key * symmetric_key * text * hash_func * hash_func * hash_func * nat * text * hash_func * hash_func * hash_func * set(agent) * set(agent) * set(agent) * nat -> fact
+state_ue: agent * agent * symmetric_key * symmetric_key * symmetric_key * text * hash_func * hash_func * hash_func * nat * text * hash_func * hash_func * hash_func * set(agent) * set(agent) * set(agent) * nat -> fact
+
+
+section types:
+
+MGoal, start: message
+seq_s, ck_s, ik_s, rm, rs, seq_m, ck_m, ik_m: protocol_id
+ASGoal, Set_58, Set_57, Set_56, Set_34, Set_31, Set_29, Dummy_Set_58, Dummy_Set_57, Dummy_Set_56, Dummy_Set_34, Dummy_Set_31, Dummy_Set_29: set(agent)
+k_ms, k_is, k_mi, ck_ms, ck_is, ck_mi, ik_ms, ik_is, ik_mi, Ks, Ik, Ck: symmetric_key
+SID, State, 3, 2, 1, 4, Dummy_State: nat
+f1, f2, f5, Add, F3, F4, F1, F2, F5, dummy_hash: hash_func
+seq_ms, seq_is, seq_mi, R, Seq, Dummy_Seq, Dummy_R, dummy_nonce: text
+A2Goal, A1Goal, m, p, s, S, M, i: agent
+set_116, set_115, set_114, set_103, set_102, set_101: set
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(m).
+ iknows(s).
+ iknows(f1).
+ iknows(f2).
+ iknows(f5).
+ iknows(i).
+ state_ue(m,s,k_ms,ik_ms,ck_ms,seq_ms,f1,f2,f5,1,dummy_nonce,dummy_hash,dummy_hash,dummy_hash,set_101,set_102,set_103,3).
+ state_s_cscf(s,m,k_ms,ik_ms,ck_ms,seq_ms,f1,f2,f5,1,dummy_nonce,dummy_hash,dummy_hash,dummy_hash,set_114,set_115,set_116,4)
+
+
+section rules:
+
+step step_0 (M,S,Ks,Ik,Ck,Seq,F1,F2,F5,Dummy_R,Add,F3,F4,Dummy_Set_29,Dummy_Set_31,Set_34,SID,R) :=
+ state_ue(M,S,Ks,Ik,Ck,Seq,F1,F2,F5,1,Dummy_R,Add,F3,F4,Dummy_Set_29,Dummy_Set_31,Set_34,SID).
+ iknows(start)
+=[exists R]=>
+ state_ue(M,S,Ks,Ik,Ck,Seq,F1,F2,F5,2,R,Add,F3,F4,Dummy_Set_29,Dummy_Set_31,Set_34,SID).
+ iknows(scrypt(Ik,pair(M,pair(R,scrypt(Ck,apply(F2,pair(Ks,R))))))).
+ secret(Ck,ck_m,Dummy_Set_29).
+ secret(Ik,ik_m,Dummy_Set_31).
+ witness(M,S,rm,R).
+ contains(M,Dummy_Set_29).
+ contains(S,Dummy_Set_29).
+ contains(M,Dummy_Set_31).
+ contains(S,Dummy_Set_31)
+
+step step_1 (M,S,Ks,Ik,Ck,Dummy_Seq,F1,F2,F5,Dummy_R,Add,F3,F4,Set_29,Set_31,Dummy_Set_34,SID,R) :=
+ state_ue(M,S,Ks,Ik,Ck,Dummy_Seq,F1,F2,F5,2,Dummy_R,Add,F3,F4,Set_29,Set_31,Dummy_Set_34,SID).
+ iknows(scrypt(Ik,scrypt(Ck,pair(scrypt(apply(F5,pair(Ks,R)),Dummy_Seq),apply(F1,pair(Ks,pair(Dummy_Seq,R)))))))
+ =>
+ state_ue(M,S,Ks,Ik,Ck,apply(Add,pair(Dummy_Seq,1)),F1,F2,F5,3,R,Add,F3,F4,Set_29,Set_31,Dummy_Set_34,SID).
+ secret(Dummy_Seq,seq_m,Dummy_Set_34).
+ contains(M,Dummy_Set_34).
+ contains(S,Dummy_Set_34)
+
+step step_2 (S,M,Ks,Ik,Ck,Dummy_Seq,F1,F2,F5,Dummy_R,Add,F3,F4,Dummy_Set_56,Dummy_Set_57,Dummy_Set_58,SID,R) :=
+ state_s_cscf(S,M,Ks,Ik,Ck,Dummy_Seq,F1,F2,F5,1,Dummy_R,Add,F3,F4,Dummy_Set_56,Dummy_Set_57,Dummy_Set_58,SID).
+ iknows(scrypt(Ik,pair(M,pair(R,scrypt(Ck,apply(F2,pair(Ks,R)))))))
+ =>
+ state_s_cscf(S,M,Ks,Ik,Ck,apply(Add,pair(Dummy_Seq,1)),F1,F2,F5,2,R,Add,F3,F4,Dummy_Set_56,Dummy_Set_57,Dummy_Set_58,SID).
+ iknows(scrypt(Ik,scrypt(Ck,pair(scrypt(apply(F5,pair(Ks,R)),Dummy_Seq),apply(F1,pair(Ks,pair(Dummy_Seq,R))))))).
+ secret(Dummy_Seq,seq_s,Dummy_Set_56).
+ secret(Ck,ck_s,Dummy_Set_57).
+ secret(Ik,ik_s,Dummy_Set_58).
+ witness(S,M,rs,R).
+ contains(M,Dummy_Set_56).
+ contains(S,Dummy_Set_56).
+ contains(S,Dummy_Set_57).
+ contains(M,Dummy_Set_57).
+ contains(S,Dummy_Set_58).
+ contains(M,Dummy_Set_58)
+
+
+section properties:
+
+property secrecy_of_seq_m (MGoal,ASGoal) :=
+ [] ((secret(MGoal,seq_m,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_seq_s (MGoal,ASGoal) :=
+ [] ((secret(MGoal,seq_s,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_ck_m (MGoal,ASGoal) :=
+ [] ((secret(MGoal,ck_m,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_ik_m (MGoal,ASGoal) :=
+ [] ((secret(MGoal,ik_m,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_ck_s (MGoal,ASGoal) :=
+ [] ((secret(MGoal,ck_s,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_ik_s (MGoal,ASGoal) :=
+ [] ((secret(MGoal,ik_s,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property weak_authentication_on_rs (A1Goal,A2Goal,MGoal,SID) :=
+ [] ((wrequest(A1Goal,A2Goal,rs,MGoal,SID)
+      /\ ~ equal(A2Goal,i))
+     => witness(A2Goal,A1Goal,rs,MGoal))
+
+property weak_authentication_on_rm (A1Goal,A2Goal,MGoal,SID) :=
+ [] ((wrequest(A1Goal,A2Goal,rm,MGoal,SID)
+      /\ ~ equal(A2Goal,i))
+     => witness(A2Goal,A1Goal,rm,MGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_seq_m (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,seq_m,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_seq_s (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,seq_s,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_ck_m (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,ck_m,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_ik_m (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,ik_m,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_ck_s (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,ck_s,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_ik_s (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,ik_s,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state weak_authentication_on_rs (A1Goal,A2Goal,MGoal,SID) :=
+ wrequest(A1Goal,A2Goal,rs,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,rs,MGoal)) &
+ not(equal(A2Goal,i))
+
+attack_state weak_authentication_on_rm (A1Goal,A2Goal,MGoal,SID) :=
+ wrequest(A1Goal,A2Goal,rm,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,rm,MGoal)) &
+ not(equal(A2Goal,i))
+

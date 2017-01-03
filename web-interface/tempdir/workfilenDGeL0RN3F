@@ -1,0 +1,243 @@
+%%Mobile Node%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role mn(M,G,L,A:agent,
+                Kpuba:public_key,
+                H:hash_func,
+                Kaa:symmetric_key,
+                SND,RCV:channel(dy))
+played_by M def=
+
+    local State: nat,
+          Msg:{message.message.message.hash(message.message)}_message,
+          ID,PW,PID,R,X0,Y0,
+          Rt1,Rt2,Key1,T1,
+          Kma:message,
+          IDg,IDa,Prefix,T6,
+          T00,T01:text,
+          Kmg:symmetric_key
+
+
+    init State:=0
+    transition
+    %%%%%%%%%%%%registration%%%%%%%%%%%%%%%%%%%%%
+    1. State = 0 /\ RCV(start) =|>
+       State':=1 /\ ID':=new()
+                 /\ PW':=new()
+                 /\ R':=new()
+                 /\ PID':= H(ID'.R')
+                 /\ T00':=new()
+                 /\ SND(M.A.{ID'.PW'.PID'.R'.T00'}_Kaa)
+                 /\ secret(ID',sid,{M,A})
+                 /\ secret(R',sr,{M.A})
+                 
+				 
+    2. State = 1 /\ RCV(A.M.{{PID.IDa'}_inv(Kpuba).Kma'.Kmg'.T01'}_Kaa)=|>
+    %%%%%%%%%%%registration%%%%%%%%%%%%%%%%%%%%%%
+       State':=2 /\ X0':=new()
+                 /\ Y0':=new()
+                 /\ T1':=new()
+                 /\ Msg':={X0'.Y0'.PW.H(X0'.Y0')}_Kma'
+                 /\ Rt1':= H(PID.X0')
+                 /\ Rt2':= H(PID.Y0')
+                 /\ Key1':=H(Rt1'.H(Rt2'))
+                 /\ SND(M.G.PID.T1'.Msg'.xor({PID.IDa'}_inv(Kpuba),H(Kmg.PID.T1'.Msg')))
+				 /\ request(M,A,mn_aaa_skma,Kma')
+                 /\ witness(M,A,mn_aaa_pw,PW)
+				 /\ witness(M,G,mn_mag_kmg,Kmg)
+				 
+    3. State = 2 /\ RCV(G.M.{PID.IDg'.T6'.Prefix'}_Key1)=|>
+       State':=3 /\ Prefix':=Prefix
+
+
+
+
+end role
+
+%%mobileaccessgateway%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role mag(M,G,L,A:agent,
+         IDg,IDa:text,
+         Kpuba:public_key,
+         H:hash_func,
+         Kmg,Kgl:symmetric_key,
+         SND,RCV:channel(dy))
+played_by G def=
+
+    local State: nat,
+                 PID,Key1,T1:message,
+                 Prefix,T2,T5,T6,
+                 T7,T8:text,
+                 Msg1:{message.message.message.hash(message.message)}_message
+
+
+    init State:=0
+    transition
+    %%%%%%%%%%%%registration%%%%%%%%%%%%%%%%%%%%%
+    1. State = 0 /\ RCV(M.G.PID'.T1'.Msg1'.xor({PID'.IDa}_inv(Kpuba),H(Kmg.PID'.T1'.Msg1'))) =|>
+       State':=1 /\ T2':=new()
+                 /\ SND(G.L.PID'.IDg.T1'.T2'.Msg1'.xor({PID'.IDa}_inv(Kpuba),H(Kgl.PID'.IDg.T1'.T2'.Msg1')))
+				 /\ request(G,M,mn_mag_kmg,Kmg)
+                 /\ witness(G,L,mag_lma_kgl,Kgl)
+				 
+    2. State = 1 /\ RCV(L.G.PID.T5'.xor((Key1'.H(Key1')),H(Kgl.PID.T5')))=|>
+       State':=2 /\ T7':=new()
+                 /\ SND(G.L.{T7'}_Kgl)
+
+    3. State = 2 /\ RCV(L.G.{Prefix'.T8'}_Kgl)=|>
+       State':=3 /\ T6':=new()
+                 /\ SND(G.M.{PID.IDg.T6'.Prefix'}_Key1)
+
+end role
+
+%%localmobilityanchor%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role lma(M,G,L,A:agent,
+         IDg,IDl,IDa:text,
+         Kpuba:public_key,
+         H:hash_func,
+         Kgl,Kla:symmetric_key,
+         SND,RCV:channel(dy))
+played_by L def=
+
+    local State: nat,
+                 PID,Key1,Rt1,Rt2,T1:message,
+                 Prefix,T2,T3,T4,T5,
+                 T7,T8:text,
+                 Msg2:{message.message.message.hash(message.message)}_message
+
+
+    init State:=0
+    transition
+    1. State = 0 /\ RCV(G.L.PID'.IDg.T1'.T2'.Msg2'.xor({PID'.IDa}_inv(Kpuba),H(Kgl.PID'.IDg.T1'.T2'.Msg2'))) =|>
+       State':=1 /\ T3':=new()
+                 /\ SND(L.A.PID'.IDg.IDl.T1'.T3'.Msg2'.xor({PID'.IDa}_inv(Kpuba),H(Kla.PID'.IDg.IDl.T1'.T3'.Msg2')))
+				 /\ request(L,G,mag_lma_kgl,Kgl)
+				 /\ witness(L,A,lma_aaa_kla,Kla)
+
+    2. State = 1 /\ RCV(A.L.PID.T4'.xor((Rt1'.Rt2'.H(Rt1'.Rt2')),H(Kla.PID.T4')))=|>
+       State':=2 /\ T5':=new()
+                 /\ Key1':=H(Rt1'.H(Rt2'))
+                 /\ SND(L.G.PID.T5'.xor((Key1'.H(Key1')),H(Kgl.PID.T5')))
+                 /\ secret(Key1',skey1,{M,G,L,A})
+				 
+    3. State = 2 /\ RCV(G.L.{T7'}_Kgl)=|>
+       State':=3 /\ Prefix':=new()
+                 /\ T8':=new()
+                 /\ SND(L.G.{Prefix'.T8'}_Kgl)
+end role
+
+
+%%AAA server%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role aaa(M,G,L,A:agent,
+         IDg,IDl,IDa:text,
+         Kpuba:public_key,
+         H:hash_func,
+         Kaa,Kmg,Kla:symmetric_key,
+         SND,RCV:channel(dy))
+played_by A def=
+
+    local State: nat,
+                 ID,PW,PID,R,X0,Y0,
+                 Rt1,Rt2,T1,
+                 Kma:message,
+                 Prefix,T3,T4,
+                 T00,T01:text,
+				 Msg3:{message.message.message.hash(message.message)}_message,
+                 IdList:(message.message.message.message)set
+
+    init State:=0
+         /\ IdList:={}
+    transition
+    %%%%%%%%%%%%registration%%%%%%%%%%%%%%%%%%%%%
+    1. State = 0 /\ RCV(M.A.{ID'.PW'.PID'.R'.T00'}_Kaa)
+                 /\ not(in(ID'.PW'.PID'.R',IdList)) =|>
+       State':=1 /\ IdList':= cons(ID'.PW'.PID'.R',IdList)
+                 /\ T01':=new()
+				 /\ Kma':=new()
+                 /\ SND(A.M.{{PID.IDa}_inv(Kpuba).Kma'.Kmg.T01'}_Kaa)
+                 /\ secret(Kmg,skmg,{M,G,A})
+				 /\ secret(Kma',skma,{M.A})
+				 /\ witness(A,M,mn_aaa_skma,Kma)
+				 
+    %%%%%%%%%%%%registration%%%%%%%%%%%%%%%%%%%%%                 
+    2. State = 1 /\ RCV(L.A.PID.IDg.IDl.T1'.T3'.{X0'.Y0'.PW.H(X0'.Y0')}_Kma.xor({PID.IDa}_inv(Kpuba),H(Kla.PID.IDg.IDl.T1'.T3'.{X0'.Y0'.PW.H(X0'.Y0')}_Kma)))=|>
+       State':=2 /\ Msg3':={X0'.Y0'.PW.H(X0'.Y0')}_Kma 
+	             /\ Rt1':= H(PID.X0')
+                 /\ Rt2':= H(PID.Y0')
+                 /\ T4':=new()
+                 /\ SND(A.L.PID.T4'.xor((Rt1'.Rt2'.H(Rt1'.Rt2')),H(Kla.PID.T4')))
+				 /\ request(A,M,mn_aaa_pw,PW)
+				 /\ request(A,L,lma_aaa_kla,Kla)
+
+end role
+
+%%%%session%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(M,G,L,A:agent,
+             IDg,IDl,IDa:text,
+             Kpuba:public_key,
+             H:hash_func,
+             Kaa,Kmg,Kgl,Kla:symmetric_key,
+             SND,RCV:channel(dy))
+def=
+    
+    composition
+       mn(M,G,L,A,Kpuba,H,Kaa,SND,RCV)
+    /\ mag(M,G,L,A,IDg,IDa,Kpuba,H,Kmg,Kgl,SND,RCV)
+    /\ lma(M,G,L,A,IDg,IDl,IDa,Kpuba,H,Kgl,Kla,SND,RCV)
+    /\ aaa(M,G,L,A,IDg,IDl,IDa,Kpuba,H,Kaa,Kmg,Kla,SND,RCV)
+    
+end role
+
+
+%%%%environment%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+
+    const 
+        sid,sr,skma,skmg,skey1,
+		mn_aaa_skma,mn_aaa_pw,mn_mag_kmg,mag_lma_kgl,lma_aaa_kla:protocol_id,
+        m,g,l,a,i:agent,
+        idg,idl,ida,idi:text,
+        kpuba,kpubi: public_key,
+        h:hash_func,
+        kaa,kmg,kgl,kla,
+        kig,kmi,kil,kgi,kia:symmetric_key,
+        snd,rcv:channel(dy)
+    
+
+    intruder_knowledge={m,g,l,a,i,idg,idl,ida,idi,kpuba,kpubi,inv(kpubi),h,kig,kmi,kil,kgi,kia,snd,rcv}
+    
+    composition     
+         session(m,g,l,a,idg,idl,ida,kpuba,h,kaa,kmg,kgl,kla,snd,rcv)
+		 /\ session(m,g,l,a,idg,idl,ida,kpuba,h,kaa,kmg,kgl,kla,snd,rcv)
+         /\ session(i,g,l,a,idg,idl,ida,kpuba,h,kaa,kig,kgl,kla,snd,rcv)
+         /\ session(m,i,l,a,idi,idl,ida,kpuba,h,kaa,kmi,kil,kla,snd,rcv)
+         /\ session(m,g,i,a,idg,idi,ida,kpuba,h,kaa,kmg,kgi,kia,snd,rcv)
+end role
+        
+%%%%goal%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%               
+goal
+  secrecy_of sid
+  secrecy_of sr
+  secrecy_of skma
+  secrecy_of skmg
+  secrecy_of skey1
+  authentication_on mn_aaa_skma
+  authentication_on mn_aaa_pw
+  authentication_on mn_mag_kmg
+  authentication_on mag_lma_kgl
+  authentication_on lma_aaa_kla
+end goal
+
+%%%%initial%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,357 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% HLPSL Code for the scheme:
+%%% 
+%%% Developed by: Jangirala Srinivas
+%%%               IIT Kharagpur
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%% Role for user Ui %%%%%%%%%%%%%%%%%%%% 
+role user(Ui, SNj, HGWN, FGWN: agent,
+% symmetric key between Ui and GWN
+        SK1 : symmetric_key,
+% symmetric key between SNj and FGWN
+        SK2 : symmetric_key,
+% symmetric key between FGWN and HGWN
+        SK3 : symmetric_key,
+% symmetric key between Ui and FGWN
+        SK4 : symmetric_key,
+
+% H is hash function
+         H : hash_func,
+         SEND, RECV: channel(dy))
+		 
+played_by Ui
+def=
+ local State : nat,
+     IDi, PWi, DIDi, RPWi, TIDi, IDgwnh, IDfgwn, IDsnj, Yi,Vi, Ci, Ki,
+	 R, Ri,Rj,Rk, T1,T2,T3,T4,T5, T6, T7, Xk, Pj, Sran, SKi : text,
+     D1, D2,L1,L2,L3,L4,L5,L6,L7, A1,A2, A3, A4,A5,A6,A7,A8:  message,
+
+Inc : hash_func
+
+ const user_hgateway_ri, user_fgateway_ri, snode_hgateway_rj, snode_fgateway_rf,
+       snode_user_rj, sub1, sub2, sub3, sub4, sub5, sub6, sub7,  sub8, sub9, sub10: protocol_id
+
+init State := 0
+ transition
+% Start User registration phase
+
+% Ui sends < DIDi, RPWi > to HGWN via a secure channel
+
+1. State = 0 /\ RECV(start) =|>
+State' := 1  /\ R' :=new()
+			 /\ DIDi':= H(IDi.R') /\ RPWi':=H(PWi.R'.IDi)
+			 /\ SEND({DIDi'. RPWi'}_SK1)
+% Send registration request to the  HGWN
+			 /\ secret({IDi,PWi},sub1,Ui)
+             
+
+2. State = 1 /\ RECV({Yi.IDgwnh.TIDi}_SK1)=|>
+% Ui receives  from HGWN via a secure channel
+
+% Login phase and authentication phase
+State' := 2  /\ Ri':=new() /\ T1':= new()
+        /\ D1':= xor(H(Ki.DIDi.IDsnj), Ri') 
+		/\ D2':= H(DIDi.Ri'.TIDi.Ki.T1'.IDsnj)
+
+        /\ SEND(TIDi.IDsnj.D1.D2.T1)
+% Send login message to the HGWN
+
+            /\ witness(Ui, HGWN, user_hgateway_ri, Ri')
+	    /\ secret({Ri'},sub2,{Ui,HGWN, FGWN,SNj})  
+	      /\ request(Ui,HGWN,user_hgateway_ri,Ri')           
+
+%  Receives messages from HGwN
+
+3. State = 2 /\ RECV(A2.L3.IDfgwn)=|>
+
+State' := 3  /\ Kfi':=xor(A2,H(Ki.IDfgwn)) 
+			/\ A3':=xor(H(Kfi'.TIDi.IDsnj),Ri)
+			/\ L4':=H(TIDi.Ri.Kfi'.T2.IDsnj)
+			/\ SEND(TIDi.IDsnj.A3'.L4'.T2)
+
+
+%  send messages to FGwN
+
+           /\ witness(Ui, FGWN, user_fgateway_ri, Ri')
+	    /\ secret({Ri'},sub3,{Ui,HGWN, FGWN,SNj})  
+	      /\ request(Ui,FGWN,user_fgateway_ri,Ri')   
+
+		  %  Receives messages from FGWN
+4. State = 3 /\ RECV(A7.A8.L7.T5)=|>
+
+State' := 4  /\ Rf':=xor(A7,H(Kfi.TIDi.Ri)) 
+			/\ Rj':=xor(A8,H(Kfi.Rf.TIDi.Ri))
+			/\ SKi':= H(TIDi.Ri.Rj.Rf.IDsnj)          
+end role
+
+
+
+
+%%%%%%%%%%% Role for HGWN %%%%%%%%%%%%%%%%%%%%
+role hgateway(Ui, SNj, HGWN , FGWN: agent,
+% symmetric key between Ui and GWN
+        SK1 : symmetric_key,
+% symmetric key between SNj and FGWN
+        SK2 : symmetric_key,
+% symmetric key between FGWN and HGWN
+        SK3 : symmetric_key,
+% symmetric key between Ui and FGWN
+        SK4 : symmetric_key,
+
+% H is hash function
+         H : hash_func,
+         SEND, RECV: channel(dy))
+		 
+played_by HGWN 
+def=
+local State : nat,
+     IDi, PWi, DIDi, RPWi, TIDi, IDgwnh, IDfgwn, IDsnj, Yi,Vi, Ci, Ki,
+	 R, Ri,Rj,Rk, T1,T2,T3,T4,T5, T6, T7, Xk, Pj, Sran, SKi : text,
+     D1, D2, L1,L2,L3,L4,L5,L6,L7, A1,A2, A3, A4,A5,A6,A7,A8:  message,
+
+Inc : hash_func
+
+ const user_hgateway_ri, user_fgateway_ri, snode_hgateway_rj, snode_fgateway_rf,
+       snode_user_rj, sub1, sub2, sub3, sub4, sub5, sub6, sub7 , sub8, sub9, sub10: protocol_id
+       
+init State := 0
+ transition
+ 
+% Receives registration  request message from user 
+1. State = 0 /\ RECV({DIDi.RPWi}_SK1) =|>
+State' := 1 /\ TIDi':=new() /\ Ki':= H(DIDi.TIDi'.Xk) 
+			/\ Yi':= xor(Ki', RPWi) 
+			/\ secret({Xk}, sub4,{HGWN}) 
+			/\ secret({DIDi}, sub5,{HGWN,Ui}) 
+			/\ SEND({Yi'.IDgwnh.TIDi'}_SK1)
+
+%Send smartcard information securely
+			/\Sran':=new() 
+			/\Pj':= H(IDsnj.Sran')
+			/\secret({Pj', Sran'},sub5,{HGWN,FGWN,SNj})
+
+2.	 State = 1 /\ RECV(IDsnj.PSj') =|>		
+State' := 2  /\ Pj':= xor(PSj',Sran)
+
+% Receive Login message from user 
+3. State= 2 /\ RECV(TIDi.IDsnj.D1.D2.T1)=|>
+State':=3  
+
+% send message to the FGWN
+/\ L1':= H(IDsnj.TIDi.IDgwnh.Sran)
+/\ SEND(IDsnj.TIDi.IDgwnh.L1') 
+/\secret({Sran}, sub6, {Ui,HGWN,FGWN})
+
+/\ request(HGWN,FGWN,hgateway_fgateway_Sran,Sran')
+
+4. State=3 /\RECV(A1, IDfgwn, L2, TIDi)=|>
+State':=4 /\ Kfi':= xor(A1,H(TIDi.Sran.IDfgwn))
+		  /\ Ki':= H(DIDi.TIDi.Xhgwn)
+		  /\ A2':= xor(Kfi, H(Ki.IDfgwn))
+		  /\ L3':= H(Ki.Kfi.IDsnj.IDfgwn)
+
+%  send message to the user
+
+		/\ SEND(A2,L3,IDfgwn)
+
+end role
+
+
+
+%%%%%%%%%%% Role for FGWN %%%%%%%%%%%%%%%%%%%%
+role fgateway(Ui, SNj, HGWN , FGWN: agent,
+% symmetric key between Ui and GWN
+        SK1 : symmetric_key,
+% symmetric key between SNj and FGWN
+        SK2 : symmetric_key,
+% symmetric key between FGWN and HGWN
+        SK3 : symmetric_key,
+% symmetric key between Ui and FGWN
+        SK4 : symmetric_key,
+
+% H is hash function
+         H : hash_func,
+         SEND, RECV: channel(dy))
+
+played_by HGWN 
+def=
+local State : nat,
+     IDi, PWi, DIDi, RPWi, TIDi, IDgwnh, IDfgwn, IDsnj, Yi,Vi, Ci, Ki,
+	 R, Ri,Rj,Rk, T1,T2,T3,T4,T5, T6, T7, Xk, Pj, Sran, SKi : text,
+     D1, D2, L1,L2,L3,L4,L5,L6,L7, A1,A2, A3, A4,A5,A6,A7,A8:  message,
+
+Inc : hash_func
+
+ const user_hgateway_ri, user_fgateway_ri, snode_hgateway_rj, snode_fgateway_rf,
+       snode_user_rj, sub1, sub2, sub3, sub4, sub5, sub6, sub7, sub8, sub9, sub10: protocol_id
+	   
+init State := 0
+ transition
+ 
+1.	 State = 0 /\ RECV(IDsnj.PSj') =|>		
+State' := 1  /\ Pj':= xor(PSj',Sran)
+
+% Receive message from HGWN
+2. State= 1 /\ RECV(IDsnj.TIDi.IDgwnh.L1)=|>
+
+State':=2  /\ Kfi':=H(TIDi.Xfgwn) 
+			/\ A1':= xor(Kfi,H(TIDi.Sran.IDfgwn)) 
+		  /\ L2':=H(TIDi.IDfgwn.Kfi.IDsnj) 
+
+% send message to the HGWN
+/\ SEND(A1.IDfgwn.L2.TIDi) 
+/\secret({Xfgwnk}, sub8, {Ui,HGWN,FGWN, SNj})
+
+3. State=2 /\RECV(TIDi.IDsnj.A3.L4.T2)=|>
+State':=3 /\ Kfi':=H(TIDi.Xfgwn)
+		  /\ Ri':=xor(A3, H(Kfi.TIDi.IDsnj))
+		  /\ Rf':= new()
+		  /\ A4':= xor(Rf, H(Pj.T3.IDsnj.TIDi))
+		  /\ A5':= xor(Ri, H(Pj.TIDi.Rf.T3))
+		  /\ L5':= H(IDsnj.Ri.TIDi.Pj.Rf.T3)
+
+%  send message to the snode
+
+		/\ SEND(TIDi.A4.A5.L5.T3)
+		/\secret({Rf'}, sub9, {Ui,HGWN,FGWN, SNj})
+
+4. State=3 /\RECV(A6.L6.T3)=|>
+State':=4 /\ Rj':=xor(A6, H(Pj.Rf.T3))
+		  
+		  /\ A7':= xor(Rf, H(Kfi.TIDi.Ri))
+		  /\ A8':= xor(Rj, H(Kfi.Rf.TIDi.Ri))
+		  /\ L7':= H(Kfi.TIDi.Rj.T2.Rf.T5.Ri)
+
+%  send message to the user
+
+		/\ SEND(A7.A8.L7.T5)
+
+end role
+
+%%%%%%  Done till here %%%%%%%%%%%%
+
+%%%%%%%%%%% Role for snode node Sj %%%%%%%%%%%%%%%%%%%%
+role snode(Ui, SNj, HGWN, FGWN : agent,
+% symmetric key between Ui and GWN
+        SK1 : symmetric_key,
+% symmetric key between SNj and FGWN
+        SK2 : symmetric_key,
+% symmetric key between FGWN and HGWN
+        SK3 : symmetric_key,
+% symmetric key between Ui and FGWN
+        SK4 : symmetric_key,
+
+% H is hash function
+         H : hash_func,
+         SEND, RECV: channel(dy))
+
+played_by SNj
+def=
+local State : nat,
+     IDi, PWi, DIDi, RPWi, TIDi, IDgwnh, IDfgwn, IDsnj, Yi,Vi, Ci, Ki,
+	 R, Ri,Rj,Rk, T1,T2,T3,T4,T5, T6, T7, Xk, Pj, Sran, SKi : text,
+     D1, D2, L1,L2,L3,L4,L5,L6,L7, A1,A2, A3, A4,A5,A6,A7,A8:  message,
+
+Inc : hash_func
+
+ const user_hgateway_ri, user_fgateway_ri, snode_hgateway_rj, snode_fgateway_rf,
+       snode_user_rj, sub1, sub2, sub3, sub4, sub5, sub6, sub7, sub8, sub9, sub10: protocol_id
+       
+init State := 0
+transition
+% Start sensor node Registration 
+
+1. State = 0 /\ RECV(start) =|>
+State' := 1  /\ PSj':=xor(Pj,Sran)   /\ SEND(IDsnj.PSj')
+
+% Send registration message to HGWN
+
+2. State = 1 /\ RECV(TIDi.A4.A5.L5.T3 ) =|> 
+% Receive message from FGWN
+
+	State' := 2 /\ Rj':=new()  /\ T4':=new() 
+		/\ Rf':= xor(H(Pj.T3'.IDsnj.TIDi),A4) 
+		/\ Ri':=xor(A5,H(Pj.TIDi.Rf'.T3')) 
+		/\ A6':= xor(Rj,H(Pj.Rf.T3))
+		
+		/\ L6':= H(Pj.Rj'.T3.Rf.TIDi.Ri.T3) 
+        /\ SEND(A6'.L6'.T3)
+% Send message to the FGWN					
+
+			/\ secret({Rj'},sub10,{Ui,HGWN,FGWN, SNj})
+			/\ witness(SNj,Ui,snode_user_rj,Rj')
+			/\ request(SNj,FGWN,snode_fgateway_rj,Rj')
+
+end role
+
+
+%%%%%%%%%%%%%%% Done till here %%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(Ui, SNj, HGWN , FGWN: agent,
+% symmetric key between Ui and GWN
+        SK1 : symmetric_key,
+% symmetric key between SNj and FGWN
+        SK2 : symmetric_key,
+% symmetric key between FGWN and HGWN
+        SK3 : symmetric_key,
+% symmetric key between Ui and FGWN
+        SK4 : symmetric_key,
+% H is hash function
+         H : hash_func)
+def=
+  local SI, SJ, RI, RJ, TI,TJ,PI, PJ : channel (dy)
+composition
+   user(Ui, SNj, HGWN, FGWN ,SK1, H, SI, RI)
+/\ hgateway(Ui, SNj, HGWN, FGWN , SK1, SK2, H, SJ, RJ)
+/\ snode(Ui, SNj, HGWN, FGWN , SK1, SK2, H, TI, TJ)
+/\ fgateway(Ui, SNj, HGWN, FGWN , SK1, SK2, H, PI, PJ)
+end role
+
+
+
+role environment()
+def=
+  const ui, snj, hgwn, fgwn: agent, 
+        sk1, sk2, sk3, sk4 : symmetric_key, 
+        h : hash_func,
+			
+        idi,pwi,didi,rpwi,tidi,idgwnh,idsnj,yi,vi,ci, ki, r,ri,rj,rk,t1,t2,t3,t4,t5,t6,t7,xk,pj,psj, sran,a1,a2,a3,a4,a5,a6,a7,a8,l1,l2,l3,l4,l5,l6,l7: text,
+		d1, d2:  message,
+		user_gateway,gateway_snode,snode_user, sub1,sub2,sub3,sub4,sub5,sub6,sub7,sub9, sub8, sub10: protocol_id
+		
+		% Represents Intruder Knowledge
+		
+		intruder_knowledge = {ui, snj, hgwn, h,yi,idgwnh,idsnj,vi,ci,tidi,d1,d2,t1,t4}
+composition
+   session(ui, snj, hgwn, fgwn, sk1, sk2, h)
+ /\ session(i, snj, hgwn, fgwn, sk1, sk2, h)
+ /\ session(ui, i, hgwn, fgwn, sk1, sk2,h)
+ /\ session(ui, snj, i, fgwn, sk1, sk2,h)
+end role
+goal
+
+% Verifies secrecy of the confidential information
+
+  secrecy_of sub1	secrecy_of sub2
+  secrecy_of sub3	secrecy_of sub4
+  secrecy_of sub5	secrecy_of sub6
+  secrecy_of sub7 	secrecy_of sub8	
+  secrecy_of sub9  secrecy_of sub10
+
+% Verifies authentication of the random numbers used in the protocol
+  authentication_on user_gateway_ri
+  authentication_on fgateway_snode_rf
+ % authentication_on gateway_user_rk
+  authentication_on snode_user_rj
+  authentication_on snode_fgateway_rj
+  
+  
+ 
+ %  user_gateway_ri, gateway_snode_rk, snode_user_rj
+  
+end goal
+environment()
+
+
+

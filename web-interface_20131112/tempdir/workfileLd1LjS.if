@@ -1,0 +1,167 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileLd1LjS
+
+section signature:
+
+state_deviceB: agent * agent * public_key * hash_func * nat * text * text * text * text * symmetric_key * symmetric_key * public_key * set(agent) * set(agent) * nat -> fact
+state_deviceA: agent * agent * public_key * hash_func * nat * text * text * text * text * symmetric_key * symmetric_key * public_key * set(agent) * set(agent) * nat -> fact
+
+
+section types:
+
+sid, rc, rb, ra: protocol_id
+MGoal, start: message
+Dummy_K56, Dummy_K24, dummy_sk, k2, K24, K56, k5: symmetric_key
+Dummy_Ssid, Dummy_Rc, Dummy_Rb, Dummy_Ra, dummy_nonce, Ra, Rc, Rb, Ssid: text
+hasz, Hash: hash_func
+dummy_pk, certa, certb, certi, CertA, CertB: public_key
+set_100, set_99, set_84, set_83, set_113, set_112, set_111, set_110, set_109, set_108, set_106, set_105: set
+Dummy_Set_38, Dummy_Set_32, ASGoal, Set_57, Set_56, Set_38, Set_32, Dummy_Set_57, Dummy_Set_56: set(agent)
+A2Goal, A1Goal, a, b, IDa, IDb, i: agent
+Dummy_State, 3, SID, SID2, SID1, State, 5, 4, 2, 1, 0, 10, 6: nat
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(certa).
+ iknows(certb).
+ iknows(inv(certa)).
+ iknows(a).
+ iknows(b).
+ iknows(certi).
+ iknows(inv(certi)).
+ iknows(i).
+ state_deviceA(a,b,certa,hasz,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,dummy_sk,dummy_pk,set_83,set_84,3).
+ state_deviceB(b,a,certb,hasz,1,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,dummy_sk,dummy_pk,set_99,set_100,4).
+ state_deviceA(a,i,certa,hasz,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,dummy_sk,dummy_pk,set_105,set_106,6).
+ state_deviceB(b,i,certb,hasz,1,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,dummy_sk,dummy_pk,set_112,set_113,10)
+
+
+section rules:
+
+step step_0 (IDa,IDb,CertA,Hash,Ssid,Dummy_Ra,Rb,Rc,K24,K56,CertB,Set_32,Set_38,SID,Ra) :=
+ state_deviceA(IDa,IDb,CertA,Hash,0,Ssid,Dummy_Ra,Rb,Rc,K24,K56,CertB,Set_32,Set_38,SID).
+ iknows(start)
+=[exists Ra]=>
+ state_deviceA(IDa,IDb,CertA,Hash,1,Ssid,Ra,Rb,Rc,K24,K56,CertB,Set_32,Set_38,SID).
+ iknows(pair(Ra,IDa)).
+ witness(IDa,IDb,ra,Ra)
+
+step step_1 (IDa,IDb,CertA,Hash,Ssid,Ra,Dummy_Rb,Dummy_Rc,Dummy_K24,Dummy_K56,CertB,Dummy_Set_32,Set_38,SID,Rb,Rc,K24,K56) :=
+ state_deviceA(IDa,IDb,CertA,Hash,2,Ssid,Ra,Dummy_Rb,Dummy_Rc,Dummy_K24,Dummy_K56,CertB,Dummy_Set_32,Set_38,SID).
+ iknows(pair(Rb,pair(IDb,pair(crypt(inv(CertB),apply(Hash,pair(Rb,pair(Ra,IDa)))),CertB)))).
+ request(IDa,IDb,rb,Rb,SID)
+=[exists Rc,K56,K24]=>
+ state_deviceA(IDa,IDb,CertA,Hash,3,Ssid,Ra,Rb,Rc,K24,K56,CertB,Dummy_Set_32,Set_38,SID).
+ iknows(pair(IDb,pair(scrypt(K24,pair(K56,pair(Ra,pair(Dummy_Rb,pair(Rc,pair(IDb,crypt(inv(CertA),apply(Hash,pair(Ra,pair(Dummy_Rb,K56)))))))))),pair(crypt(CertB,pair(K24,IDb)),CertA)))).
+ witness(IDa,IDb,rc,Rc).
+ witness(IDa,IDb,rb,Dummy_Rb).
+ secret(K56,k5,Dummy_Set_32).
+ contains(IDa,Dummy_Set_32).
+ contains(IDb,Dummy_Set_32)
+
+step step_2 (IDa,IDb,CertA,Hash,Dummy_Ssid,Ra,Rb,Rc,K24,K56,CertB,Set_32,Dummy_Set_38,SID,Ssid) :=
+ state_deviceA(IDa,IDb,CertA,Hash,4,Dummy_Ssid,Ra,Rb,Rc,K24,K56,CertB,Set_32,Dummy_Set_38,SID).
+ iknows(scrypt(K56,pair(Rc,pair(Ssid,IDa))))
+ =>
+ state_deviceA(IDa,IDb,CertA,Hash,5,Ssid,Ra,Rb,Rc,K24,K56,CertB,Set_32,Dummy_Set_38,SID).
+ request(IDa,IDb,rc,Rc,SID).
+ contains(IDa,Dummy_Set_38).
+ contains(IDb,Dummy_Set_38)
+
+step step_3 (IDb,IDa,CertB,Hash,Dummy_Ra,Rc,Dummy_Rb,Ssid,K24,K56,CertA,Set_56,Set_57,SID,Ra,Rb) :=
+ state_deviceB(IDb,IDa,CertB,Hash,1,Dummy_Ra,Rc,Dummy_Rb,Ssid,K24,K56,CertA,Set_56,Set_57,SID).
+ iknows(pair(Ra,IDa)).
+ request(IDb,IDa,ra,Ra,SID)
+=[exists Rb]=>
+ state_deviceB(IDb,IDa,CertB,Hash,2,Ra,Rc,Rb,Ssid,K24,K56,CertA,Set_56,Set_57,SID).
+ iknows(pair(Rb,pair(IDb,pair(crypt(inv(CertB),apply(Hash,pair(Rb,pair(Dummy_Ra,IDa)))),CertB)))).
+ witness(IDb,IDa,rb,Rb)
+
+step step_4 (IDb,IDa,CertB,Hash,Ra,Dummy_Rc,Rb,Dummy_Ssid,Dummy_K24,Dummy_K56,CertA,Dummy_Set_56,Dummy_Set_57,SID,Rc,Ssid,K24,K56) :=
+ state_deviceB(IDb,IDa,CertB,Hash,3,Ra,Dummy_Rc,Rb,Dummy_Ssid,Dummy_K24,Dummy_K56,CertA,Dummy_Set_56,Dummy_Set_57,SID).
+ iknows(pair(IDb,pair(scrypt(K24,pair(K56,pair(Ra,pair(Rb,pair(Rc,pair(IDb,crypt(inv(CertA),apply(Hash,pair(Ra,pair(Rb,K56)))))))))),pair(crypt(CertB,pair(K24,IDb)),CertA))))
+=[exists Ssid]=>
+ state_deviceB(IDb,IDa,CertB,Hash,4,Ra,Rc,Rb,Ssid,K24,K56,CertA,Dummy_Set_56,Dummy_Set_57,SID).
+ request(IDb,IDa,rc,Rc,SID).
+ secret(K56,k5,Dummy_Set_56).
+ iknows(scrypt(Dummy_K56,pair(Dummy_Rc,pair(Ssid,IDa)))).
+ witness(IDb,IDa,rc,Dummy_Rc).
+ contains(IDa,Dummy_Set_56).
+ contains(IDb,Dummy_Set_56).
+ contains(IDa,Dummy_Set_57).
+ contains(IDb,Dummy_Set_57)
+
+
+section properties:
+
+property secrecy_of_k5 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,k5,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_ra (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,ra,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,ra,MGoal))
+     /\ ((request(A1Goal,A2Goal,ra,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,ra,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_rb (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,rb,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,rb,MGoal))
+     /\ ((request(A1Goal,A2Goal,rb,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,rb,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_rc (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,rc,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,rc,MGoal))
+     /\ ((request(A1Goal,A2Goal,rc,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,rc,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_k5 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,k5,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_ra (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,ra,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,ra,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_ra (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,ra,MGoal,SID1).
+ request(A1Goal,A2Goal,ra,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_rb (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,rb,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,rb,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_rb (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,rb,MGoal,SID1).
+ request(A1Goal,A2Goal,rb,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_rc (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,rc,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,rc,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_rc (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,rc,MGoal,SID1).
+ request(A1Goal,A2Goal,rc,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

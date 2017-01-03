@@ -1,0 +1,237 @@
+%% PROTOCOL: A secure smartcard-based anonymous user authentication scheme for
+%% healthcare applications using wireless medical sensor networks
+%% PURPOSE: Authentication between a health professional U_i and sensor node SN_n
+%%          for accessing real-time data inside WMSN
+%%Author(s): Ashok Kumar Das, Vanga Odelu and Adrijit Goswami
+
+
+%%%%%%% Role specification for the user U_i %%%%%%%%
+
+role user (Ui, GW, SNn : agent, 
+            SKuigw : symmetric_key,
+            SNS, RCV: channel(dy))
+played_by Ui
+def=     
+local State  : nat,
+      IDi, IDsnn, K, Ki, PWi, BIOi : text,
+      J, K, Q, T, Ni, Cig, CIDi, Ni : text,
+      TS1, TS2, TS3, TS4, IDg, Ri, Rn, Rt: text,
+      NIDi, Ai, Bi, SKgwsnn, Fi, SKuisnn : text,
+      Gi, Rg, Rgnew, Cignew, Mi : text,                                                       
+      H : hash_func, Gen, Rep : hash_func
+const user_gw_ts1, gw_sensor_ts2, sensor_gw_ts3,
+      user_gw_ri, gw_user_ts4, sensor_user_rn, 
+      s1, s2, s3, s4, s5, s6 : protocol_id
+init  State := 0  
+transition
+1. State = 0 /\ Rcv(start) =|>
+% Professional registration phase
+State' := 1 /\  RPWi' := H(IDi.Ki.PWi)
+% Ui sends the registration request to the GW via a secure channel
+            /\ SND({IDi.RPWi'}_SKuigw)
+            /\ secret({PWi,BIOi,Ki},s1,Ui)
+            /\ secret(IDi, s2, {Ui,GW})
+            /\ secret(SKgwsnn, s3, {GW,SNn})
+            /\ secret(SKuigw, s4, {Ui,GW})
+            /\ secret({J,K,Q,IDg}, s5, GW)
+            /\ secret(IDsnn, s6, {Ui,GW,SNn})
+% Ui receives the smart card from the GW
+2. State = 1 /\ RCV({{Rg'.IDi.IDg}_J.
+                Nor(H(IDi.IDg.K), H(IDi.Ki.PWi)).
+                H.Gen.Rep.T}_SKuigw) =|>
+% Login phase
+State' := 2 /\ TS1' := new()
+            /\ Ri' := new()
+            /\ CIDi' := {H(IDi.{Rg'.IDi.IDg}_J.IDsnn.Ri'.TS1')
+                        .IDsnn.Ri'}_H(IDi.IDg.K)
+% Ui sends the login message m1 to the GW
+            /\ SND({Rg'.IDi.IDg}_J.CIDi'.TS1')
+% Ui has freshly generated the values TS1 and r_i for BS
+            /\ witness (Ui,GW,user_gw_ts1, TS1')
+            /\ witness (Ui,GW,user_gw_ri, Ri')
+% Authentication and session key agreement phase
+% Ui receives the message m4 from GW
+3. State = 2 /\ RCV({H(IDi.NIDi'.{Rgnew'.IDi.IDg}_J.IDsnn.
+               H(H(NIDi'.IDsnn.Ri'.Rn')).Rn'.TS4').
+               NIDi'.{Rgnew'.IDi.IDg}_J.IDsnn.xor(Rn',Ri').
+               H(H(NIDi'.IDsnn.Ri'.Rn')).
+               TS4'}_H(IDi.IDg.K).TS4') =|> 
+% Ui's acceptance of the values TS4 and r_n generated for Ui by GW 
+   State' := 3 /\ request(GW, Ui, gw_user_ts4, TS4') 	
+               /\ request(SNn, Ui, sensor_user_rn, Rn')   
+end role
+
+
+%%%%%%% Role specification for the GW %%%%%%%%
+
+role gw (Ui, GW, SNn : agent, 
+            SKuigw : symmetric_key,
+            SNS, RCV: channel(dy))
+played_by GW
+def=     
+local State  : nat,
+      IDi, IDsnn, K, Ki, PWi, BIOi : text,
+      J, K, Q, T, Ni, Cig, CIDi, Ni : text,
+      TS1, TS2, TS3, TS4, IDg, Ri, Rn, Rt: text,
+      NIDi, Ai, Bi, SKgwsnn, Fi, SKuisnn : text,
+      Gi, Rg, Rgnew, Cignew, Mi : text,                                                       
+      H : hash_func, Gen, Rep : hash_func
+const user_gw_ts1, gw_sensor_ts2, sensor_gw_ts3,
+      user_gw_ri, gw_user_ts4, sensor_user_rn, 
+      gw_snn_ts2, sensor_gw_rn,
+      s1, s2, s3, s4, s5, s6 : protocol_id
+init  State := 0
+transition
+% Professional registration phase
+% GW receives registration request from Ui via secure channel
+1. State   = 0 /\ RCV({IDi.H(IDi.Ki.PWi)}_SKuigw)=|>  
+% GW issues a smart card to Ui securely
+State' := 1 /\ secret({PWi,BIOi,Ki},s1,Ui)
+            /\ secret(IDi, s2, {Ui,GW})
+            /\ secret(SKgwsnn, s3, {GW,SNn})
+            /\ secret(SKuigw, s4, {Ui,GW})
+            /\ secret({J,K,Q,IDg}, s5, GW)
+            /\ secret(IDsnn, s6, {Ui,GW,SNn})
+            /\ Rg' := new()
+            /\ Cig' := {Rg'.IDi.IDg}_J
+            /\ Ni' := xor(H(IDi.IDg.K), H(IDi.Ki.PWi))
+% GW sends the smart card to Ui via secure channel
+            /\ SND({Cig'.Ni'.H.Gen.Rep.T}_SKuigw)
+% Login phase
+% GW receives the message m1 from Ui
+2. State = 1  /\ RCV({Rg'.IDi.IDg}_J.
+                 {H(IDi.{Rg'.IDi.IDg}_J.IDsnn.Ri'.TS1')
+                  .IDsnn.Ri'}_H(IDi.IDg.K).TS1')=|>
+% Authentication and key agreement phase
+  State' := 2 /\ NIDi' := new()
+              /\ TS2' := new()
+              /\ Ai' := xor(Ri', H(SKgwsnn.NIDi'.IDsnn.TS2'))
+              /\ Bi' := {H(NIDi'.IDsnn.Ri'.Ts2').NIDi'.
+                         IDsnn.Ai'.TS2'}_SKgwsnn
+% GW sends the message m2 to SNn
+              /\ SND(Bi'.TS2')
+% GW has freshly generated the value TS2 for SNn
+              /\ witness (GW,SNn,gw_snn_ts2, TS2')
+% GW receives the message m3 from SNn
+3. State = 3 /\ RCV({H(NIDi'.IDsnn.Rn'.TS3').
+               H(SKuisnn').NIDi'.IDsnn.
+               xor(Rn', H(SKgwsnn.NIDi'.IDsnn.
+               TS3')).TS3'}_SKgwsnn.TS3') =|>
+% GW sends the message m4 to Ui
+State' := 4 /\ TS4' := new()
+            /\ Rgnew' := new()
+            /\ Cignew' := {Rgnew'.IDi.IDg}_J
+            /\ Rt' := xor(Rn',Ri')
+            /\ Mi' := {H(IDi.NIDi'.Cignew'.IDsnn.
+               H(H(NIDi'.IDsnn.Ri'.Rn')).Rn'.TS4').
+               NIDi'.Cignew'.IDsnn.Rt'.
+               H(H(NIDi'.IDsnn.Ri'.Rn')).TS4'}_H(IDi.IDg.K)
+           /\ SND(Mi'.TS4')
+% GW has freshly generated the value TS4 for Ui
+           /\ witness (GW,Ui,gw_user_ts4, TS4')
+% GW's acceptance of the values TS1 and r_i generated for GW by Ui
+             /\ request(Ui, GW, user_gw_ts1, TS1')
+             /\ request(Ui,GW,user_gw_ri, Ri')
+% GW's acceptance of the values TS3 and r_n generated for GW by SNn
+             /\ request(SNn, GW, sensor_gw_ts3, TS3')
+             /\ request(SNn,GW,sensor_gw_rn, Rn')    		  
+end role
+
+
+%%%%%%% Role specification for the sensor SN_n %%%%%%%%
+
+role  sensor (Ui, GW, SNn : agent, 
+            SKuigw : symmetric_key,
+            SND, RCV: channel(dy))
+played_by SNn 
+def=     
+local State  : nat,
+      IDi, IDsnn, K, Ki, PWi, BIOi : text,
+      J, K, Q, T, Ni, Cig, CIDi, Ni : text,
+      TS1, TS2, TS3, TS4, IDg, Ri, Rn, Rt: text,
+      NIDi, Ai, Bi, SKgwsnn, Fi, SKuisnn : text,
+      Gi, Rg, Rgnew, Cignew, Mi : text,                                                       
+      H : hash_func, Gen, Rep : hash_func
+const user_gw_ts1, gw_sensor_ts2, sensor_gw_ts3,
+      user_gw_ri, gw_user_ts4, sensor_user_rn, 
+      sensor_gw_rn, gw_sensor_ri,
+      s1, s2, s3, s4, s5, s6 : protocol_id
+init  State := 0
+transition
+% Authentication and key agreement phase
+% SNn receives authentication request m2 from GW
+1. State = 0 /\ RCV({H(NIDi'.IDsnn.Ri'.Ts2').NIDi'.
+                IDsnn.xor(Ri', H(SKgwsnn.NIDi'.
+                IDsnn.TS2')).TS2'}_SKgwsnn.TS2')=|> 
+State' := 1 /\ secret({PWi,BIOi,Ki},s1,Ui)
+            /\ secret(IDi, s2, {Ui,GW})
+            /\ secret(SKgwsnn, s3, {GW,SNn})
+            /\ secret(SKuigw, s4, {Ui,GW})
+            /\ secret({J,K,Q,IDg}, s5, GW)
+            /\ secret(IDsnn, s6, {Ui,GW,SNn})
+            /\ Rn' := new()
+            /\ TS3' := new()
+            /\Fi' := xor(Rn', H(SKgwsnn.NIDi'.IDsnn.TS3'))
+            /\ SKuisnn' := H(NIDi'.IDsnn.Ri'.Rn')
+            /\ Gi' := {H(NIDi'.IDsnn.Rn'.TS3').
+               H(SKuisnn').NIDi'.IDsnn.Fi'.TS3'}_SKgwsnn
+% SNn sends the message m3 to GW
+            /\ SND(Gi'.TS3')     
+% SNn has freshly generated the values TS3 
+% for GW and RNn for GW
+            /\ witness (SNn,GW,sensor_gw_ts3, TS3')
+            /\ witness (SNn,GW,sensor_gw_rn, Rn')
+% SNn's acceptance of TS2 and r_i generated for SNn by GW
+            /\ request(GW, SNn, gw_sensor_ts2, TS2')
+            /\ request(GW, SNn, gw_sensor_ri, R_i') 		  
+end role
+
+
+
+%%%%%%% Role specification for the session %%%%%%%%
+role session(Ui, GW, SNn: agent,
+	     SKuigw : symmetric_key)
+def=
+  local  US, UR, SS, SR, VS, VR: channel (dy)
+  composition
+           user(Ui, GW, SNn, SKuigw, US, UR)
+        /\ gw(Ui, GW, SNn, SKuigw, SS, SR)
+        /\ sesor(Ui, GW, SNn, SKuigw, VS, VR)
+end role
+
+
+%%%%%%% Role specification for the goal and environment %%%%%%%%
+role environment()
+def=
+  const ui, gw, snn  : agent,
+        skuigw : symmetric_key,
+        h : hash_func, 
+        gen, rep : hash_func,
+        ts1, ts2, ts3, ts4 : text,
+        user_gw_ts1, gw_sensor_ts2, sensor_gw_ts3,
+        user_gw_ri, gw_user_ts4, sensor_user_rn, 
+        sensor_gw_rn, gw_sensor_ri, 
+        s1, s2, s3, s4, s5, s6 : protocol_id
+intruder_knowledge = {h, gen, rep, ts1, ts2, ts3, ts4}
+composition
+	session(ui, gw, snn, skuigw) 
+     /\ session(i, gw, snn, skuigw) 
+     /\ session(ui, i, snn, skuigw) 
+     /\ session(ui, gw, i, skuigw) 
+end role
+
+goal
+secrecy_of s1
+secrecy_of s2
+secrecy_of s3
+secrecy_of s4
+secrecy_of s5
+secrecy_of s5
+authentication_on user_gw_ts1, user_gw_ri
+authentication_on gw_sensor_ts2, gw_sensor_ri
+authentication_on sensor_gw_ts3, sensor_gw_rn
+authentication_on gw_user_ts4
+end goal
+environment()
+
+

@@ -1,0 +1,95 @@
+%HLPSL:
+role Swift_Init (A,B   : agent,
+          	Psk : symmetric_key,
+	   	H     : hash_func,
+           	Snd, Rcv: channel(dy))
+played_by A
+def=
+           
+  local State  : nat,
+        Nn, Ns, Nk, Sk : text 
+
+  const sec_psk1, sec_sk1 : protocol_id
+
+  init  State := 0
+
+  transition
+   1. State   = 0 /\ Rcv(start) =|>
+      State' := 1 /\ Snd(A)
+
+   2. State   = 1 /\ Rcv(Ns') =|> 
+      State' := 2 /\ Nn' := new() /\ Snd(Nn'.H(Psk.Nn'.Ns'.A))
+	          /\ witness(A,B,nn,Nn') 
+		  /\ secret(Psk,sec_psk1,{A,B})
+
+   3. State   = 2 /\ Rcv(Nk'.H(Psk.Nn'.Nk')) =|> 
+      State' := 3 /\ request(A,B,ns,Ns)
+		  /\ Sk' := H(Nn'.Psk.Nk')
+		  /\ secret(Sk',sec_sk1,{A,B})
+
+end role
+
+role Swift_Resp (B,A : agent,
+                Psk : symmetric_key,
+		H: hash_func,
+                Snd, Rcv: channel(dy))
+played_by B
+def=
+           
+  local State  : nat,
+        Nn, Ns, Nk, Sk : text
+
+  const sec_psk2, sec_sk2 : protocol_id
+
+  init  State := 0
+
+  transition
+   1. State   = 0 /\ Rcv(A') =|>  
+      State' := 1 /\ Ns' := new() /\ Snd(Ns')
+	          /\ witness(B,A,ns,Ns')
+
+   2. State   = 1 /\ Rcv(Nn'.H(Psk.Nn'.Ns.A)) =|>
+      State' := 2 /\ Nk' := new() /\ Snd(Nk'.H(Psk.Nn'.Nk'))
+	          /\ request(B,A,nn,Nn') 
+		  /\ secret(Psk,sec_psk2,{A,B})
+		  /\ Sk' := H(Nn'.Psk.Nk')
+		  /\ secret(Sk',sec_sk2,{A,B})
+
+end role
+
+role session(A,B: agent,
+	     Psk: symmetric_key,
+	     H: hash_func)
+def=
+
+  local SA, SB, RA, RB: channel (dy)
+
+  composition
+           Swift_Init(A, B, Psk, H, SA, RA)
+       /\  Swift_Resp(B, A, Psk, H, SB, RB)
+end role
+
+role environment()
+def=
+
+  const a, b          : agent,
+        psk, kai, kbi : symmetric_key,
+        h             : hash_func,
+        nn, ns        : protocol_id
+
+  intruder_knowledge = {a, b, h, kai, kbi}
+
+  composition
+	session(a,b,psk	,h) /\
+	session(a,i,kai,h) /\
+        session(b,i,kbi,h)
+
+end role
+
+goal
+ secrecy_of sec_psk1, sec_psk2, sec_sk1, sec_sk2
+ authentication_on ns
+ authentication_on nn
+end goal
+
+environment()

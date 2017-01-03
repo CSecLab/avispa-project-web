@@ -1,0 +1,161 @@
+% const Ska, Skb : nat 
+%1.  a -> b : A, Ska
+%[a != b]
+% 
+%2.  b -> a : B.Skb.{A.B.Ska.Skb.Rb'}_Kb'
+%2[b != a and ska != skb]
+%3.  a -> b : A.Rat.{A.B.{Hash(A.Rat)}_inv(Pka)}_Pkb
+%4.  b -> a : {Rat.Rbt.A.B}_Pka
+%[rbt != rat]
+%5.  a -> b : {Rbt.A.B}_Pkb 
+%6.  b -> a : Rb.{A.B.{Hash(Rb)}_inv(Pkb)}_Pka
+%7.  b -> a : Kb
+
+role alice ( A,B : agent,
+                 Hash : hash_func,
+                 Pka, Pkb : public_key,
+                 Snd, Rcv : channel(dy))
+played_by A 
+def=
+
+ local  State: nat,
+        Rat, Rbt, Rb   : nat,
+        Kb 	 : symmetric_key,
+        Ska, Skb : message,
+        Commit : {text.text.message.message.nat}_symmetric_key
+
+ init  State := 0
+
+ transition
+
+   1. State = 0
+      /\ Rcv(start)
+      =|> 
+      State' := 2 
+      /\ Ska' := new() 
+      /\ Snd(A.Ska')
+      /\ witness(A,B,a_b_ska,Ska')
+
+   2. State = 2 /\ Rcv(B.Skb'.Commit') 
+      =|> 
+      State' := 4 
+      /\  Rat' := new()
+      /\  Snd(A.Rat'.{A.B.{Hash(A.Rat')}_inv(Pka)}_Pkb)
+
+   3. State = 4 /\ Rcv({Rat.Rbt'.A.B}_Pka)
+     =|>
+      State' := 6 /\ Snd({Rbt'.A.B}_Pkb)
+
+   4. State = 6 /\ Rcv(Rb.{A.B.{Hash(Rb)}_inv(Pkb)}_Pka)
+      =|>
+      State' := 8 /\ Rcv(Kb)
+      /\ request(A,B,b_a_skb,Skb)
+     
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+% const Ska, Skb : nat 
+%1.  a -> b : A, Ska
+%[a != b]
+% 
+%2.  b -> a : B.Skb.{A.B.Ska.Skb.Rb'}_Kb'
+%2[b != a and ska != skb]
+%3.  a -> b : A.Rat.{A.B.{Hash(A.Rat)}_inv(Pka)}_Pkb
+%4.  b -> a : {Rat.Rbt.A.B}_Pka
+%[rbt != rat]
+%5.  a -> b : {Rbt.A.B}_Pkb 
+%6.  b -> a : Rb.{A.B.{Hash(Rb)}_inv(Pkb)}_Pka
+%7.  b -> a : Kb
+role bob ( A,B : agent,
+		 Hash : hash_func,
+                 Pka, Pkb : public_key,
+                 Snd, Rcv : channel(dy))
+played_by B 
+
+def=
+
+ local  State: nat,
+        Rat, Rbt, Rb   : nat,
+        Kb 	 : symmetric_key,
+        Ska, Skb : message
+ 
+ init  State := 1
+
+ transition
+
+   1. State = 1 /\ Rcv(A.Ska')
+      =|> 
+      State' := 3 /\ Skb' := new() 
+      /\ Rb' := new()
+      /\ Kb' := new()
+      /\ Snd(B.Skb'.{A.B.Ska'.Skb'.Rb'}_Kb')
+  
+
+   2. State = 3 /\ Rcv(A.Rat'.{A.B.{Hash(A.Rat')}_inv(Pka)}_Pkb) 
+      =|> 
+      State' := 5 
+      /\ Rbt' := new()
+      /\ Snd({Rat'.Rbt'.A.B}_Pka)
+
+   3. State = 5 /\ Rcv({Rbt.A.B}_Pkb) =|>
+      State' := 7  
+      /\ Snd(Rb.{A.B.{Hash(Rb)}_inv(Pkb)}_Pka)
+ 
+   4. State = 7 /\ Snd(Kb) =|>
+      State' := 9 
+      /\ request(B,A,a_b_ska,Ska)
+      /\ witness(B,A,b_a_skb,Skb)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role session (A, B : agent,
+	      Hash : hash_func,
+	      Pka  : public_key,
+              Pkb  : public_key)
+def=
+
+  local SA, RA, SB, RB: channel (dy)
+  composition 
+
+	alice(A,B,Hash,Pka,Pkb,SA,RA)
+     /\ bob  (A,B,Hash,Pka,Pkb,SB,RB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role environment() def=
+
+    const a, b	       : agent,
+	h : hash_func,
+	ka, kb, ki   : public_key,
+        rb,rbt,rat,
+	a_b_ska,
+	b_a_skb : protocol_id
+
+    intruder_knowledge = {a, b, ka, kb, ki, inv(ki)}
+
+    composition
+
+	session(a,b,h,ka,kb)
+     /\ session(b,a,h,ka,kb)
+     /\ session(a,i,h,ka,ki)
+     /\ session(i,b,h,ki,kb)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+goal
+
+	authentication_on a_b_ska
+	authentication_on b_a_skb
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+environment()

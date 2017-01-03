@@ -1,0 +1,65 @@
+role sed1(U,V       : agent,
+         MAC,ECC    : hash_func,    
+         Knwk,Ktcl  : symmetric_key,
+         Cu,Pu,CA,Mu   : text,
+         SND,RCV    : channel(dy))
+played_by U
+def=
+	local
+		State:nat,Cv,EPu,MACu,MACv:text,Eu,Ev:public_key,Kl:symmetric_key
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=2 /\ SND({Cu}_Knwk) /\ witness(U,V,cert_u,Cu)
+		2. State=2 /\ RCV({Cv'}_Knwk) =|> State':=4 /\request(U,V,cert_v,Cv)/\ Eu':=new() /\ EPu':=new() /\SND({Eu'}_Knwk)
+		3. State=4 /\ RCV({Ev'}_Knwk) =|> State':=6 /\ Kl':= ECC(Pu,Eu,EPu,Cv,Ev,CA) /\ MACu' := MAC(Kl',Mu.U.V.Eu,Ev)/\SND({MACu}_Knwk) /\ secret(Kl',link_key,{U,V}) /\ witness(U,V,mac_u,MACu)
+		4. State=6 /\ RCV({MACv'}_Knwk) =|> State':=8 /\ request(U,V,mac_v,MACv)
+end role
+
+role sed2(U,V      : agent,
+         MAC,ECC   : hash_func,
+         Knwk,Ktcl : symmetric_key,
+         Cv,Pv,CA,Mv  : text,
+         SND,RCV   : channel(dy))
+played_by V
+def=
+	local
+		State:nat,Cu,EPv,MACu,MACv:text,Eu,Ev:public_key,Kl:symmetric_key
+	init
+		State := 1
+	transition
+		1. State=1 /\ RCV({Cu'}_Knwk) =|> State':=3 /\ SND({Cv}_Knwk) /\ witness(V,U,cert_v,Cv)
+		2. State=3 /\ RCV({Eu'}_Knwk) =|> State':=5 /\ Ev':=new() /\ EPv':=new() /\SND({Ev'}_Knwk) 
+		3. State=5 /\ RCV({MACu'}_Knwk) =|> State':=7 /\request(V,U,mac_u,MACu')/\ Kl':=ECC(Pv,Ev,EPv,Cu,Eu,CA) /\ MACv' := MAC(Kl,Mv.U.V.Eu,Ev) /\ SND({MACv}_Knwk) /\ witness(V,U,mac_v,MACv')
+end role
+
+role session(U,V:agent,
+             MAC,ECC:hash_func,
+             Cu,Pu,CA,Pv,Cv,Mu,Mv:text,
+             Knwk,Ktcl:symmetric_key)
+def=
+	local
+		SNDu,RCVu,SNDv,RCVv:channel(dy)
+	composition
+		sed1(U,V,MAC,ECC,Knwk,Ktcl,Cu,Pu,CA,Mu,SNDu,RCVu) /\ sed2(U,V,MAC,ECC,Knwk,Ktcl,Cv,Pv,CA,Mv,SNDv,RCVv)
+end role
+
+role environment()
+def=
+	const u,v                 : agent,
+              mac,ecc             : hash_func,
+              pu,pv,cu,cv,ca,mu,mv : text,
+              ktcl,kn                        : symmetric_key,
+              link_key,cert_u,cert_v,mac_u,mac_v : protocol_id
+
+	intruder_knowledge = {u,v,mac,ecc,ca,cu,cv,pu,pv,mu,mv}
+	composition
+		session(u,v,mac,ecc,cu,pu,ca,pv,cv,mu,mv,kn,ktcl) 
+end role
+
+goal
+	secrecy_of link_key
+        authentication_on cert_u,cert_v,mac_u,mac_v
+end goal
+
+environment()

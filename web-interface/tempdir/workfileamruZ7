@@ -1,0 +1,50 @@
+role alice (Ui , Sj  : agent,
+           SKuisj : symmetric_key,
+           H : hash_func,
+          Snd, Rcv : channel(dy))
+played_by  Ui
+def=
+ local State : nat,
+       RPWi, PWi, Bi, Rs , Xs,K,IDi,NIDi,TDi,Di,Fi,Ri,Ei,Rc,Rs : text,
+      M1,M2,M3,M4,M5,M6,M7,M8, M9 : message,
+      Inc: hash_func
+const alice_bob_rc, bob_alice_rs,
+      subs1, subs2, subs3 : protocol_id
+init State :=0
+
+
+
+
+transition
+
+1. State=0 / Rcv(start)=|>
+   State’ :=1 / Fi':= H(IDi.K.Bi )
+            / RPWi':= H(IDi.K.PWi)
+            / Snd({IDi.Fi'.RPWi'}_SKuisj)
+            / secret({Xs }, subs1, Sj)
+            / secret({PWi, Bi,K}, subs2, Ui)
+            /   secret({IDi},subs3, {Ui,Sj}) 
+
+2. State=1 / Rcv({xor(NIDi',H(IDi )),xor(NIDi',H(IDi)),
+         H,H(IDi.K.Bi),H(H(IDi.K.PWi).H(IDi.K.Bi)),
+         xor( H(IDi.Xs),H(H(IDi.K.PWi).H(IDi.K.Bi)))}_ SKuisj=|>)
+    State’ :=2 / Rc' := new()
+             / TDi':= xor(NIDi',H(IDi))
+             / M1' := H(IDi.Xs )      
+             / M2' := xor(M1',Rc')          
+     / Snd( xor(H(IDi),TDi'). M2'.H(IDi.Rc'))
+     / witness(Ui, Sj  ,alice_bob_rc,Rc'  )
+	State=2 / Rcv(xor(H(IDi.Xs),Rs').xor(H(Rs'.Rc'),NIDi').
+             H(H(IDi.Xs ).Rc.Rs'.IDi.NIDi').
+            H(IDi.Inc(Rc'.1).R_s'  ))=|>
+      State’=3 / M8’:= Rs'  
+                      / M9’ := H(Inc(M8’.1).IDi.NIDi'.Inc(Rc'.1))
+                      /  Snd(M9’)
+                     / request(Sj,Ui, bob_alice_rs, Rs'  )
+End role
+ 
+
+
+	
+
+ 

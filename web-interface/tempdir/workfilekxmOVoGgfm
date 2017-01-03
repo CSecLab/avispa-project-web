@@ -1,0 +1,84 @@
+role alice (A, B: agent,
+Rb, Ppub, Pb, Qb : public_key,
+Xb, Db : symmetric_key,
+IDa, IDb, R, P : text,
+C1, C2, Pm : message,
+H, Conc, Add, Sub, Mul: hash_func,
+SND, RCV : channel(dy))
+
+played_by A
+def=
+local State : nat
+const alicexxx, bobyyy, temp : protocol_id
+init State := 0
+transition
+
+1.State = 0 /\ RCV(start) =|>
+State' := 1/\ R' := new() 
+           /\ secret(R, temp, A)
+           /\ C1' :=Mul(R, P)
+           /\ C2' := Add(Pm, Mul(R, Add(Pb, Add(Rb,
+Mul (H(Conc(Conc(IDb, Pb), Rb)), Ppub)))))
+           /\ SND(IDa.IDb.C1.C2)
+end role
+
+role bob (B, A : agent,
+Rb, Ppub, Pb, Qb : public_key,
+Xb, Db : symmetric_key,
+IDa, IDb, R, P : text,
+C1, C2, Pm : message,
+H, Conc, Add, Sub, Mul: hash_func,
+SND, RCV : channel (dy))
+
+played_by B
+def=
+local State : nat
+const alicexxx, bobyyy, temp : protocol_id
+init State := 1
+
+transition
+1.State =1 /\ RCV(IDa.IDb.C1.C2) =|>
+State' :=2 /\ secret (R, temp, A)
+           /\ Pm' :=Sub(C2, Mul(Add(Xb, Db), C1))
+end role
+
+
+
+role session(A,B: agent,
+        Rb, Ppub, Pb, Qb : public_key,
+        Xb, Db : symmetric_key,
+        IDa, IDb, R, P : text,
+        C1, C2, Pm : message,
+        H, Conc, Add, Sub, Mul: hash_func)
+       
+ def=
+local SA, RA, SB, RB:channel (dy)
+
+composition
+   alice(A,B,Rb, Ppub, Pb, Qb,Xb, Db,H, Conc, Add, Sub, Mul,SA,RA)
+  /\bob(B,A,Rb, Ppub, Pb, Qb,Xb, Db,H, Conc, Add, Sub, Mul,SB,RB)
+  end role
+  
+  role environment()
+  def=
+  const Rb, Ppub, Pb, Qb : public_key,
+        Xb, Db : symmetric_key, 
+IDa, IDb, R, P : text,
+        C1, C2, Pm : message,
+        H, Conc, Add, Sub, Mul: hash_func
+
+  a, b , i:agent,
+         alicexxx, bobyyy, temp : protocol_id
+
+  
+  intruder_knowledge={a,b,i,IDa, IDb, R, P}
+  composition
+       session(a,b,Rb, Ppub, Pb, Qb,Xb, Db,H, Conc, Add, Sub, Mul)
+     /\session(i,b,Rb, Ppub, Pb, Qb,Xb, Db,H, Conc, Add, Sub, Mul)
+     /\session(a,i,Rb, Ppub, Pb, Qb,Xb, Db,H, Conc, Add, Sub, Mul)
+     end role
+ goal
+ secrecy_of alicexxx, bobyyy
+ end goal
+
+environment()

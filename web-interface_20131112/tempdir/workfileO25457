@@ -1,0 +1,121 @@
+% ------------------------- ALICE = E-purse ------------------------------
+% alice is the EP
+
+role alice (A, B : agent,
+	Sne : text,
+	Ka : public_key,
+	Kb : public_key,
+	SND, RCV : channel(dy))
+played_by A
+def=
+	local State : nat,
+	Tne, Rnd, Am, Pay : text,
+	Hash: hash_func,
+	REQ, RES : message
+
+% Ka es la clave pública del e-purse
+% Kb es la clave pública del E-purse issuer
+
+const bob_alice_req, alice_bob_res: protocol_id
+
+init State := 0
+
+transition
+
+0. 	State = 0 /\ RCV(start) 
+	=|>
+	State':= 2 
+	/\ Tne' := new() 
+	/\ Rnd' := new()	
+	/\ Pay' := new() %pay representará la cantidad a pagar
+	/\ REQ' := {Sne.Tne'.Rnd'.B.Hash(Pay')}_inv(Ka)
+	/\ SND(Pay'.Sne.Tne'.Rnd'.B.REQ'.{Sne.Ka}_inv(Kb))
+	/\ witness(A,B,bob_alice_req,REQ')
+
+2. 	State = 2 
+	/\ RCV(Sne.Tne'.Rnd'.Hash(Pay').RES')
+	/\ RES'={Sne.Tne'.Rnd'.Hash(Pay')}_inv(Kb) =|>
+	request(A,B,alice_bob_res,RES')
+end role
+
+% ------------------------- BOB = E-purse Issuer ------------------------------
+role bob (A, B : agent,
+	Sne : text,
+ 	Ka : public_key,
+ 	Kb : public_key,
+	SND, RCV : channel(dy))
+played_by B
+def=
+	local State : nat,
+	Tne, Rnd, Am, Pay : text,
+	K1ab : symmetric_key,
+	Hash : hash_func,
+	REQ, RES : message
+
+const alice_bob_res, bob_alice_req: protocol_id
+
+% Kb es la clave pública del EPI
+% Kb es la clave que genera bob para que sea certificada
+% am representa la cantidad a incrementar.
+
+init State := 1
+
+transition
+
+1. 	State = 1 
+	/\ RCV(Pay'.Sne.Tne'.Rnd'.B.REQ'.{Sne.Ka}_inv(Kb))
+	/\ REQ'={Sne.Tne'.Rnd'.B.Hash(Pay')}_inv(Ka) 
+	=|>
+	State':= 3
+	/\ RES' := {Sne.Tne'.Rnd'.Hash(Pay')}_inv(Kb)
+	/\ SND(Sne.Tne'.Rnd'.Hash(Pay').RES')
+	/\ request(B,A,bob_alice_req,REQ')
+	/\ witness(B,A,alice_bob_res,RES')
+
+end role
+
+%---------------------------- SESSION -----------------------------
+
+role session(A, B : agent,
+	Sne : text, 
+	Ka : public_key,
+	Kb : public_key)
+def=
+
+local SAB, RAB,
+	SBA, RBA : channel (dy)
+
+composition
+
+	alice(A, B, Sne, Ka, Ka, SAB, RAB)
+	/\ bob (A, B, Sne, Ka, Ka, SBA, RBA)
+
+end role
+
+role environment()
+def=
+
+const bob_alice_req, alice_bob_res: protocol_id,
+	a, b : agent,
+	ka, kb, ki : public_key,
+	sne, snei : text
+
+intruder_knowledge = {a, b, ka, kb, ki, inv(ki)}
+
+composition
+
+	session(a,b,sne,ka,kb)
+	/\ session(a,b,sne,ka,kb) % for checking replays
+
+end role
+
+goal
+
+authentication_on bob_alice_req
+authentication_on alice_bob_res
+
+end goal
+
+environment()
+
+

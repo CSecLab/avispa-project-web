@@ -1,0 +1,106 @@
+role chap_Init (C,S   : agent,
+           	Kcs   : symmetric_key,
+		F     : hash_func,
+ 		Snd, Rcv: channel(dy))
+played_by C
+def=
+           
+  local State	  : nat,
+        Rc, Rs, P : text,
+	Es        : public_key
+
+  const sec_kcs1  : protocol_id
+
+  init  State := 0
+
+  transition
+   1. State   = 0 /\ Rcv(start) =|>
+      State' := 1 /\ Snd(C)
+
+   2. State   = 1 /\ Rcv(Rs') =|> 
+      State' := 2 /\ Es' := new() /\ snd({{Rc}_Es'}) /\ Snd({P,Rc'}_Kcs) /\ witness(C,S,nc,Rc') /\ secret(Kcs,sec_kcs1,{C,S})
+
+   3. State   = 2 /\ Rcv(F{Rc'}_Kcs) =|> 
+     State' := 3 /\ request(C,S,ns,Rs) 
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% C <- S: Rs
+role chap_Resp (S,C : agent,
+                Kcs : symmetric_key,
+ 		F: hash_func,
+                Snd, Rcv: channel(dy))
+played_by S
+def=
+           
+  local State  : nat,
+        Rc, Rs : text
+
+  const sec_kcs : protocol_id
+
+  init  State := 0
+
+  transition
+   1. State   = 0 /\ Rcv(C') =|>  
+      State' := 1 /\ Rs' := new() /\ Snd(Rs') /\ snd {F(Rc')}_Kcs /\ witness(S,C,nc,Rs')
+
+   2. State   = 1 /\ Rcv(Rc'.F(Kcs.Rc'.Rs.C)) =|>
+      State' := 2 /\ Snd(F(Kcs.Rc')) /\ request(S,C,nc,Rc')/\ secret(Kcs,sec_kcs,{C,S})
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%A -> B : Na,H(k(A,B),(Na,Nb,A))
+% C -> S: {Rc}_Es, {f(Rs), P, C}_Kcs, in which Kcs = f(Rc, Rs)
+
+role session(C,S: agent,
+	     
+	    
+             Kcs: symmetric_key,
+             F: hash_func)
+def=
+
+  local LC, LS, MC, MS: channel (dy)
+
+  composition         chap_Resp(S, C, Kcs, F, LS, MS)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+
+  const c, s          : agent,
+	
+        kcs, kci, ksi : symmetric_key,
+        f             : hash_func,
+        nc, ns        : protocol_id
+
+  intruder_knowledge = {c, s, f, kci, ksi}
+
+  composition
+ session(c,s,kcs,f) /\ session(c,i,kci,f) /\ session(s,i,ksi,f)
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+ %secrecy of the shared key
+ secrecy_of sec_kcs1, sec_kcs2 % Addresses G12
+                         
+ %CHAP_Init authenticates CHAP_Resp on nb
+ authentication_on ns  % Addresses G1, G2
+ %CHAP_Resp authenticates CHAP_Init on na
+ authentication_on nc  % Addresses G1, G2
+  
+end goal
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+}
+ 

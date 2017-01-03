@@ -1,0 +1,124 @@
+%%      1. R -> T : Initial{Initial,Ni,IDi,S,IDt}Ek(I,T)
+%%      2. T -> R : IDi{IDi,Ni,Nt}Ek(I,T)
+%%     3. R -> T : IDt{IDt,Nt,Fu,NULL,NULL}Ek(I,T)
+%%     4. T -> R : IDi{Ni,IDi,R}Ek(I,T)
+
+%%     change the protocol run and test
+
+role interrogator (	
+		II, T	: agent, 
+		K,S	: symmetric_key,
+		Initial	:text, 
+		Snd, Rcv	: channel(dy)
+		)
+	played_by II def=
+	local 
+		State		: nat, 
+		Ni, Nt, IDi,IDt	: text,
+		Kn,Sn		: symmetric_key, 
+		Fu,R		: message
+
+	const sec_kab : protocol_id
+	
+	init  
+		State := 0
+	transition
+
+		1.	State	=  0 /\ Rcv(start) =|>
+			State'	:= 1 /\ Ni' := new() /\ IDi' := new () /\ IDt' := new () 
+				    /\ Snd(Initial.{Initial.Ni'.IDi'.S.IDt'}_K)
+
+		2.	State	=  1 /\ Rcv(IDi.{IDi.Ni.Nt'}_K)=|> 
+			State'	:= 2 /\ Snd(IDt.{IDt.Nt.Fu.Kn.Sn}_K) 
+				       /\ witness(II,T,na,Ni)  
+				       /\ secret(K,sec_kab,{II,T})
+
+		3.	State	=  2 /\ Rcv(IDi.{Ni.IDi.R}_K)=|> 
+			State'	:= 3 /\ request(II,T,nb,Nt)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role tag (	
+		II,T 		: agent,  
+		K,S	 	: symmetric_key,
+		Initial		: text,
+		Snd, Rcv		: channel(dy))
+	played_by T def=
+ 	local
+		State			: nat,
+		Ni, Nt, IDi,IDt	: text,
+		Kn,Sn			: symmetric_key, 
+		Fu,R			: message
+
+	const sec_kba : protocol_id
+
+	init
+		State := 0
+
+	transition
+		1.	State	=  0 /\ Rcv(Initial'.{Initial'.Ni'.IDi'.S'.IDt'}_K)  =|>  
+       			State'	:= 1 /\ Nt' := new() /\ Snd(IDi)
+				       /\ Snd(IDi.{IDi.Ni.Nt'}_K)
+	          			       /\ witness(T,II,nb,Nt')
+
+		2.	State	=  1 /\ Rcv(IDt.{IDt.Nt.Fu.Sn.Kn}_K) =|>
+			State'	:= 2 /\ Ni':=Ni
+				       /\ Snd(IDi.{Ni'.IDi.R}_K) 
+	          			       /\ request(T,II,na,Ni') 
+		  		       /\ secret(K,sec_kba,{II,T})
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(II,T	: agent,
+	     Initial	:text,
+	     K,S	: symmetric_key)
+def=
+	local SI, ST, RI, RT: channel (dy)
+	composition
+	interrogator(II, T, K,S,Initial,SI, RI)  /\   tag(II, T,K,S,Initial,ST, RT)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+
+  const a,b          : agent,
+	initial	: text,
+        kab, s,kai,kbi	 : symmetric_key, 
+       na, nb        : protocol_id
+
+  intruder_knowledge = {a, b,initial,kai,kbi }
+
+  composition
+	session(a,b,initial,kab,s)  /\ session(a,i,initial,kai,s) /\ session(b,i,initial,kbi,s)
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+ %secrecy of the shared key
+ secrecy_of sec_kab, sec_kba		% Addresses G12
+                         
+ %Interrogator authenticates tag on nb
+ %authentication_on na			% Addresses G1, G2
+
+%TAG authenticates interrogator on na
+% authentication_on nb			% Addresses G1, G2
+ 
+
+ % Entity authentication (G1)
+  % Message authentication (G2)
+  % Replay protection (G3)
+  % Authorization (by T3P) (G6)
+  % Key authentication (G7)
+
+end goal
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

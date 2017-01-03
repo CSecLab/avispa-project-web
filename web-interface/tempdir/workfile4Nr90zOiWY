@@ -1,0 +1,107 @@
+role alice (U,S:agent,
+Sk:symetric_key,
+H:hash_func,
+Snd,Rcv:channel(dy))
+%played by user
+played_by U
+def=
+local State:nat,IDu,PWu,Bb,TPWu,EIDu:text
+Ai,Bi,Ci,Di,Vi,Ti,Ts,Mi,Alfa,Beta,Shey:text
+const sub1,sub2,sud3,bob_X,alice_AiBiPw:protocol_id
+init State:=0
+transition
+%registration
+1.State=0 /\ Rcv(start) =|>
+   State':=1 /\ B':= new()
+/\ EIDu':=H(IDu.B')
+/\ TPWu':=new()
+/\ secret ({EIDu,TPWu},sub1,{U,S})
+/\ secret ({IDu,PWu,B},sub2,U)
+/\ Snd({EIDu',TPWu'}_Sk)
+%Recieve registration acknowldgement
+State = 1 /\ Rcv({Ai',Bi',P,Q}_Sk) =|>
+State':=2  %%%%%% /\ PWu':=new()
+/\ Ai':= exp(H(EIDu.PWu'),PWu')
+%%%/\ Bi':= (exp(H(EIDu.TPWu),(X+TPWu)).exp(H(EIDu),PWu))/ exp(H(EIDu),TPWu)
+/\ Bi':= Bi'.exp(H(EIDu),PWu'))/ exp(H(EIDu),TPWu')
+/\secret({Ai,Bi,PWu},alice_AiBiPw,U)
+/\ secret (X,bob_X,S)
+%%%send login request
+/\ Ci':=Bi'/exp(H(EIDu),PWu)
+Alfa':=new()
+/\ Di' := exp(H(EIDu),Alfa')
+/\ Ti':=new()
+/\ Mi':=H(EIDu.Ci'.Di'.Ti')
+/\Snd(EIDu.Di'.Mi'.Ti')
+State=2 /\ Rcv(EIDu.Vi'.Ms'.Ts') =|>
+Skey':=exp(Vi',Alfa)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role bob (U,S:agent,
+Sk:symetric_key,
+H:hash_func,
+Snd,Rcv:channel(dy))
+%played by server
+played_by S
+def=
+local State:nat,IDu,PWu,Bb,TPWu,EIDu:text
+Ai,Bi,Ci,Di,Vi,Ti,Ts,Mi,Alfa,Beta,Shey:text
+const sub1,sub2,sud3,bob_X,alice_AiBiPw:protocol_id
+init State:=0
+transition
+%registration
+State=0 /\ Rcv({EIDu',TPWu'}_Sk)=|>
+State':=1 /\  X':= new()
+/\ Ai':= exp(H(EIDu'.TPWu'),TPWu')
+/\ Bi':= exp(H(EIDu'.TPWu'),(X'+TPWu') 
+/\ secret ({EIDu,TPWu},sub1,{U,S}) 
+/\ secret ({IDu,PWu,B},sub2,U)
+/\ secret (X,bob_X,S)
+
+/\ Snd({Ai',Bi',P,Q}_Sk)
+State=1 /\ Rcv (EIDu.Di'.Mi'.Ti') =|>
+State' := 2 /\ Ci':=exp(H(EIDu),X)
+/\  Mi':=H(EIDu.Ci'.Di'.Ti') 
+/\ Beta:= new()
+/\ Vi':= exp(H(EIDu),Beta')
+/\ Skey':= exp(Di',Beta')
+/\ Ts' := new()
+/\ Ms' := H(EIDu.Ci'.Vi'.Skey'.Ts')
+/\ Snd(EIDu.Vi'.Ms'.Ts')
+/\secret({Ai,Bi,PWu},alice_AiBiPw,U)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(U, S: agent,
+Sk : symmetric_key,
+H : hash_func)
+def=
+local SI, SJ, RI, RJ: channel (dy)
+composition
+user (Ui, S, SKus, H, SI, RI)
+/\ server (Ui, S, SKus, H, SJ, RJ)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+const ui, s: agent,
+skus : symmetric_key,
+h : hash_func,
+nidi, ti, ts : text,
+alice_bob_ti, bob_alice_ts, alice_bob_alpha,
+bob_alice_beta, subs1, subs2, subs3,
+subs4, subs5 : protocol_id
+intruder_knowledge = {ui, s, h, nidi, ti, ts}
+composition
+session(ui, s, skuisj, h)
+/\ session(ui, s, skuisj, h)
+end role
+goal
+secrecy_of subs1
+secrecy_of subs2
+secrecy_of subs3
+secrecy_of subs4
+secrecy_of subs5
+authentication_on alice_bob_ti
+authentication_on alice_bob_alpha
+authentication_on bob_alice_ts
+authentication_on bob_alice_beta
+end goal
+environment()

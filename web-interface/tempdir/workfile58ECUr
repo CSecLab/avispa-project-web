@@ -1,0 +1,114 @@
+role ms(
+	MS,AP,WIF:agent,
+	Kmsk:symmetric_key,
+	Inc,Trun,Dot:hash_func,
+	SND,RCV:channel(dy))
+played_by MS def=
+  local State :nat,
+        BS:agent,
+        N_ms,N_ap,Sn:text,
+        Kpmk,Ktck:symmetric_key,
+        Tms:{agent.symmetric_key}_symmetric_key,
+        Mic:{text.agent.agent.{agent.symmetric_key}_symmetric_key.text}_symmetric_key
+  const id_gw2:text
+  init State :=0
+  transition
+  1.State  =0/\RCV(start)=|>
+    State':=2/\Kpmk':=Dot(Kmsk,BS,160)
+	     /\Ktck':=Trun(Kpmk',128)
+             /\N_ms':=new()
+	     /\Mic':={id_gw2.WIF.MS.Tms.N_ms'}_Ktck
+	     /\SND((id_gw2.WIF.MS.Tms.N_ms').Mic')
+  2.State  =2/\RCV(WIF.MS.Tms'.N_ap'.Sn'.Mic')=|>
+    State':=4/\N_ms':=new()
+             /\SND(MS.N_ap'.N_ms'.Sn'.Mic')
+             /\request(MS,WIF,wif_ms_mic,Mic')
+             /\witness(MS,WIF,ms_ap_mic,Mic')
+  3.State  =4/\RCV(AP.N_ap'.Inc(Sn').Mic')=|>
+    State':=6/\N_ms':=new()
+                  /\SND(MS.N_ms'.Inc(Sn').Mic')
+end role
+role ap(
+	MS,AP,WIF:agent,
+        Kwgk:symmetric_key,
+	Inc,H2,Trun,Dot:hash_func,
+	SND,RCV:channel(dy))
+played_by AP def=
+  local State :nat,
+        N_ms,N_ap,Sn:text,
+        Ktck,Kpmk,Ktwgk:symmetric_key,
+        Tms:{agent.symmetric_key}_symmetric_key,
+        Mic:{text.agent.agent.{agent.symmetric_key}_symmetric_key.text}_symmetric_key
+  const id_gw2:text
+  init State :=1
+  transition
+  1.State  =1/\RCV((id_gw2.WIF.MS.Tms'.N_ms').Mic')=|>
+    State':=3/\SND((id_gw2.WIF.MS.Tms'.N_ms').Mic')
+  2.State  =3/\RCV(Kpmk')=|>
+    State':=9/\Ktwgk':=H2(Kwgk.MS)
+             /\Tms':={MS.Kpmk}_Ktwgk'
+             /\N_ap':=new()
+             /\Ktck':=Trun(Kpmk,128)
+             /\ Mic':={id_gw2.WIF.MS.Tms'.N_ap'}_Ktck'
+             /\Sn':=new()
+             /\SND(WIF.MS.Tms'.N_ap'.Sn'.Mic') 
+ 3.State  =11/\RCV(MS.N_ap.N_ms'.Sn.Mic')=|>
+   State':=13/\N_ap':=new()
+             /\SND(AP.N_ap'.Inc(Sn).Mic')
+             /\request(AP,MS,ms_ap_mic,Mic')
+ 4.State =13/\RCV(MS.N_ms'.Inc(Sn).Mic')=|>
+    State':=15      
+end role 
+role wif(
+	MS,AP,WIF:agent,
+        Kvhk:symmetric_key,
+	H2:hash_func,
+	SND,RCV:channel(dy))
+played_by WIF def=
+  local State :nat,
+          N_ms:text,
+        Ktvhk,Kpmk:symmetric_key,
+        Tms:{agent.symmetric_key}_symmetric_key,
+        Mic:{text.agent.agent.{agent.symmetric_key}_symmetric_key.text}_symmetric_key
+  const id_gw2:text
+  init State :=5
+  transition
+  1.State  =5/\RCV((id_gw2.WIF.MS.{MS.Kpmk'}_Ktvhk'.N_ms').Mic')=|>
+    State':=7/\Ktvhk':=H2(Kvhk.MS)
+                  /\SND(Kpmk')
+                 /\witness(WIF,MS,wif_ms_mic,Mic')
+   
+end role 
+
+role session(
+	MS,AP,WIF:agent,
+	Kmsk,Kwgk,Kvhk:symmetric_key,
+	Inc,H2,Trun,Dot:hash_func)
+def=
+  local  SMS,RMS,SBS,RBS,SWIF,RWIF:channel(dy)
+  composition
+	ms(MS,AP,WIF,Kmsk,Inc,Trun,Dot,SMS,RMS)
+	/\ap(MS,AP,WIF,Kwgk,Inc,H2,Trun,Dot,SBS,RBS)
+        /\wif(MS,AP,WIF,Kvhk,H2,SWIF,RWIF)
+end role
+role environment()
+def=
+  const m,a,w:agent,
+        km,ka,kw,ki:symmetric_key,
+        inc,h2,trun,dot:hash_func,
+        wif_ms_mic,ms_ap_mic:protocol_id
+  intruder_knowledge={m,a,w,km,ka,kw,ki,inc,h2,trun,dot}
+  composition
+	session(m,a,w,km,ka,kw,inc,h2,trun,dot)
+	/\session(i,m,a,ki,km,ka,inc,h2,trun,dot)
+	/\session(m,i,a,km,ki,ka,inc,h2,trun,dot)
+        /\session(m,a,i,km,ka,ki,inc,h2,trun,dot)
+end role
+
+goal
+  authentication_on ms_ap_mic
+  authentication_on wif_ms_mic
+end goal
+
+environment()
+	  

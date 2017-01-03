@@ -1,0 +1,234 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%% BS %%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role bs(
+BS, SN,N: agent,
+Kbsn,Kbn: symmetric_key,
+Kpub_b : public_key,
+H: function,
+Request,
+Initiation_Required,Success: text,
+SND_BSSN, RCV_BSSN,SND_BSN, RCV_BSN : channel(dy))
+
+played_by BS def=
+local State : nat,
+Pkg_param : nat set,
+IDsn,IDn,VIDn,VIDsn: text,
+Kpub_n,Kpub_sn:public_key,
+C1,Y1,C3,Y2:nat
+const sec_b_kbsn ,sec_b_kbn: protocol_id
+
+init  State := 0
+transition
+
+%%%%%%%%%%%%%%%%%%%  Communication between BS and SN%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+1. State =0 /\ RCV_BSSN(Request) =|>
+   State':= 1 /\ SND_BSSN(Initiation_Required)
+2. State = 1 /\ SND_BSSN(Kpub_b.Pkg_param')=|>
+   State':= 2  
+3. State= 2 /\ RCV_BSSN ({Kpub_sn.IDsn.VIDsn.inv(Kpub_sn)}_Kbsn) =|>
+            
+   State':= 3 /\ RCV_BSSN(Success)/\secret(Kbsn,sec_b_kbsn,{BS,SN})
+
+%%%%%%%%%%%%%%%%%%%  Communication between BS and N%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+4. State =3 /\ RCV_BSN(Request) =|>
+   State':= 4 /\ SND_BSN(Initiation_Required)
+5. State = 4 /\ SND_BSN(Kpub_b.Pkg_param')=|>
+   State':= 5  
+6. State= 5 /\ RCV_BSN({Kpub_n.IDn.VIDn.inv(Kpub_n)}_Kbn)=|>
+             
+   State':= 6 /\ RCV_BSN(Success)/\secret(Kbn,sec_b_kbn,{BS,N}) 
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%SN verifie que N is trust via PKG %%%%%%%%%%%%%%%%%%%
+ 7. State =6/\ RCV_BSSN(VIDn) =|>
+    State':= 7/\ Y1':=new()
+                /\ C1':=new()
+            /\ SND_BSSN(Kpub_n.C1'.Y1')%%%%%%%en cas unsafe ajout de chiffrement%%%
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%N verifie que SN is trust via PKG %%%%%%%%%%%%%%%%%%%
+8. State =7/\ RCV_BSN(VIDsn) =|>
+    State':= 8/\ Y2':=new()
+                /\ C3':=new()
+            /\ SND_BSN(Kpub_sn.C3'.Y2')%%%%%%%en cas unsafe ajout de chiffrement%%%
+
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%% SN %%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role sn(
+BS, SN,N: agent,
+Kbsn: symmetric_key,
+Kpub_b,Kpub_sn,Kpub_n: public_key,
+H: function,
+Request,
+Initiation_Required,Success: text,
+SND_SNBS, RCV_SNBS,RCV_SNN,SND_SNN : channel(dy))
+
+played_by SN def=
+local State : nat,
+Pkg_param: nat set,
+
+
+IDsn ,VIDsn,VIDn : text,
+C1,Y1,C2,C4,Y2:nat
+const sec_s_kbsn : protocol_id
+
+init State := 11
+transition
+
+
+
+
+
+1. State =11 /\ RCV_SNBS(start) =|>
+   State':= 12 /\ SND_SNBS(Request)
+2. State = 12 /\ RCV_SNBS(Initiation_Required)=|>
+   State':= 13 /\ RCV_SNBS(Kpub_b.Pkg_param') 
+3. State = 13 /\ SND_SNBS({Kpub_sn.IDsn.VIDsn.inv(Kpub_sn)}_Kbsn)=|>
+   State':= 14 /\ SND_SNBS(Success)
+              /\secret(Kbsn,sec_s_kbsn,{BS,SN})
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% verification de trust pour N%%%%%%%%%%%%%%%%
+4. State =14/\SND_SNBS(VIDn) =|>
+    State':= 15  
+5. State =15/\RCV_SNBS(Kpub_n.C1'.Y1') =|>
+   State':= 16 /\SND_SNN(Y1')
+6.State = 16/\RCV_SNN(C2) =|>
+    State':= 17 /\ C1'= C2
+              /\SND_SNN(Success)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+7. State = 17 /\ RCV_SNN(Y2') =|>
+    State':= 18 /\SND_SNN(C4)
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%% N %%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role n(
+BS, SN,N: agent,
+Kbn: symmetric_key,
+Kpub_b,Kpub_n,Kpub_sn: public_key,
+
+H: function,
+Request,
+Initiation_Required,Success: text,
+SND_NBS, RCV_NBS,RCV_NSN,SND_NSN : channel(dy))
+
+played_by N def=
+local State : nat,
+Pkg_param: nat set,
+
+
+IDn ,VIDn,VIDsn: text,
+Y1,C2,C3,C4,Y2:nat
+
+const sec_n_kbn : protocol_id
+
+init State := 21
+transition
+
+
+1. State =21 /\ RCV_NBS(start) =|>
+   State':= 22 /\ SND_NBS(Request)
+2. State = 22 /\ RCV_NBS(Initiation_Required)=|>
+   State':= 23 /\ RCV_NBS(Kpub_b.Pkg_param') 
+3. State = 23 /\ SND_NBS({Kpub_n.IDn.VIDn.inv(Kpub_n)}_Kbn)=|>
+   State':= 24 /\ SND_NBS(Success)
+              /\secret(Kbn,sec_n_kbn,{BS,N})
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+4. State = 24 /\ RCV_NSN(Y1') =|>
+    State':= 25 /\SND_NSN(C2)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%verification de trust pour SN%%%%%%%%%%%%%%%%%%
+5. State =25/\SND_NBS(VIDsn) =|>
+    State':= 26 
+6. State =26/\RCV_NBS(Kpub_sn.C3'.Y2') =|>
+   State':= 27 /\SND_NSN(Y2')
+
+7.State = 27/\RCV_NSN(C4) =|>
+    State':= 28 /\ C3'= C4
+              /\SND_NSN(Success)
+
+
+
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%% Session %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role session (
+BS,SN,N : agent,
+Kbsn,Kbn: symmetric_key,
+Kpub_b,Kpub_n,Kpub_sn: public_key,
+H: function,
+
+Request,
+Initiation_Required,
+Success: text
+)
+def=
+local
+SSNBS,SBSSN: channel(dy),
+RSNBS,RBSSN : channel(dy),
+RNBS,RBSN : channel(dy),
+RSNN,RNSN:channel(dy),
+SSNN,SNSN:channel(dy),
+SNBS,SBSN: channel(dy)
+
+composition
+
+bs(BS,SN,N,Kbsn,Kbn,Kpub_b,H,Request,Initiation_Required,Success, SBSSN, RBSSN,SBSN,RBSN)
+/\ sn(BS,SN,N,Kbsn,Kpub_b,Kpub_sn,Kpub_n,H,Request,Initiation_Required,Success,SSNBS, RSNBS,RSNN,SSNN)
+/\ n(BS,SN,N,Kbn,Kpub_b,Kpub_n,Kpub_sn,H,Request,Initiation_Required,Success, SNBS,RNBS,RNSN,SNSN)
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%% Environment %%%%%%%%%%%%%%%%%
+
+
+role environment()
+def=
+const bs1,sn1,n1 : agent,
+kbsn,kisn,kbn,kin : symmetric_key,
+kpub_b,kpub_n,kpub_sn:public_key,
+y1:nat,
+h :function,
+req,initiation,succ : text
+
+intruder_knowledge = {bs1,sn1,n1,kpub_b,kpub_n,y1,h,req,initiation,succ}
+composition
+session(bs1,sn1,n1,kbsn,kbn,kpub_b,kpub_n,kpub_sn,h,req,initiation,succ)
+/\ session(i,sn1,n1,kisn,kin,kpub_b,kpub_n,kpub_sn,h,req,initiation,succ)
+/\ session(bs1,i,n1,kisn,kin,kpub_b,kpub_n,kpub_sn,h,req,initiation,succ)
+end role
+
+goal
+
+secrecy_of sec_b_kbsn, sec_s_kbsn ,sec_b_kbn, sec_n_kbn
+
+end goal
+
+environment()
+

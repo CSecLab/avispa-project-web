@@ -1,0 +1,153 @@
+
+role mn(MN,MNMAG,MAG1,MAG2,CNMAG,CN: agent,
+	KCN,KMN: public_key,
+	SK: symmetric_key,
+	HASHE: hash_func,
+	SND,RCV: channel(dy))
+	played_by MN def= 
+	local  BDATA,CONN,C,DATA1,MNMAGADDR, N1MN,MAGDEST,HOA, PCOAMN,TOKEN,TOKENRES,PCOACN,
+	NMNMAG,NMN,R0,MSG,MNMAGREQ,PCOAMNREQ,CNMAGADDR,NCNMAG: text,State: nat
+	init State :=0
+	transition
+	 0.State =0 /\ RCV(start) =|>
+		State':= 6/\ CONN':=new()/\SND(CONN')
+
+ 
+ 	6.State = 6 /\ RCV(HASHE(MSG').{{MSG'}_KCN}_SK)=|>State':=12
+	
+end role
+
+
+role mnmag(MN,MNMAG,MAG1,MAG2,CNMAG,CN: agent,
+	KCN,KMN: public_key,
+	SK: symmetric_key,
+	HASHE: hash_func,
+	SND,RCV: channel(dy))
+	played_by MNMAG def= 
+	local BDATA,CONN,C,DATA1,MNMAGADDR, N1MN,CNMAGDEST,HOA, PCOAMN,TOKEN,TOKENRES,PCOACN,NMNMAG,NMN,R0,MSG,MNMAGREQ,PCOAMNREQ,CNMAGADDR,NCNMAG:  text ,State: nat
+	init State :=1
+	transition
+
+	1.State =1 /\ RCV(CONN')=|>
+		State':=7/\TOKEN':=new()/\R0':=new()/\PCOAMN':=new()/\NMNMAG':=new()/\SND({TOKEN'.PCOAMN'}_KCN.xor(R0',NMNMAG'))/\secret(TOKEN',token,{MNMAG,CNMAG})
+
+	7.State =7/\RCV(HASHE(TOKENRES'.NCNMAG'))=|>
+		State':=11
+
+		
+	11.State =11/\RCV(HASHE(MSG').{{MSG'}_KCN}_SK)=|>State':=13/\SND(HASHE(MSG').{{MSG'}_KCN}_SK)	
+
+end role
+
+
+
+role mag1(MN,MNMAG,MAG1,MAG2,CNMAG,CN: agent,
+	KCN,KMN: public_key,
+	SK: symmetric_key,
+	HASHE: hash_func,
+	SND,RCV: channel(dy))
+	played_by MAG1 def= 
+	local BDATA,CONN,C,DATA1,MNMAGADDR, N1MN,CNMAGDEST,HOA, PCOAMN,TOKEN,TOKENRES,PCOACN,NMNMAG,NMN,R0,MSG,MNMAGREQ,PCOAMNREQ,CNMAGADDR,NCNMAG: text,State: nat
+	init State :=2 
+	transition
+2.State =2 /\ RCV({TOKEN'.PCOAMN'}_KCN.xor(R0',NMNMAG'))=|>State':=14
+	
+
+
+end role
+
+
+role mag2(MN,MNMAG,MAG1,MAG2,CNMAG,CN: agent,
+	KCN,KMN: public_key,
+	SK: symmetric_key,
+	HASHE: hash_func,
+	SND,RCV: channel(dy))
+	played_by MAG2 def= 
+	local BDATA,CONN,C,DATA1,MNMAGADDR, N1MN,CNMAGDEST,HOA, PCOAMN,TOKEN,TOKENRES,PCOACN,NMNMAG,NMN,R0,MSG,MNMAGREQ,PCOAMNREQ,CNMAGADDR,NCNMAG:text,State: nat
+	init State := 3
+	transition
+3.State = 3/\ RCV({TOKEN'.PCOAMN'}_KCN.xor(R0',NMNMAG'))=|>State':=15
+		
+
+
+
+end role
+
+role cnmag(MN,MNMAG,MAG1,MAG2,CNMAG,CN: agent,
+	KCN,KMN: public_key,
+	SK: symmetric_key,
+	HASHE: hash_func,
+	SND,RCV: channel(dy))
+	played_by CNMAG def= 
+	local 
+	State: nat,
+BDATA,CONN,C,DATA1,MNMAGADDR, N1MN,CNMAGDEST,HOA, PCOAMN,TOKEN,TOKENRES,PCOACN,NMNMAG,NMN,R0,MSG,MNMAGREQ,PCOAMNREQ,CNMAGADDR,NCNMAG: text 
+	
+	init 
+	State := 4
+	transition
+
+	4.State =  4/\ RCV({TOKEN'.PCOAMN'}_KCN.xor(R0',NMNMAG'))=|>
+	State':=8/\SND(HASHE(TOKENRES'.NCNMAG')) 
+8.State = 8/\RCV(HASHE(MSG').{{MSG'}_KCN}_SK)
+		=|>State':=10/\SND(HASHE(MSG').{{MSG'}_KCN}_SK)
+end role
+
+
+role cn(MN,MNMAG,MAG1,MAG2,CNMAG,CN: agent,
+	KCN,KMN: public_key,
+	SK: symmetric_key,
+	HASHE: hash_func,
+	SND,RCV: channel(dy))
+	played_by CN def= 
+	local BDATA,CONN,C,DATA1,MNMAGADDR, N1MN,CNMAGDEST,HOA, PCOAMN,TOKEN,TOKENRES,PCOACN,NMNMAG,NMN,R0,MSG,MNMAGREQ,PCOAMNREQ,CNMAGADDR,NCNMAG:text,State: nat
+	init State := 5
+	transition
+
+ 	5.State = 5/\RCV(start)=|>
+	State':=9/\ MSG':=new()/\SND(HASHE(MSG').{{MSG'}_KCN}_SK)/\secret(MSG',msg,{CN,CNMAG})
+
+end role
+role session( MN,MNMAG,MAG1,MAG2,CNMAG,CN: agent,KCN,KMN: public_key,SK: symmetric_key,HASHE: hash_func)
+def= 
+	local SMN,RMN,SMNMAG,RMNMAG,SMAG1,RMAG1,SMAG2,RMAG2,SCNMAG,RCNMAG,SCN,RCN: channel(dy) 
+
+	composition 
+	mn( MN,MNMAG,MAG1,MAG2,CNMAG,CN,KCN,KMN,SK,HASHE,SMN,RMN) 
+               /\ mnmag(MN,MNMAG,MAG1,MAG2,CNMAG,CN,KCN,KMN,SK,HASHE,SMNMAG,RMNMAG)
+	/\ mag1(MN,MNMAG,MAG1,MAG2,CNMAG,CN,KCN,KMN,SK,HASHE,SMAG1,RMAG1)
+/\ mag2(MN,MNMAG,MAG1,MAG2,CNMAG,CN,KCN,KMN,SK,HASHE,SMAG2,RMAG2)
+	 /\cnmag(MN,MNMAG,CNMAG,MAG1,MAG2,CN,KCN,KMN,SK,HASHE,SCNMAG,RCNMAG)  
+               /\cn(MN,MNMAG,MAG1,MAG2,CNMAG,CN,KCN,KMN,SK,HASHE,SCN,RCN) 
+	 
+end role 
+
+role environment() 
+def= 
+
+const  mn1,mnmag1,mag11,mag22,cnmag1,cn1: agent,
+	kcn,kmn: public_key,
+	sk: symmetric_key,
+	hashe: hash_func,
+token,msg:protocol_id
+
+   composition 
+	session(mn1,mnmag1,mag11,mag22,cnmag1,cn1,kcn,kmn,sk,hashe)
+end role 
+goal
+ 
+
+secrecy_of token
+secrecy_of msg
+
+
+
+
+
+
+
+end goal
+
+
+environment() 
+

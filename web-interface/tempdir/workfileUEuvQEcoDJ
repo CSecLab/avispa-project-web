@@ -1,0 +1,238 @@
+role alice (Ui, S, SNk   : agent,
+           %H is the ome-way hash function
+           H  : hash_func,
+           Snd, Rcv : channel(dy))
+
+% Player by the initiator: the user Ui
+played_by Ui
+def=
+
+local State  : nat,
+UIDi,Pi,RPWi,Ni,N1,Yi,Gi,Hi,Ki,Di,Ci,CIDi,V1,Zi, MK, N2,N3, Wi, Wj, V3: text
+       
+ const alice_bob_Ni, bob_alice_Yi, alice_bob_N1, bob_sensor_N2, sensor_bob_N3, subs1, subs2, subs3, subs4, subs5 : protocol_id
+
+init  State := 0
+
+transition
+
+% User registration phase
+ 1. State = 0   /\ Rcv(start)=|>
+    State' := 1 /\ Ni' := new()
+% Send the registration request message to server S
+			/\ RPWi' :=  H(Ni'.Pi)
+			/\ secret({Ni',Pi'}, subs1, Ui)
+			/\ secret({UIDi}, subs2, {Ui,S})
+			/\ Snd({UIDi, H(Ni'.Pi)})
+			/\ witness(Ui, S, alice_bob_Ni, Ni')
+% Receive the registration acknowledgment message(Gi,Hi,Ki,H)
+ 2. State = 1/\ Rcv(xor(H(UIDi.H(Ni'.Pi)),Yi'),xor(H(H(Ni'.Pi).UIDi),H(MK.Yi')),xor(H(Yi'.MK),H(xor(UIDi,H(Ni'.Pi)))),H)=|>
+
+
+
+
+% Login phase
+    State' := 2 
+% Send the REQUEST message Snd (Di’,Ci’,CIDi’,Yi’) to Server
+               /\ request(S, Ui, bob_alice_Yi, Yi')
+		    /\ secret({MK, Yi'}, subs3, S)
+               /\ N1':=new()
+               /\ secret({N1'}, subs4, Ui)
+               /\ Ci':=xor(H(Yi'.MK), N1')
+               /\ CIDi':= xor(H(UIDi.H(MK.Yi')),H(H  
+				(Yi'.MK).N1'))
+               /\ Di':=H(H(MK.Yi').H(Yi'.MK).N1'.UIDi)
+               /\ Snd(H(H(MK.Yi').H(Yi'.MK).N1'.UIDi), xor(H(Yi'.MK), N1'),xor(H(UIDi.H(MK.Yi')),H(H(Yi'.MK).N1')),Yi')
+
+% Ui has freshly generated the value N1 for Server S
+               /\ witness(Ui, S, alice_bob_N1, N1')
+
+
+%Authentication phase
+% Receive the CHALLENGE message  from server
+
+3. State = 2 /\ Rcv(xor(N2',H(Yi'.H(Yi'.MK).UIDi.N1')),xor(N3',H(Yi'.H(MK.Yi').UIDi.N2')),H(Yi'.H(Yi'.MK).UIDi.N2'.N3')) =|> 
+% Ui's acceptance of the value N3 and N2 generated for Ui by S 
+State' := 3  
+
+end role
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%% 
+
+
+
+role bob ( Ui, S, SNk   : agent,
+            %H is the ome-way hash function
+            H  : hash_func,
+		 SKss: symmetric_key,
+            Snd, Rcv: channel(dy))
+
+% Player by the responder: the server S
+played_by S
+def=
+ 
+local State  : nat,
+UIDi, Pi, RPWi, Ni, N1, Yi, MK, N2, N3, Wi, Wj, V3, V1,V2: text,
+Gi, Hi, Ki, Ci, Di, CIDi, Mi, Qi,Ri,Vi1,Vi2, Zi, SIDj : text
+     
+const alice_bob_Ni, bob_alice_Yi, alice_bob_N1, bob_sensor_N2, sensor_bob_N3, subs1, subs2, subs3, subs4, subs5 : protocol_id
+
+init  State := 0
+ transition
+
+% User registration phase
+% Receive the registration request message from Ui
+1. State   = 0 /\ Rcv(UIDi, H(Ni'.Pi))=|>
+   State' := 1 /\request(Ui, S, alice_bob_Ni, Ni')
+		    /\ Yi':=new() 
+               /\ secret({Ni',Pi'}, subs1, Ui)
+               /\ secret({UIDi}, subs2, {Ui,S})
+               /\ secret({MK, Yi'}, subs3, S)
+% Send the registration acknowledgment message to Ui snd%%
+%%%(Gi,Hi,Ki,H)
+           /\ Gi' := xor(H(UIDi.H(Ni'.Pi)),Yi')
+           /\ Hi' := xor(H(H(Ni'.Pi).UIDi),H(MK.Yi'))
+           /\ Ki' := xor(H(Yi'.MK),H(xor(UIDi,H(Ni'.Pi))))
+           /\ Snd(xor(H(UIDi.H(Ni'.Pi)),Yi'),xor(H(H(Ni'.Pi).UIDi),H(MK.Yi')),xor(H(Yi'.MK),H(xor(UIDi,H(Ni'.Pi)))),H)
+           
+% server will use Yi for Ui
+           /\witness(S, Ui, bob_alice_Yi, Yi')
+   
+
+% Login phase
+% Receive the REQUEST message < Di’,Ci’,CIDi’,Yi’ > from Ui
+
+2. State = 1 /\ Rcv(H(H(MK.Yi').H(Yi'.MK).N1'.UIDi), xor(H(Yi'.MK), N1'),xor(H(UIDi.H(MK.Yi')),H(H(Yi'.MK).N1')),Yi') =|> 
+
+ 
+
+% Authentication phase for user
+
+State' := 2/\ N2' := new()
+            
+% Send the CHALLENGE Snd(Mi',Qi',V1')to Sensor
+ 
+    /\secret({SIDj , SKss}, subs5, {S, SNk})
+    /\ Mi':=xor(N2',H(SIDj,SKss))
+    /\ Qi':=xor(N1',H(SKss.N2'))
+    /\ V1':= H(N1'.SKss.N2'.SIDj)
+    
+    /\Snd(xor(N2',H(SIDj,SKss)),xor(N1',H(SKss.N2')),H(N1'.SKss.N2'.SIDj))
+
+% S has freshly generated the value N2 for Sensor
+
+             /\ request(Ui, S, alice_bob_N1, N1')
+		  /\ witness(S, SNk, bob_sensor_N2, N2')
+
+% session key agreements between sensor and user
+
+3. State = 2 /\ Rcv(xor(H(N1'.N2'),N3'), H(N1'.N2'.SKss.N3'.SIDj))=|>
+State' := 3 /\request(SNk, S, sensor_bob_N3, N3')
+  
+% Send information (Wi,Wj,V3) to User
+
+           /\ Wi':= xor(N2',H(Yi'.H(Yi'.MK).UIDi.N1'))
+           /\ Wj':= xor(N3',H(Yi'.H(MK.Yi').UIDi.N2'))
+		/\ V3':=H(Yi'.H(Yi'.MK).UIDi.N2'.N3')
+		/\Snd(xor(N2',H(Yi'.H(Yi'.MK).UIDi.N1')),xor(N3',H(Yi'.H(MK.Yi').UIDi.N2')),H(Yi'.H(Yi'.MK).UIDi.N2'.N3'))
+end role
+
+
+
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role sensor( Ui, S, SNk   : agent,
+            %H is the one-way hash function
+            H  : hash_func,
+		    SKss: symmetric_key,
+            Snd, Rcv: channel(dy))
+
+% Player by the responder: the server S
+played_by SNk
+def=
+ 
+local State  : nat,
+
+SIDj, N1, N2, N3, Mi, Qi, V1, V2, Lj, MK : text
+
+const alice_bob_Ni, bob_alice_Yi, alice_bob_N1, bob_sensor_N2, bob_sensor_N3, subs1, subs2, subs3, subs4, subs5 : protocol_id
+
+init State:=0
+ transition
+
+
+% receving (Mi',Qi',V1') from server for session key generation
+1. State=0/\ Rcv(xor(N2',H(SIDj,SKss)),xor(N1',H(SKss.N2')),H(N1'.SKss.N2'.SIDj)) =|>
+
+State':=1 /\ secret({SIDj,SKss},subs5,{S,SNk})
+          /\ request(S, SNk, bob_sensor_N2, N2')
+% sensor genereated fresh N3          
+		/\ N3' := new()
+	     /\ Lj':=xor(H(N1'.N2'),N3')
+ 		/\ V2':= H(N1'.N2'.SKss.N3'.SIDj)
+
+%Sending (Lj, V2) to server
+	     
+/\ Snd(xor(H(N1'.N2'),N3'), H(N1'.N2'.SKss.N3'.SIDj))
+/\ witness(SNk, S, sensor_bob_N3, N3')
+
+end role
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(Ui, S, SNk: agent,
+             H : hash_func,
+			 SKss: symmetric_key)
+			 
+             
+def=
+  local  Snd, Rcv: channel (dy)
+  composition
+     alice(Ui, S, SNk, H, Snd, Rcv)
+ /\  bob  (Ui, S, SNk, H,SKss, Snd, Rcv)
+ /\  sensor(Ui, S, SNk, H, SKss, Snd, Rcv) 
+end role 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+def=
+  const ui, s, snk: agent,
+        h    : hash_func,
+        alice_bob_Ni, bob_alice_Yi, alice_bob_N1, bob_sensor_N2,    
+        bob_sensor_N3, subs1, subs2, subs3, subs4, subs5 : protocol_id
+  intruder_knowledge = {ui, s, snk, h}
+  composition
+	   session(ui, s, snk, h) 
+	/\ session(ui, s, snk, h) 
+end role
+goal
+  secrecy_of subs1
+  secrecy_of subs2
+  secrecy_of subs3
+  secrecy_of subs4
+  secrecy_of subs5
+  authentication_on alice_bob_Ni 
+  authentication_on bob_alice_Yi 
+  authentication_on alice_bob_N1 
+  authentication_on bob_sensor_N2    
+  authentication_on sensor_bob_N3 
+     
+end goal
+environment()
+
+

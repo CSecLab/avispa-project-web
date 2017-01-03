@@ -1,0 +1,55 @@
+role alice(A,B : agent,
+			Kab : symmetric_key,
+			Msg: text,
+			SND, RCV : channel (dy))
+played_by A def=
+	local	State: nat
+	init 	State := 0
+	
+	transition
+	step1. State = 0 /\ RCV({Msg'}_Kab =|>
+	State':= 2 /\ SND({Msg'}_Kab)
+end role
+
+role bob(A,B : agent,
+		Kab : symmetric_key,
+		SND, RCV : channel (dy))
+played_by B def=
+	local 	State: nat, Ans, Msg: text
+	init 	State := 0
+	
+	transition
+	step1. State = 0 /\ RCV({Msg'}_Kab) =|>
+	State':= 2 /\ SND({Ans'}_Kab)
+end role
+
+role session(A,B : agent,
+		Kab : symmetric_key,
+		Msg : text)
+def=
+		local SA, RA, SB, RB: channel (dy)
+		
+	composition
+	alice (A, B, Kab, Msg, SA, RA)
+	/\ bob (B, A, Kab, SB, RB)
+end role
+
+role environment()
+def=
+	const a, b: agent,
+	kab, ki : symmetric_key,
+	msg: text
+
+	intruder_knowledge = {a, b,ki}
+	
+	composition
+	session(a,b,kab,msg)
+	/\ session(a,i,ki,msg)
+	/\ session(i,b,ki,msg)
+end role
+
+goal
+	secrecy_of msg
+end goal
+
+environment()

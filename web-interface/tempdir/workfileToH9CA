@@ -1,0 +1,119 @@
+%% Certificateless Signcryption Scheme without Bilinear Pairing
+%% A: Signer (Sender), B: Verifier (receiver)
+%% (Da, Xa) secret key of A
+%% (Db, Xb) secret key of B
+%% (Pa, Qa) Public Key of A
+%% (Db, Xb) Public Key key of B
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role alice (
+A, B: agent, 
+            Pa, Qa, Pb, Qb : public_key
+            % dA = inv(Qa)       % dA - private key of Al
+            P, Ppub : symmetric_key
+            Minus, Union, Xor, Pred : function,
+            H1, H2, H3 : hash_func,
+            SND, RCV : channel (dy)) 
+
+played_by A 
+
+def=
+local State : nat, IDa, IDb,
+K, Da, Db, Pa, Pb, Qa, Qb, R, Rr, Rb, Sig, H, T, M, Mb, Sig : text
+const  alice_bob,  bob_alice, sub1, sub2, sk : protocol_id
+
+init State := 0
+transition
+    1. State    = 0   /\  RCV(start) =|>
+           State'  := 1 /\ R':= new()
+		/\ N':= new()
+		/\ SND(IDa.IDb.{IDa.K'= new()
+		/\ M':= new()
+		/\Rr':=Pred(R, P)
+		/\Rb':=Pred(R, Union(Pb, Qb)
+		/\Mb':=Xor(M, H1(R, Rb))
+		/\H':=H2(M, Mb, R, Rb, Pa, Pb)
+		/\T':=H3(M, Mb, R, Rb, Qa, Qb)
+		/\Sig':=Union(R,  Union(Pred(H, Da), Pred(T, Xa)))
+		/\SND(R.Mb.Sig)
+		/\ secret({R', Da, Xa}, subs1, A)              
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob(
+A, B: agent, 
+            Pa, Qa, Pb, Qb : public_key
+            % dA = inv(Qa)       % dA - private key of Al
+            P, Ppub : symmetric_key
+            Minus, Union, Xor, Pred : function,
+            H1, H2, H3 : hash_func,
+            SND, RCV : channel (dy)) 
+
+played_by B 
+
+def=
+local State : nat, IDa, IDb,
+Da, Db, Pa, Pb, Qa, Qb, R, Rr, Rb, Sig, H, T, M, Mb, Sig : text
+const  alice_bob,  bob_alice, sub1, sub2, sk : protocol_id
+
+
+init State := 1
+
+transition
+    1.  State  =  1 /\  RCV(R.Mb.Sig)) =|>
+        State'  :=  2  /\  secret (K, sk, A)    % K is the randomly selected element from the finite field
+                        /\  RCV(F1(M.F2(K.Qb)).F3(inv(Qa).K.H(M)).Q) 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(A, B: agent, 
+            Qa, Qb : public_key,
+            % dA = inv(Qa)
+            K, Q, G  : text,
+            M : message,
+            H, F1, F2, F3, F4 : function) 
+def=
+local SA, RA, SB, RB: channel (dy),
+       IDa, IDb, N : text
+
+composition
+         alice(A,B,Qa, Qb, K, Q, G,  M, H, F1, F2, F3, F4, SA, RA)    /\
+         bob(A,B,Qa, Qb, K, Q, G, M, H, F1, F2, F3, F4, SB, RB)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() 
+
+def=
+const  a, b: agent, 
+            qa, qb : public_key,
+            % dA = inv(Qa)
+            k,q, g : text,
+            m : message,
+            h, f1, f2, f3, f4 : function,
+
+    alice_bob, bob_alice, sk : protocol_id
+
+intruder_knowledge = {a, b, qa, qb, q, g}
+
+composition
+         session(a,b,qa, qb, k, q, g, m, h, f1, f2,f3, f4)    /\
+         session(a,b,qa, qb, k, q, g, m, h, f1, f2, f3, f4)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+   secrecy_of sk
+   authentication_on alice_bob
+   authentication_on bob_alice 
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+

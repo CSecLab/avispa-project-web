@@ -1,0 +1,75 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfile15zMcV
+
+section signature:
+
+state_iso1_Resp: agent * agent * public_key * nat * public_key * text * text * nat -> fact
+state_iso1_Init: agent * agent * public_key * public_key * nat * text * nat -> fact
+
+
+section types:
+
+na: protocol_id
+MGoal, start: message
+pka, pks, Pka, Pks, Dummy_Pka, dummy_pk: public_key
+dummy_nonce, Na, Text, ctext, Dummy_Text, Dummy_Na: text
+A2Goal, A1Goal, a, b, A, B, i: agent
+SID, SID2, SID1, State, 1, 0, 7, 6, 4, Dummy_State, 3: nat
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(pks).
+ iknows(pka).
+ iknows(i).
+ state_iso1_Init(a,b,pka,pks,0,dummy_nonce,3).
+ state_iso1_Resp(b,a,pks,0,dummy_pk,dummy_nonce,dummy_nonce,4).
+ state_iso1_Init(a,b,pka,pks,0,dummy_nonce,6).
+ state_iso1_Resp(b,a,pks,0,dummy_pk,dummy_nonce,dummy_nonce,7)
+
+
+section rules:
+
+step step_0 (A,B,Pka,Pks,Dummy_Na,SID,Na) :=
+ state_iso1_Init(A,B,Pka,Pks,0,Dummy_Na,SID).
+ iknows(start)
+=[exists Na]=>
+ state_iso1_Init(A,B,Pka,Pks,1,Na,SID).
+ iknows(pair(Pka,pair(A,pair(crypt(inv(Pks),pair(Pka,A)),pair(Na,pair(B,pair(ctext,crypt(inv(Pka),pair(Na,pair(B,ctext)))))))))).
+ witness(A,B,na,Na)
+
+step step_1 (B,A,Pks,Dummy_Pka,Dummy_Na,Dummy_Text,SID,Pka,Na,Text) :=
+ state_iso1_Resp(B,A,Pks,0,Dummy_Pka,Dummy_Na,Dummy_Text,SID).
+ iknows(pair(Pka,pair(A,pair(crypt(inv(Pks),pair(Pka,A)),pair(Na,pair(B,pair(Text,crypt(inv(Pka),pair(Na,pair(B,Text))))))))))
+ =>
+ state_iso1_Resp(B,A,Pks,1,Pka,Na,Text,SID).
+ request(B,A,na,Na,SID)
+
+
+section properties:
+
+property authentication_on_na (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,na,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,na,MGoal))
+     /\ ((request(A1Goal,A2Goal,na,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,na,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state authentication_on_na (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,na,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,na,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_na (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,na,MGoal,SID1).
+ request(A1Goal,A2Goal,na,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

@@ -1,0 +1,141 @@
+
+
+role ui (A, B, C : agent,
+	   K : symmetric_key,
+	   Snd, Rcv: channel(dy))
+played_by A def=
+
+	local 
+		State : nat , 
+		IDi, PWi, Ni, Xa, DIDi, Ci, T1, Ri, Sn, Cg, Rc : text,
+		H  : hash_func
+		
+		const protocol1,protocol3,protocol4,subs1,subs2 : protocol_id
+
+  init State := 0
+
+  transition
+    1.  State   = 0 /\ Rcv(start) =|> 
+        State' := 2 /\ Snd( {IDi.PWi}_K )
+	  
+	  
+    2. 	State   = 4 /\ Rcv({IDi.Ni'.H(PWi).Xa}_K) =|>
+	State' := 5 /\ T1'	 := new()
+		    /\ DIDi' := xor(H(IDi.PWi),H(Xa.T1'))
+		    /\ secret({PWi}, subs1, A)
+		    /\ secret({Xa}, subs2, B)
+		    /\ Ci'   := H(Ni'.Xa.T1')
+		    /\ Snd(DIDi',Ci',T1')
+		    /\ witness(A, B, protocol1 , T1')
+					
+    3.  State   = 5 /\ Rcv(Cg'.Rc') =|>
+	State' := 6 /\ request(B, A, protocol4, {Cg'.Rc'})
+		
+    4.  State   = 10 /\ Rcv(Sn) =|>
+        State' := 11 /\ request(C, A, protocol3, Sn)
+
+end role
+
+
+
+role bs (A, B, C : agent,
+	 K : symmetric_key,
+	 SndA, SndC, Rcv: channel(dy))
+played_by B def=
+
+		local 
+			State : nat,
+			IDi, PWi, Ni, Xa, DIDi, Ci, T1, Ri, Sn, Ai, Rc, Cg, T2  : text,
+			H : hash_func
+				
+		const protocol1,protocol2,protocol4 : protocol_id
+
+   init State := 1
+
+  transition
+    1. 	State   = 1 /\ Rcv({IDi.PWi}_K) =|>
+	State' := 3 /\ Ni' := xor(H(xor(IDi.PWi)),H(K))
+		    /\ SndA({IDi.Ni'.H(PWi).Xa}_K)
+				   
+    2.	State   = 5 /\ Rcv(DIDi,Ci,T1') =|>
+        State' := 6 /\ Rc' := new() 					%random nounce
+		    /\ T2' := new ()					%new Timestamp
+		    /\ Ai' := H(DIDi.Sn.Xa.T1')
+		    /\ Cg' := H(DIDi.Sn.Xa.Rc')
+		    /\ SndC(DIDi.Ai'.Sn.T2')
+		    /\ SndA(Cg'.Rc')
+		    /\ request(A, B, protocol1, T1')
+		    /\ witness(B, C, protocol2, T2')
+		    /\ witness(B, A, protocol4, {Cg'.Rc'})
+ 
+end role
+
+
+
+role sj (A, B, C : agent,
+	     K : symmetric_key,
+	     Snd, Rcv: channel(dy))
+played_by C def=
+	local 
+		State : nat,
+		IDi, PWi, Ni, Xa, DIDi, Ci, T1, Ri, Sn, Ai, Rc, Cg, T2  : text,
+		H : hash_func
+						  
+		const protocol2,protocol3: protocol_id
+
+	init State := 8
+
+  transition
+    1. State   = 8 /\ Rcv(DIDi.Ai'.Sn.T2') =|>
+       State' := 9 /\ Snd(Sn)
+		   /\ request(B, C, protocol2, T2')
+		   /\ witness(C, A, protocol3, Sn)
+
+end role
+
+
+
+
+role session( A, B, C : agent)
+
+ def=
+ 
+	local 
+			 SGW, RS, SS, RU, SU, RW  : channel (dy)
+	composition
+			   ui      (A, B, C, k, SGW, RS)
+			/\ bs      (A, B, C, k, SU, SS, RU)
+			/\ sj      (A, B, C, k, SU, RW)
+
+end role
+
+role environment() 
+def=
+
+    const protocol1,protocol2,protocol3,protocol4	: protocol_id,
+	  a,b,c     					: agent
+		  
+          
+		  
+    intruder_knowledge = {a,b,c,h}
+
+    composition
+
+        session(a,b,c)
+     /\ session(a,b,c)
+     /\ session(a,b,c)
+
+end role
+
+goal
+	secrecy_of subs1
+	secrecy_of subs2
+	authentication_on protocol1
+	authentication_on protocol2
+	authentication_on protocol3
+	authentication_on protocol4
+end goal
+
+
+environment()
+

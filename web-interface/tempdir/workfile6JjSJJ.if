@@ -1,0 +1,71 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfile6JjSJJ
+
+section signature:
+
+state_user: agent * agent * nat * public_key * symmetric_key * text * nat -> fact
+
+
+section types:
+
+ASGoal: set(agent)
+MGoal, start: message
+pw, sk: protocol_id
+dummy_pk, Pku: public_key
+Dummy_State, 3, SID, 4, State, 2, 1, 0, 5: nat
+b, a, u, km, KM, U, i: agent
+dummy_sk, Sk, Dummy_Sk: symmetric_key
+dummy_nonce, Passwd, Dummy_Passwd: text
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(u).
+ iknows(km).
+ iknows(i).
+ state_user(u,km,0,dummy_pk,dummy_sk,dummy_nonce,3).
+ state_user(a,i,0,dummy_pk,dummy_sk,dummy_nonce,5)
+
+
+section rules:
+
+step step_0 (U,KM,Pku,Sk,Dummy_Passwd,SID,Passwd) :=
+ state_user(U,KM,0,Pku,Sk,Dummy_Passwd,SID).
+ iknows(start)
+=[exists Passwd]=>
+ state_user(U,KM,1,Pku,Sk,Passwd,SID).
+ iknows(Passwd)
+
+step step_1 (U,KM,Pku,Dummy_Sk,Dummy_Passwd,SID,Sk,Passwd) :=
+ state_user(U,KM,1,Pku,Dummy_Sk,Dummy_Passwd,SID).
+ iknows(scrypt(Passwd,Sk))
+ =>
+ state_user(U,KM,2,Pku,Sk,Passwd,SID).
+ iknows(scrypt(Sk,inv(Pku))).
+ secrecy(U,KM,sk,Sk)
+
+
+section properties:
+
+property secrecy_of_sk (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sk,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_pw (MGoal,ASGoal) :=
+ [] ((secret(MGoal,pw,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_sk (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sk,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_pw (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,pw,ASGoal) &
+ not(contains(i,ASGoal))
+

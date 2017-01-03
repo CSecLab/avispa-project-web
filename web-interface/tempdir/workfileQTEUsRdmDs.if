@@ -1,0 +1,166 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileQTEUsRdmDs
+
+section signature:
+
+state_sdTgt: agent * agent * public_key * public_key * public_key * nat * text * public_key * nat -> fact
+state_tgt: agent * agent * agent * agent * public_key * public_key * public_key * public_key * symmetric_key * nat * text * text * message * message * message * public_key * nat -> fact
+state_sp: agent * agent * public_key * public_key * nat * message * message * text * public_key * public_key * public_key * public_key * public_key * nat -> fact
+state_teeAdmin: agent * agent * agent * agent * public_key * public_key * public_key * public_key * nat * message * message * message * text * public_key * public_key * nat -> fact
+state_src: agent * agent * agent * agent * agent * public_key * public_key * public_key * public_key * public_key * symmetric_key * nat * text * text * message * public_key * nat -> fact
+state_sdSrc: agent * agent * agent * agent * public_key * public_key * public_key * public_key * text * nat * text * public_key * set(agent) * nat -> fact
+
+
+section types:
+
+set_156: set
+SK, sk: symmetric_key
+Dummy_Set_23, ASGoal, Set_23: set(agent)
+transfer: protocol_id
+SDCreate, Ack, Param, dummy_msg, MGoal, start: message
+TimeStamp, EncSD, Dummy_TimeStamp, Dummy_EncSD, dummy_nonce, sdcred, SDCred: text
+State, 8, SID, 7, 6, 5, 4, 3, Dummy_State, 2, 1, 0: nat
+KProxy, PKTgtTEE, PKTEEAdmin, PKSP, PKSDtgt, PKSrcTEE, PKSDsrc, Dummy_KProxy, Dummy_PKSDtgt, dummy_pk, pksdsrc, pksdtgt, pksrctee, pktgttee, pkteeadmin, pksp, ki: public_key
+SrcTEE, TgtTEE, TEEAdmin, SDTgt, SP, sdsrc, sdtgt, srctee, tgttee, teeadmin, spagent, SDsrc, SDtgt, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(pksrctee).
+ iknows(pktgttee).
+ iknows(pkteeadmin).
+ iknows(pksp).
+ iknows(ki).
+ iknows(inv(ki)).
+ iknows(i).
+ state_sdSrc(sdsrc,srctee,sdtgt,spagent,pksrctee,pksdsrc,pksdtgt,pksp,sdcred,0,dummy_nonce,dummy_pk,set_156,3).
+ state_src(srctee,sdsrc,tgttee,teeadmin,spagent,pksrctee,pksdsrc,pktgttee,pkteeadmin,pksp,sk,0,dummy_nonce,dummy_nonce,dummy_msg,dummy_pk,4).
+ state_teeAdmin(teeadmin,srctee,tgttee,spagent,pksrctee,pktgttee,pkteeadmin,pksp,0,dummy_msg,dummy_msg,dummy_msg,dummy_nonce,dummy_pk,dummy_pk,5).
+ state_sp(spagent,teeadmin,pkteeadmin,pksp,0,dummy_msg,dummy_msg,dummy_nonce,dummy_pk,dummy_pk,dummy_pk,dummy_pk,dummy_pk,6).
+ state_tgt(tgttee,srctee,teeadmin,sdtgt,pktgttee,pkteeadmin,pksp,pksdtgt,sk,0,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,dummy_pk,7).
+ state_sdTgt(sdtgt,tgttee,pktgttee,pksdsrc,pksdtgt,0,dummy_nonce,dummy_pk,8)
+
+
+section rules:
+
+step step_0 (SDsrc,SrcTEE,SDtgt,SP,PKSrcTEE,PKSDsrc,PKSDtgt,PKSP,SDCred,Dummy_EncSD,KProxy,Set_23,SID) :=
+ state_sdSrc(SDsrc,SrcTEE,SDtgt,SP,PKSrcTEE,PKSDsrc,PKSDtgt,PKSP,SDCred,0,Dummy_EncSD,KProxy,Set_23,SID).
+ iknows(start)
+ =>
+ state_sdSrc(SDsrc,SrcTEE,SDtgt,SP,PKSrcTEE,PKSDsrc,PKSDtgt,PKSP,SDCred,1,crypt(PKSDsrc,SDCred),KProxy,Set_23,SID)
+
+step step_1 (SDsrc,SrcTEE,SDtgt,SP,PKSrcTEE,PKSDsrc,PKSDtgt,PKSP,SDCred,EncSD,KProxy,Dummy_Set_23,SID) :=
+ state_sdSrc(SDsrc,SrcTEE,SDtgt,SP,PKSrcTEE,PKSDsrc,PKSDtgt,PKSP,SDCred,1,EncSD,KProxy,Dummy_Set_23,SID)
+ =>
+ state_sdSrc(SDsrc,SrcTEE,SDtgt,SP,PKSrcTEE,PKSDsrc,PKSDtgt,PKSP,SDCred,1,EncSD,KProxy,Dummy_Set_23,SID).
+ iknows(EncSD).
+ secret(SDCred,transfer,Dummy_Set_23).
+ idequal(crypt(KProxy,EncSD),crypt(PKSDtgt,SDCred)).
+ contains(SDsrc,Dummy_Set_23).
+ contains(SP,Dummy_Set_23).
+ contains(SDtgt,Dummy_Set_23)
+
+step step_2 (SrcTEE,SDsrc,TgtTEE,TEEAdmin,SP,PKSrcTEE,PKSDsrc,PKTgtTEE,PKTEEAdmin,PKSP,SK,Dummy_TimeStamp,EncSD,Ack,KProxy,SID,TimeStamp) :=
+ state_src(SrcTEE,SDsrc,TgtTEE,TEEAdmin,SP,PKSrcTEE,PKSDsrc,PKTgtTEE,PKTEEAdmin,PKSP,SK,0,Dummy_TimeStamp,EncSD,Ack,KProxy,SID).
+ iknows(EncSD)
+=[exists TimeStamp]=>
+ state_src(SrcTEE,SDsrc,TgtTEE,TEEAdmin,SP,PKSrcTEE,PKSDsrc,PKTgtTEE,PKTEEAdmin,PKSP,SK,1,TimeStamp,EncSD,Ack,KProxy,SID).
+ iknows(pair(SrcTEE,pair(TEEAdmin,pair(PKSP,pair(PKSDsrc,pair(PKSrcTEE,pair(PKTgtTEE,crypt(inv(PKSrcTEE),pair(PKSP,pair(PKSDsrc,pair(PKSrcTEE,pair(PKTgtTEE,TimeStamp))))))))))))
+
+step step_3 (SrcTEE,SDsrc,TgtTEE,TEEAdmin,SP,PKSrcTEE,PKSDsrc,PKTgtTEE,PKTEEAdmin,PKSP,SK,TimeStamp,EncSD,Ack,KProxy,SID) :=
+ state_src(SrcTEE,SDsrc,TgtTEE,TEEAdmin,SP,PKSrcTEE,PKSDsrc,PKTgtTEE,PKTEEAdmin,PKSP,SK,1,TimeStamp,EncSD,Ack,KProxy,SID).
+ iknows(pair(SrcTEE,pair(TEEAdmin,pair(KProxy,pair(crypt(inv(PKSP),pair(PKSP,pair(PKSrcTEE,PKTgtTEE))),crypt(inv(PKTEEAdmin),pair(KProxy,crypt(inv(PKSP),pair(PKSP,pair(PKSrcTEE,pair(PKTgtTEE,TimeStamp)))))))))))
+ =>
+ state_src(SrcTEE,SDsrc,TgtTEE,TEEAdmin,SP,PKSrcTEE,PKSDsrc,PKTgtTEE,PKTEEAdmin,PKSP,SK,2,TimeStamp,EncSD,Ack,KProxy,SID)
+
+step step_4 (SrcTEE,SDsrc,TgtTEE,TEEAdmin,SP,PKSrcTEE,PKSDsrc,PKTgtTEE,PKTEEAdmin,PKSP,SK,TimeStamp,EncSD,Ack,KProxy,SID) :=
+ state_src(SrcTEE,SDsrc,TgtTEE,TEEAdmin,SP,PKSrcTEE,PKSDsrc,PKTgtTEE,PKTEEAdmin,PKSP,SK,2,TimeStamp,EncSD,Ack,KProxy,SID).
+ iknows(pair(SrcTEE,pair(TgtTEE,scrypt(SK,pair(crypt(KProxy,EncSD),PKSP)))))
+ =>
+ state_src(SrcTEE,SDsrc,TgtTEE,TEEAdmin,SP,PKSrcTEE,PKSDsrc,PKTgtTEE,PKTEEAdmin,PKSP,SK,2,TimeStamp,EncSD,Ack,KProxy,SID).
+ iknows(scrypt(SK,pair(SrcTEE,pair(TgtTEE,pair(Ack,TimeStamp)))))
+
+step step_5 (TEEAdmin,SrcTEE,TgtTEE,SP,PKSrcTEE,PKTgtTEE,PKTEEAdmin,PKSP,SDCreate,Param,Ack,TimeStamp,PKSDsrc,KProxy,SID) :=
+ state_teeAdmin(TEEAdmin,SrcTEE,TgtTEE,SP,PKSrcTEE,PKTgtTEE,PKTEEAdmin,PKSP,0,SDCreate,Param,Ack,TimeStamp,PKSDsrc,KProxy,SID).
+ iknows(pair(TEEAdmin,pair(SrcTEE,pair(PKSP,pair(PKSDsrc,pair(PKSrcTEE,pair(PKTgtTEE,crypt(inv(PKSrcTEE),pair(PKSP,pair(PKSDsrc,pair(PKSrcTEE,pair(PKTgtTEE,TimeStamp))))))))))))
+ =>
+ state_teeAdmin(TEEAdmin,SrcTEE,TgtTEE,SP,PKSrcTEE,PKTgtTEE,PKTEEAdmin,PKSP,1,SDCreate,Param,Ack,TimeStamp,PKSDsrc,KProxy,SID).
+ iknows(pair(TEEAdmin,pair(SP,pair(PKSDsrc,pair(PKSrcTEE,PKTgtTEE)))))
+
+step step_6 (TEEAdmin,SrcTEE,TgtTEE,SP,PKSrcTEE,PKTgtTEE,PKTEEAdmin,PKSP,SDCreate,Param,Ack,Dummy_TimeStamp,PKSDsrc,KProxy,SID,TimeStamp) :=
+ state_teeAdmin(TEEAdmin,SrcTEE,TgtTEE,SP,PKSrcTEE,PKTgtTEE,PKTEEAdmin,PKSP,1,SDCreate,Param,Ack,Dummy_TimeStamp,PKSDsrc,KProxy,SID).
+ iknows(pair(TEEAdmin,pair(SP,pair(SDCreate,PKTgtTEE))))
+=[exists TimeStamp]=>
+ state_teeAdmin(TEEAdmin,SrcTEE,TgtTEE,SP,PKSrcTEE,PKTgtTEE,PKTEEAdmin,PKSP,2,SDCreate,Param,Ack,TimeStamp,PKSDsrc,KProxy,SID).
+ iknows(pair(TEEAdmin,pair(TgtTEE,pair(SDCreate,crypt(inv(PKTEEAdmin),pair(SDCreate,TimeStamp))))))
+
+step step_7 (TEEAdmin,SrcTEE,TgtTEE,SP,PKSrcTEE,PKTgtTEE,PKTEEAdmin,PKSP,SDCreate,Param,Ack,TimeStamp,PKSDsrc,KProxy,SID) :=
+ state_teeAdmin(TEEAdmin,SrcTEE,TgtTEE,SP,PKSrcTEE,PKTgtTEE,PKTEEAdmin,PKSP,2,SDCreate,Param,Ack,TimeStamp,PKSDsrc,KProxy,SID).
+ iknows(pair(TEEAdmin,pair(TgtTEE,pair(Ack,pair(Param,crypt(inv(PKTgtTEE),pair(Ack,pair(Param,TimeStamp))))))))
+ =>
+ state_teeAdmin(TEEAdmin,SrcTEE,TgtTEE,SP,PKSrcTEE,PKTgtTEE,PKTEEAdmin,PKSP,3,SDCreate,Param,Ack,TimeStamp,PKSDsrc,KProxy,SID).
+ iknows(pair(TEEAdmin,pair(SP,Param)))
+
+step step_8 (TEEAdmin,SrcTEE,TgtTEE,SP,PKSrcTEE,PKTgtTEE,PKTEEAdmin,PKSP,SDCreate,Param,Ack,TimeStamp,PKSDsrc,KProxy,SID) :=
+ state_teeAdmin(TEEAdmin,SrcTEE,TgtTEE,SP,PKSrcTEE,PKTgtTEE,PKTEEAdmin,PKSP,3,SDCreate,Param,Ack,TimeStamp,PKSDsrc,KProxy,SID).
+ iknows(pair(TEEAdmin,pair(SP,pair(KProxy,crypt(inv(PKSP),pair(PKSP,pair(PKSrcTEE,pair(PKTgtTEE,TimeStamp))))))))
+ =>
+ state_teeAdmin(TEEAdmin,SrcTEE,TgtTEE,SP,PKSrcTEE,PKTgtTEE,PKTEEAdmin,PKSP,3,SDCreate,Param,Ack,TimeStamp,PKSDsrc,KProxy,SID).
+ iknows(pair(TEEAdmin,pair(SrcTEE,pair(KProxy,pair(crypt(inv(PKSP),pair(PKSP,pair(PKSrcTEE,pair(PKTgtTEE,TimeStamp)))),crypt(inv(PKTEEAdmin),pair(KProxy,crypt(inv(PKSP),pair(PKSP,pair(PKSrcTEE,pair(PKTgtTEE,TimeStamp)))))))))))
+
+step step_9 (SP,TEEAdmin,PKTEEAdmin,PKSP,SDCreate,Param,TimeStamp,PKSrcTEE,PKTgtTEE,PKSDsrc,PKSDtgt,KProxy,SID) :=
+ state_sp(SP,TEEAdmin,PKTEEAdmin,PKSP,0,SDCreate,Param,TimeStamp,PKSrcTEE,PKTgtTEE,PKSDsrc,PKSDtgt,KProxy,SID).
+ iknows(pair(SP,pair(TEEAdmin,pair(PKSDsrc,pair(PKSrcTEE,PKTgtTEE)))))
+ =>
+ state_sp(SP,TEEAdmin,PKTEEAdmin,PKSP,1,SDCreate,Param,TimeStamp,PKSrcTEE,PKTgtTEE,PKSDsrc,PKSDtgt,KProxy,SID).
+ iknows(pair(SP,pair(TEEAdmin,pair(SDCreate,PKTgtTEE))))
+
+step step_10 (SP,TEEAdmin,PKTEEAdmin,PKSP,SDCreate,Param,Dummy_TimeStamp,PKSrcTEE,PKTgtTEE,PKSDsrc,Dummy_PKSDtgt,Dummy_KProxy,SID,TimeStamp,PKSDtgt,KProxy) :=
+ state_sp(SP,TEEAdmin,PKTEEAdmin,PKSP,1,SDCreate,Param,Dummy_TimeStamp,PKSrcTEE,PKTgtTEE,PKSDsrc,Dummy_PKSDtgt,Dummy_KProxy,SID).
+ iknows(Param)
+=[exists KProxy,PKSDtgt,TimeStamp]=>
+ state_sp(SP,TEEAdmin,PKTEEAdmin,PKSP,1,SDCreate,Param,TimeStamp,PKSrcTEE,PKTgtTEE,PKSDsrc,PKSDtgt,KProxy,SID).
+ iknows(pair(KProxy,crypt(inv(PKSP),pair(PKSP,pair(PKSrcTEE,pair(PKTgtTEE,TimeStamp))))))
+
+step step_11 (TgtTEE,SrcTEE,TEEAdmin,SDTgt,PKTgtTEE,PKTEEAdmin,PKSP,PKSDtgt,SK,Dummy_TimeStamp,EncSD,SDCreate,Ack,Param,KProxy,SID,TimeStamp) :=
+ state_tgt(TgtTEE,SrcTEE,TEEAdmin,SDTgt,PKTgtTEE,PKTEEAdmin,PKSP,PKSDtgt,SK,0,Dummy_TimeStamp,EncSD,SDCreate,Ack,Param,KProxy,SID).
+ iknows(pair(TgtTEE,pair(TEEAdmin,pair(SDCreate,crypt(inv(PKTEEAdmin),pair(SDCreate,Dummy_TimeStamp))))))
+=[exists TimeStamp]=>
+ state_tgt(TgtTEE,SrcTEE,TEEAdmin,SDTgt,PKTgtTEE,PKTEEAdmin,PKSP,PKSDtgt,SK,1,TimeStamp,EncSD,SDCreate,Ack,Param,KProxy,SID).
+ iknows(pair(TgtTEE,pair(TEEAdmin,pair(Ack,pair(Param,crypt(inv(PKTgtTEE),pair(Ack,pair(Param,TimeStamp))))))))
+
+step step_12 (TgtTEE,SrcTEE,TEEAdmin,SDTgt,PKTgtTEE,PKTEEAdmin,PKSP,PKSDtgt,SK,Dummy_TimeStamp,EncSD,SDCreate,Ack,Param,KProxy,SID,TimeStamp) :=
+ state_tgt(TgtTEE,SrcTEE,TEEAdmin,SDTgt,PKTgtTEE,PKTEEAdmin,PKSP,PKSDtgt,SK,1,Dummy_TimeStamp,EncSD,SDCreate,Ack,Param,KProxy,SID).
+ iknows(pair(TgtTEE,pair(SrcTEE,scrypt(SK,pair(crypt(KProxy,EncSD),PKSP)))))
+=[exists TimeStamp]=>
+ state_tgt(TgtTEE,SrcTEE,TEEAdmin,SDTgt,PKTgtTEE,PKTEEAdmin,PKSP,PKSDtgt,SK,2,TimeStamp,EncSD,SDCreate,Ack,Param,KProxy,SID).
+ iknows(pair(TgtTEE,pair(SrcTEE,scrypt(SK,pair(Ack,TimeStamp)))))
+
+step step_13 (TgtTEE,SrcTEE,TEEAdmin,SDTgt,PKTgtTEE,PKTEEAdmin,PKSP,PKSDtgt,SK,TimeStamp,EncSD,SDCreate,Ack,Param,KProxy,SID) :=
+ state_tgt(TgtTEE,SrcTEE,TEEAdmin,SDTgt,PKTgtTEE,PKTEEAdmin,PKSP,PKSDtgt,SK,2,TimeStamp,EncSD,SDCreate,Ack,Param,KProxy,SID)
+ =>
+ state_tgt(TgtTEE,SrcTEE,TEEAdmin,SDTgt,PKTgtTEE,PKTEEAdmin,PKSP,PKSDtgt,SK,2,TimeStamp,EncSD,SDCreate,Ack,Param,KProxy,SID).
+ iknows(pair(TgtTEE,pair(SDTgt,crypt(KProxy,EncSD))))
+
+step step_14 (SDTgt,TgtTEE,PKTgtTEE,PKSDsrc,PKSDtgt,EncSD,KProxy,SID) :=
+ state_sdTgt(SDTgt,TgtTEE,PKTgtTEE,PKSDsrc,PKSDtgt,0,EncSD,KProxy,SID)
+ =>
+ state_sdTgt(SDTgt,TgtTEE,PKTgtTEE,PKSDsrc,PKSDtgt,0,EncSD,KProxy,SID).
+ iknows(crypt(KProxy,EncSD))
+
+
+section properties:
+
+property secrecy_of_transfer (MGoal,ASGoal) :=
+ [] ((secret(MGoal,transfer,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_transfer (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,transfer,ASGoal) &
+ not(contains(i,ASGoal))
+

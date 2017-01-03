@@ -1,0 +1,124 @@
+role ue( M, S : agent, 
+	Ks,Ik,Ck: symmetric_key,
+	Seq: text,
+	F1, F2, F5: hash_func,
+	Snd, Rec:channel(dy)) 
+        
+    played_by M
+    def=
+
+        local   State		: nat,
+				R			: text,
+				Add,F3,F4	: hash_func
+
+	const
+        	rm,rs,seq_m,ck_m,ik_m	: protocol_id
+
+        init State := 1
+        
+        transition
+        
+        1. State = 1 /\ Rec(start)
+           =|> 
+           State':=2 /\ R' := new()
+		     /\ Snd({M.R'.{F2(Ks.R')}_Ck}_Ik)
+		     /\ secret(Ck,ck_m,{M,S})
+		     /\ secret(Ik,ik_m,{M,S})
+             /\ witness(M,S,rm,R')
+			 
+        2. State = 2 /\ Rec({{{Seq}_F5(Ks.R').F1(Ks.Seq.R')}_Ck}_Ik)
+           =|>
+           State':=3 /\ Seq' := Add(Seq,1) 
+                     /\ secret(Seq,seq_m,{M,S})
+					 /\ request(M,S,rs,R')
+
+end role
+
+
+role s_cscf( S, M	: agent,
+	Ks, Ik, Ck: symmetric_key,
+	Seq: text,
+	F1, F2, F5: hash_func,
+	Snd, Rec: channel(dy)) 
+        
+    played_by S
+    def=
+
+	local   
+		State		: nat,
+		R			: text,
+        Add,F3,F4	: hash_func
+		
+		const
+			rm,rs,seq_s,ck_s,ik_s	: protocol_id
+        
+		init State := 1
+        
+        transition
+        
+
+        1. State = 1 /\ Rec({M.R'.{F2(Ks.R')}_Ck}_Ik)
+		
+           =|> 
+           State':=2 /\ Snd({{{Seq}_F5(Ks.R').F1(Ks.Seq.R')}_Ck}_Ik)
+					/\ Seq' := Add(Seq,1)
+					/\ secret(Seq,seq_s,{M,S})
+					/\ secret(Ck,ck_s,{S,M})
+					/\ secret(Ik,ik_s,{S,M})
+                    /\ witness(S,M,rs,R')
+                    /\ request(S,M,rm,R')
+
+end role
+
+role session(M, S: agent,
+             Ks, Ik, Ck: symmetric_key,
+             Seq: text,
+             F1,F2,F5: hash_func,
+			 SM,RM,SS,RS: channel(dy)) def=
+
+   composition
+
+			   ue(M,S,Ks,Ik,Ck,Seq,F1,F2,F5,SM,RM)
+		/\ s_cscf(S,M,Ks,Ik,Ck,Seq,F1,F2,F5,SS,RS)
+
+end role
+
+
+role environment() def=
+
+	local Sm1,Rm1,Ss1,Rs1 : channel (dy)
+
+	const 
+		rm, rs   				: protocol_id,
+		m, p, s, i          	: agent,
+       	k_ms, k_is, k_mi, ck_ms, ck_is, ck_mi, ik_ms, ik_is, ik_mi     	: symmetric_key,
+       	f1, f2, f5         		: hash_func,
+       	seq_ms, seq_is, seq_mi 	: text
+
+ intruder_knowledge={m,s,i,f1,f2,f5}
+
+ composition
+ 
+        session(m,s,k_ms,ik_ms,ck_ms,seq_ms,f1,f2,f5,Sm1,Rm1,Ss1,Rs1) 
+		% /\ session(i,p,s,k_is,seq_is,f1,f2,f5,KPp,KPs,Si1,Ri1,Sp1,Rp1,Ss1,Rs1)     % TODO : changer "KP" to "kp"
+		% /\ session(m,i,s,k_ms,seq_ms,f1,f2,f5,KPp,KPs,Sm1,Rm1,Si1,Ri1,Ss1,Rs1) 
+		% /\ session(m,p,i,k_mi,seq_mi,f1,f2,f5,KPp,KPs,Sm1,Rm1,Sp1,Rp1,Si1,Ri1) 
+
+end role
+
+
+goal
+
+  % Confidentiality
+	secrecy_of seq_m, seq_s
+	secrecy_of ck_m, ik_m, ck_s, ik_s
+	
+  % Mobile weakly authenticates Server on rs  % the nonce R
+  weak_authentication_on rs
+
+  % Server authenticates Mobile on rm  % the nonce R
+  weak_authentication_on rm
+
+end goal
+
+environment()

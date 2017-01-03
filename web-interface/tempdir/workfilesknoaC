@@ -1,0 +1,115 @@
+role alice(Bs,Ni: agent,
+	  F,H,Mac:hash_func,
+	  Km: symmetric_key,
+	  SND_Ni,RCV_Ni: channel(dy))
+played_by Bs
+def=
+
+local	 State:nat,
+	Am1,Am2,Data1,Data2:text,
+	Size1,Size2,Counter1,Counter2:nat,
+        Mac_rcv1,Iv1,Iv2 :text
+const bs_ni_Kab1,bs_ni_Kab2, secret_data1,secret_data2,secret_kab : protocol_id
+init
+ State:=0
+
+transition
+	1. State=0 /\ RCV_Ni(start)=|> 
+	   State' :=2 /\ Data1' := new()
+			/\ Size1' := new()
+			/\ Am1' := new()
+			/\ Counter1' :=new()
+			/\ Iv1' := Ni.Am1'.Size1'.Bs.Counter1'
+			/\ SND_Ni(Iv1'.{xor(Iv1',Data1')}_F(Km,Ni).
+				{Mac(Iv1'.Data1')}_H(Km,Ni))
+			/\ witness(Bs,Ni,bs_ni_Kab1,Iv1'.{xor(Iv1',Data1')}_F(Km,Ni).
+				{Mac(Iv1'.Data1')}_H(Km,Ni))
+			/\ secret (Data1' , secret_data1 , {Bs , Ni})
+                        /\ secret (Km ,secret_kab ,{Bs,Ni})
+	
+	2. State=2 /\ RCV_Ni(Bs.Am2'.Size2'.Ni.Counter2'.{xor(Iv2',Data2')}_F(Km,Ni).Mac_rcv1') /\
+                         Mac_rcv1' ={Mac(Iv2'.Data2')}_H(Km,Ni) /\Iv2' = Bs.Am2'.Size2'.Ni.Counter2' =|>
+			 request(Bs,Ni,bs_ni_Kab2,Bs.Am2'.Size2'.Ni.Counter2'.{xor(Iv2',Data2')}_F(Km,Ni).Mac_rcv1')
+			/\ State' :=3
+end role 
+%%///////////////////////////////////////////////
+%%///////////////////////////////////////////////
+%%///////////////////////////////////////////////
+role bob (Bs,Ni : agent,
+	  F,H,Mac :hash_func,
+	  Km: symmetric_key,
+	  RCV_BS,SND_BS: channel(dy))
+played_by Ni
+def=
+
+local	 State:nat,
+	Data1,Data2:text,
+	Size1,Size2,Counter1,Counter2:nat,
+	Am1,Am2:text,
+        Mac_rcv2,Iv1,Iv2 :text
+init State:=1
+
+transition
+	1.State=1 /\  RCV_BS(Ni.Am1'.Size1'.Bs.Counter1'.{xor(Iv1',Data1')}_F(Km,Ni).Mac_rcv2')/\ Mac_rcv2'={Mac(Ni.Am1'.Size1'.Data1')}_H(Km,Ni)
+		  /\  Iv1' = Ni.Am1'.Size1'.Bs.Counter1' =|>
+		State' :=3
+			/\ Data2' := new()
+			/\ Size2' := new()
+			/\ Am2' := new()
+                        /\ Counter2' := new()
+			/\ Iv2' := Bs.Am2'.Size2'.Ni.Counter2'
+			/\ SND_BS(Iv2'.{xor(Iv2',Data2')}_F(Km,Ni).
+				{Mac(Iv2'.Data2')}_H(Km,Ni))
+			/\ request ( Ni,Bs,bs_ni_Kab1,Ni.Am1'.Size1'.Bs.Counter1'.{xor(Iv1',Data1')}_F(Km,Ni).Mac_rcv2')
+			/\ witness (Ni,Bs,bs_ni_Kab2,Iv2'.{xor(Iv2',Data2')}_F(Km,Ni).
+				{Mac(Iv2'.Data2')}_H(Km,Ni))
+			/\ secret (Data2 , secret_data2 ,{Bs , Ni})
+	
+end role 
+
+%%////////////////////////////////////////////////
+%%/////////////////////////////////////////////////
+%%///////////////////////////////////////////////
+
+role session(Ni,Bs: agent,
+		  Km: symmetric_key,
+		  Mac,H,F :hash_func
+             )
+def=
+	local SNi,RNi,SBS,RBS: channel (dy)
+	
+	composition
+		alice(Bs,Ni,F,H,Mac,Km,SBS,RBS)
+	     /\ bob(Bs,Ni,F,H,Mac,Km,SNi,RNi)
+end role
+
+%%////////////////////////////////////////////////
+%%/////////////////////////////////////////////////
+%%///////////////////////////////////////////////
+					
+role environment()
+def=
+	const 	bs_ni_Kab1,bs_ni_Kab2,secret_data1,secret_data2 : protocol_id,
+			n,b 		:agent,
+			kbn,kbi,kni 		:symmetric_key,
+			h,mac,f                 : hash_func
+	intruder_knowledge = { n,h,f,mac,i,kni}
+	
+	composition
+		session(n,b,kbn,mac,h,f)	/\
+		session(n,i,kni,mac,h,f)	
+end role
+
+
+%%///////////////////////////////////////////////
+%%///////////////////////////////////////////////
+%%///////////////////////////////////////////////
+
+goal
+	weak_authentication_on bs_ni_Kab1
+	weak_authentication_on bs_ni_Kab2
+	secrecy_of secret_data1,secret_data2,secret_kab
+end goal
+
+environment()
+	                                                                         

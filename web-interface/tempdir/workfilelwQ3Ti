@@ -1,0 +1,206 @@
+
+role user (U, C, S: agent,
+	Credentials,Authorization: text,
+	SSLKey: symmetric_key set,
+	SND, RCV: channel(dy)
+	)
+	played_by U def=
+  local State : nat,
+	Kucssl,Kusssl: symmetric_key,
+	ResponseType: text,
+	ClientId: text,
+	Uri: text,
+	Scope: text,
+	Code: text
+	
+  init State:=0
+  
+  transition
+  
+  %Send Login Request
+  0. State = 0 
+	/\ RCV(start) =|>
+	State':=3
+	/\ Kucssl' := new()
+	/\ SND({U}_Kucssl')
+	/\ SSLKey' := cons(Kucssl',SSLKey)
+  1. State = 3 
+	/\ RCV({ResponseType'.ClientId'.Uri'.Scope'}_Kucssl) =|>
+	State' := 6
+	/\ Kusssl' := new()
+	/\ SSLKey' := cons(Kusssl',SSLKey)
+	/\ SND({ResponseType'.ClientId'.Uri'.Scope'.Credentials.Authorization}_Kusssl')
+	/\ secret(Scope', sec_scope, {U,C,S})
+	/\ secret(Authorization, sec_authorization, {U,S})
+	/\ secret(Credentials,sec_credentials,{U,S})
+	/\ witness(U, S, server_user_credentials, Credentials)
+  2. State = 6 /\ RCV({Code'}_Kusssl) =|>
+	State' := 9
+	/\ SND({Code'}_Kucssl)
+end role
+
+role client (C, S: agent,
+	ResponseType,Id,Uri,Granttype: text,
+	KeyOfClient: symmetric_key,
+	SSLKey: symmetric_key set,
+	SND, RCV: channel(dy))
+	played_by C def= 
+  local State: nat,
+	U: agent,
+	Scope: text,
+	Token: text,
+	Tokentype: text,
+	Expires: text,
+	Code: text,
+	Resource: text,
+	Kucssl, Kcsssl: symmetric_key
+  init State:=1
+  
+  transition
+  
+  %Send Redirection
+  0. State = 1 
+	/\ in(Kucssl',SSLKey)
+	/\ RCV({U'}_Kucssl')  =|>
+	State' := 4 
+	/\ Scope' := new()
+	/\ SSLKey' := delete(Kucssl',SSLKey)
+	/\ SND({ResponseType.Id.Uri.Scope'}_Kucssl')
+	/\ secret(Scope', sec_scope, {U',C,S})
+  1. State = 4 
+	/\ RCV({Code'}_Kucssl) =|>
+	State' := 7
+	/\ Kcsssl' := new()
+	/\ SSLKey' := cons(Kcsssl',SSLKey)
+	/\ SND({KeyOfClient}_Kcsssl'.Granttype.Code'.Uri.Id)
+	/\ secret(KeyOfClient, sec_key, {C,S})
+	/\ witness(C, S, server_client_clientkey, KeyOfClient)
+  2. State = 7 
+	/\ RCV(Token'.Tokentype'.Expires') =|>
+	State' := 10
+	/\ SND(Token'.Tokentype'.Scope)
+	/\ secret(Token',sec_token,{C,S})
+	/\ request(C, U, client_user_token, Token')
+	/\ witness(C, S, server_client_user, U)
+  3. State = 10
+	/\ RCV(Resource') =|>
+	State' := 13
+	/\ secret(Resource',sec_resource,{C,S})
+end role
+
+role server (U, C, S: agent,
+	ResponseType,Granttype,Id,Uri: text,Credentials,Authorization: text,
+	NsSet: text set,
+	KeyOfClient: symmetric_key,
+	SSLKey: symmetric_key set,
+	SND, RCV: channel(dy)
+	)
+	played_by S def=
+  local State : nat,
+	
+	Token: text,
+	Tokentype: text,
+	Expires: text,
+	Code: text,
+	Scope: text,
+	Resource: text,
+	Kusssl,Kcsssl: symmetric_key
+  init State:=2
+  
+  transition
+  
+  0. State = 2 
+	/\ in(Kusssl',SSLKey)
+	/\ RCV({ResponseType.Id.Uri.Scope'.Credentials.Authorization}_Kusssl') =|>
+	State' := 5
+	/\ SSLKey' := delete(Kusssl',SSLKey)
+	/\ Code' := new()
+	/\ secret(Credentials,sec_credentials,{S,U})
+	/\ wrequest(S, U, server_user_credentials, Credentials)
+	/\ secret(Scope', sec_scope, {U,C,S})
+	/\ secret(Authorization, sec_authorization, {S,U})
+	/\ SND({Code'}_Kusssl')
+  1. State = 5
+	/\ in(Kcsssl',SSLKey)
+	/\ RCV({KeyOfClient}_Kcsssl'.Granttype.Code.Uri.Id)
+	/\ not(in(Code,NsSet))
+	=|>
+	State' := 8
+	/\ SSLKey' := delete(Kcsssl',SSLKey)
+	/\ NsSet' := cons(Code,NsSet)
+	/\ Token' := new()
+	/\ Tokentype' := new()
+	/\ Expires' := new()
+	/\ SND(Token'.Tokentype'.Expires')
+	/\ secret(Token',sec_token,{S,C})
+	/\ secret(KeyOfClient,sec_key,{S,C})
+	/\ request(S, C, server_client_clientkey, KeyOfClient)
+	/\ witness(U, C, client_user_token, Token')
+  2. State = 8
+	/\ RCV(Token.Tokentype.Scope) =|>
+	State':=11
+	/\ Resource' := new()
+	/\ SND(Resource')
+	/\ secret(Resource',sec_resource,{S,C})
+	/\ request(S, C, server_client_user, U)
+
+end role
+
+
+role session(U, C, S: agent,
+	Id,ResponseType,Uri,Granttype: text,
+	Credentials: text,
+	Authorization: text,
+	NsSet: text set,
+	KeyOfClient: symmetric_key,
+	SSLKey: symmetric_key set
+	)
+	def= 
+  local
+	SND_U, RCV_U,
+	SND_C, RCV_C,
+	SND_S, RCV_S: channel (dy)
+	
+  composition
+    user(U, C, S, Credentials,Authorization,SSLKey,SND_U, RCV_U)
+	/\ client( C, S,ResponseType,Id,Uri,Granttype,KeyOfClient,SSLKey,SND_C, RCV_C)
+	/\ server(U, C, S,ResponseType,Granttype,Id,Uri,Credentials,Authorization,NsSet,KeyOfClient,SSLKey, SND_S, RCV_S)
+
+end role
+
+role environment() def=
+
+	local NsSet : text set,
+		SSLKey : symmetric_key set
+	
+	const u,c,s: agent,
+	sec_resource,sec_token,sec_credentials,sec_key,client_user_token,server_user_credentials,server_client_clientkey,server_client_user: protocol_id,
+	sec_scope,sec_authorization: protocol_id,
+	clientkey,clientkey_i: symmetric_key,
+	credentials,credentials_i,id,id_i,uri,uri_i,scope,authorization,responsetype,granttype:text
+	
+	init 
+		NsSet := {}
+		/\ SSLKey := {}
+	
+	intruder_knowledge = {u, c, s, id_i, uri_i, credentials_i,clientkey_i}
+	
+	composition
+	session(u,c,s,id,responsetype,uri,granttype,credentials,authorization,NsSet,clientkey, SSLKey)
+	/\ session(i,c,s,id,responsetype,uri,granttype,credentials_i,authorization,NsSet,clientkey, SSLKey)
+	/\ session(u,i,s,id_i,responsetype,uri_i,granttype,credentials,authorization,NsSet,clientkey_i, SSLKey)
+	
+end role
+
+  goal
+	secrecy_of sec_credentials
+	secrecy_of sec_token
+	secrecy_of sec_key
+	%secrecy_of sec_resource
+	%secrecy_of sec_scope,sec_authorization
+	%authentication_on client_user_token
+	authentication_on server_client_user
+	authentication_on server_user_credentials
+	authentication_on server_client_clientkey
+  end goal
+environment()

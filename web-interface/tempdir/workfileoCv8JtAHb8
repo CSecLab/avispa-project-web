@@ -1,0 +1,168 @@
+role kgc(K,A,B,T:agent,
+            Yba,Yab:symmetric_key,
+			Add,Sub,Mul,H:hash_func,
+			Pa,Mpk,Pb,Yt:public_key,
+			Snd,Rcv:channel(dy))
+played_by K
+def=
+local State:nat,
+      G,Msk,IDa,IDb,Da,Db,Xa,Va,Xb,Vb,R,K1,K2,Ts,C,W,M,Xt,Q,S1,E,Z,E1,R1,Na,IDt:text
+	  
+	  const sender_va, receiver_vb, kgc_msk, tsa_xt, subs1,subs2,subs3,subs4,subs5:protocol_id
+
+init State := 0
+transition
+1. State=0/\Rcv(start)=|>
+State':=1/\Msk':=new()
+         /\Mpk':=H(G,Msk)
+         /\Da':=Add(Msk,H(IDa))
+         /\Db':=Add(Msk,H(IDa))
+         /\Snd(Da.Db)
+         /\secret({Msk},subs1,{K,A})
+         /\secret({Msk},subs2,{K,B})
+         /\witness(K,A,kgc_msk,Msk')
+         /\witness(K,B,kgc_msk,Msk')
+  end role
+  
+  
+  
+  role sender(K,A,B,T:agent,
+            Yba,Yab:symmetric_key,
+			Add,Sub,Mul,H:hash_func,
+			Pa,Mpk,Pb,Yt:public_key,
+			Snd,Rcv:channel(dy))
+played_by A
+def=
+local State:nat,
+      G,Msk,IDa,IDb,Da,Db,Xa,Va,Xb,Vb,R,K1,K2,Ts,C,W,M,Xt,Q,S1,E,Z,E1,R1,Na,IDt:text
+        
+	  const sender_va, receiver_vb, kgc_msk, tsa_xt, subs1,subs2,subs3,subs4,subs5:protocol_id
+
+init State := 0
+transition 
+1.State=0/\Rcv(Da)=|>
+   State':=1 /\Xa':=new()
+             /\Va':=xor(Da,H(Xa))
+             /\Pa':=exp(G,Va)
+             /\Na':=new()
+             /\K1':=H(exp(G,Na))
+             /\Yab':=exp(Pb,Va)
+             /\K2':=Mul(K1,Yab)
+             /\C':=({M}_K2)
+             /\S1':=Mul(R,Xa)
+             /\Z':=Sub(Na,Mul(Xa,R))
+             /\Snd(IDa.C)
+             /\Snd(IDa.S1)
+             /\Snd({Z.Q.C.R.Ts}_Yab)
+             /\secret({Va},subs3,{A,B})
+end role
+
+
+role tsa(K,A,B,T:agent,
+            Yba,Yab:symmetric_key,
+			Add,Sub,Mul,H:hash_func,
+			Pa,Mpk,Pb,Yt:public_key,
+			Snd,Rcv:channel(dy))
+played_by T
+def=
+local State:nat,
+      G,Msk,IDa,IDb,Da,Db,Xa,Va,Xb,Vb,R,K1,K2,Ts,C,W,M,Xt,Q,S1,E,Z,E1,R1,Na,IDt:text
+	  
+	  const sender_va, receiver_vb, kgc_msk, tsa_xt, subs1,subs2,subs3,subs4,subs5:protocol_id
+
+init State := 0 
+  transition
+1. State=0/\Rcv(IDa.C)=|>
+State':=1/\Xt':=new()
+         /\Yt':=exp(G,Xt)
+         /\W':=new()
+         /\Ts':=new()
+         /\E':=Add(W,Ts)
+         /\R':=Mul(Mul(exp(G,E),Yt),C)
+         /\Q':=Sub(W,Add(S1,Xt))
+         /\Snd(IDt.R)
+         /\Snd(Q.Ts)
+         /\secret({Xt},subs4,{A,T})
+end role
+
+role receiver(K,A,B,T:agent,
+            Yba,Yab:symmetric_key,
+			Add,Sub,Mul,H:hash_func,
+			Pa,Mpk,Pb,Yt:public_key,
+			Snd,Rcv:channel(dy))
+played_by B
+def=
+local State:nat,
+      G,Msk,IDa,IDb,Da,Db,Xa,Va,Xb,Vb,R,K1,K2,Ts,C,W,M,Xt,Q,S1,E,Z,E1,R1,Na,IDt:text
+	  
+	  const sender_va, receiver_vb, kgc_msk, tsa_xt, subs1,subs2,subs3,subs4,subs5:protocol_id
+init State := 0 
+  transition
+  
+1.State=0/\Rcv({Z.Q.C.R.Ts}_Yab)=|>
+State':=1/\Xb':=new()
+             /\Vb':=xor(Db,H(Xb))
+             /\Pb':=exp(G,Vb)
+         /\Yba':=exp(Pa,Vb)
+         /\E1':=Add(Q,Ts)
+         /\R1':=Mul(C,Mul(exp(Pa,R1')),exp(G,E1')) 
+         /\K1':=H(Mul(exp(G,Z)),exp(Pa,R1'))
+         /\K2':=Mul(K1',Yba)
+         /\ secret({Vb},subs5,{B,A})   
+     end role
+     
+     
+     
+role session(K,A,B,T:agent,
+            Yba,Yab:symmetric_key,
+			Add,Sub,Mul,H:hash_func,
+			Pa,Mpk,Pb,Yt:public_key
+			)
+
+def= 
+local SA,SB,SK,ST,RA,RB,RK,RT:channel(dy)    
+composition
+kgc(K,A,B,T,Yba,Yab,Add,Sub,Mul,H,Pa,Mpk,Pb,Yt,SK,RK)
+/\sender(K,A,B,T,Yba,Yab,Add,Sub,Mul,H,Pa,Mpk,Pb,Yt,SA,RA)  
+/\receiver(K,A,B,T,Yba,Yab,Add,Sub,Mul,H,Pa,Mpk,Pb,Yt,SB,RB)  
+/\tsa(K,A,B,T,Yba,Yab,Add,Sub,Mul,H,Pa,Mpk,Pb,Yt,ST,RT)  
+end role
+
+role environment()
+def=
+const k,a,b,t,i:agent,
+yba,yab:symmetric_key,
+add,sub,mul,h:hash_func,
+pa,mpk,pb,yt:public_key,
+ g,ida,idb,da,db,xa,xb,r,k1,k2,ts,c,w,xt,m,q,s1,e,z,e1,r1,idt:text,  
+
+ sender_va, receiver_vb, kgc_msk, tsa_xt, subs1,subs2,subs3,subs4,subs5:protocol_id
+
+ 
+ intruder_knowledge={k,a,b,t,add,sub,mul,h,pa,mpk,pb,yt}
+ 
+ composition
+ session(k,a,b,t,yba,yab,add,sub,mul,h,pa,mpk,pb,yt)
+ /\session(k,a,b,t,yba,yab,add,sub,mul,h,pa,mpk,pb,yt)
+ /\session(k,a,b,t,yba,yab,add,sub,mul,h,pa,mpk,pb,yt)
+ /\session(k,a,b,t,yba,yab,add,sub,mul,h,pa,mpk,pb,yt)
+ 
+ end role
+ 
+ goal
+  secrecy_of subs1
+ secrecy_of subs2
+ secrecy_of subs3
+ secrecy_of subs4
+ secrecy_of subs5
+ authentication_on sender_va
+ 
+ authentication_on receiver_vb
+  authentication_on kgc_msk
+  authentication_on tsa_xt
+ end goal
+ 
+ environment()
+                       
+     
+     

@@ -1,0 +1,171 @@
+%%Wong Stajano Protocol - OOB Transformation
+
+role alice(A, B : agent,
+	  G: text,
+          ACK: message,
+	  F: hash_func,
+	  Ks: symmetric_key, % used for simulate OOB channel
+	  SND,RCV: channel(dy))
+
+played_by A def=
+	local State   : nat,
+	Ea: text,
+        Ga, Gb: message,
+	Kb,SK: symmetric_key, 
+	Rb, Rat, Rbt : nonce,
+ 	Commit: F(message. message.nonce.symmetric_key)
+	Hb: F(nonce.symmetric_key)
+
+init State := 0
+
+transition
+
+1. State = 0 / RCV(start) 
+   =|>
+   State' := 2 / Ea’ := new()
+	       / Ga' := exp(G,Ea')
+	       / SND(Ga')
+
+2. State = 2 / RCV(Gb’.Commit') 
+   =|>
+   State' := 4 / Rat' := new()
+	 / SND(Rat’.{3.F(ACK.Rat’)}_Ks)
+
+3. State = 4 / RCV({3.Rat.Rbt'}_Ks) 
+   =|>
+   State' := 6 / SND(ACK.{3.F(ACK.Rbt.Ks)}_Ks)
+
+
+4. State = 6 / RCV(Rb'.{4.Hb'}_Ks 
+	     / Hb' = h(Rb'.Ks)
+	     / RCV(Kb')            
+             / Commit = F(Ga.Gb.Rb'.Kb')
+%Key confirmation
+   =|>
+   State := 8 / SK:= exp(Gb',Ea)
+              / Rat':= new()
+              / SND({A.Rat'}_SK)
+              / secret(Rat',rat,{A,B})
+              / witness(A,B,bob_alice_rat,Rat')
+
+5. State = 8 / RCV({B.Rat.Rbt'}_SK) 
+   =>
+   State:= 10 / SND({B.Rbt'}_SK)
+	      / request(A,B,alice_bob_nb,Rbt')
+	
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob( B, A : agent,
+	  G: text,
+          ACK: message,
+	  F: hash_func,
+	  Ks: symmetric_key, % used for simulate OOB channel
+	  SND,RCV: channel(dy))
+
+played_by B def=
+	local State   : nat,
+	Eb: text,
+        Ga, Gb: message,
+	Kb,SK: symmetric_key, 
+	Rb, Rat, Rbt : nonce,
+ 	Commit: hash(message. message.nonce.symmetric_key)
+	Ha: hash(message.nonce)
+        Ha2: hash(message.nonce.symetric_key)
+       
+ 	
+init 
+	State := 1
+
+transition
+
+1. State = 1 /  RCV(Ga') 
+   =|>
+   State' := 3 / Rb' := new()
+               / Kb' := new()
+	       / Eb' := new()
+	       / Gb' := exp(G,Eb')
+	       / Commit' = F(Ga'.Gb'.Rb'.Kb')
+	       / SND(Pb'.Commit')
+	
+2. State = 3 / RCV(Rat'.{3.Ha'}_Ks)
+             / Ha' = F(ACK.Rat')
+   =|>
+   State' := 5 / Rbt' := new()
+	       / SND({3.Rat.Rbt'}_Ks)
+
+3. State = 5   / RCV(ACK.{3.Ha2'}_Ks)
+               / Ha2' = F(ACK.Rbt.Ks)
+   =|>
+   State' := 7 / SND(Rb.{4.h(Rb.Ks)}_Ks)
+               / SND(Kb)
+%key confirmation 
+
+4. State = 7  / SK' := exp(Ga',Eb)
+              / RCV({A.Rat'}_SK') 
+   =|>
+   State := 9 / Rbt' := new()
+              / SND({B.Rat'.Rbt'}_SK)
+              / secret(Rbt',rbt,{A,B}) 
+              / witness(B,A,alice_bob_rbt,Rbt')
+
+5. State = 9  / RCV({B.Rbt}_SK)
+   =|>
+   State := 11 / request(B,A,bob_alice_rat,Rat)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(A,B : agent,
+	     G: text,
+             ACK: message
+	     H: hash_func,
+	     Kab: symmetric_key)
+
+def=
+  local SA, RA, SB, RB: channel (dy)
+
+  composition
+     alice(A,B,G,ACK,H,Kab,SA,RA)
+  / bob  (B,A,G,ACK,H,Kab,SB,RB)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+        const a, b          : agent,
+	g                   : text,
+	ack		    : message
+	h                   : hash_func,
+        kab,kai,kbi         : symmetric_key,
+        rat, rbt,  
+	alice_bob_nb,
+	bob_alice_na        : protocol_id	   
+ 
+    intruder_knowledge={a,b,g,ack,h,kai,kbi}
+
+
+   composition
+      session(a,b,g,ack,h,kab)
+   / session(a,i,g,ack,h,kai)
+   / session(i,b,g,ack,h,kbi)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of rat, rbt
+  authentication_on alice_bob_rbt
+  authentication_on bob_alice_rat
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()
+
+
+ 

@@ -1,0 +1,141 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfiletEXHKA
+
+section signature:
+
+state_rtpm: agent * agent * agent * public_key * public_key * public_key * public_key * text * hash_func * nat * text * text * nat -> fact
+state_rnode: agent * agent * agent * public_key * public_key * public_key * public_key * text * hash_func * nat * text * text * text * symmetric_key * nat -> fact
+state_ruser: agent * agent * public_key * public_key * public_key * public_key * text * hash_func * nat * text * text * text * symmetric_key * set(agent) * nat -> fact
+
+
+section types:
+
+valid, sec: protocol_id
+MGoal, start: message
+ash, H: hash_func
+ASGoal, Set_26, Dummy_Set_26: set(agent)
+pkuser, pkAIK, pksubEK, pknode, pki, Pkuser, PkAIK, PksubEK, Pknode: public_key
+Ksession, Dummy_Ksession, dummy_sk: symmetric_key
+pcr, quote, unbind, extend, soft, zeros, N1, N2, PCR, N3, Dummy_N3, Dummy_N2, Dummy_N1, dummy_nonce: text
+set_124, set_121, set_105: set
+11, 10, State, 4, 13, 3, 12, 2, 9, 1, 7, 0, 5, SID, Dummy_State, SID2, SID1: nat
+A1Goal, user, tpm, node, TPM, User, Node, Dummy_Node, i, A2Goal: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(user).
+ iknows(tpm).
+ iknows(node).
+ iknows(pkuser).
+ iknows(zeros).
+ iknows(pkAIK).
+ iknows(pksubEK).
+ iknows(pknode).
+ iknows(pcr).
+ iknows(ash).
+ iknows(quote).
+ iknows(unbind).
+ iknows(extend).
+ iknows(pki).
+ iknows(inv(pki)).
+ iknows(i).
+ state_ruser(user,node,pkuser,pkAIK,pksubEK,pknode,pcr,ash,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,set_105,3).
+ state_rnode(node,user,tpm,pkuser,pkAIK,pksubEK,pknode,pcr,ash,1,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,4).
+ state_rtpm(tpm,user,node,pkuser,pkAIK,pksubEK,pknode,pcr,ash,10,dummy_nonce,dummy_nonce,5).
+ state_ruser(user,i,pkuser,pkAIK,pksubEK,pknode,pcr,ash,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,set_121,7).
+ state_rtpm(tpm,user,i,pkuser,pkAIK,pksubEK,pknode,pcr,ash,10,dummy_nonce,dummy_nonce,9).
+ state_rnode(node,i,tpm,pkuser,pkAIK,pksubEK,pknode,pcr,ash,1,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,12).
+ state_rtpm(tpm,i,node,pkuser,pkAIK,pksubEK,pknode,pcr,ash,10,dummy_nonce,dummy_nonce,13)
+
+
+section rules:
+
+step step_0 (User,Node,Pkuser,PkAIK,PksubEK,Pknode,PCR,H,Dummy_N1,N2,N3,Ksession,Set_26,SID,N1) :=
+ state_ruser(User,Node,Pkuser,PkAIK,PksubEK,Pknode,PCR,H,0,Dummy_N1,N2,N3,Ksession,Set_26,SID).
+ iknows(start)
+=[exists N1]=>
+ state_ruser(User,Node,Pkuser,PkAIK,PksubEK,Pknode,PCR,H,1,N1,N2,N3,Ksession,Set_26,SID).
+ iknows(crypt(inv(Pkuser),pair(N1,Node)))
+
+step step_1 (User,Node,Pkuser,PkAIK,PksubEK,Pknode,PCR,H,N1,Dummy_N2,Dummy_N3,Ksession,Set_26,SID,N2,N3) :=
+ state_ruser(User,Node,Pkuser,PkAIK,PksubEK,Pknode,PCR,H,1,N1,Dummy_N2,Dummy_N3,Ksession,Set_26,SID).
+ iknows(crypt(inv(Pknode),pair(crypt(inv(PkAIK),apply(H,pair(PCR,pair(N1,pair(N2,Node))))),N2)))
+=[exists N3]=>
+ state_ruser(User,Node,Pkuser,PkAIK,PksubEK,Pknode,PCR,H,2,N1,N2,N3,Ksession,Set_26,SID).
+ iknows(crypt(inv(Pkuser),crypt(PksubEK,pair(N1,pair(N2,pair(N3,Ksession))))))
+
+step step_2 (User,Node,Pkuser,PkAIK,PksubEK,Pknode,PCR,H,N1,N2,N3,Ksession,Dummy_Set_26,SID) :=
+ state_ruser(User,Node,Pkuser,PkAIK,PksubEK,Pknode,PCR,H,2,N1,N2,N3,Ksession,Dummy_Set_26,SID).
+ iknows(scrypt(Ksession,N3))
+ =>
+ state_ruser(User,Node,Pkuser,PkAIK,PksubEK,Pknode,PCR,H,3,N1,N2,N3,Ksession,Dummy_Set_26,SID).
+ secret(Ksession,sec,Dummy_Set_26).
+ request(Node,User,valid,N3,SID).
+ contains(User,Dummy_Set_26).
+ contains(Node,Dummy_Set_26)
+
+step step_3 (Dummy_Node,User,TPM,Pkuser,PkAIK,PksubEK,Pknode,PCR,H,Dummy_N1,Dummy_N2,N3,Ksession,SID,Node,N1,N2) :=
+ state_rnode(Dummy_Node,User,TPM,Pkuser,PkAIK,PksubEK,Pknode,PCR,H,1,Dummy_N1,Dummy_N2,N3,Ksession,SID).
+ iknows(crypt(inv(Pkuser),pair(N1,Node)))
+=[exists N2]=>
+ state_rnode(Node,User,TPM,Pkuser,PkAIK,PksubEK,Pknode,PCR,H,2,N1,N2,N3,Ksession,SID).
+ iknows(pair(N1,pair(N2,Node)))
+
+step step_4 (Node,User,TPM,Pkuser,PkAIK,PksubEK,Pknode,PCR,H,N1,N2,N3,Ksession,SID) :=
+ state_rnode(Node,User,TPM,Pkuser,PkAIK,PksubEK,Pknode,PCR,H,2,N1,N2,N3,Ksession,SID).
+ iknows(crypt(inv(PkAIK),apply(H,pair(PCR,pair(N1,pair(N2,Node))))))
+ =>
+ state_rnode(Node,User,TPM,Pkuser,PkAIK,PksubEK,Pknode,PCR,H,3,N1,N2,N3,Ksession,SID).
+ iknows(crypt(inv(Pknode),pair(crypt(inv(PkAIK),apply(H,pair(PCR,pair(N1,pair(N2,Node))))),N2)))
+
+step step_5 (Node,User,TPM,Pkuser,PkAIK,PksubEK,Pknode,PCR,H,N1,N2,Dummy_N3,Dummy_Ksession,SID,N3,Ksession) :=
+ state_rnode(Node,User,TPM,Pkuser,PkAIK,PksubEK,Pknode,PCR,H,3,N1,N2,Dummy_N3,Dummy_Ksession,SID).
+ iknows(crypt(inv(Pkuser),crypt(PksubEK,pair(N1,pair(N2,pair(N3,Ksession))))))
+ =>
+ state_rnode(Node,User,TPM,Pkuser,PkAIK,PksubEK,Pknode,PCR,H,4,N1,N2,N3,Ksession,SID).
+ iknows(scrypt(Ksession,N3)).
+ witness(User,Node,valid,N3)
+
+step step_6 (TPM,User,Dummy_Node,Pkuser,PkAIK,PksubEK,Pknode,PCR,H,Dummy_N1,Dummy_N2,SID,Node,N1,N2) :=
+ state_rtpm(TPM,User,Dummy_Node,Pkuser,PkAIK,PksubEK,Pknode,PCR,H,10,Dummy_N1,Dummy_N2,SID).
+ iknows(pair(N1,pair(N2,Node)))
+ =>
+ state_rtpm(TPM,User,Node,Pkuser,PkAIK,PksubEK,Pknode,PCR,H,11,N1,N2,SID).
+ iknows(crypt(inv(PkAIK),apply(H,pair(PCR,pair(N1,pair(N2,Node))))))
+
+
+section properties:
+
+property secrecy_of_sec (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_valid (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,valid,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,valid,MGoal))
+     /\ ((request(A1Goal,A2Goal,valid,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,valid,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_sec (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_valid (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,valid,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,valid,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_valid (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,valid,MGoal,SID1).
+ request(A1Goal,A2Goal,valid,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

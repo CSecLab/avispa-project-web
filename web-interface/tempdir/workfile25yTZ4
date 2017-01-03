@@ -1,0 +1,88 @@
+role ms(
+	MS,BS:agent,
+	Kmsk:symmetric_key,
+	Hash,Trun:hash_func,
+	SND,RCV:channel(dy))
+played_by MS def=
+  local State :nat,
+        N_ms,N_bs:text,
+        Ktck:symmetric_key,
+        Tms:{agent.symmetric_key}_symmetric_key,
+        Cmac:{agent.agent.{agent.symmetric_key}_symmetric_key.text}_symmetric_key
+  init State :=0
+  transition
+  1.State  =0/RCV(start)=|>
+    State':=2/Ktck':=Trun(Kmsk.128)
+	     /secret(Ktck',k1,{MS})
+             /N_ms':=new()
+	     /Cmac':={MS.BS.Tms.N_ms'}_Ktck'
+	     /SND((MS.BS.Tms.N_ms').Cmac')
+  2.State  =2/RCV(N_bs'.Cmac')=|>
+    State':=4/N_ms':=new()
+             /SND(MS.N_bs'.N_ms'.Cmac')
+             /equest(MS,BS,bs_ms_cmac,Cmac')
+             /witness(MS,BS,ms_bs_cmac,Cmac')
+  3.State  =4/RCV(N_bs'.N_ms'.Cmac')=|>
+    State':=6
+end role
+role bs(
+	MS,BS:agent,
+	Kmgk:symmetric_key,
+	Hash,Trun:hash_func,
+	SND,RCV:channel(dy))
+played_by BS def=
+  local State :nat,
+	N_ms,N_bs:text,
+	Ktmgk,Kmsk:symmetric_key,
+        Tms:{agent.symmetric_key}_symmetric_key,
+        Cmac:{agent.agent.{agent.symmetric_key}_symmetric_key.text}_symmetric_key
+  init State :=1
+  transition
+  1.State  =1/RCV((MS.BS.{MS.Kmsk}_Ktmgk.N_ms').Cmac')=|>
+    State':=3/Ktmgk':=Hash(Kmgk.MS)
+
+
+	     /secret(Ktmgk',k,{BS})
+	     /N_bs':=new()
+	     /SND(N_bs'.Cmac')
+             /witness(BS,MS,bs_ms_cmac,Cmac')
+  2.State  =3/RCV(MS.N_bs'.N_ms'.Cmac')=|>
+    State':=5/SND(N_bs'.N_ms'.Cmac')
+             /equest(BS,MS,ms_bs_cmac,Cmac')            
+end role 
+role session(
+	MS,BS:agent,
+	Kmsk,Kmgk:symmetric_key,
+	Hash,Trun:hash_func)
+def=
+  local  SMS,RMS,SBS,RBS:channel(dy)
+  composition
+	ms(MS,BS,Kmsk,Hash,Trun,SMS,RMS)
+	/s(MS,BS,Kmgk,Hash,Trun,SBS,RBS)
+end role
+role environment()
+def=
+  const a,b:agent,
+	ka,kb,ki:symmetric_key,
+        h,t:hash_func,
+   	bs_ms_cmac,ms_bs_cmac,k,k1:protocol_id
+  intruder_knowledge={a,b,ka,kb,ki}
+  composition
+	session(a,b,ka,kb,h,t)
+	/session(a,i,ka,ki,h,t)
+	/session(i,b,ki,kb,h,t)
+end role
+
+goal
+  secrecy_of k,k1
+  authentication_on ms_bs_cmac
+  authentication_on bs_ms_cmac
+end goal
+
+environment()
+	
+
+
+
+  
+ 

@@ -1,0 +1,256 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Password-based authenticated key agreement protocol using extended chaotic maps 
+%% SK Hafizul Islam
+%% BITS Pilani
+%% 2014/10/10
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role initiator(
+     UI, S, UJ  : agent,
+     H          : hash_func,
+     Li, Lj, Xs : symmetric_key,
+     Snd, Rcv   : channel(dy))
+
+played_by UI
+
+def=
+local State                             : nat,
+      IDi, IDj, IDs, Ri                 : text, 
+      Rui, Rj, Ruj, Zi, Zj              : text, 
+      TIi, TIj, TIs, Req, Res           : text, 
+      Lij, Lji, Zsi, Zsj, Vs, SK, X, TT : text
+
+const ui_s_ri, ui_s_tii, uj_s_rj, uj_s_tij, 
+      s_ui_tis, s_ui_vs, s_uj_tis, s_uj_vs, 
+      ui_uj_ri, uj_ui_rj, subs1, subs2, subs3, 
+      subs4, subs5, subs6, subs7  : protocol_id
+
+init State := 0
+
+transition
+
+1.State = 0
+/\Rcv(start)=|>
+State' := 1 
+/\Ri'  := new()
+/\TIi' := new()
+/\X'   := new()
+/\secret(Ri', subs1, UI)
+/\Rui' := T(Ri'.X')
+/\Zi'  := {IDi.IDj.IDs.Rui'.TIi'}_Li
+/\secret(Li, subs2, {UI, S})
+/\Snd(IDi.Req)
+/\Snd(IDi.Zi')
+/\witness(UI, S, ui_s_ri, Ri')
+/\witness(UI, S, ui_s_tii, TIi')
+/\witness(UI, UJ, ui_uj_ri, Ri')
+
+2.State = 1
+/\Rcv(IDj.Res)
+/\Rcv(IDs.{IDs.IDi.IDj.Rui'.Ruj'.Vs'.TIs'}_Li)=|>
+State'  := 2
+/\X'    := new()
+/\TT'   := H(Rui'.Ruj'.X')
+/\SK'   := H(IDi.IDj.IDs.Rui'.Ruj'.TT'.Vs')
+/\Lij'  := {IDj.IDi.Ruj'.Rui'}_SK'
+/\Snd(IDi.Lij')
+
+3.State = 2
+/\Rcv(IDj.{IDj.IDi.Ruj'.Rui'}_SK')=|>
+State'  := 3
+/\request(UI, S, s_ui_tis, TIs) 
+/\request(UI, S, s_ui_vs, Vs)
+/\request(UI, UJ, uj_ui_rj, Rj)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role server(
+     UI, S, UJ  : agent,
+     H          : hash_func,
+     Li, Lj, Xs : symmetric_key,
+     Snd, Rcv   : channel(dy))
+
+played_by S
+
+def=
+local State                             : nat,
+      IDi, IDj, IDs, Ri                 : text, 
+      Rui, Rj, Ruj, Zi, Zj              : text, 
+      TIi, TIj, TIs, Req, Res           : text, 
+      Lij, Lji, Zsi, Zsj, Vs, SK, X, TT : text
+
+const ui_s_ri, ui_s_tii, uj_s_rj, uj_s_tij, 
+      s_ui_tis, s_ui_vs, s_uj_tis, s_uj_vs, 
+      ui_uj_ri, uj_ui_rj, subs1, subs2, subs3, 
+      subs4, subs5, subs6, subs7  : protocol_id
+
+init State := 0
+
+transition
+
+1. State = 0
+/\Rcv(IDi.{IDi.IDj.IDs.Rui'.TIi'}_Li)
+/\Rcv(IDj.{IDj.IDi.IDs.Ruj'.TIj'}_Lj)=|>
+State' := 1
+/\TIs' := new()
+/\Vs'  := H(Rui'.Ruj'.Xs)
+/\Zsi' := {IDs.IDi.IDj.Rui'.Ruj'.Vs'.TIs'}_Li
+/\Zsj' := {IDs.IDj.IDi.Ruj'.Rui'.Vs'.TIs'}_Lj
+/\secret(Li, subs3, {UI, S})
+/\secret(Lj, subs4, {UJ, S})
+/\secret(Xs, subs5, S)
+/\Snd(IDs.Zsi')
+/\Snd(IDs.Zsj')
+/\witness(S, UI, s_ui_tis, TIs')
+/\witness(S, UI, s_ui_vs, Vs')
+/\witness(S, UJ, s_uj_tis, TIs')
+/\witness(S, UJ, s_uj_vs, Vs')
+/\request(S, UI, ui_s_ri, Ri)
+/\request(S, UI, ui_s_tii, TIi)
+/\request(S, UJ, uj_s_rj, Rj)
+/\request(S, UJ, uj_s_tij, TIj)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role responder(
+     UI, S, UJ  : agent,
+     H          : hash_func,
+     Li, Lj, Xs : symmetric_key,
+     Snd, Rcv   : channel(dy))
+
+played_by UJ
+
+def=
+local State                             : nat,
+      IDi, IDj, IDs, Ri                 : text, 
+      Rui, Rj, Ruj, Zi, Zj              : text, 
+      TIi, TIj, TIs, Req, Res           : text, 
+      Lij, Lji, Zsi, Zsj, Vs, SK, X, TT : text
+
+const ui_s_ri, ui_s_tii, uj_s_rj, uj_s_tij, 
+      s_ui_tis, s_ui_vs, s_uj_tis, s_uj_vs, 
+      ui_uj_ri, uj_ui_rj, subs1, subs2, subs3, 
+      subs4, subs5, subs6, subs7 : protocol_id
+
+init State := 0
+
+transition
+
+1. State = 0
+/\Rcv(IDi.Req)=|>
+State'  := 1
+/\Rj'   := new()
+/\secret(Rj', subs6, UJ)
+/\TIj'  := new()
+/\X'    := new()
+/\Ruj'  := T(Rj'.X')
+/\Zj'   := {IDj.IDi.IDs.Ruj'.TIj'}_Lj
+/\secret(Lj, subs7, {UJ, S})
+/\Snd(IDj.Res)
+/\Snd(IDj.Zj')
+/\witness(UJ, S, uj_s_rj, Rj')
+/\witness(UJ, S, uj_s_tij, TIj')
+/\witness(UJ, UI, uj_ui_rj, Rj')
+
+2. State = 1
+/\Rcv(IDs.{IDs.IDj.IDi.Ruj'.Rui'.Vs'.TIs'}_Lj)=|>
+State' := 2
+/\X'   := new()
+/\TT'  := H(Rui'.Ruj'.X')
+/\SK'  := H(IDi.IDj.IDs.Rui'.Ruj'.TT'.Vs')
+/\Lji' := {IDj.IDi.Ruj'.Rui'}_SK'
+/\Snd(IDj.Lji')
+
+3. State = 2
+/\Rcv(IDi.{IDi.IDj.Rui'.Ruj'}_SK')=|>
+State' := 3
+/\request(UJ, S, s_uj_tis, TIs)
+/\request(UJ, S, s_uj_vs, Vs)
+/\request(UJ, UI, ui_uj_ri, Ri)
+       
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(
+     UI, S, UJ  : agent,
+     H          : hash_func,
+     Li, Lj, Xs :  symmetric_key)
+
+def=
+local S1, S2, S3, R1, R2, R3 : channel(dy),
+      
+      IDi, IDj, IDs, Ri                 : text, 
+      Rui, Rj, Ruj, Zi, Zj              : text, 
+      TIi, TIj, TIs, Req, Res           : text, 
+      Lij, Lji, Zsi, Zsj, Vs, SK, X, TT : text
+
+const ui_s_ri, ui_s_tii, uj_s_rj, uj_s_tij, 
+      s_ui_tis, s_ui_vs, s_uj_tis, s_uj_vs, 
+      ui_uj_ri, uj_ui_rj, subs1, subs2, subs3, 
+      subs4, subs5, subs6, subs7  : protocol_id
+
+
+
+composition
+  initiator(UI, S, UJ, H, Li, Lj, Xs, S1, R1)
+/\responder(UI, S, UJ, H, Li, Lj, Xs, S2, R2)
+/\server(UI, S, UJ, H, Li, Lj, Xs, S3, R3)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+
+def=
+const ui, s, uj                         : agent,
+      h                                 : hash_func,
+      li, lj, xs                        : symmetric_key,
+      idi, idj, ids, ri                 : text, 
+      rui, rj, ruj, zi, zj              : text, 
+      tii, tij, tis, req, res           : text, 
+      lij, lji, zsi, zsj, vs, sk, x, tt : text,
+      ui_s_ri, ui_s_tii, uj_s_rj, uj_s_tij, 
+      s_ui_tis, s_ui_vs, s_uj_tis, s_uj_vs, 
+      ui_uj_ri, uj_ui_rj, subs1, subs2, subs3, 
+      subs4, subs5, subs6, subs7  : protocol_id
+
+intruder_knowledge = {ui, s, uj, h, t}
+
+composition
+  session(ui, s, uj, h, li, lj, xs)
+/\session(ui, i, uj, h, li, lj, xs)
+/\session(i, s, uj, h, li, lj, xs)
+/\session(ui, s, i, h, li, lj, xs)
+end role
+
+goal
+    secrecy_of subs1
+    secrecy_of subs2 
+    secrecy_of subs3
+    secrecy_of subs4
+    secrecy_of subs5
+    secrecy_of subs6
+    secrecy_of subs7
+    authentication_on ui_s_ri 
+    authentication_on uj_s_rj
+    authentication_on ui_uj_ri
+    authentication_on uj_ui_rj
+    authentication_on ui_s_tii
+    authentication_on uj_s_tij
+    authentication_on s_ui_tis
+    authentication_on s_uj_tis
+    authentication_on s_ui_vs
+    authentication_on s_uj_vs
+end goal
+
+environment()
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+

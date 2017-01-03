@@ -1,0 +1,124 @@
+%%HLPSL:
+role server (A, B, S: agent, 
+            Ka, Kb: public_key, 
+            Kps : private_key,                
+            SND, RCV: channel (dy)) 
+played_by A def=
+
+  local State : nat, 
+        Done,SentChallenge,RequestAccess,Challenge, Timer :text
+
+  init State := 0
+
+  transition  
+   
+    0.  State  = 0 /\ RCV(RequestAccess) =|> 
+  State':= 1 /\ Challenge' := new()
+
+    2.  State  = 1 /\ SND({Challenge'.A}_Ka) =|> 
+  State':= 2 /\ Timer' := new() 
+
+    4.  State  = 2 /\ RCV(SentChallenge) =|> 
+    State':= 3 /\ SND(Done)
+
+end role
+
+role device1 (A, B: agent,   
+            Ka, Ks: public_key,  
+            Kpa: private_key,              
+            SND, RCV: channel (dy)) 
+played_by A def=
+
+  local State : nat, 
+  RequestAccess,Challenge,RunningChallenge,GetChallenge,Done : text
+
+  init State := 0
+
+  transition  
+   
+    0.  State  = 0 /\ SND(RequestAccess) =|> 
+  State':= 1 
+
+
+    2.  State  = 1 /\ RCV({Challenge'.A}_Kpa) =|> 
+  State':= 2 /\ request(A,B,alice_bob_challenge,Challenge') /\ secret(Challenge',alice_bob_challenge,{A,B}) 
+
+    4.  State  = 2 /\ SND(RunningChallenge) =|> 
+  State':= 3 
+
+    6.  State  = 3 /\ RCV(GetChallenge) =|> 
+  State':= 4
+
+    8.  State  = 4 /\ RCV(Done) =|> 
+  State':= 5
+
+
+end role
+
+role device2 (A, B: agent,  
+            Ks, Kb: public_key,                 
+            Kpb : private_key,
+            SND, RCV: channel (dy)) 
+played_by A def=
+
+  local State : nat,
+  RunningChallenge, Challenge, GetChallenge, SentChallenge : text
+
+  init State := 0
+
+  transition  
+   
+    0.  State  = 0 /\ RCV(RunningChallenge) =|> 
+  State':= 1
+
+
+    2.  State  = 1 /\ SND(GetChallenge) =|> 
+  State':= 2 %/\ witness(A,B,alice_bob_challenge,Challenge')
+
+    4.  State  = 2 /\ SND(SentChallenge) =|>
+  State':= 3 %/\ request(A,B,alice_bob_challenge,Challenge')
+
+end role
+
+role session(A, B: agent, Ka, Kb, Kc: public_key, Kpa, Kpb, Kps: private_key) def=
+
+  local SA, RA, SB, RB: channel (dy)
+
+  composition 
+
+  device1(A,B,Ka,Ks,Kpa,SA,RA)
+     /\ device2 (A,B,Ks,Kb,Kpb,SB,RB)
+
+end role
+
+role environment() def=
+
+    const a, b, s         : agent,
+    ka, kb, ks, ki   : public_key,
+    kpa,kpb,kps : private_key,
+   
+    alice_bob_challenge : protocol_id
+
+    intruder_knowledge = {a, b, s, ka, kb, ki, inv(ki)}
+
+    composition
+
+  session(a,b,ka,kb)
+     /\ session(a,i,ka,ki)
+     /\ session(i,b,ki,kb)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  
+  secrecy_of challenge
+  authentication_on alice_bob_challenge
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

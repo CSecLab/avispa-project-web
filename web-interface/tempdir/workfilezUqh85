@@ -1,0 +1,90 @@
+role alice( A,B,C: agent,
+	Kac,Kab,Ktc : symmetric_key,
+	SND_AB,RCV_AC : channel(dy))
+     played_by A
+     def=
+      local  State  :  nat,
+	Na,Nc,Goods :  text,
+	Msg    : text
+      init State := 0
+      transition
+        stp1. State =0 / RCV_AC(start) =>
+	State' := 3 / Na' := new()
+		 / Msg' := new()
+		 / SND_AB({A.C.Na'.{Na',Msg'}_Ktc}_Kab)
+		 / secret(Msg',message_a_c,{A,C})
+		 / witness(A,B,alice_bob_na,Na')
+
+        stp2. State = 3 / RCV_AC({Goods'.Nc'.Na}_Kac) =>
+	State :=6  / request(A,C,charlie_alice_nc,Nc')
+end role
+
+role bob(A,B,C	: agent,
+	Kab,Kbc 	: symmetric_key,
+	RCV_BA,SND_BC : channel(dy))
+	played_by B 
+	def=
+	local 	State	: nat,
+		Nb,Na	: text,
+		Bmsg	: {text.text}_symmetric_key
+	init State := 1
+	transition
+	stp1. State = 1   / RCV_BA({A.C.Na'.Bmsg'}_Kab)  =>
+         	         State' := 4 	/ Nb':=new()
+	        		/ SND_BC({A.B.Nb'.Bmsg'}_Kbc)
+	         		/ request(B,A,alice_bob_na,Na')
+	         		/ witness(B,C,bob_charlie_nb,Nb')
+end role
+
+role charlie( A,B,C: agent,
+	Kac,Kbc,Ktc : symmetric_key,
+	RCV_CB,SND_CA : channel(dy))
+     played_by C
+     def=
+      local    State  :  nat,
+	Na,Nb,Nc,Goods :  text,
+	Msg    : text
+      init State := 2
+      transition
+        stp1. State =2 / RCV_CB({A.B.Nb'.{Na',Msg'}_Ktc}_Kbc) =>
+	State' := 5 / Nc' := new()
+		 / Goods' := new()
+		 / SND_CA({Goods'.Nc'.Na'}_Kac)
+		 / witness(C,A,charlie_alice_nc,Nc')
+		 / request(C,B,bob_charlie_nb,Nb')
+end role 
+
+ role session(A,B,C : agent,
+	    Kac,Kab,Kbc,Ktc : symmetric_key)
+	def=
+	local SND_AB, RCV_AC, 
+		RCV_BA, SND_BC,
+		SND_CA,RCV_CB : channel(dy)
+
+	composition
+
+	alice(A,B,C,Kac,Kab,Ktc,SND_AB,RCV_AC)
+	/ bob(A,B,C,Kab,Kbc,RCV_BA,SND_BC)
+	/ charlie(A,B,C,Kac,Kbc,Ktc,RCV_BC,SND_CA)
+
+end role
+
+role environment()
+	def=
+	const  message_a_c, alice_bob_na,
+		 charlie_alice_nc : protocol_id,
+		a, b, c : agent,
+		kab,kac,kbc,kts, kai, kib,kic : symmetric_key
+
+	intruder_knowledge = {a, b, c, kai, kib, kic}
+	composition
+	session(a,b,c,Kac,Kab,Kbc,Ktc)
+end role
+
+goal
+	secrecy_of message_a_c
+	authentication_on alice_bob_na
+	authentication_on charlie_alice_nc
+end goal
+
+environment()  

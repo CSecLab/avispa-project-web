@@ -1,0 +1,135 @@
+%%BIO-PWA Scheme developed by SK H ISLAM
+%% BITS Pilani
+
+
+role user(
+      U, S : agent,
+      H, Mul : hash_func,
+      SKus :  symmetric_key,
+      SND, RCV : channel(dy))
+played_by U
+def=
+  local State : nat, 
+        IDu, Au, Bu, Mu, PWu, X, Paru: text,
+        Tu, Ts, Ruu, Ru, Rss, Rs: text,
+        Fu, Ku, Ks, P, SK : text,
+        Gen, Rep : hash_func
+const user_server_tu, user_server_ru,
+      server_user_ts, server_user_rs,
+      subs: protocol_id
+init State:=0
+transition
+%%Registration Phase
+
+1. State = 0   /\ RCV(start)=|>
+   State' := 1 /\ Paru' := Gen(Fu)
+               /\ SND({IDu. Paru}_SKus)
+               /\ secret({PWu, Bu, Fu}, subs, U)
+2.State =1 /\ RCV({xor(H(IDu, X), H(PWu, Bu)).
+               Mul(H(IDu, X), P. Rep. H). P}_SKus)=|>
+%Login phase
+ State' := 2 /\ Ru':= new() 
+             /\ Tu':= new()
+             /\ Ruu':= Mul(H(H(IDu, X), Ru'), P)
+             /\ Mu' := H(IDu, Ruu', H(IDu, X), Tu')
+             /\ SND(IDu.Ruu'.Mu'.Tu')
+             /\ witness(U, S, user_server_tu, Tu')
+             /\ witness(U, S, user_server_ru, Ru')
+%%Authentication Phase
+%% Receive the authentication message
+3. State=2 /\ RCV(IDu. Mul(H(H(IDu, X), Rs'), P).
+                  H(IDu, Rs', H(IDu, X), Ts', SK').
+                  Ts')=|>
+State' :=3 /\ Ku':= Mul(Mul( Mul(H(IDu, X), Ru),
+                    Mul(H(IDu, X), Rs')), P)
+           /\ Rss' := Mul(H(H(IDu, X), Rs'), P)
+           /\ SK':= H(IDu, Ruu, Rss', Tu, Ts', Ku')
+           /\ request(S, U, server_user_ts, Ts')
+           /\ request(S, U, server_user_rs, Rs')
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role server(
+      U, S : agent,
+      H, Mul : hash_func,
+      SKus :  symmetric_key,
+      SND, RCV : channel(dy))
+played_by S
+def=
+local State : nat, 
+      IDu, Au, Bu, Mu, PWu, X, Paru: text,
+        Tu, Ts, Ruu, Ru, Rss, Rs, Ms: text,
+        Fu, Ku, Ks, P, SK : text,
+        Gen, Rep : hash_func
+const user_server_tu, user_server_ru,
+      server_user_ts, server_user_rs,
+      subs: protocol_id
+init State:=0
+transition
+%%Registration Phase
+%%Request the registration request from the user
+1. State = 0 /\ RCV({IDu. Paru'}_SKus)=|>
+ State' := 1 /\ secret({PWu, Bu, Fu}, subs, U)
+%%send the smartcard to U
+/\ SND({xor(H(IDu, X), H(PWu, Bu)). Mul(H(IDu, X), P)
+        .P.Rep.H}_SKus)
+%Login Phase
+%Receive login request
+2. State = 1 /\ RCV(IDu. Mul(H(H(IDu, X), Ru'), P).
+              H(IDu, Ruu', H(IDu, X), Tu').Tu')=|>
+  State':= 2 /\ Rs' := new() 
+             /\ Ts' := new()
+             /\ Rss' := Mul(H(H(IDu, X), Rs'), P)
+             /\ Ks' := Mul(Mul(Mul(H(IDu, X), Ru'),
+                      Mul(H(IDu, X), Rs')), P)
+             /\ Ruu':= Mul(H(H(IDu, X), Ru'), P)
+             /\ SK':= H(IDu, Ruu', Rss', Tu', Ts', Ks')
+             /\ Ms':= H(IDu, Rss', H(IDu, X), Ts', SK')
+             /\ SND(IDu.Rss'.Ms'.Ts')
+             /\ witness(S, U, server_user_ts, Ts')
+             /\ witness(S, U, server_user_rs, Rs')
+             /\ request(U, S, user_server_tu, Tu')
+             /\ request(U, S, user_server_ru, Ru')
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(
+       U, S : agent,
+       H, Mul : hash_func,
+       SKus :  symmetric_key)
+def=
+local S1, S2, R1, R2: channel(dy)
+
+composition
+      user(U, S, H, Mul, SKus, S1, R1)
+   /\ server(S, U, H, Mul, SKus, S1, R1)
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+const u, s: agent,
+      idu, bu, pwu, x : text,
+      tu, ts,  ruu, ru, rss, rs: text,
+      h, mul : hash_func,
+      skus : symmetric_key,
+      user_server_tu, user_server_ru,
+      server_user_ts, server_user_rs,
+      subs: protocol_id
+intruder_knowledge = {u, s, h, mul}
+composition
+   session(u, s, h, mul, skus)
+/\ session(u, s, h, mul, skus)
+end role
+
+goal
+secrecy_of  subs
+authentication_on  user_server_tu
+authentication_on  user_server_ru
+authentication_on  server_user_ts
+authentication_on  server_user_rs
+end goal
+environment()
+

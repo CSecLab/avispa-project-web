@@ -1,0 +1,90 @@
+
+role mn(MN,HDAP,CN: agent,
+	KCN,KMN: public_key,
+
+	HCTMN: hash_func,
+	SND,RCV: channel(dy))
+	played_by MN def= 
+	local  NHDAP,NMN,NMN1,MNID,MNADDR,VDAPID,HDAPID,CONN1,CONN2,DAP1ID,DAP2ID,BA: text,
+State: nat
+	init State:=0
+	transition
+	 0.State =0 /\ RCV(MNID'.NHDAP') =|>
+	State':=4/\MNADDR':=new()/\NMN':=new()/\VDAPID':=new()/\SND({MNADDR'.NMN'.VDAPID'}_KMN.HCTMN(MNADDR'.NMN'.VDAPID'))
+4.State=4/\RCV(MNID.VDAPID'.{NMN1'}_KMN.HCTMN(NMN1'))=|>State':=6/\MNID':=new()/\NMN1':=new()/\SND({MNID'.VDAPID'.NMN1'}_KCN.HCTMN(MNID'.VDAPID'.NMN1'))/\secret(NMN1',nmn1,{MN,CN})
+6.State=6/\RCV(BA')=|>State':=8
+
+
+end role
+
+role hdap(MN,HDAP,CN: agent,
+	KCN,KMN: public_key,
+
+	HCTMN: hash_func,
+	SND,RCV: channel(dy))
+	played_by HDAP def= 
+
+local NHDAP,NMN,NMN1,MNID,MNADDR,VDAPID,HDAPID,CONN1,CONN2,DAP1ID,DAP2ID:text,
+ State: nat
+	init State :=1
+	transition
+
+	1.State =1 /\ RCV(start)=|>State':=3/\MNID' :=new()/\NHDAP':=new()/\SND(MNID'.NHDAP')
+
+3.State = 3/\RCV({MNADDR'.NMN'.VDAPID'}_KMN.HCTMN(MNADDR'.NMN'.VDAPID'))=|>State':=5/\VDAPID':=new()/\NMN1':=new()/\SND(MNID.VDAPID'.{NMN1'}_KMN.HCTMN(NMN1'))
+
+
+
+		
+
+end role
+
+
+
+role cn(MN,HDAP,CN: agent,
+	KCN,KMN: public_key,
+	HCTMN: hash_func,
+	SND,RCV: channel(dy))
+	played_by CN def= 
+	local  NHDAP,NMN1,NMN,MNID,VDAPID,HDAPID,CONN1,CONN2,DAP1ID,DAP2ID,BA:text,State: nat
+	init State := 2
+	transition
+
+ 	2.State = 2/\RCV({MNID'.VDAPID'.NMN1'}_KCN.HCTMN(MNID'.VDAPID'.NMN1'))=|>
+
+State':=7/\BA':=new()/\SND(BA')
+
+end role
+role session(MN,HDAP,CN: agent,KCN,KMN: public_key,HCTMN: hash_func)
+def= 
+	local SMN,RMN,SHDAP,RHDAP,SCN,RCN: channel(dy) 
+
+	composition 
+	mn( MN,HDAP,CN,KCN,KMN,HCTMN,SMN,RMN) 
+               /\ hdap(MN,HDAP,CN,KCN,KMN,HCTMN,SHDAP,RHDAP) 
+               /\cn(MN,HDAP,CN,KCN,KMN,HCTMN,SCN,RCN)  
+	 
+end role 
+
+role environment() 
+def= 
+
+const  mn1,hdap1,cn1: agent,
+	kcn,kmn: public_key,
+	hctmn: hash_func,
+	mn_cn_mnid,nmn1,mn_hdap_mnaddr: protocol_id
+
+
+   composition 
+	session(mn1,hdap1,cn1,kcn,kmn,hctmn)
+
+end role 
+goal
+ 
+
+secrecy_of nmn1
+
+
+end goal
+
+environment()

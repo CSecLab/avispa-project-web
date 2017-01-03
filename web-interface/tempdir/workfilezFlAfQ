@@ -1,0 +1,185 @@
+role reader (
+A, S, B				: agent,
+H				: hash_func,
+SND_BA,SND_SA,RCV_BA,RCV_SA	: channel(dy)
+)
+
+
+
+
+
+played_by A
+
+def=
+
+	local State				: nat,
+	Rr					: text,
+	Ai,Ci,Di					: text
+
+init State := 0
+
+transition
+
+	1. State = 0 /\ RCV_BA(start) =|>
+		   State' := 2 /\ Rr' := new() /\ SND_BA(Rr')
+
+
+	2. State = 2 /\ RCV_BA(Ai'.Ci') =|> 
+		   State' := 4 /\ SND_SA(Ai'.Ci'.Rr) 	       
+		       
+	3. State = 4 /\ RCV_SA(Di') =|>
+		   State' := 6 /\ SND_BA(Di')
+		       
+
+end role
+
+
+
+
+
+role server (
+A, S, B			: agent,
+H			: hash_func,
+Sj			: symmetric_key,
+ID			: text,
+SND_AS,RCV_AS		: channel(dy)
+)
+
+
+
+  
+played_by S 
+
+def=
+
+	local State			: nat,
+	Rr,Rt				: text,
+	Ai,Bi,Ci,Di			 	: text
+
+init State := 1
+
+transition
+
+
+	1. State = 1 /\ RCV_AS(Ai'.Ci'.Rr') =|>
+		   State' := 3 /\ Rt' := xor(Ai',H(Sj.ID))
+				/\ Bi' := xor(Ai',H(ID'.Rr'.Rt'))
+				/\ Ci' := H(Bi')
+				/\ request(S,B,ci,Ci')
+				/\ Di' := H(xor(Bi',Sj))
+				/\ SND_AS(Di')
+				 /\ witness(S,B,di,Di')
+				
+end role
+
+
+
+
+
+
+role tag(
+	A, S, B				: agent,
+	H				: hash_func,
+	Sj				: symmetric_key,
+	ID				: text,
+	SND_AB,RCV_AB			: channel(dy)
+	)
+	
+
+
+played_by B
+
+def=
+
+	local State						: nat,
+	Rr,Rt		 	     				: text,
+	Ai,Bi,Ci,Di 					: text			      
+	      
+init State := 8
+	
+transition
+	 
+	1. State = 8 /\ RCV_AB(Rr') =|>  
+	   	State' := 10 /\ Rt' := new()
+				/\ Ai' := xor(H(Sj.ID),Rt')
+				/\ Bi' := xor(Ai',H(ID'.Rr'.Rt'))
+				/\ Ci' := H(Bi')
+				/\ SND_AB(Ai'.Ci')
+				/\ witness(B,S,ci,Ci')
+
+
+	2. State = 10 /\ RCV_AB(Di') =|>
+		State' := 12 /\ Di' := H(xor(Bi',Sj))
+			     /\ request(B,S,di,Di')
+			     
+
+end role
+
+ 
+			
+
+
+
+role session(
+
+	A, S, B		: agent,
+	Sj		: symmetric_key,
+	H		: hash_func,
+	ID		: text
+	)
+	
+def=
+
+
+	local SSA,SBA,SAS,SAB,RAS,RSA,RBA,RAB : channel(dy)
+
+	
+composition
+		reader(A,S,B,H,SBA,SSA,RBA,RSA)
+		/\ tag(A,S,B,H,Sj,ID,SAB,RAB)
+		/\ server(A,S,B,H,Sj,ID,SAS,RAS)
+
+
+end role
+
+
+
+
+
+
+role environment()
+
+
+def=
+
+	const	a,s,b,i						: agent,
+		ci,di					: protocol_id,
+		sj,si						: symmetric_key,
+		h						: hash_func,
+		id,idi						: text
+		
+	intruder_knowledge = {a,s,b,si,h,idi}
+	
+composition
+
+		session(a,s,b,sj,h,id)
+		/\ session(a,s,b,sj,h,id)
+		/\ session(a,s,i,si,h,idi)
+		/\ session(i,s,b,si,h,idi)
+		
+end role
+
+
+
+
+
+goal
+	authentication_on ci
+	authentication_on di
+
+end goal
+
+
+
+environment()
+  

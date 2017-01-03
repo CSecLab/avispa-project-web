@@ -1,0 +1,153 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% IKEv2 extended -- 
+%%
+%% Revision History:
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% In Alice/Bob notation, basic IKEv2 looks like this:
+%% IKE_SA_INIT
+%% A -> B: HDR, SAi1, KEi, Ni
+%% B -> A: HDR, SAr1, KEr, Nr
+%% IKE_SA_AUTH
+%% A -> B: HDR, {IDi, [CERT,] [CERTREQ,] [IDr,] AUTH, SAi2, TSi, TSr}K
+%% B -> A: HDR, {IDr, [CERT,] AUTH, SAr2, TSi, TSr}K
+%% CREATE_CHILD_SA
+%% A -> B: HDR, {SA, Ni, [KEi,] [TSi,] [TSr]}K
+%% B -> A: HDR, {SA, Nr, [KEr,] [TSi,] [TSr]}K
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% TODO:
+%% * Model the optional exchange of certificates
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% First variant -- IKEv2 using authentication based on
+%% digital signatures
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role Alice(A,B:agent,
+	   G: text,
+	   F: function,
+	   Ka,Kb: public_key,
+	   SND_B, RCV_B: channel (dy)) played_by A def=
+
+  exists Ni, SA1, SA2, DHX: text (fresh), 
+	 Nr: text,
+	 KEr: message, %% more spefic: exp(text,text)
+	 SK: message,
+	 State: nat,
+         MA: text (fresh),
+         MB: text,
+	 AUTH_B: message
+
+  owns SND_B
+  init State = 0
+
+  knowledge(A)={A,B,G,F,Ka,Kb,inv(Ka)}
+
+  transition
+
+  %% The IKE_SA_INIT exchange:
+  %% I have abstracted away from the negotiation of cryptographic
+  %% parameters.  Alice sends a nonce SAi1, which is meant to
+  %% model Alice sending only a single crypto-suite offer.  Bob must
+  %% then respond with the same nonce.
+  1. State = 0 /\ RCV_B(start) =|>
+	SND_B( SA1'.exp(G,DHX').Ni' ) /\ State' = 2
+
+  %% Alice receives message 2 of IKE_SA_INIT, checks that Bob has
+  %% indeed sent the same nonce in SAr1, and then sends the first 
+  %% message of IKE_AUTH.
+  %% As authentication Data, she signs her first message and Bob's nonce.
+  2. State = 2 /\ RCV_B(SA1.KEr'.Nr') =|>
+ 	SK' = F(Ni.Nr'.SA1.exp(KEr',DHX)) /\
+	SND_B( {A.{SA1.exp(G,DHX).Ni.Nr'}inv(Ka).SA2'}SK' ) /\
+	State' = 4
+
+  %% Modelling question: Here, I assume that the transition only fires
+  %% if the data sent in AUTH_B is indeed the data that alice is 
+  %% expecting (namely, the correctly signed data).  Do we want to have
+  %% such checks at this level, or should we leave it to the "goal" level?
+  3. State = 4 /\ 
+        RCV_B({B.{SA1.KEr.Nr.Ni}inv(Kb).SA2}SK)
+        =|>
+	State' = 6 /\ SND_B({MA'.0}SK) /\
+	AUTH_B' = {SA1.KEr.Nr.Ni}inv(Kb)
+	/\ secret(SK,B)
+	/\ witness(A,B,sk,SK)
+
+  4. State = 6 /\ RCV_B({MB'.1}SK) =|> State' = 8
+	/\ request(A,B,sk,SK)
+
+end role
+
+role Bob (B,A:agent,
+	  G: text,
+	  F: function,
+	  Kb, Ka: public_key,
+	  SND_A, RCV_A: channel (dy)) played_by B def=
+
+  exists Ni, SA1, SA2: text, 
+	 Nr, DHY: text (fresh),
+	 SK, KEi: message,
+	 State: nat,
+         MA: text,
+         MB: text (fresh),
+	 AUTH_A: message
+
+  owns SND_A
+  init State = 1
+
+  transition
+
+  1. State = 1 /\ RCV_A( SA1'.KEi'.Ni' ) =|>
+	SND_A(SA1'.exp(G,DHY').Nr') /\ 
+	SK' = F(Ni'.Nr'.SA1'.exp(KEi',DHY')) /\ 
+	State' = 3
+
+  2. State = 3 /\ RCV_A( {A.{SA1.KEi.Ni.Nr}inv(Ka).SA2'}SK ) =|>
+	SND_A( {B.{SA1.exp(G,DHY).Nr.Ni}inv(Kb).SA2'}SK ) /\
+	State' = 5 /\
+	AUTH_A' = {SA1.KEi.Ni.Nr}inv(Ka)
+	/\ witness(B,A,sk,SK)
+	/\ secret(SK,A)
+
+  3. State = 5 /\ RCV_A({MA'.0}SK) =|> 
+	SND_A({MB'.1}SK) /\ State' =7
+	/\ request(B,A,sk,SK)
+
+end role
+
+role Session(A, B: agent,
+	     Ka, Kb: public_key,
+	     G: text, F: function, 
+	     SA, RA, SB, RB: channel (dy)) def=
+
+  composition
+	   Alice(A,B,G,F,Ka,Kb,SA,RA)
+	/\ Bob(B,A,G,F,Kb,Ka,SB,RB)
+end role
+
+role Environment() def=
+ 
+  const sk : protocol_id
+  knowledge(i) = {g,f,a,b,ka,kb,i,ki,inv(ki)}
+
+  composition
+
+	Session(a,b,ka,kb,g,f,s1,r1,s2,r2)
+     /\ Session(a,i,ka,ki,g,f,s3,r3,s4,r4)
+     /\	Session(i,b,ki,kb,g,f,s5,r5,s6,r6)
+
+end role
+
+goal  	
+	secrecy_of SK
+	Alice authenticates Bob on SK
+	Bob authenticates Alice on SK
+end goal
+
+Environment()
+

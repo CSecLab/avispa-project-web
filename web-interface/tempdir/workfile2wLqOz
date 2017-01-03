@@ -1,0 +1,119 @@
+role client(
+	   A, B : agent,  
+           H, PRF, KeyGen,Hotp: hash_func,
+           Ks: public_key,  
+           SND, RCV: channel (dy))
+	   played_by A def=
+   local 
+	Na, Sid, Pa, Ext, PMS, Nb: text,
+        State: nat,
+	HOTPs: hash (agent.agent.text.text),        
+	Finished: hash(hash(text.text.text).hash(agent.agent.text.text.text.text)),
+        ClientK, ServerK: hash(agent.text.text.hash(text.text.text)),
+        Kb: public_key,
+        M: hash(text.text.text) %master secret
+   const
+	sec_clientk, sec_serverk, sec_A, seckb, seckhotp: protocol_id
+   init  State := 0
+   transition
+   1.  State = 0   /\ RCV(start)=|>
+       State' := 2 /\ Na' := new()  %client random
+		   /\ Pa' := new()  %cipher suite
+       		   /\ Sid' := new() %session ID
+		   /\ Ext' := new() %HOTP extention
+       		   /\ SND(Na'.Sid'.Pa'.Ext)
+   2.  State = 2
+ /\ RCV(Nb'.Sid.Pa.Ext.(B.Kb'.{H(B.Kb')}_(inv(Ks))))
+       			=|>
+       State' := 3 /\ PMS' := new() %premastersecret
+       		   /\ M' := PRF(PMS'.Na.Nb')
+/\ Finished' := PRF(PRF(PMS'.Na.Nb').H(A.B.Na.Pa.Sid.Ext))
+       /\ ClientK' := KeyGen(A.Na.Nb'.PRF(PMS'.Na.Nb'))
+       /\ ServerK' := KeyGen(B.Na.Nb'.PRF(PMS'.Na.Nb'))
+       /\ HOTPs' := Hotp(A.B.Ctr.SecretKey)
+       /\ SND(({A.PMS'.Hotp(A.B.Ctr.SecretKey)}_Kb').
+       {PRF(PRF(PMS'.Na.Nb').H(A.B.Na.Pa.Sid.Ext))}_KeyGen(A.Na.Nb'.PRF(PMS'.Na.Nb')))
+       /\ secret(A, sec_A,{A, B}) %garantir l'anonymat
+       /\ witness(A,B,na_nb2,Na.Nb')
+       /\ request(A,B,seckb,Kb')
+       /\ witness(A,B,seckhotp, HOTPs)
+   	  4.  State = 3 /\ RCV({Finished}_ServerK) =|>
+              State' := 5 /\ request(A,B,na_nb1,Na.Nb)
+       /\ secret(ClientK,sec_clientk,{A,B})
+       /\ secret(ServerK,sec_serverk,{A,B})
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role server(
+	A, B: agent,
+        H, PRF, KeyGen, Hotp: hash_func,
+        Kb, Ks: public_key,
+        Ctr, SecretKey: text,
+	SND, RCV: channel (dy))
+	played_by B def=
+local
+	Na, Nb, Sid, Pa, Ext, PMS: text,
+        HOTPs: hash(agent.agent.text.text),
+	State: nat
+init  State := 1
+transition
+1.  State = 1   /\ RCV(Na'.Sid'.Pa'.Ext) =|>
+    State' := 3 /\ Nb' := new()
+       		/\ SND(Nb'.Sid'.Pa'.Ext.(B.Kb.{H(B.Kb)}_(inv(Ks))))
+       		/\ witness(B,A,na_nb1,Na'.Nb')
+2.  State = 3   /\ RCV(({A.PMS'.Hotp(A.B.Ctr.SecretKey)}_Kb.{PRF(PRF(PMS'.Na.Nb').H(A.B.Na.Pa.Sid.Ext))}_KeyGen(A.Na.Nb'.PRF(PMS'.Na.Nb'))) 
+=|>
+       State' := 5 /\ SND({PRF(PRF(PMS'.Na.Nb).H(A.B.Na.Pa.Sid.Ext))}_KeyGen(B.Na.Nb.PRF(PMS'.Na.Nb)))
+		/\ request(B,A,na_nb2,Na.Nb)
+		/\ witness(B,A,seckb,Kb)
+		/\ request(B,A,seckhotp,HOTPs)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(A,B: agent,
+             Kb, Ks: public_key,
+             H, PRF, KeyGen, Hotp: hash_func,
+	     SecretKey,Ctr: text)
+def=
+   local  SA, SB, RA, RB: channel (dy)
+
+   composition
+                client(A,B,H,PRF, Hotp,KeyGen,Ks,SecretKey,Ctr,SA,RA)
+           /\   server(A,B,H,PRF,Hotp,KeyGen,Kb,Ks,SecretKey,Ctr,SB,RB)
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+def=
+	const na_nb1, na_nb2 : protocol_id,
+         h, prf, keygen,hotp : hash_func,
+         secretKey, ctr,secretKeyi,Ctri :text,
+	 a, b, i: agent,
+         kb, ki, ks : public_key
+intruder_knowledge = 
+{ a, b, kb, ks, ki, inv(ki),{i.ki}_(inv(ks)),h,prf, keygen,hotp}  
+   composition
+        session(a,b,kb,ks,h,prf,hotp,keygen,secretkey,Ctr)
+    %/\  session(i,b,kb,ks,h,prf,hotp,keygen,secretKeyi,ctri)
+end role
+
+
+
+goal
+
+  secrecy_of sec_clientk,sec_serverk  % Addresses G7
+  %Alice authenticates Bob on na_nb1
+  authentication_on na_nb1  % Addresses G1, G2, G3, G7, G10
+  %Bob authenticates Alice on na_nb2
+  authentication_on na_nb2  % Addresses G1, G2, G3, G7, G10
+
+end goal
+
+
+
+environment()
+

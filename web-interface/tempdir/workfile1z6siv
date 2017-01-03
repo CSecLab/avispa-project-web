@@ -1,0 +1,50 @@
+role esi(T:agent,Knwk:symmetric_key,Ktcl:symmetric_key,Kts:public_key,Kte:public_key,MAC:hash_func,KG:hash_func,At:text,SND,RCV:channel(dy))
+played_by T
+def=
+	local
+		State:nat,D:agent,Ad:text,Kde:public_key,Kds:public_key,Kl:symmetric_key
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(D') =|> State':=1 /\ SND({Knwk}_Ktcl)
+		3. State=1 /\ RCV({Kds'.Kde'}_Knwk) =|> State':=2 /\ SND({Kts.Kte}_Knwk)
+		5. State=2 /\ RCV({MAC(Ad'.Kds.Kts.Kde.Kte.Kl')}_Knwk) =|> State':=3 /\ Kl':=KG(Kts,Kte,Kds,Kde) /\ SND({MAC(At.Kts.Kds.Kte.Kde.Kl')}_Knwk)
+end role
+
+role sed(D:agent,T:agent,Ktcl:symmetric_key,Kds:public_key,Kde:public_key,MAC:hash_func,KG:hash_func,Ad:text,SND,RCV:channel(dy))
+played_by D
+def=
+	local
+		State:nat,Knwk:symmetric_key,At:text,Kts:public_key,Kte:public_key,Kl:symmetric_key
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ SND(D)
+		2. State=1 /\ RCV({Knwk'}_Ktcl) =|> State':=2 /\ SND({Kds.Kde}_Knwk')
+		4. State=2 /\ RCV({Kts'.Kte'}_Knwk) =|> State':=3 /\ Kl':=KG(Kts,Kte,Kds,Kde) /\ SND({MAC(Ad.Kds.Kts'.Kde.Kte'.Kl')}_Knwk)
+		6. State=3 /\ RCV({MAC(At'.Kts.Kds.Kte.Kde.Kl)}_Knwk) =|> State':=4
+end role
+
+role session1(At:text,Kte:public_key,Kts:public_key,Knwk:symmetric_key,D:agent,T:agent,Ktcl:symmetric_key,Kds:public_key,Kde:public_key,MAC:hash_func,KG:hash_func,Ad:text)
+def=
+	local
+		SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		sed(D,T,Ktcl,Kds,Kde,MAC,KG,Ad,SND2,RCV2) /\ esi(T,Knwk,Ktcl,Kts,Kte,MAC,KG,At,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		hash_0:hash_func,mac:hash_func,sedKey1:public_key,esi:agent,nwkKey:symmetric_key,esiKey2:public_key,const_1:text,esiKey1:public_key,sed:agent,tclKey:symmetric_key,sedKey2:public_key,keyGenerate:hash_func,const_1:text,sec_1:protocol_id,sec_2:protocol_id
+	intruder_knowledge = {esi,sed,esiKey1,esiKey2,sedKey1,sedKey2,mac}
+	composition
+		session1(const_1,esiKey2,esiKey1,nwkKey,sed,esi,tclKey,sedKey1,sedKey2,mac,keyGenerate,const_1)
+end role
+
+goal
+	secrecy_of sec_1
+	secrecy_of sec_2
+end goal
+
+environment()

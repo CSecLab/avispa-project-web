@@ -1,0 +1,143 @@
+
+
+
+
+role server (User_1, Server_1 : agent,
+SymKey : symmetric_key,
+Hash: hash_func,
+Send, Receive: channel(dy)
+)
+
+
+
+
+played_by Server_1
+def=
+local 
+State : nat,
+SK,N_B,N_a,CID,AS,HSK,Acknowledgement,N_i, A,B,E_C: text
+const S_U,U_S,s1,s2 : protocol_id
+init State := 1
+transition
+1. State = 1 /\Receive({SK'}_SymKey) =|>
+State':=3
+/\A':=new()
+/\secret(A',s2,{User_1,Server_1})
+/\B':=new()
+/\secret(B',s1,{Server_1})
+/\N_i':=xor(SK',B')
+/\Send({SK'.Hash.N_i'.A'}_SymKey)
+2.State=3/\Receive(CID'.N_i'.E_C'.N_a')=|>
+State':=5
+/\N_B':=new()
+
+
+
+
+/\request(Server_1,User_1,U_S,N_a') 
+
+
+
+end role
+
+
+
+
+role session(User_1, Server_1 : agent)
+def=
+local 
+SymKey : symmetric_key,
+Hash : hash_func,
+SU,SS,RU,RS:channel(dy),
+SK, B,A,N_i: text
+const s1,s2 : protocol_id
+composition
+user(User_1,Server_1,SymKey,Hash,SU,RU)
+/\server(User_1,Server_1,SymKey,Hash,SS,RS)
+end role
+
+
+
+
+role environment ()
+def=
+const user_Agent,server_Agent : agent,
+h: hash_func,
+s1,s2,U_S,S_U : protocol_id
+
+
+intruder_knowledge={user_Agent,server_Agent,h}
+composition
+session(user_Agent,server_Agent)
+end role
+
+
+
+
+
+
+
+
+role user (User_1, Server_1 : agent,
+SymKey : symmetric_key,
+Hash : hash_func,
+Send, Receive: channel(dy))
+
+
+
+played_by User_1
+def=
+local State : nat,
+SK, N_i, A,N_a,CID,AS,E_C,N_B,Acknowledgement,Ni_new,PWi_new: text
+const s1,s2,U_S,S_U : protocol_id
+init 
+State := 0
+
+
+
+transition
+1. State = 0 /\Receive(start) =|>
+State' := 2 /\SK' := new()
+/\Send({SK'}_SymKey)
+/\secret({SK'}, s1, {User_1,Server_1})
+/\secret({SymKey}, s2, {User_1,Server_1})
+
+
+
+2.State = 2 /\Receive({SK.Hash.N_i'.A'}_SymKey)
+=|>State':= 4
+
+
+
+3.State=4 /\Receive({SK'.Hash.N_i'.A'}_SymKey)=|>
+State':=6
+/\N_a':=new()
+/\witness(User_1,Server_1,U_S,N_a')  
+/\CID':=xor(Hash(SK'),Hash(xor(N_i',xor(A',N_a'))))
+/\AS':=Hash(xor(CID',Hash(SK)))
+/\E_C':=Hash(xor(N_a',xor(N_i',xor(AS',A'))))
+/\Send(CID'.N_i'.E_C'.N_a')
+
+
+
+4.State=6=|>
+State':=8
+/\PWi_new':=new()
+/\Ni_new':=xor(N_i',xor(Hash(SK),Hash(PWi_new')))
+/\N_i':=Ni_new'
+end role
+
+
+
+
+
+
+
+goal
+	secrecy_of s1
+	secrecy_of s2
+	authentication_on U_S
+	authentication_on S_U
+end goal
+
+environment()

@@ -1,0 +1,88 @@
+role server(S,A : agent, Ke : symmetric_key, SND_S, RCV_S: channel (dy))
+played_by S
+def=
+local
+State :nat,
+Challange, RAND : text,
+MAC,RES : message
+const
+response_id, client_id,start_eap,server_id : text
+init 
+State :=1
+transition
+1. State =1 /\ RCV_S(start) =|>
+   State' :=3 /\ SND_S(request_id)
+2. State =3 /\ RCV_S(response_id.A) =|>
+   State' :=5 /\ Challange' := new()
+                   /\MAC' :={Challange'.S.A}_Ke
+                   /\SND_S({Challange}_Ke.S.MAC')
+                   /\witness(S,A,auth1,Challange')
+                   /\secret(Challange',sec_challange,{A,S})
+3. State =5 /\RCV_S(RAND',RES)
+   /\ RES = {Challange',RAND',S}_Ke =|>
+   State' := 7 /\ SND_S(success) 
+                    /\request(S,A,auth,RAND')
+                    /\secret(Ke,sec_SK, {A,S})
+end role
+
+role client(A, S : agent, Ke : symmetric_key, SND_A, RCV_A: channel (dy))
+played_by A
+def=
+local
+State :nat,
+Challange, RAND : text,
+MAC,RES : message
+const
+sec_SK : protocol_id,
+sec_challange : protocol_id,
+auth : protocol_id,
+auth1 : protocol_id,
+request_id :text,
+response_id, client_id,start_eap,server_id,success :text
+init State := 0
+
+transition
+%1. State =0 /\ RCV_A(start) =|>
+% State :=1 /\ SND_A(start_eap)
+1. State =0 /\ RCV_A(request_id) =|>
+   State :=2 /\ SND_A(response_id.A)
+3. State =2 /\ RCV_A({Challange'}_Ke.S.MAC') 
+            /\ MAC'={Challange'.S.A}_Ke}_Ke =|>          
+   State :=4 /\ RAND' := new()
+                   /\RES' :={Challange'.RAND'.S}_Ke
+                   /\SND_A(RAND'.RES')
+                   /\witness(A,S,auth,RAND')
+                   /\request(A,S,auth1,Challange')
+end role
+
+role session(S,A: agent,Ke: symmetric_key)
+def=
+local SND_A, RCV_A, SND_S, RCV_S : channel (dy)
+const 
+sec_SK : protocol_id,
+sec_challange : protocol_id,
+auth : protocol_id,
+auth1 : protocol_id
+composition
+server(S,A,Ke,SND_S,RCV_S)
+/\ 
+client(A,S,Ke,SND_A,RCV_A)
+end role
+role environment()
+def=
+const 
+s,a : agent,
+ke_sa,ke_ia : symmetric_key
+intruder_knowledge={s,a,i}
+composition
+session(s,a,ke_sa)
+%/\ session(s,a,ke_sa)
+%/\ session(i,a,ke_ia)
+end role
+goal
+authentication_on auth
+authentication_on auth1
+secrecy_of sec_SK,sec_challange
+
+end goal
+environment() 

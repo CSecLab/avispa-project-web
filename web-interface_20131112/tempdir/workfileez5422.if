@@ -1,0 +1,228 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileez5422
+
+section signature:
+
+state_getCertificate: agent * agent * agent * agent * public_key * public_key * hash_func * nat * nat -> fact
+state_cvp_Verify: agent * agent * agent * agent * public_key * public_key * hash_func * hash_func * nat * public_key * text * text * nat -> fact
+state_cvp_Resp: agent * agent * agent * agent * public_key * public_key * hash_func * symmetric_key * nat * text * text * text * public_key * text * set(agent) * nat -> fact
+state_cvp_Init: agent * agent * agent * public_key * public_key * symmetric_key * nat * text * text * set(agent) * nat -> fact
+
+
+section types:
+
+set_163, set_161, set_157, set_156, set_154, set_152, set_141, set_133: set
+Set_88, Dummy_Set_88, Dummy_Set_30, Set_30, ASGoal: set(agent)
+start, MGoal: message
+true: bool
+session_key1, sig, signature, session_key2, host_cryptogram, card_cryptogram, host_challenge, card_challenge: protocol_id
+H, Hash, h, hash2: hash_func
+Signature, Host_Challenge, Card_Challenge, ReqNum, Dummy_Signature, Dummy_ReqNum, Dummy_Card_Challenge, Dummy_Host_Challenge, dummy_nonce: text
+State, 21, 19, 18, 16, 15, 14, 11, 8, 6, SID, 5, 4, Dummy_State, 3, SID2, SID1, 2, 1, 0: nat
+Static_Key, static_key: symmetric_key
+Pk_U, Pk_C, Pk_A, Pk_CA, dummy_pk, pku, pkc, pka, pki, pkca: public_key
+Card, User, Authority, HTTP_Server, A2Goal, A1Goal, u, c, a, http_server, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(u).
+ iknows(c).
+ iknows(a).
+ iknows(static_key).
+ iknows(h).
+ iknows(hash2).
+ iknows(http_server).
+ iknows(pki).
+ iknows(pku).
+ iknows(pkc).
+ iknows(pka).
+ iknows(pkca).
+ iknows(inv(pki)).
+ iknows(i).
+ state_cvp_Init(u,c,http_server,pku,pkc,static_key,0,dummy_nonce,dummy_nonce,set_133,3).
+ state_cvp_Resp(c,u,a,http_server,pkc,pka,h,static_key,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_pk,dummy_nonce,set_141,4).
+ state_cvp_Verify(a,http_server,c,u,pka,pkca,h,hash2,0,dummy_pk,dummy_nonce,dummy_nonce,5).
+ state_getCertificate(http_server,a,u,c,pkca,pku,hash2,0,6).
+ state_cvp_Init(u,i,http_server,pku,pki,static_key,0,dummy_nonce,dummy_nonce,set_152,8).
+ state_getCertificate(http_server,i,u,i,pkca,pku,hash2,0,11).
+ state_cvp_Resp(c,i,a,http_server,pkc,pka,h,static_key,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_pk,dummy_nonce,set_157,14).
+ state_cvp_Verify(a,http_server,c,i,pka,pkca,h,hash2,0,dummy_pk,dummy_nonce,dummy_nonce,15).
+ state_getCertificate(http_server,a,i,c,pkca,pki,hash2,0,16).
+ state_cvp_Init(u,c,http_server,pku,pkc,static_key,0,dummy_nonce,dummy_nonce,set_161,18).
+ state_cvp_Resp(c,u,i,http_server,pkc,pki,h,static_key,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_pk,dummy_nonce,set_163,19).
+ state_getCertificate(http_server,i,u,c,pkca,pku,hash2,0,21)
+
+
+section rules:
+
+step step_0 (User,Card,HTTP_Server,Pk_U,Pk_C,Static_Key,Card_Challenge,Host_Challenge,Set_30,SID) :=
+ state_cvp_Init(User,Card,HTTP_Server,Pk_U,Pk_C,Static_Key,0,Card_Challenge,Host_Challenge,Set_30,SID).
+ iknows(start)
+ =>
+ state_cvp_Init(User,Card,HTTP_Server,Pk_U,Pk_C,Static_Key,1,Card_Challenge,Host_Challenge,Set_30,SID).
+ iknows(pair(User,HTTP_Server))
+
+step step_1 (User,Card,HTTP_Server,Pk_U,Pk_C,Static_Key,Card_Challenge,Dummy_Host_Challenge,Set_30,SID,Host_Challenge) :=
+ state_cvp_Init(User,Card,HTTP_Server,Pk_U,Pk_C,Static_Key,1,Card_Challenge,Dummy_Host_Challenge,Set_30,SID).
+ iknows(true)
+=[exists Host_Challenge]=>
+ state_cvp_Init(User,Card,HTTP_Server,Pk_U,Pk_C,Static_Key,2,Card_Challenge,Host_Challenge,Set_30,SID).
+ iknows(crypt(Pk_C,Host_Challenge))
+
+step step_2 (User,Card,HTTP_Server,Pk_U,Pk_C,Static_Key,Dummy_Card_Challenge,Host_Challenge,Dummy_Set_30,SID,Card_Challenge) :=
+ state_cvp_Init(User,Card,HTTP_Server,Pk_U,Pk_C,Static_Key,2,Dummy_Card_Challenge,Host_Challenge,Dummy_Set_30,SID).
+ iknows(pair(crypt(Pk_U,Card_Challenge),scrypt(scrypt(Static_Key,pair(Host_Challenge,Card_Challenge)),pair(Card_Challenge,Host_Challenge))))
+ =>
+ state_cvp_Init(User,Card,HTTP_Server,Pk_U,Pk_C,Static_Key,3,Card_Challenge,Host_Challenge,Dummy_Set_30,SID).
+ secret(scrypt(Static_Key,pair(Host_Challenge,Card_Challenge)),session_key2,Dummy_Set_30).
+ request(User,Card,host_challenge,Host_Challenge,SID).
+ iknows(scrypt(scrypt(Static_Key,pair(Host_Challenge,Card_Challenge)),pair(Host_Challenge,Card_Challenge))).
+ witness(User,Card,card_challenge,Card_Challenge).
+ contains(User,Dummy_Set_30).
+ contains(Card,Dummy_Set_30)
+
+step step_3 (User,Card,HTTP_Server,Pk_U,Pk_C,Static_Key,Card_Challenge,Host_Challenge,Set_30,SID) :=
+ state_cvp_Init(User,Card,HTTP_Server,Pk_U,Pk_C,Static_Key,3,Card_Challenge,Host_Challenge,Set_30,SID).
+ iknows(true)
+ =>
+ state_cvp_Init(User,Card,HTTP_Server,Pk_U,Pk_C,Static_Key,4,Card_Challenge,Host_Challenge,Set_30,SID)
+
+step step_4 (Card,User,Authority,HTTP_Server,Pk_C,Pk_A,H,Static_Key,Host_Challenge,Card_Challenge,Dummy_ReqNum,Pk_U,Signature,Set_88,SID,ReqNum) :=
+ state_cvp_Resp(Card,User,Authority,HTTP_Server,Pk_C,Pk_A,H,Static_Key,0,Host_Challenge,Card_Challenge,Dummy_ReqNum,Pk_U,Signature,Set_88,SID).
+ iknows(pair(User,HTTP_Server))
+=[exists ReqNum]=>
+ state_cvp_Resp(Card,User,Authority,HTTP_Server,Pk_C,Pk_A,H,Static_Key,1,Host_Challenge,Card_Challenge,ReqNum,Pk_U,Signature,Set_88,SID).
+ iknows(pair(ReqNum,pair(User,HTTP_Server)))
+
+step step_5 (Card,User,Authority,HTTP_Server,Pk_C,Pk_A,H,Static_Key,Host_Challenge,Card_Challenge,ReqNum,Pk_U,Dummy_Signature,Set_88,SID) :=
+ state_cvp_Resp(Card,User,Authority,HTTP_Server,Pk_C,Pk_A,H,Static_Key,1,Host_Challenge,Card_Challenge,ReqNum,Pk_U,Dummy_Signature,Set_88,SID).
+ iknows(pair(ReqNum,pair(Pk_U,crypt(inv(Pk_A),apply(H,pair(ReqNum,Pk_U))))))
+ =>
+ state_cvp_Resp(Card,User,Authority,HTTP_Server,Pk_C,Pk_A,H,Static_Key,2,Host_Challenge,Card_Challenge,ReqNum,Pk_U,crypt(inv(Pk_A),apply(H,pair(ReqNum,Pk_U))),Set_88,SID).
+ request(Card,Authority,signature,crypt(inv(Pk_A),apply(H,pair(ReqNum,Pk_U))),SID).
+ iknows(true)
+
+step step_6 (Card,User,Authority,HTTP_Server,Pk_C,Pk_A,H,Static_Key,Dummy_Host_Challenge,Dummy_Card_Challenge,ReqNum,Pk_U,Signature,Dummy_Set_88,SID,Host_Challenge,Card_Challenge) :=
+ state_cvp_Resp(Card,User,Authority,HTTP_Server,Pk_C,Pk_A,H,Static_Key,2,Dummy_Host_Challenge,Dummy_Card_Challenge,ReqNum,Pk_U,Signature,Dummy_Set_88,SID).
+ iknows(crypt(Pk_C,Host_Challenge))
+=[exists Card_Challenge]=>
+ state_cvp_Resp(Card,User,Authority,HTTP_Server,Pk_C,Pk_A,H,Static_Key,3,Host_Challenge,Card_Challenge,ReqNum,Pk_U,Signature,Dummy_Set_88,SID).
+ secret(scrypt(Static_Key,pair(Host_Challenge,Card_Challenge)),session_key1,Dummy_Set_88).
+ iknows(pair(crypt(Pk_U,Card_Challenge),scrypt(scrypt(Static_Key,pair(Host_Challenge,Card_Challenge)),pair(Card_Challenge,Host_Challenge)))).
+ witness(Card,User,host_challenge,Host_Challenge).
+ contains(User,Dummy_Set_88).
+ contains(Card,Dummy_Set_88)
+
+step step_7 (Card,User,Authority,HTTP_Server,Pk_C,Pk_A,H,Static_Key,Host_Challenge,Card_Challenge,ReqNum,Pk_U,Signature,Set_88,SID) :=
+ state_cvp_Resp(Card,User,Authority,HTTP_Server,Pk_C,Pk_A,H,Static_Key,3,Host_Challenge,Card_Challenge,ReqNum,Pk_U,Signature,Set_88,SID).
+ iknows(scrypt(Session_Key,pair(Host_Challenge,Card_Challenge)))
+ =>
+ state_cvp_Resp(Card,User,Authority,HTTP_Server,Pk_C,Pk_A,H,Static_Key,4,Host_Challenge,Card_Challenge,ReqNum,Pk_U,Signature,Set_88,SID).
+ request(Card,User,card_challenge,Card_Challenge,SID).
+ iknows(true)
+
+step step_8 (Authority,HTTP_Server,Card,User,Pk_A,Pk_CA,H,Hash,Pk_U,Dummy_ReqNum,Signature,SID,ReqNum) :=
+ state_cvp_Verify(Authority,HTTP_Server,Card,User,Pk_A,Pk_CA,H,Hash,0,Pk_U,Dummy_ReqNum,Signature,SID).
+ iknows(pair(ReqNum,pair(User,HTTP_Server)))
+ =>
+ state_cvp_Verify(Authority,HTTP_Server,Card,User,Pk_A,Pk_CA,H,Hash,1,Pk_U,ReqNum,Signature,SID).
+ iknows(User)
+
+step step_9 (Authority,HTTP_Server,Card,User,Pk_A,Pk_CA,H,Hash,Pk_U,ReqNum,Dummy_Signature,SID) :=
+ state_cvp_Verify(Authority,HTTP_Server,Card,User,Pk_A,Pk_CA,H,Hash,1,Pk_U,ReqNum,Dummy_Signature,SID).
+ iknows(pair(Pk_U,pair(User,crypt(inv(Pk_CA),apply(Hash,pair(Pk_U,User))))))
+ =>
+ state_cvp_Verify(Authority,HTTP_Server,Card,User,Pk_A,Pk_CA,H,Hash,2,Pk_U,ReqNum,crypt(inv(Pk_A),apply(H,pair(ReqNum,Pk_U))),SID).
+ iknows(pair(ReqNum,pair(Pk_U,crypt(inv(Pk_A),apply(H,pair(ReqNum,Pk_U)))))).
+ witness(Authority,Card,signature,crypt(inv(Pk_A),apply(H,pair(ReqNum,Pk_U))))
+
+step step_10 (HTTP_Server,Authority,User,Card,Pk_CA,Pk_U,Hash,SID) :=
+ state_getCertificate(HTTP_Server,Authority,User,Card,Pk_CA,Pk_U,Hash,0,SID).
+ iknows(User)
+ =>
+ state_getCertificate(HTTP_Server,Authority,User,Card,Pk_CA,Pk_U,Hash,1,SID).
+ iknows(pair(Pk_U,pair(User,crypt(inv(Pk_CA),apply(Hash,pair(Pk_U,User))))))
+
+
+section properties:
+
+property secrecy_of_session_key1 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,session_key1,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_session_key2 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,session_key2,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_card_challenge (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,card_challenge,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,card_challenge,MGoal))
+     /\ ((request(A1Goal,A2Goal,card_challenge,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,card_challenge,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_host_challenge (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,host_challenge,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,host_challenge,MGoal))
+     /\ ((request(A1Goal,A2Goal,host_challenge,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,host_challenge,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_signature (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,signature,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,signature,MGoal))
+     /\ ((request(A1Goal,A2Goal,signature,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,signature,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_session_key1 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,session_key1,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_session_key2 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,session_key2,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_card_challenge (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,card_challenge,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,card_challenge,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_card_challenge (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,card_challenge,MGoal,SID1).
+ request(A1Goal,A2Goal,card_challenge,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_host_challenge (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,host_challenge,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,host_challenge,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_host_challenge (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,host_challenge,MGoal,SID1).
+ request(A1Goal,A2Goal,host_challenge,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_signature (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,signature,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,signature,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_signature (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,signature,MGoal,SID1).
+ request(A1Goal,A2Goal,signature,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

@@ -1,0 +1,77 @@
+role alice (A,B : agent,				
+                  Ka : public_key, 
+	      Kb: public_key,
+	      Snd, Rcv : channel (dy) )
+
+played_by A 
+def=
+
+local 
+State: nat,                  
+Na, Nb: text
+
+const sec_k1 : protocol_id
+
+init  State := 0	
+1.   State = 0 / Rcv (start) =|>
+      State':= 1 / Na' = new() / Snd({Na'.A}_Kb)
+
+2.    State = 1 / Rcv({Na.Nb'}_Ka) =|>
+       State' := 2 / Snd({Nb'}_Kb) / secret(Na,sec_k1,{A,B})
+ end role
+
+
+role bob   (B,A : agent,				
+                  Ka : public_key, 
+	      Kb: public_key,
+	      Snd, Rcv : channel (dy) )
+
+played_by B 
+def=
+
+local 
+State: nat,                  
+Na, Nb: text
+
+const sec_k2 : protocol_id
+
+init  State := 0	
+1.     State = 0 / Rcv({Na'.A}_Kb) =|>
+        State' := 1 / Nb' := new() / Snd({Na'.Nb'}_Ka) /     secret(Nb',sec_k2,{A,B})
+
+2.      State = 1 / Rcv({Nb}_Kb) =|> State' := 2
+end role
+
+role session(A,B : agent, Ka, Kb : public_key) def=
+
+local SA, RA, SB, RB : channel (dy)
+
+Composition
+
+alice (A, B, S, Ka, Kb, SA, RA)
+/ bob (B, A, Ka, Kb, SB, RB)
+
+end role
+
+role environment () def=
+
+const a, b, i : agent,
+ka, kb, ki : public_key
+
+intruder_knowledge = {a, b, i, Ka, Kb, ki}
+
+Composition
+	    session(a,b,ka,kb)
+	/ session(a,i,ka,ki)
+	
+
+end role
+Goal
+
+secrecy_of sec_k1, sec_k2
+
+end goal
+
+
+environment()
+ 

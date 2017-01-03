@@ -1,0 +1,339 @@
+[From nobody Wed May 24 08:29:30 2006
+Received: from [84.144.112.185] by web33403.mail.mud.yahoo.com via HTTP;
+	Wed, 24 May 2006 04:52:27 PDT
+Date: Wed, 24 May 2006 04:52:27 -0700 (PDT)
+From: &quot;Kostas Ch.&quot; &lt;kchad1979@yahoo.com&gt;
+Subject: Re: [Avispa-users] Question on Needham-Schroeder protocol(Denning
+	Sacco attack)
+To: Yann Glouche &lt;glouche@irisa.fr&gt;
+In-Reply-To: &lt;44744715.9010307@IRISA&gt;
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary=&quot;0-937279330-1148471547=:77707&quot;
+Content-Transfer-Encoding: 8bit
+Content-Length: 3771
+
+--0-937279330-1148471547=:77707
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+
+Dear Yann,
+   
+  I have changed the Msg variable to that of type message but still the attack is not found. My specification is similar to the example 2 in the Tutorial which should work. My main problem is if my way of modelling the authentication goals is correct or if I have made somewhere else a mistake. 
+   
+  Any more suggestions would be very helpful. Thank you for you time.
+   
+  Kostas
+
+Yann Glouche &lt;glouche@irisa.fr&gt; wrote:
+  
+Dear Kostas,
+
+You have a problem in your specification. In the alice role, the type of 
+local variable &quot;Msg&quot; is Message.
+I developp a tool for testinng HLPSL spécification. This tool produce 
+interactively with the user a MSC (Message Sequence Short) which can be 
+seen like an &quot;alice&amp;bob&quot; trace from an HLPSL specification. And your 
+previous specification is not correct.
+
+Yann
+
+The correction :
+
+role alice(A,B,S : agent,
+Kas : symmetric_key,
+Pred : function,
+Snd_SA,Rcv_SA,Snd_BA,Rcv_BA : channel(dy))
+played_by A def=
+
+local
+State : nat,
+Na,Nb : text,
+Msg : message,
+Kab : symmetric_key
+
+init State := 0
+
+transition
+0. State = 0 /\ Rcv_BA(start) =|&gt;
+State' := 2 /\ Na' := new()
+/\ Snd_SA(A.B.Na')
+
+1. State = 2 /\ Rcv_SA({Na.B.Kab'.Msg'}_Kas) =|&gt;
+State' := 4 /\ Snd_BA(Msg')
+/\ secret(Kab',k,{A,B,S})
+
+2. State = 4 /\ Rcv_BA({Nb'}_Kab) =|&gt;
+State' := 6 /\ Snd_BA({Pred(Nb')}_Kab)
+/\ request(A,B,bob_alice_nb,Nb')
+
+end role
+
+role bob(A,B,S : agent,
+Kbs : symmetric_key,
+Pred : function,
+Snd_AB,Rcv_AB : channel(dy))
+played_by B def=
+
+local
+State : nat,
+Na,Nb : text,
+Kab : symmetric_key
+
+init State := 5
+
+transition
+0. State = 5 /\ Rcv_AB({Kab'.A}_Kbs) =|&gt;
+State' := 7 /\ Nb' := new()
+/\ Snd_AB({Nb'}_Kab')
+/\ witness(B,A,bob_alice_nb,Nb')
+
+end role
+
+role server(A,B,S : agent,
+Kas,Kbs : symmetric_key,
+Snd_AS,Rcv_AS : channel(dy))
+played_by S def=
+
+local
+State : nat,
+Kab : symmetric_key,
+Na : text
+
+const
+k : protocol_id
+
+init State := 1
+
+transition
+1. State = 1 /\ Rcv_AS(A.B.Na') =|&gt;
+State' := 3 /\ Kab' := new()
+/\
+Snd_AS({Na'.B.Kab'.{Kab'.A}_Kbs}_Kas)
+/\ secret(Kab',k,{A,B,S})
+
+end role
+
+role session(A,B,S : agent,
+Kas,Kbs : symmetric_key,
+Pred : function)
+def=
+
+local
+SSA,RSA,SBA,RBA,SAS,RAS,SAB,RAB : channel(dy)
+
+composition
+alice(A,B,S,Kas,Pred,SSA,RSA,SBA,RBA)
+/\ bob(A,B,S,Kbs,Pred,SAB,RAB)
+/\ server(A,B,S,Kas,Kbs,SAS,RAS)
+
+end role
+
+role environment()
+def=
+
+const
+a,b,s : agent,
+kas,kbs,kis : symmetric_key,
+pred : function,
+bob_alice_nb : protocol_id, %% Authentication on nonce Nb
+k : protocol_id %% Keep the key Kab secret
+intruder_knowledge = {a,b,s,pred,kis}
+
+composition
+session(a,b,s,kas,kbs,pred)
+/\ session(a,b,s,kas,kbs,pred)
+/\ session(i,b,s,kis,kbs,pred)
+/\ session(a,i,s,kas,kis,pred)
+
+end role
+
+goal
+authentication_on bob_alice_nb
+secrecy_of k
+end goal
+
+environment()
+
+
+Kostas Ch. wrote:
+
+&gt;Hi all,
+&gt;
+&gt;As part of a research on the AVISPA tool I am trying
+&gt;to evaluate the Needham-Schroeder protocol with
+&gt;symmetric keys with the server so that I will be able
+&gt;to conclude if the tool finds the known Denning-Sacco
+&gt;attack on this protocol. My protocol specification is
+&gt;as such:
+&gt;
+&gt;A -&gt; S : A,B,na
+&gt;S -&gt; A : {na,B,Kab,{Kab,A}_Kbs}_Kas
+&gt;A -&gt; B : {Kab,A}_Kbs
+&gt;B -&gt; A : {nb}_Kab
+&gt;A -&gt; B : {nb-1}_Kab
+&gt;
+&gt;where Kas and Kbs are the keys shared between A and S
+&gt;and B and S respectively, Kab is the generated key
+&gt;from the server and na,nb are nonces. I would like to
+&gt;ask you if there is a specific way to model the
+&gt;protocol so that this attack is found (using a
+&gt;compromised key Kab from a previous session).
+&gt;
+&gt;Here is my HLSPL file:
+&gt;
+&gt;role alice(A,B,S : agent,
+&gt; Kas : symmetric_key,
+&gt; Pred : function,
+&gt; Snd_SA,Rcv_SA,Snd_BA,Rcv_BA : channel(dy))
+&gt;played_by A def=
+&gt;
+&gt; local 
+&gt; State : nat,
+&gt; Na,Nb : text,
+&gt; Msg : {symmetric_key.text}_symmetric_key,
+&gt; Kab : symmetric_key
+&gt;
+&gt; init State := 0
+&gt;
+&gt; transition
+&gt; 0. State = 0 /\ Rcv_BA(start) =|&gt;
+&gt; State' := 2 /\ Na' := new()
+&gt; /\ Snd_SA(A.B.Na')
+&gt;
+&gt; 1. State = 2 /\ Rcv_SA({Na.B.Kab'.Msg'}_Kas) =|&gt;
+&gt; State' := 4 /\ Snd_BA(Msg')
+&gt; /\ secret(Kab',k,{A,B,S})
+&gt;
+&gt; 2. State = 4 /\ Rcv_BA({Nb'}_Kab) =|&gt;
+&gt; State' := 6 /\ Snd_BA({Pred(Nb')}_Kab)
+&gt; /\ request(A,B,bob_alice_nb,Nb')
+&gt;
+&gt;end role
+&gt;
+&gt;role bob(A,B,S : agent,
+&gt; Kbs : symmetric_key,
+&gt; Pred : function,
+&gt; Snd_AB,Rcv_AB : channel(dy))
+&gt;played_by B def=
+&gt;
+&gt; local 
+&gt; State : nat,
+&gt; Na,Nb : text,
+&gt; Kab : symmetric_key
+&gt;
+&gt; init State := 5
+&gt;
+&gt; transition
+&gt; 0. State = 5 /\ Rcv_AB({Kab'.A}_Kbs) =|&gt;
+&gt; State' := 7 /\ Nb' := new()
+&gt; /\ Snd_AB({Nb'}_Kab')
+&gt; /\ witness(B,A,bob_alice_nb,Nb')
+&gt;
+&gt;end role
+&gt;
+&gt;role server(A,B,S : agent,
+&gt; Kas,Kbs : symmetric_key,
+&gt; Snd_AS,Rcv_AS : channel(dy))
+&gt;played_by S def=
+&gt;
+&gt; local
+&gt; State : nat,
+&gt; Kab : symmetric_key,
+&gt; Na : text
+&gt;
+&gt; const
+&gt; k : protocol_id
+&gt;
+&gt; init State := 1
+&gt;
+&gt; transition
+&gt; 1. State = 1 /\ Rcv_AS(A.B.Na') =|&gt;
+&gt; State' := 3 /\ Kab' := new()
+&gt; /\
+&gt;Snd_AS({Na'.B.Kab'.{Kab'.A}_Kbs}_Kas)
+&gt; /\ secret(Kab',k,{A,B,S})
+&gt;
+&gt;end role
+&gt;
+&gt;role session(A,B,S : agent,
+&gt; Kas,Kbs : symmetric_key,
+&gt; Pred : function)
+&gt;def=
+&gt;
+&gt; local
+&gt; SSA,RSA,SBA,RBA,SAS,RAS,SAB,RAB : channel(dy)
+&gt;
+&gt; composition
+&gt; alice(A,B,S,Kas,Pred,SSA,RSA,SBA,RBA)
+&gt; /\ bob(A,B,S,Kbs,Pred,SAB,RAB)
+&gt; /\ server(A,B,S,Kas,Kbs,SAS,RAS)
+&gt;
+&gt;end role
+&gt;
+&gt;role environment() 
+&gt;def=
+&gt;
+&gt; const
+&gt; a,b,s : agent,
+&gt; kas,kbs,kis : symmetric_key,
+&gt; pred : function,
+&gt; bob_alice_nb : protocol_id, %% Authentication on
+&gt;nonce Nb 
+&gt; k : protocol_id %% Keep the key Kab secret
+&gt; 
+&gt; intruder_knowledge = {a,b,s,pred,kis}
+&gt;
+&gt; composition
+&gt; session(a,b,s,kas,kbs,pred)
+&gt; /\ session(a,b,s,kas,kbs,pred)
+&gt; /\ session(i,b,s,kis,kbs,pred)
+&gt; /\ session(a,i,s,kas,kis,pred)
+&gt;
+&gt;end role
+&gt;
+&gt;goal
+&gt; authentication_on bob_alice_nb
+&gt; secrecy_of k
+&gt;end goal
+&gt;
+&gt;environment()
+&gt;
+&gt;I tried to run it both with OFMC and CL-Atse but no
+&gt;attack is found. Is there a problem with my
+&gt;specification? Any help would be very much
+&gt;appreciated.
+&gt;
+&gt;Best regards to all,
+&gt;Konstantinos Chadolias
+&gt;
+&gt;__________________________________________________
+&gt;Do You Yahoo!?
+&gt;Tired of spam? Yahoo! Mail has the best spam protection around 
+&gt;http://mail.yahoo.com 
+&gt;_______________________________________________
+&gt;Avispa-users mailing list
+&gt;Avispa-users@avispa-project.org
+&gt;http://www.avispa-project.org/mailman/listinfo/avispa-users
+&gt; 
+&gt;
+
+
+
+		
+---------------------------------
+How low will we go? Check out Yahoo! Messenger’s low  PC-to-Phone call rates.
+--0-937279330-1148471547=:77707
+Content-Type: text/html; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+
+&lt;div&gt;Dear Yann,&lt;/div&gt;  &lt;div&gt;&amp;nbsp;&lt;/div&gt;  &lt;div&gt;I have changed the Msg variable to that of type message but still the attack is not found. My specification is similar to the example 2 in the Tutorial which should work. My main problem is if my way of modelling the authentication goals is correct or if I have made somewhere else a mistake. &lt;/div&gt;  &lt;div&gt;&amp;nbsp;&lt;/div&gt;  &lt;div&gt;Any more suggestions would be very helpful. Thank you for you time.&lt;/div&gt;  &lt;div&gt;&amp;nbsp;&lt;/div&gt;  &lt;div&gt;Kostas&lt;BR&gt;&lt;BR&gt;&lt;B&gt;&lt;I&gt;Yann Glouche &amp;lt;glouche@irisa.fr&amp;gt;&lt;/I&gt;&lt;/B&gt; wrote:&lt;/div&gt;  &lt;BLOCKQUOTE class=replbq style=&quot;PADDING-LEFT: 5px; MARGIN-LEFT: 5px; BORDER-LEFT: #1010ff 2px solid&quot;&gt;&lt;BR&gt;Dear Kostas,&lt;BR&gt;&lt;BR&gt;You have a problem in your specification. In the alice role, the type of &lt;BR&gt;local variable &quot;Msg&quot; is Message.&lt;BR&gt;I developp a tool for testinng HLPSL spécification. This tool produce &lt;BR&gt;interactively with the user a MSC (Message Sequence Short) which can be &lt;BR&gt;seen like an &quot;alice&amp;amp;bob&quot; trace from an HLPSL
+ specification. And your &lt;BR&gt;previous specification is not correct.&lt;BR&gt;&lt;BR&gt;Yann&lt;BR&gt;&lt;BR&gt;The correction :&lt;BR&gt;&lt;BR&gt;role alice(A,B,S : agent,&lt;BR&gt;Kas : symmetric_key,&lt;BR&gt;Pred : function,&lt;BR&gt;Snd_SA,Rcv_SA,Snd_BA,Rcv_BA : channel(dy))&lt;BR&gt;played_by A def=&lt;BR&gt;&lt;BR&gt;local&lt;BR&gt;State : nat,&lt;BR&gt;Na,Nb : text,&lt;BR&gt;Msg : message,&lt;BR&gt;Kab : symmetric_key&lt;BR&gt;&lt;BR&gt;init State := 0&lt;BR&gt;&lt;BR&gt;transition&lt;BR&gt;0. State = 0 /\ Rcv_BA(start) =|&amp;gt;&lt;BR&gt;State' := 2 /\ Na' := new()&lt;BR&gt;/\ Snd_SA(A.B.Na')&lt;BR&gt;&lt;BR&gt;1. State = 2 /\ Rcv_SA({Na.B.Kab'.Msg'}_Kas) =|&amp;gt;&lt;BR&gt;State' := 4 /\ Snd_BA(Msg')&lt;BR&gt;/\ secret(Kab',k,{A,B,S})&lt;BR&gt;&lt;BR&gt;2. State = 4 /\ Rcv_BA({Nb'}_Kab) =|&amp;gt;&lt;BR&gt;State' := 6 /\ Snd_BA({Pred(Nb')}_Kab)&lt;BR&gt;/\ request(A,B,bob_alice_nb,Nb')&lt;BR&gt;&lt;BR&gt;end role&lt;BR&gt;&lt;BR&gt;role bob(A,B,S : agent,&lt;BR&gt;Kbs : symmetric_key,&lt;BR&gt;Pred : function,&lt;BR&gt;Snd_AB,Rcv_AB : channel(dy))&lt;BR&gt;played_by B def=&lt;BR&gt;&lt;BR&gt;local&lt;BR&gt;State : nat,&lt;BR&gt;Na,Nb : text,&lt;BR&gt;Kab : symmetric_key&lt;BR&gt;&lt;BR&gt;init State := 5&lt;BR&gt;&lt;BR&gt;transition&lt;BR&gt;0. State = 5 /\
+ Rcv_AB({Kab'.A}_Kbs) =|&amp;gt;&lt;BR&gt;State' := 7 /\ Nb' := new()&lt;BR&gt;/\ Snd_AB({Nb'}_Kab')&lt;BR&gt;/\ witness(B,A,bob_alice_nb,Nb')&lt;BR&gt;&lt;BR&gt;end role&lt;BR&gt;&lt;BR&gt;role server(A,B,S : agent,&lt;BR&gt;Kas,Kbs : symmetric_key,&lt;BR&gt;Snd_AS,Rcv_AS : channel(dy))&lt;BR&gt;played_by S def=&lt;BR&gt;&lt;BR&gt;local&lt;BR&gt;State : nat,&lt;BR&gt;Kab : symmetric_key,&lt;BR&gt;Na : text&lt;BR&gt;&lt;BR&gt;const&lt;BR&gt;k : protocol_id&lt;BR&gt;&lt;BR&gt;init State := 1&lt;BR&gt;&lt;BR&gt;transition&lt;BR&gt;1. State = 1 /\ Rcv_AS(A.B.Na') =|&amp;gt;&lt;BR&gt;State' := 3 /\ Kab' := new()&lt;BR&gt;/\&lt;BR&gt;Snd_AS({Na'.B.Kab'.{Kab'.A}_Kbs}_Kas)&lt;BR&gt;/\ secret(Kab',k,{A,B,S})&lt;BR&gt;&lt;BR&gt;end role&lt;BR&gt;&lt;BR&gt;role session(A,B,S : agent,&lt;BR&gt;Kas,Kbs : symmetric_key,&lt;BR&gt;Pred : function)&lt;BR&gt;def=&lt;BR&gt;&lt;BR&gt;local&lt;BR&gt;SSA,RSA,SBA,RBA,SAS,RAS,SAB,RAB : channel(dy)&lt;BR&gt;&lt;BR&gt;composition&lt;BR&gt;alice(A,B,S,Kas,Pred,SSA,RSA,SBA,RBA)&lt;BR&gt;/\ bob(A,B,S,Kbs,Pred,SAB,RAB)&lt;BR&gt;/\ server(A,B,S,Kas,Kbs,SAS,RAS)&lt;BR&gt;&lt;BR&gt;end role&lt;BR&gt;&lt;BR&gt;role environment()&lt;BR&gt;def=&lt;BR&gt;&lt;BR&gt;const&lt;BR&gt;a,b,s : agent,&lt;BR&gt;kas,kbs,kis : symmetric_key,&lt;BR&gt;pred : function,&lt;BR&gt;bob_alice_nb
+ : protocol_id, %% Authentication on nonce Nb&lt;BR&gt;k : protocol_id %% Keep the key Kab secret&lt;BR&gt;intruder_knowledge = {a,b,s,pred,kis}&lt;BR&gt;&lt;BR&gt;composition&lt;BR&gt;session(a,b,s,kas,kbs,pred)&lt;BR&gt;/\ session(a,b,s,kas,kbs,pred)&lt;BR&gt;/\ session(i,b,s,kis,kbs,pred)&lt;BR&gt;/\ session(a,i,s,kas,kis,pred)&lt;BR&gt;&lt;BR&gt;end role&lt;BR&gt;&lt;BR&gt;goal&lt;BR&gt;authentication_on bob_alice_nb&lt;BR&gt;secrecy_of k&lt;BR&gt;end goal&lt;BR&gt;&lt;BR&gt;environment()&lt;BR&gt;&lt;BR&gt;&lt;BR&gt;Kostas Ch. wrote:&lt;BR&gt;&lt;BR&gt;&amp;gt;Hi all,&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt;As part of a research on the AVISPA tool I am trying&lt;BR&gt;&amp;gt;to evaluate the Needham-Schroeder protocol with&lt;BR&gt;&amp;gt;symmetric keys with the server so that I will be able&lt;BR&gt;&amp;gt;to conclude if the tool finds the known Denning-Sacco&lt;BR&gt;&amp;gt;attack on this protocol. My protocol specification is&lt;BR&gt;&amp;gt;as such:&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt;A -&amp;gt; S : A,B,na&lt;BR&gt;&amp;gt;S -&amp;gt; A : {na,B,Kab,{Kab,A}_Kbs}_Kas&lt;BR&gt;&amp;gt;A -&amp;gt; B : {Kab,A}_Kbs&lt;BR&gt;&amp;gt;B -&amp;gt; A : {nb}_Kab&lt;BR&gt;&amp;gt;A -&amp;gt; B : {nb-1}_Kab&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt;where Kas and Kbs are the keys shared
+ between A and S&lt;BR&gt;&amp;gt;and B and S respectively, Kab is the generated key&lt;BR&gt;&amp;gt;from the server and na,nb are nonces. I would like to&lt;BR&gt;&amp;gt;ask you if there is a specific way to model the&lt;BR&gt;&amp;gt;protocol so that this attack is found (using a&lt;BR&gt;&amp;gt;compromised key Kab from a previous session).&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt;Here is my HLSPL file:&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt;role alice(A,B,S : agent,&lt;BR&gt;&amp;gt; Kas : symmetric_key,&lt;BR&gt;&amp;gt; Pred : function,&lt;BR&gt;&amp;gt; Snd_SA,Rcv_SA,Snd_BA,Rcv_BA : channel(dy))&lt;BR&gt;&amp;gt;played_by A def=&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt; local &lt;BR&gt;&amp;gt; State : nat,&lt;BR&gt;&amp;gt; Na,Nb : text,&lt;BR&gt;&amp;gt; Msg : {symmetric_key.text}_symmetric_key,&lt;BR&gt;&amp;gt; Kab : symmetric_key&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt; init State := 0&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt; transition&lt;BR&gt;&amp;gt; 0. State = 0 /\ Rcv_BA(start) =|&amp;gt;&lt;BR&gt;&amp;gt; State' := 2 /\ Na' := new()&lt;BR&gt;&amp;gt; /\ Snd_SA(A.B.Na')&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt; 1. State = 2 /\ Rcv_SA({Na.B.Kab'.Msg'}_Kas) =|&amp;gt;&lt;BR&gt;&amp;gt; State' := 4 /\ Snd_BA(Msg')&lt;BR&gt;&amp;gt; /\ secret(Kab',k,{A,B,S})&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt; 2. State = 4 /\
+ Rcv_BA({Nb'}_Kab) =|&amp;gt;&lt;BR&gt;&amp;gt; State' := 6 /\ Snd_BA({Pred(Nb')}_Kab)&lt;BR&gt;&amp;gt; /\ request(A,B,bob_alice_nb,Nb')&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt;end role&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt;role bob(A,B,S : agent,&lt;BR&gt;&amp;gt; Kbs : symmetric_key,&lt;BR&gt;&amp;gt; Pred : function,&lt;BR&gt;&amp;gt; Snd_AB,Rcv_AB : channel(dy))&lt;BR&gt;&amp;gt;played_by B def=&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt; local &lt;BR&gt;&amp;gt; State : nat,&lt;BR&gt;&amp;gt; Na,Nb : text,&lt;BR&gt;&amp;gt; Kab : symmetric_key&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt; init State := 5&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt; transition&lt;BR&gt;&amp;gt; 0. State = 5 /\ Rcv_AB({Kab'.A}_Kbs) =|&amp;gt;&lt;BR&gt;&amp;gt; State' := 7 /\ Nb' := new()&lt;BR&gt;&amp;gt; /\ Snd_AB({Nb'}_Kab')&lt;BR&gt;&amp;gt; /\ witness(B,A,bob_alice_nb,Nb')&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt;end role&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt;role server(A,B,S : agent,&lt;BR&gt;&amp;gt; Kas,Kbs : symmetric_key,&lt;BR&gt;&amp;gt; Snd_AS,Rcv_AS : channel(dy))&lt;BR&gt;&amp;gt;played_by S def=&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt; local&lt;BR&gt;&amp;gt; State : nat,&lt;BR&gt;&amp;gt; Kab : symmetric_key,&lt;BR&gt;&amp;gt; Na : text&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt; const&lt;BR&gt;&amp;gt; k : protocol_id&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt; init State := 1&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt; transition&lt;BR&gt;&amp;gt; 1. State = 1 /\
+ Rcv_AS(A.B.Na') =|&amp;gt;&lt;BR&gt;&amp;gt; State' := 3 /\ Kab' := new()&lt;BR&gt;&amp;gt; /\&lt;BR&gt;&amp;gt;Snd_AS({Na'.B.Kab'.{Kab'.A}_Kbs}_Kas)&lt;BR&gt;&amp;gt; /\ secret(Kab',k,{A,B,S})&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt;end role&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt;role session(A,B,S : agent,&lt;BR&gt;&amp;gt; Kas,Kbs : symmetric_key,&lt;BR&gt;&amp;gt; Pred : function)&lt;BR&gt;&amp;gt;def=&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt; local&lt;BR&gt;&amp;gt; SSA,RSA,SBA,RBA,SAS,RAS,SAB,RAB : channel(dy)&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt; composition&lt;BR&gt;&amp;gt; alice(A,B,S,Kas,Pred,SSA,RSA,SBA,RBA)&lt;BR&gt;&amp;gt; /\ bob(A,B,S,Kbs,Pred,SAB,RAB)&lt;BR&gt;&amp;gt; /\ server(A,B,S,Kas,Kbs,SAS,RAS)&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt;end role&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt;role environment() &lt;BR&gt;&amp;gt;def=&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt; const&lt;BR&gt;&amp;gt; a,b,s : agent,&lt;BR&gt;&amp;gt; kas,kbs,kis : symmetric_key,&lt;BR&gt;&amp;gt; pred : function,&lt;BR&gt;&amp;gt; bob_alice_nb : protocol_id, %% Authentication on&lt;BR&gt;&amp;gt;nonce Nb &lt;BR&gt;&amp;gt; k : protocol_id %% Keep the key Kab secret&lt;BR&gt;&amp;gt; &lt;BR&gt;&amp;gt; intruder_knowledge = {a,b,s,pred,kis}&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt; composition&lt;BR&gt;&amp;gt; session(a,b,s,kas,kbs,pred)&lt;BR&gt;&amp;gt; /\ session(a,b,s,kas,kbs,pred)&lt;BR&gt;&amp;gt;
+ /\ session(i,b,s,kis,kbs,pred)&lt;BR&gt;&amp;gt; /\ session(a,i,s,kas,kis,pred)&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt;end role&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt;goal&lt;BR&gt;&amp;gt; authentication_on bob_alice_nb&lt;BR&gt;&amp;gt; secrecy_of k&lt;BR&gt;&amp;gt;end goal&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt;environment()&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt;I tried to run it both with OFMC and CL-Atse but no&lt;BR&gt;&amp;gt;attack is found. Is there a problem with my&lt;BR&gt;&amp;gt;specification? Any help would be very much&lt;BR&gt;&amp;gt;appreciated.&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt;Best regards to all,&lt;BR&gt;&amp;gt;Konstantinos Chadolias&lt;BR&gt;&amp;gt;&lt;BR&gt;&amp;gt;__________________________________________________&lt;BR&gt;&amp;gt;Do You Yahoo!?&lt;BR&gt;&amp;gt;Tired of spam? Yahoo! Mail has the best spam protection around &lt;BR&gt;&amp;gt;http://mail.yahoo.com &lt;BR&gt;&amp;gt;_______________________________________________&lt;BR&gt;&amp;gt;Avispa-users mailing list&lt;BR&gt;&amp;gt;Avispa-users@avispa-project.org&lt;BR&gt;&amp;gt;http://www.avispa-project.org/mailman/listinfo/avispa-users&lt;BR&gt;&amp;gt; &lt;BR&gt;&amp;gt;&lt;BR&gt;&lt;BR&gt;&lt;/BLOCKQUOTE&gt;&lt;BR&gt;&lt;p&gt;
+		&lt;hr size=1&gt;How low will we go? Check out Yahoo! Messenger’s low &lt;a href=&quot;http://us.rd.yahoo.com/mail_us/taglines/postman8/*http://us.rd.yahoo.com/evt=39663/*http://voice.yahoo.com&quot;&gt; PC-to-Phone call rates.
+--0-937279330-1148471547=:77707--
+]

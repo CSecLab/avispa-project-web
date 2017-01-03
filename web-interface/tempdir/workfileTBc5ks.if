@@ -1,0 +1,147 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileTBc5ks
+
+section signature:
+
+state_smartmeter: agent * agent * text * text * text * symmetric_key * hash_func * nat * message * message * message * message * message * text * text * text * set(agent) * set(agent) * nat -> fact
+state_masterstation: agent * agent * text * text * text * symmetric_key * hash_func * nat * message * message * message * message * message * text * text * text * set(agent) * nat -> fact
+
+
+section types:
+
+qsm, rsmn, qms, smartmeter_masterstation_ack, masterstation_smartmeter_ausm: protocol_id
+hsh, Hsh: hash_func
+sk, kism, kmsi, SK: symmetric_key
+Dummy_Set_30, ASGoal, Set_58, Set_56, Set_30, Dummy_Set_58, Dummy_Set_56: set(agent)
+Dummy_State, 3, SID, SID2, SID1, 5, State, 4, 2, 1, 0: nat
+set_91, set_106, set_105: set
+Dummy_Dmsn, dummy_nonce, dsm, dms, g, rsm, Dmsn, Dsmn, Rsmn, Rsm, G, Dsm, Dms, Dummy_Dsmn, Dummy_Rsmn: text
+A2Goal, A1Goal, ms, sm, SM, MS, i: agent
+Dummy_Aums, Dummy_Qms, dummy_msg, MGoal, Qsm, Ausm, Qms, Aums, Ack, start, Dummy_Ausm, Dummy_Qsm, Dummy_Ack: message
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(sm).
+ iknows(ms).
+ iknows(kism).
+ iknows(kmsi).
+ iknows(i).
+ state_masterstation(ms,sm,dms,g,rsm,sk,hsh,0,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_nonce,dummy_nonce,dummy_nonce,set_91,3).
+ state_smartmeter(sm,ms,rsm,g,dsm,sk,hsh,1,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_nonce,dummy_nonce,dummy_nonce,set_105,set_106,4)
+
+
+section rules:
+
+step step_0 (MS,SM,Dms,G,Rsm,SK,Hsh,Dummy_Qms,Dummy_Aums,Ack,Qsm,Ausm,Dummy_Dmsn,Dsmn,Rsmn,Dummy_Set_30,SID) :=
+ state_masterstation(MS,SM,Dms,G,Rsm,SK,Hsh,0,Dummy_Qms,Dummy_Aums,Ack,Qsm,Ausm,Dummy_Dmsn,Dsmn,Rsmn,Dummy_Set_30,SID).
+ iknows(start)
+ =>
+ state_masterstation(MS,SM,Dms,G,Rsm,SK,Hsh,2,exp(apply(Hsh,Dms),G),apply(Hsh,pair(exp(apply(Hsh,Dms),G),SK)),Ack,Qsm,Ausm,apply(Hsh,Dms),Dsmn,Rsmn,Dummy_Set_30,SID).
+ iknows(scrypt(SK,pair(exp(apply(Hsh,Dms),G),apply(Hsh,pair(exp(apply(Hsh,Dms),G),SK))))).
+ secret(exp(apply(Hsh,Dms),G),qms,Dummy_Set_30).
+ contains(SM,Dummy_Set_30).
+ contains(MS,Dummy_Set_30)
+
+step step_1 (MS,SM,Dms,G,Rsm,SK,Hsh,Qms,Aums,Dummy_Ack,Dummy_Qsm,Dummy_Ausm,Dmsn,Dsmn,Dummy_Rsmn,Set_30,SID,Qsm,Ausm,Rsmn) :=
+ state_masterstation(MS,SM,Dms,G,Rsm,SK,Hsh,2,Qms,Aums,Dummy_Ack,Dummy_Qsm,Dummy_Ausm,Dmsn,Dsmn,Dummy_Rsmn,Set_30,SID).
+ iknows(scrypt(SK,pair(Qsm,pair(xor(Rsmn,apply(Hsh,Rsm)),Ausm))))
+ =>
+ state_masterstation(MS,SM,Dms,G,Rsm,SK,Hsh,4,Qms,Aums,apply(Hsh,pair(apply(Hsh,pair(Rsmn,Qsm)),SK)),Qsm,Ausm,Dmsn,Dsmn,Rsmn,Set_30,SID).
+ iknows(scrypt(SK,pair(apply(Hsh,pair(Rsmn,Qsm)),apply(Hsh,pair(apply(Hsh,pair(Rsmn,Qsm)),SK))))).
+ request(MS,SM,masterstation_smartmeter_ausm,Ausm,SID).
+ witness(MS,SM,smartmeter_masterstation_ack,apply(Hsh,pair(apply(Hsh,pair(Rsmn,Qsm)),SK)))
+
+step step_2 (SM,MS,Rsm,G,Dsm,SK,Hsh,Dummy_Qsm,Dummy_Ausm,Dummy_Qms,Dummy_Aums,Ack,Dmsn,Dummy_Dsmn,Dummy_Rsmn,Dummy_Set_56,Dummy_Set_58,SID,Qms,Aums) :=
+ state_smartmeter(SM,MS,Rsm,G,Dsm,SK,Hsh,1,Dummy_Qsm,Dummy_Ausm,Dummy_Qms,Dummy_Aums,Ack,Dmsn,Dummy_Dsmn,Dummy_Rsmn,Dummy_Set_56,Dummy_Set_58,SID).
+ iknows(scrypt(SK,pair(Qms,Aums)))
+ =>
+ state_smartmeter(SM,MS,Rsm,G,Dsm,SK,Hsh,3,exp(apply(Hsh,Dsm),G),apply(Hsh,pair(exp(apply(Hsh,Dsm),G),pair(xor(apply(Hsh,Rsm),apply(Hsh,Rsm)),SK))),Qms,Aums,Ack,Dmsn,apply(Hsh,Dsm),apply(Hsh,Rsm),Dummy_Set_56,Dummy_Set_58,SID).
+ iknows(scrypt(SK,pair(exp(apply(Hsh,Dsm),G),pair(xor(apply(Hsh,Rsm),apply(Hsh,Rsm)),apply(Hsh,pair(exp(apply(Hsh,Dsm),G),pair(xor(apply(Hsh,Rsm),apply(Hsh,Rsm)),SK))))))).
+ secret(apply(Hsh,Rsm),rsmn,Dummy_Set_56).
+ secret(exp(apply(Hsh,Dsm),G),qsm,Dummy_Set_58).
+ witness(SM,MS,masterstation_smartmeter_ausm,apply(Hsh,pair(exp(apply(Hsh,Dsm),G),pair(xor(apply(Hsh,Rsm),apply(Hsh,Rsm)),SK)))).
+ contains(SM,Dummy_Set_56).
+ contains(MS,Dummy_Set_56).
+ contains(SM,Dummy_Set_58).
+ contains(MS,Dummy_Set_58)
+
+step step_3 (SM,MS,Rsm,G,Dsm,SK,Hsh,Qsm,Ausm,Dummy_Qms,Aums,Dummy_Ack,Dmsn,Dsmn,Dummy_Rsmn,Set_56,Set_58,SID,Qms,Ack,Rsmn) :=
+ state_smartmeter(SM,MS,Rsm,G,Dsm,SK,Hsh,3,Qsm,Ausm,Dummy_Qms,Aums,Dummy_Ack,Dmsn,Dsmn,Dummy_Rsmn,Set_56,Set_58,SID).
+ iknows(scrypt(SK,pair(apply(Hsh,pair(Rsmn,Qms)),Ack)))
+ =>
+ state_smartmeter(SM,MS,Rsm,G,Dsm,SK,Hsh,5,Qsm,Ausm,Qms,Aums,Ack,Dmsn,Dsmn,Rsmn,Set_56,Set_58,SID).
+ request(SM,MS,smartmeter_masterstation_ack,Ack,SID)
+
+
+section properties:
+
+property secrecy_of_qms (MGoal,ASGoal) :=
+ [] ((secret(MGoal,qms,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_qsm (MGoal,ASGoal) :=
+ [] ((secret(MGoal,qsm,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_rsmn (MGoal,ASGoal) :=
+ [] ((secret(MGoal,rsmn,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_smartmeter_masterstation_ack (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,smartmeter_masterstation_ack,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,smartmeter_masterstation_ack,MGoal))
+     /\ ((request(A1Goal,A2Goal,smartmeter_masterstation_ack,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,smartmeter_masterstation_ack,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_masterstation_smartmeter_ausm (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,masterstation_smartmeter_ausm,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,masterstation_smartmeter_ausm,MGoal))
+     /\ ((request(A1Goal,A2Goal,masterstation_smartmeter_ausm,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,masterstation_smartmeter_ausm,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_qms (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,qms,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_qsm (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,qsm,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_rsmn (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,rsmn,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_smartmeter_masterstation_ack (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,smartmeter_masterstation_ack,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,smartmeter_masterstation_ack,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_smartmeter_masterstation_ack (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,smartmeter_masterstation_ack,MGoal,SID1).
+ request(A1Goal,A2Goal,smartmeter_masterstation_ack,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_masterstation_smartmeter_ausm (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,masterstation_smartmeter_ausm,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,masterstation_smartmeter_ausm,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_masterstation_smartmeter_ausm (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,masterstation_smartmeter_ausm,MGoal,SID1).
+ request(A1Goal,A2Goal,masterstation_smartmeter_ausm,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

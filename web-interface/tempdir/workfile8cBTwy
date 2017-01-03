@@ -1,0 +1,108 @@
+%% HLPSL:
+role susrv (S,U    : agent,
+                Pks,Pku    : public_key, 
+                Snd,Rec: channel(dy))
+played_by S
+def=
+
+  local  State     : nat,
+%         Pku  	   : public_key,
+         Rs   	   : text,
+         Ru	: text
+
+  init State := 0
+
+  transition
+
+   1. State = 0
+      /\ Rec(start)
+      =|>
+      State' := 1 
+      /\ Rs' := new()
+      /\ Snd(U.{Rs'}_Pku)
+
+   2. State = 1
+      /\ Rec(S.{Rs.Ru'}_Pks)  
+      =|> 
+      State' := 3 
+      /\ request(S,U,ru,Ru')
+      /\ secret(Ru',ru2,{U,S}) 
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role ue (U,S    : agent,
+                Pku,Pks: public_key,
+                Snd,Rec: channel(dy))
+played_by U
+def=
+
+  local  State     : nat,
+         Ru	   : text,
+         Rs : text
+
+  init State := 1
+
+  transition
+
+   1. State = 1
+      /\ Rec(U.{Rs'}_Pku)
+      =|> 
+      State' := 2
+      /\ Ru' := new()
+      /\ Snd(S.{Rs'.Ru'}_Pks)
+      /\ witness(U,S,ru,Ru')
+      /\ secret(Rs',rs2,{U,S}) 
+
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role session (S, U : agent,
+	      Pku  : public_key,
+              Pks  : public_key) def=
+
+  local SU, RU, SS, RS: channel (dy)
+  composition
+
+          susrv(S,U,Pks,Pku,SS,RS)
+       /\ ue(U,S,Pku,Pks,SU,RU)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role environment() def=
+
+  const  ru,ru2,rs2	       : protocol_id,
+         u,s,i         : agent,	
+         pku,pks,pki   : public_key
+  
+  intruder_knowledge={i,u,s,pku,pks,pki,inv(pki),{pki.i}_inv(pks)}   
+
+  composition
+
+	session(u,s,pku,pks)
+     /\	session(u,i,pku,pki)
+     /\	session(i,s,pki,pks)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+goal
+
+   %ISO2_Init  authenticates ISO2_Resp on ra
+   authentication_on ru % addressess G1 and G2
+   secrecy_of ru2, rs2
+
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+environment()

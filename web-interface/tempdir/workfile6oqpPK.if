@@ -1,0 +1,105 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfile6oqpPK
+
+section signature:
+
+state_bob: agent * agent * agent * symmetric_key * nat * symmetric_key * message * nat -> fact
+state_server: agent * agent * agent * symmetric_key * symmetric_key * nat * symmetric_key * message * set(agent) * nat -> fact
+state_alice: agent * agent * agent * symmetric_key * nat * symmetric_key * message * scrypt(symmetric_key,pair(text,symmetric_key)) * nat -> fact
+
+
+section types:
+
+set_93: set
+dummy_nonce: text
+Dummy_X, X: scrypt(symmetric_key,pair(text,symmetric_key))
+Dummy_Set_54, ASGoal, Set_54: set(agent)
+alice_bob_na, k: protocol_id
+State, 5, SID, 4, Dummy_State, 8, 3, 9, 7, 2, 1, 0, 6: nat
+A, S, B, a, b, s, i: agent
+Dummy_Na, Na, dummy_msg, MGoal, start: message
+Kas, Kbs, Dummy_Kab, Kab, dummy_sk, kas, kbs, kis: symmetric_key
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(s).
+ iknows(kis).
+ iknows(i).
+ state_alice(a,s,b,kas,0,dummy_sk,dummy_msg,scrypt(dummy_sk,pair(dummy_nonce,dummy_sk)),3).
+ state_server(s,a,b,kas,kbs,1,dummy_sk,dummy_msg,set_93,4).
+ state_bob(b,a,s,kbs,4,dummy_sk,dummy_msg,5)
+
+
+section rules:
+
+step step_0 (A,S,B,Kas,Kab,Dummy_Na,X,SID,Na) :=
+ state_alice(A,S,B,Kas,0,Kab,Dummy_Na,X,SID).
+ iknows(start)
+=[exists Na]=>
+ state_alice(A,S,B,Kas,2,Kab,Na,X,SID).
+ iknows(scrypt(Kas,pair(A,pair(Na,B))))
+
+step step_1 (A,S,B,Kas,Dummy_Kab,Na,Dummy_X,SID,Kab,X) :=
+ state_alice(A,S,B,Kas,2,Dummy_Kab,Na,Dummy_X,SID).
+ iknows(pair(scrypt(Kas,pair(A,pair(Kab,Na))),X))
+ =>
+ state_alice(A,S,B,Kas,7,Kab,Na,X,SID).
+ iknows(pair(X,scrypt(Kab,Na)))
+
+step step_2 (A,S,B,Kas,Dummy_Kab,Na,X,SID,Kab) :=
+ state_alice(A,S,B,Kas,7,Dummy_Kab,Na,X,SID).
+ iknows(scrypt(Kab,pair(Na,B)))
+ =>
+ state_alice(A,S,B,Kas,9,Kab,Na,X,SID)
+
+step step_3 (S,A,B,Kas,Kbs,Kab,Dummy_Na,Set_54,SID,Na) :=
+ state_server(S,A,B,Kas,Kbs,1,Kab,Dummy_Na,Set_54,SID).
+ iknows(scrypt(Kas,pair(A,pair(Na,B))))
+ =>
+ state_server(S,A,B,Kas,Kbs,3,Kab,Na,Set_54,SID).
+ iknows(A)
+
+step step_4 (S,A,B,Kas,Kbs,Dummy_Kab,Na,Dummy_Set_54,SID,Kab) :=
+ state_server(S,A,B,Kas,Kbs,3,Dummy_Kab,Na,Dummy_Set_54,SID).
+ iknows(scrypt(Kbs,pair(B,A)))
+=[exists Kab]=>
+ state_server(S,A,B,Kas,Kbs,6,Kab,Na,Dummy_Set_54,SID).
+ iknows(pair(scrypt(Kas,pair(A,pair(Kab,Na))),scrypt(Kbs,pair(B,Kab)))).
+ secret(Kab,k,Dummy_Set_54).
+ contains(S,Dummy_Set_54).
+ contains(A,Dummy_Set_54).
+ contains(B,Dummy_Set_54)
+
+step step_5 (B,A,S,Kbs,Kab,Na,SID) :=
+ state_bob(B,A,S,Kbs,4,Kab,Na,SID).
+ iknows(A)
+ =>
+ state_bob(B,A,S,Kbs,5,Kab,Na,SID).
+ iknows(scrypt(Kbs,pair(B,A)))
+
+step step_6 (B,A,S,Kbs,Dummy_Kab,Na,SID,Kab) :=
+ state_bob(B,A,S,Kbs,5,Dummy_Kab,Na,SID).
+ iknows(pair(scrypt(Kbs,pair(B,Kab)),scrypt(Kab,Na)))
+ =>
+ state_bob(B,A,S,Kbs,8,Kab,Na,SID).
+ iknows(scrypt(Kab,pair(Na,B)))
+
+
+section properties:
+
+property secrecy_of_k (MGoal,ASGoal) :=
+ [] ((secret(MGoal,k,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_k (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,k,ASGoal) &
+ not(contains(i,ASGoal))
+

@@ -1,0 +1,234 @@
+%% PROTOCOL: IEEE 802.1X LEAP - SHA2
+%% PURPOSE:  Provides only BILATERAL client authentication with strong SHA2 Hashing
+%% ADAPTED FOR PHD RESEARCH BY: Idris Ahmed 
+%% VERSION 2.0
+%% REFERENCE: Vishal Sankhla, University of Southern California, USA
+%% PROBLEMS: Secrecy of Ks (secret key), and MUTUAL Authentication by Client and Server
+%% WEAKNESS: Dictionary Attack
+%% SIMULATION LANGUAGE: HLPSL (High Level Protocol Specification Language)
+%% DATE: 24th July 2008
+%% 
+%% PARAMETERS
+%% Ks: Secret Key - used to encrypt Client-Server Mutual Authentication
+%% Km: Master key generated after by Server after Client-Server Mutual Authentication
+%% Kpm : Pairwaise Master Key
+%% Kpt: Pairwise Temporal Key
+%% Kgt: Group Temporal Key
+%% C: Client
+%% A: Authenticator (Access Point)
+%% S: Authentication Server
+%% Agents: Client, Authenticator, Authentication Server 
+%%
+%% PROTOCOL SPECIFICATION:
+%% Client -> Authenticator : EAPOL_Start
+%% Authenticator -> Client : EAPOL_Request_Identity
+%% Client -> Authenticator : EAPOL_Response_Identity:(SSID.MAC_Addrs.{Ks}_SHA2)
+%% Authenticator -> Server : EAPOL_Response_Identity:(SSID.MAC_Addrs.{Ks}_SHA2)
+%% Server -> Authenticator : Server_Challenge:(Username/Password) 
+%% Authenticator -> Client : Pass {Server_Challenge} request to Client 
+%% Client -> Authenticator : Response : (SSID.{Server_Challenge}_Ks)
+%% Authenticator -> Server : Pass Response : (SSID.{Server_Challenge}_Ks)
+%% Server -> Authenticator : Access_Accept
+%% Authenticator -> Client : Server_Challenge_Pass
+%% Client -> Authenticator: Client_Challenge
+%% Authenticator -> Server: Client_Challange_Reply
+%% Server -> Authenticator : Client_Challenge_Response (Multicast Keys + Encryption Keys)
+%% Authenticator -> Client : Client_Challenge_Response
+%% Authenticator -> Client : (Multicast Keys)
+%% Authenticator -> Client : (Encryption Keys)
+%%
+
+role client(C, A, S        : agent,
+            Ks, Km             : symmetric_key,
+            SHA2          : hash_func,
+            EAPOL_Start,
+            EAPOL_Request_Identity,
+            Leap_Success            : text,
+            Server_Challenge_Pass    : text,
+            SND, RCV       : channel(dy))
+played_by C 
+def=
+
+            local  State             	      : nat,
+                   SSID, MAC_Addrs, Client_Challenge,
+                   Server_Challenge   : text
+
+            const  client_server_ks,  server_client_ks, ks : protocol_id
+                   
+            init State := 0
+            
+            transition
+
+            1. State  = 0 /\ RCV(start) =|>
+                State':= 1 /\ SND(EAPOL_Start)
+               
+            2. State  = 1 /\ RCV( EAPOL_Request_Identity) =|>
+                State':= 2 /\ MAC_Addrs' := new()
+	               /\ SSID' := new()
+	               /\ SND(SSID'.MAC_Addrs'.SHA2(Ks))
+                                 /\ secret(Ks, ks,{C, S})         
+                         
+            3. State  = 2 /\ RCV(SSID.Server_Challenge') =|>
+                State':= 3 /\ SND(SSID.{Server_Challenge}_Ks)
+                                 /\ witness(C, S, client_server_ks, Ks)
+            
+            4. State  = 3 /\ RCV(SSID.Server_Challenge_Pass') =|>
+                State':= 4 /\ SND(SSID.{Client_Challenge}_Ks)
+                                 /\ request(S, C, server_client_ks, Ks)
+
+            5. State = 4 /\ RCV(SSID.Leap_Success'.{Km}_Ks) =|>
+                State':= 5 /\ secret(Km, km,{C, S})
+
+
+end role
+
+
+role authenticator(C, A, S          : agent,
+            Ks                : symmetric_key,
+            SHA2         : hash_func,
+            EAPOL_Start,
+            EAPOL_Request_Identity,
+            Leap_Success,
+            Server_Challenge_Pass    : text,
+            SND, RCV           : channel(dy))
+played_by A 
+def=
+            
+            local  State              : nat,
+                   SSID , MAC_Addrs, 
+                   Server_Challenge   : text,
+                   Server_Challenge_Reply : {text}_symmetric_key,
+	 Client_Challenge_Message : {text}_symmetric_key,
+                   Leap_Success_Message: text.{symmetric_key}_symmetric_key
+
+            const skey   : protocol_id
+                   
+            init State := 1
+
+            transition
+            
+            1. State  = 1 /\ RCV(EAPOL_Start) =|>
+                State':= 2 /\ SND(EAPOL_Request_Identity)
+
+            2. State  = 2 /\ RCV(SSID'.MAC_Addrs'.SHA2(Ks)) =|>
+                State':= 3 /\ SND(SSID'.MAC_Addrs'.SHA2(Ks)) 
+                     
+            3. State  = 3 /\ RCV(SSID.Server_Challenge') =|>
+                State':= 4 /\ SND(SSID.Server_Challenge')
+
+            4. State  = 4 /\ RCV(SSID.Server_Challenge_Reply') =|>
+                State':= 5 /\ SND(SSID.Server_Challenge_Reply')
+                        
+            5. State  = 5 /\ RCV(SSID.Server_Challenge_Pass') =|>
+	State':= 6 /\ SND(SSID.Server_Challenge_Pass)
+
+            6. State  = 6 /\ RCV(SSID.Client_Challenge_Message') =|>
+                State':= 7 /\ SND(SSID.Client_Challenge_Message')
+
+            7. State = 7 /\ RCV(SSID.Leap_Success_Message') =|>
+                State':= 8 /\ SND(SSID.Leap_Success_Message')
+
+end role
+
+
+role server(C, A, S   : agent,
+            Ks, Km          : symmetric_key,
+            SHA2   : hash_func,
+            Leap_Success, Failure,
+            Server_Challenge_Pass, Access_Reject : text,
+            SND, RCV                    : channel(dy))
+played_by S 
+def=
+
+            local  State             : nat,
+                   SSID, MAC_Addrs, Client_Challenge,
+                   Server_Challenge   : text
+
+            const  client_server_ks, server_client_ks, ks : protocol_id
+                   
+            init State := 3
+        
+    transition
+
+      1.    State  =  3 /\ RCV(SSID'.MAC_Addrs'.SHA2(Ks)) =|> 
+              State':= 4 /\ Server_Challenge':= new()
+	             /\ SND(SSID'.Server_Challenge')
+                               /\ secret(Ks, ks, {C,S})
+
+      2.    State  =  4 /\ RCV(SSID.{Server_Challenge}_Ks) =|>
+              State':= 5 /\ SND(SSID.Server_Challenge_Pass)
+                               /\ request(S, C, client_server_ks, Ks)
+
+      3.    State  = 5 /\ RCV(SSID.{Client_Challenge}_Ks) =|>
+             State':= 6 /\ SND(SSID.Leap_Success.{Km}_Ks)
+                               /\ witness(C, S, server_client_ks, Ks)
+                               /\ secret(Km, km,{C, S})
+
+end role
+
+
+role session(C, A, S   : agent,
+             Ks, Km            : symmetric_key,
+             SHA2        : hash_func,
+             Leap_Success,
+             Failure,
+             Access_Reject,
+             Server_Challenge_Pass,
+             EAPOL_Start,
+             EAPOL_Request_Identity : text)
+def=
+
+     local
+        S1, S2, S3 : channel (dy),
+        R1, R2, R3 : channel (dy)
+      
+
+       composition
+
+            client(C, A, S, Ks, Km, SHA2, EAPOL_Start, EAPOL_Request_Identity, Server_Challenge_Pass, Leap_Success, S1, R1)
+        /\  authenticator(C, A, S, Ks, SHA2, EAPOL_Start, EAPOL_Request_Identity, Leap_Success, Server_Challenge_Pass, S2, R2)
+        /\  server(C, A, S, Ks, Km, SHA2, Leap_Success, Failure, Server_Challenge_Pass, Access_Reject, S3, R3)
+
+end role
+
+
+role environment() 
+def= 
+
+     const
+       c1, a1, s1        : agent,
+       kcsk , kisk, kcik, km : symmetric_key,
+       sha2               : hash_func,
+       leap_succs, fails      : text,
+       server_chall_pass, acc_rej  : text,
+       eap_start,
+       eap_client_challenge,
+       eap_request_authentication,
+       eap_request_id        : text
+
+     intruder_knowledge = {c1, a1, s1, sha2, kisk, kcik,
+                           leap_succs, fails,
+                           acc_rej, server_chall_pass, eap_start,
+                           eap_request_id
+                          }
+           
+     composition
+
+     session(c1, a1, s1, kcsk, km, sha2, leap_succs, fails, acc_rej, server_chall_pass,  eap_start, eap_request_id)
+
+
+end role
+
+
+goal
+
+secrecy_of ks
+secrecy_of km
+authentication_on client_server_ks
+authentication_on server_client_ks
+
+end goal
+
+
+environment()
+

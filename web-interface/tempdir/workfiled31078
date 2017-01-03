@@ -1,0 +1,44 @@
+role mn (
+		M,CP,NP                :	agent,
+		PanaAuthKey          :	symmetric_key,
+		SesIden,KeyID        : text,
+		DeriveAAAKeyInt,
+                                DeriveNewAAAKey : hash_func ,    
+                                                                                                                                                                 %text,text,text -> symmetric_key,
+                                                                                                                                                                  % error    :  text , it seems we must write the 
+                                                                                                                                                                  % function without defining it
+		                                                                                                                                  %symmetric_key,text,text -> symmetric_key,
+		DeriveBit          : text -> text,
+		SMNcP,RMNcP,
+		SMNnP,RMNnP:channel(dy))
+
+	played_by M def=
+
+		local
+			State : nat,
+			NewMNID , NPaaID , PaaNonce,
+			Sbit , NPaanonce , Pbit , NewKeyID , AlgID , Cbit , MNnonce : text,
+			DeriveFunc : hash_func,
+			NewPanaAuthKey,IkAAA : symmetric_key
+                                init
+			State := 0
+
+		transition
+		1. State = 0 /\ RCV(start) =|>
+		   State':= 1 	/\ NewMNID':= DeriveFunc(NPaaID)
+				/\ SMNcP({NewMNID.NPaaID})
+
+		2. State = 1 /\ RMNnP(SesIden'.Sbit'.NPaaNonce')=|>
+		   State':= 8 	/\ MNnonce':= new()
+				/\ SMNnP({SesIden'.Sbit'.MNnonce'}_PanaAuthKey)
+
+		3. State = 8 /\ RMNnP({Pbit'.NewKeyID'.AlgID}_NewPanaAuthKey')
+		   
+                                   State':= 12 /\ IkAAA':= DeriveAAAKeyInt(SesIden',NewMNID',KeyID)
+				/\ NewAaaKey':= DeriveNewAAAKey(IkAAA',NPaaNonce',MNnonce')
+				/\ Cbit':= DeriveBit(Cbit)
+				/\ SMNnP({Cbit'.NewKeyID'}_NewPanaAuthKey')
+                                                                /\ NewPanaAuthKey':= DeriveFunc(IKAAA',NewAaaKey')				
+                                                                /\ witness(M,LnP,m_np_newpanaauthkey,NewPanaAuthKey)
+
+end role

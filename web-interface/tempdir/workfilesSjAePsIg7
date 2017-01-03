@@ -1,0 +1,394 @@
+%% PROTOCOL*: ASW Fair Exchange Protocol
+%% VARIANT: abort token attack
+%% PURPOSE:
+%% The ASW protocol, presented by Asokan, Shoup, and Waidner
+%% in~\cite{ASW}, is an optimistic fair exchange protocol for contract
+%% signing intended to enable two parties to commit themselves to a
+%% previously agreed upon contractual text.  A trusted third party (T3P)
+%% is involved \emph{only} if dispute resolution is required (hence the
+%% term \emph{optimistic}, which differentiates this approach from others
+%% in which an online trusted party is involved in every exchange).  In
+%% resolving disputes, the T3P issues either a \emph{replacement
+%% contract} asserting that he recognises the contract in question as
+%% valid, or an \emph{abort token} asserting that he has never issued,
+%% and will never issue, a replacement contract.  An important
+%% requirement of the protocol is that the intruder cannot block messages
+%% between an honest agent and the T3P forever.
+
+%% REFERENCE:
+%% \cite{PHD:ZEB:04:ASW,ASW}
+%% MODELER:
+%%\begin{itemize}
+%%\item Paul Hankes Drielsma, ETH Z\"urich
+%%\item Sebastian M{\"o}dersheim, ETH Z\"urich
+%%\end{itemize}
+%%
+%% ALICE_BOB:
+%% In ASW, the parties are generally called the originator \verb|O|, the 
+%% responder \verb|R|, and the trusted third party \verb|T|.  Their respective
+%% public keys are labelled \verb|Vo|, \verb|Vr|, and \verb|Vt|.  We denote with \verb|Text1|
+%% the contractual text that \verb|O| and \verb|R| wish to sign.  Finally, \verb|No|
+%% and \verb|Nr| are the respective nonces of \verb|O| and \verb|R|.  The constant 
+%% \verb|aborted| is used to indicate that the originator wishes to 
+%% abort the attached contract.  The \verb|Aborted| and \verb|Resolved| sets 
+%% are maintained by the trusted server to keep track of what 
+%% contracts have been aborted and for which contracts replacements
+%% have been issued.
+%%\begin{verbatim}
+%%  The Exchange Subprotocol
+%%  1. O -> R : me1 = {Vo.Vr.T.Text1.h(No)}_inv(Vo)
+%%  2. R -> O : me2 = {me1.h(Nr)}_inv(Vr)
+%%  3. O -> R : No
+%%  4. R -> O : Nr
+%%  The Abort Subprotocol
+%%  1. O -> T: ma1 = {aborted.me1}_inv(Vo)
+%%  2. T -> O: ma2 = if Resolved(me1) then {me1.me2}_inv(Vt)
+%%             else {aborted.ma1}_inv(Vt); Aborted(ma1) := true
+%%  Resolve Subprotocol
+%%  1. O -> T: mr1 = me1.me2
+%%  2. T -> O: mr2 = if Aborted(me1) then {aborted.me1}_inv(Vt)
+%%             else {me1.me2}_inv(Vt) ; Resolved(me1) := true
+%%\end{verbatim}
+%%
+%% LIMITATIONS:
+%%
+%%Issues abstracted from:
+%%\begin{itemize}
+%%\item In order to avoid that the model becomes infinite merely
+%%      because the trusted server must always listen for new
+%%      requests, we limit the number of requests that \verb|T| can answer.
+%%\end{itemize}
+%%
+%% PROBLEMS: 3
+%% ATTACKS: 
+%% \begin{verbatim}
+%% i -> (r,4): {ki.vr.t.text1.h(x78)}_inv(ki)
+%% (r,4) -> i: {{ki.vr.t.text1.h(x78)}_inv(ki).h(Nr(1))}_inv(vr)
+%% i -> (r,7): {ki.vr.t.text1.h(x78)}_inv(ki)
+%% (r,7) -> i: {{ki.vr.t.text1.h(x78)}_inv(ki).h(Nr(2))}_inv(vr)
+%% i -> (t,7): {aborted.{ki.vr.t.text1.h(x78)}_inv(ki)}_inv(ki)
+%% (t,7) -> i: {aborted.{aborted.{ki.vr.t.text1.h(x78)}_inv(ki)}_inv(ki)}_inv(vt)
+%% i -> (r,7): x78
+%% (r,7) -> i: Nr(2)
+%% i -> (r,4): x78
+%% (r,4) -> i: Nr(1)
+%% i -> (ref,7): {aborted.{aborted.{ki.vr.t.text1.h(x78)}_inv(ki)}_inv(ki)}_inv(vt).
+%%            {{ki.vr.t.text1.h(x78)}_inv(ki).h(Nr(1))}_inv(vr).Nr(1).
+%%            {{ki.vr.t.text1.h(x78)}_inv(ki).h(Nr(2))}_inv(vr).Nr(2)
+%% \end{verbatim}
+%% The attack is described in the following section.
+%% NOTES:
+%% This specification reflects the protocol in its original form
+%% and led to the discovery of the attack presented in Section 5
+%% of~\cite{PHD:ZEB:04:ASW}.  In that paper, the authors show
+%% how the fair exchange security goal of ASW can be reduced, via
+%% a meta-reasoning step, to a secrecy goal.  In particular, they
+%% show that this goal is achieved for the originator, if he 
+%% is assured that, whenever he aborts a contract exchange and
+%% receives an abort token, then the actual contract remains
+%% secret.  In this specification, we declare the originator's
+%% nonce (or "secret committment") to be secret, as it is required
+%% for any valid contract.
+%%
+%% A second security goal relating to the responder, described in detail
+%% in that paper, is quite complicated.  To specify it directly
+%% in HLPSL would require a very complex temporal formula.
+%%  We therefore instead define a "monitor" role called
+%% "referee" which, if the intruder violates this goal, 
+%% raises a trivial secrecy error in order to
+%% flag an attack.
+%%
+%% The reason this is required is as follows.  In ASW, there are
+%% three important contract-related pieces of information.  Firstly,
+%% one could have the standard contract, as exchanged by two agents.
+%% Secondly, the originator can timeout and request that the contract
+%% be aborted; he will receive an abort token from the T3P.  Finally,
+%% the T3P might also issue a so-called replacement contract to either
+%% party.  Now, if an intruder has exchanged a standard contract
+%% with an honest responder \verb|R| without the involvement of the T3P, then he
+%% can always request an abort token, and it will be issued.  So our
+%% security goal must be stronger than simply precluding the intruder
+%% from obtaining both a contract and an abort token.  Now, note
+%% that the \verb|me1| message is the basis of the abort token but it contains
+%% no information about \verb|R|'s nonce.  That means that the intruder could
+%% get both a standard contract and an abort token and could then 
+%% initiate a third session with \verb|R|, using the same contractual text 
+%% and the same nonce.  \verb|R| will respond, but I ignores him.  When
+%% \verb|R| contacts the T3P, he will get an abort token, although the intruder
+%% already has a valid contract for this \verb|me1|.  Note that \verb|R| in fact
+%% possesses this contact too, but he associates it with a different
+%% session of the protocol.  For this reason, the referee checks if
+%% the intruder can provide the following things:
+%% \begin{itemize}
+%% \item A standard contract with \verb|R|: \verb|me1.me2.Ni.Nr|
+%% \item An abort token on \verb|me1|: \verb|{abort.{abort.me1}_inv(Ki)}_inv(Vt)|
+%% \item A second half-contract related to the same \verb|me1|: 
+%% \verb|me2' = {me1.h(Nr')}_inv(Vr)| where 
+%% \verb|me2'| is different from \verb|me2|.
+%% \end{itemize}
+%% If the intruder can provide all of these, then that indicates that 
+%% \verb|R| cannot obtain a replacement contract from the T3P even though
+%% the intruder has a valid contract.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+%%HLPSL:
+role orig(O, R, T: agent,
+	  Text: text,
+	  Vo, Vr, Vt: public_key) played_by O def=
+
+ local S: nat,
+	No, Nr: text,
+	  SND, RCV: channel (dy)
+ init S := 0
+
+ transition
+
+ % Exchange subprotocol
+ 1. S = 0 /\ RCV(start) 
+    =|>
+    S' := 1 /\ No' := new() /\
+    SND({Vo.Vr.T.Text.h(No')}_inv(Vo))
+    /\ witness(O,R,no,No'.Text)
+
+ 2. S = 1 /\ RCV({{Vo.Vr.T.Text.h(No)}_inv(Vo).h(Nr')}_inv(Vr)) 
+    =|>
+    S' := 2 /\ SND(No)
+
+ 3. S = 2 /\ RCV(Nr) 
+    =|>
+    S' := 3 /\ request(O,R,nr,Nr.Text)
+
+ % Abort subprotocol
+ 4. S = 1 /\ RCV(timeout)
+    =|>
+    S' := 5 /\ SND({aborted.{Vo.Vr.T.Text.h(No)}_inv(Vo)}_inv(Vo))
+   /\ secret(No,no_secret,{O})
+
+ 5. S = 5 /\ RCV({aborted.{aborted.{Vo.Vr.T.Text.h(No)}_inv(Vo)}_inv(Vo)}_inv(Vt))
+    =|>
+    S' := 6 
+
+ 6. S = 5 /\ RCV({{Vo.Vr.T.Text.h(No)}_inv(Vo).
+	         {{Vo.Vr.T.Text.h(No)}_inv(Vo).h(Nr')}_inv(Vr)}_inv(Vt))
+    =|> 
+    S' := 7
+
+ % Resolve subprotocol
+ 7. S = 2 /\ RCV(resolve) 
+    =|>
+    S' := 8 /\ SND({Vo.Vr.T.Text.h(No)}_inv(Vo).
+	           {{Vo.Vr.T.Text.h(No)}_inv(Vo).h(Nr)}_inv(Vr))
+
+ %%% Ideally, HERE we want to say that once the intiator
+ %%% has received an abort token, then the intruder should
+ %%% not be able to get a valid contract or a resolve token.
+ 8. S = 8 /\ RCV({aborted.{aborted.{Vo.Vr.T.Text.h(No)}_inv(Vo)}_inv(Vo)}_inv(Vt))
+    =|> 
+    S' := 9
+
+ 9. S = 8 /\ RCV({{Vo.Vr.T.Text.h(No)}_inv(Vo).
+	         {{Vo.Vr.T.Text.h(No)}_inv(Vo).h(Nr)}_inv(Vr)}_inv(Vt))
+    =|>
+    S' := 10 /\ request(O,R,nr,Nr.Text)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role resp(O, R, T: agent,
+	  Text: text,
+	  Vo, Vr, Vt: public_key) played_by R def=
+
+ local S: nat,
+       No,Nr: text,
+       SND, RCV: channel (dy)
+ init S := 0
+
+ transition
+
+ % Exchange subprotocol
+ 1. S = 0 /\ RCV({Vo.Vr.T.Text.h(No')}_inv(Vo)) 
+    =|>
+    S' := 1 /\ Nr' := new() 
+    /\ SND({{Vo.Vr.T.Text.h(No')}_inv(Vo).h(Nr')}_inv(Vr))
+    /\ witness(R,O,nr,Nr'.Text)
+
+ 2. S = 1 /\ RCV(No) 
+    =|>
+    S' := 2 /\ SND(Nr)
+   /\ request(R,O,no,No.Text)
+
+ % Resolve subprotocol
+ 3. S = 1 /\ RCV(resolve) 
+    =|>
+    S' := 3 /\ SND({Vo.Vr.T.Text.h(No)}_inv(Vo).
+	           {{Vo.Vr.T.Text.h(No)}_inv(Vo).h(Nr)}_inv(Vr))
+
+ 8. S = 3 /\ RCV({aborted.{aborted.{Vo.Vr.T.Text.h(No)}_inv(Vo)}_inv(Vo)}_inv(Vt))
+    =|> 
+    S' := 4
+
+ 9. S = 3 /\ RCV({{Vo.Vr.T.Text.h(No)}_inv(Vo).
+	         {{Vo.Vr.T.Text.h(No)}_inv(Vo).h(Nr)}_inv(Vr)}_inv(Vt))
+    =|>
+    S' := 5
+   /\ request(R,O,no,No.Text)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role server(T: agent,
+	    Vt: public_key,
+	    AList: (message.message) set,
+	    RList: (message.message) set) played_by T def=
+
+ local S: nat, Vo, Vr: public_key, 
+        Text: text,
+        No, Nr: text,
+	Count, X: message,
+        SND, RCV: channel (dy)
+
+ init S := 0 /\ 
+      %% The Count variable specifies how many requests
+      %% the trusted server can answer.  One request is 
+      %% possible per application of "succ"
+      Count := succ(t)
+
+ transition
+
+  % Respond to an abort request
+  1. S = 0 /\ RCV({aborted.{Vo'.Vr'.T.Text'.h(No')}_inv(Vo')}_inv(Vo')) 
+     /\ in(({Vo'.Vr'.T.Text'.h(No')}_inv(Vo'). 
+	     {{Vo'.Vr'.T.Text'.h(No')}_inv(Vo').h(Nr')}_inv(Vr')), RList) 
+     /\ Count = succ(X')
+     =|>
+     S' := 0 
+  /\ SND({{Vo'.Vr'.T.Text'.h(No')}_inv(Vo').
+          {{Vo'.Vr'.T.Text'.h(No')}_inv(Vo').h(Nr')}_inv(Vr')}_inv(Vt)) 
+  /\ Count' := X'
+
+  2. S = 0 
+  /\ RCV({aborted.{Vo'.Vr'.T.Text'.h(No')}_inv(Vo')}_inv(Vo')) 
+  /\ not(in(({Vo'.Vr'.T.Text'.h(No')}_inv(Vo').
+              {{Vo'.Vr'.T.Text'.h(No')}_inv(Vo').h(Nr')}_inv(Vr')), RList)) 
+  /\ Count = succ(X')
+     =|>
+     S' := 0 
+  /\ SND({aborted.
+          {aborted.
+            {Vo'.Vr'.T.Text'.h(No')}_inv(Vo')}_inv(Vo')}_inv(Vt))
+  /\ AList' := cons(({Vo'.Vr'.T.Text'.h(No')}_inv(Vo').
+                      {aborted.{Vo'.Vr'.T.Text'.h(No')}_inv(Vo')}_inv(Vo')), AList) 
+  /\ Count' := X'
+
+ % Respond to a resolve request
+ 3. S = 0 /\ RCV({Vo'.Vr'.T.Text'.h(No')}_inv(Vo').
+                {{Vo'.Vr'.T.Text'.h(No')}_inv(Vo').h(Nr')}_inv(Vr')) 
+ /\ in(({Vo'.Vr'.T.Text'.h(No')}_inv(Vo').
+         {aborted.{Vo'.Vr'.T.Text'.h(No')}_inv(Vo')}_inv(Vo')), AList) 
+ /\ Count = succ(X')
+    =|>
+    S' := 0 /\ SND({aborted.
+                    {aborted.{Vo'.Vr'.T.Text'.h(No')}_inv(Vo')}_inv(Vo')}_inv(Vt)) 
+            /\ Count' := X'
+        
+ 4. S = 0 /\ RCV({Vo'.Vr'.T.Text'.h(No')}_inv(Vo').
+                 {{Vo'.Vr'.T.Text'.h(No')}_inv(Vo').h(Nr')}_inv(Vr')) 
+ /\ not(in(({Vo'.Vr'.T.Text'.h(No')}_inv(Vo').
+            {aborted.{Vo'.Vr'.T.Text'.h(No')}_inv(Vo')}_inv(Vo')), AList)) 
+/\ Count = succ(X')
+    =|>
+    S' := 0 
+ /\ SND({{Vo'.Vr'.T.Text'.h(No')}_inv(Vo').
+        {{Vo'.Vr'.T.Text'.h(No')}_inv(Vo').h(Nr')}_inv(Vr')}_inv(Vt))
+ /\ RList' := cons(({Vo'.Vr'.T.Text'.h(No')}_inv(Vo').
+                     {{Vo'.Vr'.T.Text'.h(No')}_inv(Vo').h(Nr')}_inv(Vr')), RList) 
+ /\ Count' := X'
+
+end role 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role referee(R: agent, Ki, Vt: public_key,
+	    HonestAgents: public_key set) played_by R def=
+ local State : nat, Me2: message,
+        Vo, Vr: public_key,
+        T : agent, 
+        Text : text, 
+        No, Nr, Nr2: text,
+	    SND, RCV: channel (dy)
+ init State := 0
+
+ transition
+
+ %% The referee checks for the security condition described above.
+ %% If it arises, he declared his own name R to be secret.
+ %% This raises an attack since R is already in the intruder's
+ %% initial knowledge.
+ 1. State = 0 /\ in(Vr', HonestAgents) /\
+    RCV({aborted.
+         {aborted.
+          {Vo'.Vr'.T'.Text'.h(No')}_inv(Vo')}_inv(Vo')}_inv(Vt).
+	{{Vo'.Vr'.T'.Text'.h(No')}_inv(Vo').h(Nr')}_inv(Vr').Nr'.
+        {{Vo'.Vr'.T'.Text'.h(No')}_inv(Vo').h(Nr2')}_inv(Vr').Nr2') /\
+    Nr' /= Nr2'
+    =|>
+    secret(R,secret_ref,{T'}) /\ State' := 1
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role session(O,R,T: agent,
+	     Vo,Vr,Vt: public_key,
+	     Text: text) def=
+
+ composition
+  orig(O,R,T,Text,Vo,Vr,Vt) /\
+  resp(O,R,T,Text,Vo,Vr,Vt)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role environment() def=
+ 
+  local AList, RList: (message.message) set
+
+  const succ: hash_func, 
+        no, nr, no_secret, secret_ref: protocol_id,
+        o, r, t, ref: agent,
+        vo, vr, vt, ki: public_key,
+        aborted, timeout, resolve, text1: text,
+        h: hash_func
+
+  init AList := {}
+    /\ RList := {}
+
+ intruder_knowledge = {aborted, timeout, resolve,h,
+		       o,r,t,ref,vo,vr,vt,ki,inv(ki),text1 }
+
+ composition
+  session(i,r,t,ki,vr,vt,text1) /\
+  session(i,r,t,ki,vr,vt,text1) /\
+  server(t,vt,AList,RList)/\
+  referee(ref,ki,vt,{vo,vr})
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+goal
+  % Entity authentication (G1)
+  % Message authentication (G2)
+  % Replay protection (G3)
+  % Accountability (G17)
+  % Proof of origin (G18)
+  % Proof of delivery (G19)
+  authentication_on no
+  authentication_on nr
+
+  % Expressing fair exchange via observer (not described in D6.1)
+  secrecy_of no_secret
+  secrecy_of secret_ref
+end goal
+
+environment()

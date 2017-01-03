@@ -1,0 +1,59 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileq4T3FL
+
+section signature:
+
+state_server: agent * agent * agent * symmetric_key * symmetric_key * nat * symmetric_key * nat -> fact
+state_bob: agent * agent * agent * symmetric_key * nat * nat -> fact
+state_alice: agent * agent * agent * symmetric_key * nat * symmetric_key * nat -> fact
+
+
+section types:
+
+2, State, 12, 11, 9, 0, Dummy_State, 5, SID, 4, 3: nat
+ASGoal: set(agent)
+MGoal: message
+a, b, s, A, B, S, i: agent
+Kab, Kas, Kbs, Dummy_Kab, dummy_sk, kas, kbs, kis: symmetric_key
+k1: protocol_id
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(a).
+ iknows(b).
+ iknows(s).
+ iknows(kis).
+ iknows(i).
+ state_alice(a,b,s,kas,0,dummy_sk,3).
+ state_bob(a,b,s,kbs,0,4).
+ state_server(b,s,a,kas,kbs,0,dummy_sk,5).
+ state_server(b,s,i,kis,kbs,0,dummy_sk,9).
+ state_alice(a,i,s,kas,0,dummy_sk,11).
+ state_bob(a,i,s,kis,0,12)
+
+
+section rules:
+
+step step_0 (S,A,B,Kas,Kbs,Dummy_Kab,SID,Kab) :=
+ state_server(S,A,B,Kas,Kbs,0,Dummy_Kab,SID).
+ iknows(scrypt(Kas,Kab))
+ =>
+ state_server(S,A,B,Kas,Kbs,2,Kab,SID).
+ iknows(scrypt(Kbs,Kab))
+
+
+section properties:
+
+property secrecy_of_k1 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,k1,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_k1 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,k1,ASGoal) &
+ not(contains(i,ASGoal))
+

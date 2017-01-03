@@ -1,0 +1,155 @@
+% Role of the Service_Provider
+role sp(		V,U  	 : agent,
+		      Ks,Kvd,Kvm : public_key,
+		      KeyRing    : (agent.public_key) set,
+		      Sk	 : symmetric_key,
+		      Datav	 : message,
+		      Snd,Rcv	 : channel(dy))
+played_by V def=
+
+local
+ 	State : nat,
+	Ku    : public_key,
+        Rv,Ru : text,
+	D1 : message
+init State := 0
+	
+	transition
+% start, if Serviceprovider must request user's public key from key server.
+
+1.	State  = 0 /\Rcv(start) /\ not(in(V.Ku',KeyRing))
+   =|>  State':= 1 /\ Snd(V.U)
+
+% Reciept of Response from Key Server
+
+2.	State   = 1 /\ Rcv({U.Ku'}_inv(Ks))
+   =|>  State' := 0 /\ KeyRing':= cons(V.Ku',KeyRing)
+
+% Start/Resume,provided serviceProvider knows User's public key
+
+3.	State   = 0 /\ Rcv(start)  /\ in(U.Ku',KeyRing)
+   =|>  State' := 4 /\ Rv' := new()/\ Snd({Rv'.V.Kvm.Kvd}_inv(Ks))
+	            /\ secret(Rv',snv,{V,U})
+		    /\ witness(V,U,um_sp_rv,Rv')
+
+4.	State   = 4 /\ Rcv({{U.Ku}_inv(Ks)}_Ru)
+  =|>	State' := 6 /\ Snd({D1}_Sk)
+		    /\ request(V,U,sp_um_ru,Ru')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Role of the UserMobile:
+role um(V,U	: agent,
+	  	Ku	: public_key,
+		KeyRing	: (agent.public_key) set,
+	  	Sk	: symmetric_key,
+	  	
+	 	Snd,Rcv: channel(dy))	
+played_by U def=
+
+local State : nat,
+Kvd,Kvm,Ks  : public_key,
+Rv,Ru	    : text,
+D2	: message
+
+init State := 2
+
+transition
+
+%start if user must Request alice's public key from key server
+
+1.	State  = 2 /\ Rcv({Rv'.V.Kvd.Kvm}_inv(Ks)) /\ not(in(V.Rv', KeyRing))
+  =|>   State':= 3 /\ Snd(U.V)
+
+% Receipt of response from key server
+
+2.	State  = 3 /\ Rcv({V.Rv'}_inv(Ks))
+  =|>	State':= 2 /\ KeyRing':=cons(V.Rv', KeyRing)
+
+% Start/resume,provided user knows serviceProvider's public key
+
+3.	State  = 2 /\ Snd({Rv'.V.Kvd.Kvm}_inv(Ks)) /\ in(V.Rv', KeyRing)
+  =|>	State':= 5 /\ Ru':=new() /\ Snd({{U.Ru}_inv(Ks)}_Ru)
+		  /\ secret(Ru',snu,{V,U})
+                  /\ witness(U,V,sp_um_ru,Ru')
+
+4.	State   = 5 /\ Rcv({D2}_Sk)
+  =|>	State' := 7 /\ request(U,V,um_sp_rv,Rv)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Role of the key server:
+
+role server(S		: agent,
+	    Ks		: public_key,
+	    KeyMap	: (agent.public_key) set,
+	    Snd,Rcv	: channel(dy))
+played_by S def=
+
+local V,U	:agent,
+      Ku	:public_key
+
+transition
+
+1.	Rcv(V'.U') /\ in(U'.Ku',KeyMap)
+  =|>   Snd({U'.Ku'}_inv(Ks))
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ role session(Snd,Rcv : channel(dy),
+	
+	Ks	: public_key,
+	Instances: (agent.agent.public_key.public_key) set,
+	KeySet : agent -> (agent.public_key)set)
+def=
+local  V,U		: agent,
+        Kvm,Kvd,Ku	: public_key
+
+composition 
+	  sp(V,U,Ks,Kvd,Kvm,Keyset(V),Snd,Rcv)
+	/\um(V,U,Ku,Keyset(U),Sk,Snd,Rcv)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%The main role:
+
+role environment() def=
+local KeyMap	: (agent.public_key) set,
+      Snd,Rcv	: channel(dy)
+const v,u,s,i	: agent,
+      kvm,kvd,ku,ks: public_key,
+      snv,snu,sp_um_ru,um_sp_rv : protocol_id
+
+init KeyMap := {v.kvm,v.kvd,u.ku,v.ks,u.ks}
+
+intruder_knowledge ={v,u,ks,kvm,kvd,inv(ks)}
+
+composition
+	  server(s,ks,KeyMap,Snd,Rcv)
+	/\session(Snd,Rcv,ks,
+{v.u.v.kvm.ks,
+ 
+},
+{v.{v.ks,u.ks},
+u.{u.ks},
+})
+	
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%Desricption of goal properties:
+goal
+
+secrecy_of snv,snu
+authentication_on sp_um_Rv
+authentication_on um_sp_Ru
+
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+	% Call of the main role:
+environment()

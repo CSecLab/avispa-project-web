@@ -1,0 +1,104 @@
+role sensor_A (WSNA,WSNB   : agent,
+               Kwsnawsnb   : symmetric_key,
+                     H     : hash_func,
+                   Snd, Rcv: channel(dy))
+played_by WSNA
+def=
+           
+  local State  : nat,
+        Nwsna, Nwsnb   : text
+
+  const sec_kwsnawsnb1 : protocol_id
+
+  init  State := 0
+
+  transition
+   1. State   = 0 /\ Rcv(start) =|>
+      State' := 1 /\ Snd(WSNA)
+
+   2. State   = 1 /\ Rcv(Nwsnb') =|> 
+      State' := 2 /\ Nwsna' := new() /\ Snd(Nwsna'.H(Kwsnawsnb.Nwsna'.Nwsnb'.WSNA))
+                  /\ witness(WSNA,WSNB,nwsna,Nwsna') 
+                  /\ secret(Kwsnawsnb,sec_kwsnawsnb1,{WSNA,WSNB})
+
+   3. State   = 2 /\ Rcv(H(Kwsnawsnb.Nwsna)) =|> 
+      State' := 3 /\ request(WSNA,WSNB,nwsnb,Nwsnb) 
+
+end role
+
+
+role sensor_B (WSNB,WSNA : agent,
+                                   Kwsnawsnb : symmetric_key,
+                                               H    : hash_func,
+                                       Snd, Rcv  : channel(dy))
+played_by WSNB
+def=
+           
+  local State  : nat,
+        Nwsna, Nwsnb   : text
+
+  const sec_kwsnawsnb2 : protocol_id
+
+  init  State := 0
+
+  transition
+   1. State   = 0 /\ Rcv(WSNA') =|>  
+      State' := 1 /\ Nwsnb' := new() /\ Snd(Nwsnb')
+                  /\ witness(WSNB,WSNA,nwsnb,Nwsnb')
+
+   2. State   = 1 /\ Rcv(Nwsna'.H(Kwsnawsnb.Nwsna'.Nwsnb.WSNA)) =|>
+      State' := 2 /\ Snd(H(Kwsnawsnb.Nwsna'))
+                  /\ request(WSNB,WSNA,nwsna,Nwsna') 
+                  /\ secret(Kwsnawsnb,sec_kwsnawsnb2,{WSNA,WSNB})
+
+end role
+
+
+role session(WSNA,WSNB: agent,
+             Kwsnawsnb: symmetric_key,
+             H: hash_func)
+def=
+
+  local SWSNA, SWSNB, RWSNA, RWSNB: channel (dy)
+
+  composition
+           sensor_A(WSNA, WSNB, Kwsnawsnb, H, SWSNA, RWSNA)
+       /\  sensor_B(WSNB, WSNA, Kwsnawsnb, H, SWSNB, RWSNB)
+end role
+
+
+role environment()
+def=
+
+  const wsna, wsnb : agent,
+        kwsnawsnb, kwsnai, kwsnbi   : symmetric_key,
+                       h                           : hash_func,
+               nwsna, nwsnb                : protocol_id
+
+  intruder_knowledge = {wsna, wsnb, h, kwsnai, kwsnbi }
+
+  composition
+        session(wsna,wsnb,kwsnawsnb,h) /\
+        session(wsna,i,kwsnai,h) /\
+        session(wsnb,i,kwsnbi,h)
+
+end role
+
+
+
+
+goal
+
+ %secrecy of the shared key
+ secrecy_of sec_kwsnawsnb1, sec_kwsnawsnb2  % Addresses G12
+                         
+ %SENSOR_A authenticates SENSOR_B on nwsnb
+ authentication_on nwsnb  % Addresses G1, G2
+ %SENSOR_B authenticates SENSOR_A on nwsna
+ authentication_on nwsna  % Addresses G1, G2
+  
+end goal
+ 
+
+
+environment()

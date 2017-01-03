@@ -1,0 +1,46 @@
+role alice(
+             A,B : agent,
+              k : symmetric key,
+             Hash : hash_func,
+           SND,RCV : channel(dy))
+
+played_by A def =
+       local
+          State : nat,
+          Na,Nb : text,
+          k1 : message
+       init
+          State := 0
+       transition
+          1. State = 0 / RCV(start) =|>
+             State' := 2 / Na' := new()
+                         / SND({Na'}_k)
+
+          2. State = 2 / RCV({Nb'}_k) =|>
+             State' := 4 / k1' := Hash(Na.Nb')  
+                        / SND({Nb'}_k1')  
+                        / witness(A,B,bob_alice_nb,Nb') 
+end role 
+
+role bob(
+             A,B : agent,
+              k : symmetric key,
+             Hash : hash_func,
+           SND,RCV : channel(dy))
+
+played_by B def =
+       local
+          State : nat,
+          Nb,Na : text,
+          k1 : message
+       init
+          State := 1
+       transition  
+          1. State = 1 / RCV({Na'}_k) =|>
+             State' := 3 / Nb':= new()
+                         / SND({Nb'}_k)
+                         / k1' := Hash(Na'.Nb')
+                         / secret(k1',k1,{A,B}) 
+          2. State = 3 / RCV({Nb}_k1) =|>
+             State' := 5 / request(B,A,bob_alice_nb,Nb')  
+end role       

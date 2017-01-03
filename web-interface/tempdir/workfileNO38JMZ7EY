@@ -1,0 +1,97 @@
+role mobile(M, PC, S : agent,
+Es : public_key,
+H : hash_func,
+P : text,
+SND, RCV : channel (dy)) played_by M def=
+local State : nat,
+T, N : text,
+U, HSD : message
+init State := 0
+transition
+0. State = 0 /\ RCV(start) =|>
+State’ := 2 /\ T’ := new ()
+/\ N’ := new ()
+/\ SND(M.PC.{{H(M.P)}_Es.T’.N’}_Es)
+/\ secret({H(M.P)}_Es, u, {M, S})
+/\ witness(M, S, pass, H(M.P))
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role pc(M, PC, S : agent,
+OTP_i : text,
+SND, RCV : channel (dy)) played_by PC def=
+local State : nat,
+N : text,
+X : {{message}_public_key.text.text}_public_key
+init State := 1
+transition
+1. State = 1 /\ RCV(M.PC.X’) =|>
+State’ := 3 /\ SND(M.PC.S.X’)
+3. State = 3 /\ RCV (PC.S.N’) =|>
+State’ := 5 /\ SND (PC.S.OTP_i)
+/\ witness (PC, S, otp_ver, PC.OTP_i)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role server(M, PC, S : agent,
+Es : public_key,
+H : hash_func,
+OTPs : (agent.text) set,
+Pass : (agent.text) set,
+SND, RCV : channel (dy)) played_by S def=
+local State : nat,
+P , T, N : text,
+init State := 0
+transition
+0. State = 0
+/\ RCV(M.PC.S.{{H(M.P’)}_Es.T’.N’}_Es)
+/\ in(M.P’, Pass) =|>
+State’ := 2
+/\ secret(H(M.P’), v, {M, S})
+/\ SND(PC.S.N’)
+/\ wrequest(S, M, pass, H(M.P’))
+2. State = 2
+/\ RCV(PC.S.P’)
+/\ in (PC.P’, OTPs) =|>
+State’ := 4
+/\ wrequest(S, PC, otp_ver, PC.P’)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(M, PC, S : agent,
+Es : public_key,
+H : hash_func,
+P, OTP_i : text,
+OTPs : (agent.text) set,
+Pass : (agent.text) set) def=
+local S_S, R_S, S_M : channel (dy),
+R_M, S_PC, R_PC : channel (dy)
+composition
+mobile(M, PC, S, Es, H, P, S_M, R_M)
+/\ pc (M, PC, S, OTP_i, S_PC, R_PC)
+/\ server(M, PC, S, Es, H, OTPs, Pass, S_S, R_S)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment() def=
+local OTPs : (agent.text) set,
+Pass : (agent.text) set
+const
+m, s, pc : agent,
+es : public_key,
+h : hash_func,
+u, v, nonce : protocol_id,
+pass, otp_ver : protocol_id,
+pm, otp, ipm, iotp : text
+init Pass := {m.pm, i.ipm}
+/\ OTPs := {pc.otp, i.iotp}
+intruder_knowledge = {m, s, pc, h, ipm, iotp}
+composition
+session(m, pc, s, es, h, pm, otp, OTPs, Pass)
+/\ session(m, i, s, es, h, pm, iotp, OTPs, Pass)
+/\ session(i, pc, s, es, h, ipm, otp, OTPs, Pass)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+secrecy_of u, v
+weak_authentication_on pass
+weak_authentication_on otp_ver
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

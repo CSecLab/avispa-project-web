@@ -1,0 +1,86 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileorkcBc
+
+section signature:
+
+state_iso2_Resp: agent * agent * public_key * public_key * nat * text * text * text * nat -> fact
+state_iso2_Init: agent * agent * public_key * nat * public_key * text * text * text * nat -> fact
+
+
+section types:
+
+ra: protocol_id
+ctext2, Rb, Text1, Ra, ctext1, Dummy_Text1, Dummy_Text2, Text2, Dummy_Ra, Dummy_Rb, dummy_nonce: text
+pkb, pks, pki, Pka, Pks, Dummy_Pka, dummy_pk: public_key
+start, MGoal: message
+State, 2, 10, 6, 1, 4, 0, SID, Dummy_State, 3, SID2, SID1: nat
+a, b, A, B, i, A2Goal, A1Goal: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(pks).
+ iknows(pki).
+ iknows(inv(pki)).
+ iknows(ctext1).
+ iknows(ctext2).
+ iknows(crypt(inv(pks),pair(pki,i))).
+ iknows(i).
+ state_iso2_Init(a,b,pks,0,dummy_pk,dummy_nonce,dummy_nonce,dummy_nonce,3).
+ state_iso2_Resp(b,a,pkb,pks,0,dummy_nonce,dummy_nonce,dummy_nonce,4).
+ state_iso2_Init(a,i,pks,0,dummy_pk,dummy_nonce,dummy_nonce,dummy_nonce,6).
+ state_iso2_Resp(b,i,pkb,pks,0,dummy_nonce,dummy_nonce,dummy_nonce,10)
+
+
+section rules:
+
+step step_0 (B,A,Pks,Pka,Dummy_Rb,Ra,Text2,SID,Rb) :=
+ state_iso2_Init(B,A,Pks,0,Pka,Dummy_Rb,Ra,Text2,SID).
+ iknows(start)
+=[exists Rb]=>
+ state_iso2_Init(B,A,Pks,1,Pka,Rb,Ra,Text2,SID).
+ iknows(pair(Rb,ctext1))
+
+step step_1 (B,A,Pks,Dummy_Pka,Rb,Dummy_Ra,Dummy_Text2,SID,Pka,Ra,Text2) :=
+ state_iso2_Init(B,A,Pks,1,Dummy_Pka,Rb,Dummy_Ra,Dummy_Text2,SID).
+ iknows(pair(Pka,pair(A,pair(crypt(inv(Pks),pair(Pka,A)),pair(Ra,pair(Rb,pair(B,pair(Text2,crypt(inv(Pka),pair(Ra,pair(Rb,pair(B,ctext1))))))))))))
+ =>
+ state_iso2_Init(B,A,Pks,2,Pka,Rb,Ra,Text2,SID).
+ request(B,A,ra,Ra,SID)
+
+step step_2 (A,B,Pka,Pks,Dummy_Ra,Dummy_Rb,Dummy_Text1,SID,Ra,Rb,Text1) :=
+ state_iso2_Resp(A,B,Pka,Pks,0,Dummy_Ra,Dummy_Rb,Dummy_Text1,SID).
+ iknows(pair(Rb,Text1))
+=[exists Ra]=>
+ state_iso2_Resp(A,B,Pka,Pks,2,Ra,Rb,Text1,SID).
+ iknows(pair(Pka,pair(A,pair(crypt(inv(Pks),pair(Pka,A)),pair(Ra,pair(Rb,pair(B,pair(ctext2,crypt(inv(Pka),pair(Ra,pair(Rb,pair(B,Text1)))))))))))).
+ witness(A,B,ra,Ra)
+
+
+section properties:
+
+property authentication_on_ra (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,ra,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,ra,MGoal))
+     /\ ((request(A1Goal,A2Goal,ra,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,ra,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state authentication_on_ra (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,ra,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,ra,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_ra (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,ra,MGoal,SID1).
+ request(A1Goal,A2Goal,ra,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

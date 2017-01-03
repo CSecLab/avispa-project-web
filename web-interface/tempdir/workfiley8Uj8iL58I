@@ -1,0 +1,164 @@
+role user(USER,SENSOR,GATEWAY:agent,
+            Snd, Rec: channel(dy),
+            Kug: symmetric_key,
+            IDu, IDsn, TSug: text,
+            Hash: hash_func)
+played_by USER
+def=
+
+  local State :nat, 
+	R ,R2,Nu,TS,TSugnew    :text,
+        SK: symmetric_key
+
+  const
+        r1,r2,tsug_id,auth_nu,auth_sk2,secret_sk,secret_kugnew : protocol_id
+
+  init  State := 1
+
+  transition
+
+    1.  State = 1 /\ Rec(start) =|> 
+          State':=2 
+          /\ Nu' := new()
+          /\ Snd(xor(Kug,Nu').Hash(IDu.Kug.Nu'.TSug).TSug.IDsn.Hash(Hash(IDu.Kug.Nu'.TSug).Kug.xor(Kug,Nu').IDsn))
+          /\ witness(USER,GATEWAY,auth_nu,Nu')
+
+    2.  State = 2 /\ Rec(xor(Hash(Kug.IDu.Nu),SK').xor(TSugnew',Hash(Kug.IDu.Nu))
+                                .Hash(xor(Hash(Kug.IDu.Nu),SK').Nu.xor(TSugnew',Hash(Kug.IDu.Nu)).Kug)) =|>  
+        State':=3
+        /\ TSug' := TSugnew'
+        /\ Kug' := Hash(Kug.IDu.TSugnew')
+        /\ secret(Kug',secret_kugnew,{USER,GATEWAY})
+	/\ request(USER,GATEWAY,auth_sk2,SK')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role gateway(GATEWAY,USER ,SENSOR: agent,
+      Snd, Rec, Snd2, Rec2: channel(dy),
+            Kug, Kgs: symmetric_key,
+            IDu,IDsn,TSug: text,
+            Hash,Add: hash_func)
+played_by GATEWAY
+def=
+
+  local State : nat,
+        R,R2, Nu, T, T2, TS, TSugnew, M     : text,
+        AIDu: message,
+        SK:  symmetric_key
+
+  const r1,r2,sseq1,nu,auth_sk, auth_sk2, auth_nu,secret_kugnew, secret_kgsnew : protocol_id
+
+  init  State := 1
+
+  transition
+
+    1.  State   = 1 /\ Rec(xor(Kug,Nu').Hash(IDu.Kug.Nu'.TSug).TSug.IDsn.Hash(Hash(IDu.Kug.Nu'.TSug).Kug.xor(Kug,Nu').IDsn))
+        =|> 
+        State' := 2 /\ R2' := new()
+        /\ SK' := new()
+        /\ T' := new()
+        /\ AIDu' := Hash(IDu.Kug.Nu'.TSug) 
+        /\ Snd(xor(R2',Kgs).AIDu.xor(SK',Hash(Kgs)).T'.Hash(AIDu.xor(Hash(Kgs),SK').T'.Kgs))
+        /\ secret(Nu',nu,{GATEWAY,USER})
+        /\ request(GATEWAY,USER,auth_nu,Nu')
+        /\ witness(GATEWAY,SENSOR,auth_sk,SK')
+
+    2.  State   = 2 /\ Rec(Hash(R2).T2'.IDsn.Hash(SK.Kgs.IDsn.T2'))
+        =|>
+        State' := 3  /\ R' :=  new() 
+        /\ TSugnew' := new()
+        /\ TS' := xor(TSugnew',Hash(Kug.IDu.Nu))
+        /\ Kug' := Hash(Kug.IDu.TSugnew')
+        /\ Kgs' := Hash(Kgs.IDsn)
+        /\ Snd(xor(Hash(Kug.IDu.Nu),SK).TS'.Hash(xor(Hash(Kug.IDu.Nu),SK).Nu.TS'.Kug)) 
+        /\ secret(Kgs',secret_kgsnew,{GATEWAY,SENSOR})
+        /\ witness(GATEWAY,USER,auth_sk2,SK)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role sensor(SENSOR,GATEWAY:agent,
+            Snd, Rec: channel(dy),
+            Kgs: symmetric_key,
+            IDsn: text,
+            Hash: hash_func)
+played_by SENSOR
+def=
+
+  local State :nat, 
+  R2, T, T2    :text,
+  SK: symmetric_key,
+  AIDu: message
+
+  const
+        r1,r2,auth_sk,secret_kgsnew : protocol_id
+
+  init  State := 1
+
+  transition
+ 
+  1.  State  = 1 /\ Rec(xor(R2',Kgs).AIDu'.xor(SK',Hash(Kgs)).T'.Hash(AIDu'.xor(Hash(Kgs),SK').T'.Kgs))
+        =|> 
+        State' := 2 
+        /\T2' := new()
+        /\ Kgs' := Hash(Kgs.IDsn)
+        /\Snd(Hash(R2').T2'.IDsn.Hash(SK'.Kgs.IDsn.T2'))
+        /\ request(SENSOR,GATEWAY,auth_sk,SK')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(USER,GATEWAY, SENSOR: agent,
+	     Kug, Kgs: symmetric_key,
+	     IDu, IDsn, TSug, M: text,
+             H,A: hash_func,
+             SA,RA,SB,RB,SB2,RB2,SC,RC: channel(dy)) def=
+
+   composition
+
+	 user(USER,SENSOR,GATEWAY,SA,RA,Kug,IDu,IDsn,TSug,H)
+      /\ gateway(GATEWAY,USER,SENSOR,SB,RB,SB2,RB2,Kug,Kgs,IDu,IDsn,TSug,H,A)
+      /\ sensor(SENSOR,GATEWAY,SC,RC,Kgs,IDsn,H)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+ local Sa1,Ra1,Ss1,Rs1,Ss2,Rs2,Sb1,Rb1 : channel (dy)
+
+ const r1, r2                 : protocol_id,
+       u, i, g, s                : agent,
+       kug, kgs, k_is, kai        : symmetric_key,
+       f1, f2             : hash_func,
+       idu,idsn,tsug,m : text
+
+ intruder_knowledge={f1,f2,f5}
+
+ composition
+ 
+	session(u,g,s,kug,kgs,idu,idsn,tsug,m,f1,f2,Sa1,Ra1,Ss1,Rs1,Ss2,Rs2,Sb1,Rb1) 
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of  nu
+  secrecy_of secret_kugnew
+  secrecy_of secret_kgsnew
+  authentication_on auth_nu
+  authentication_on auth_sk
+  authentication_on auth_sk2
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

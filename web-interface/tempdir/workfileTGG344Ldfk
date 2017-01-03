@@ -1,0 +1,121 @@
+role client (
+    C,SP,IDP    : agent,
+    SSLKey      : (symmetric_key) set,
+    Hash        : hash_func,
+    SND,RCV     : channel(dy) )
+played_by C
+def=
+    local
+        State               : nat,
+        APIKey,Lsd,Xc       : text,
+        A,Ysp,Yc,CSPKey     : message,
+        DiffieHellman       : {message.message}_public_key,
+        CIDPKey             : symmetric_key,
+        Session             : symmetric_key.text.text.text.hash(text.text.symmetric_key.text.symmetric_key)
+    init
+        State:=0
+    transition
+    1. State=0 / RCV(start) =|> State':=1 / SND(resourcereq)
+    2. State=1 / RCV(IDP.APIKey'.DiffieHellman') =|> State':=2 / SND(sessionreq.APIKey')
+    3. State=2 / RCV(Lsd') =|> State':=3 / CIDPKey':=new() / SND({APIKey.credentials.Lsd'.DiffieHellman}_CIDPKey')
+       / SSLKey':=cons(CIDPKey',SSLKey)
+    4. State=3 / RCV({SP.Session'.A'.Ysp'}_CIDPKey) =|> State':=4 / Xc':=new() / Yc':=exp(A',Xc') / CSPKey':=exp(Ysp',Xc')
+       / SND(resourcereq.Yc'.Hash(resourcereq.CSPKey').Session')
+    5. State=4 / RCV(resource) =|> State':=5
+end role
+
+role serviceProvider (
+    C,SP,IDP    : agent,
+    APIKey      : text,
+    APISecret   : symmetric_key,
+    IDPKey      : public_key,
+    Hash        : hash_func,
+    SND,RCV     : channel(dy) )
+played_by SP
+def=
+    local
+        State               : nat,
+        Uid,Expires,Ss,Xsp  : text,
+        A,Ysp,Yc,CSPKey     : message,
+        Key                 : symmetric_key,
+        Sig                 : hash(text.text.symmetric_key.text.symmetric_key)
+    init
+        State:=0
+    transition
+    1. State=0 / RCV(resourcereq) =|> State':=1 / A':=new() / Xsp':=new() / Ysp':=exp(A',Xsp') / SND(IDP.APIKey.{A'.Ysp'}_IDPKey)
+    2. State=1 / RCV(resourcereq.Yc'.Hash(resourcereq,exp(Yc',Xsp)).Key'.Uid'.Expires'.Ss'.Hash(Expires'.Ss'.Key'.Uid'.APISecret)) =|>
+       State':=2 / SND(resource) / request(SP,IDP,sp_idp_sig,Hash(Expires'.Ss'.Key'.Uid'.APISecret))
+    3. State=1 / RCV(otherresourcereq.Yc'.Hash(otherresourcereq,exp(Yc',Xsp)).Key'.Uid'.Expires'.Ss'.Hash(Expires'.Ss'.Key'.Uid'.APISecret)) =|>
+       State':=2 / SND(otherresource) / secret(otherresource,otherresourceid,{SP})
+       / request(SP,IDP,sp_idp_sig,Hash(Expires'.Ss'.Key'.Uid'.APISecret))
+end role
+
+role identityProvider (
+    C,SP,IDP    : agent,
+    APIKey,Uid  : text,
+    APISecret   : symmetric_key,
+    SSLKey      : (symmetric_key) set,
+    IDPKey      : public_key,
+    Hash        : hash_func,
+    SND,RCV     : channel(dy) )
+played_by IDP
+def=
+    local
+        State           : nat,
+        Lsd,Expires,Ss  : text,
+        A,Ysp           : message,
+        CIDPKey,Key     : symmetric_key,
+        Sig             : hash(text.text.symmetric_key.text.symmetric_key),
+        Session         : symmetric_key.text.text.text.hash(text.text.symmetric_key.text.symmetric_key)
+    init
+        State:=0
+    transition
+    1. State=0 / RCV(sessionreq.APIKey) =|> State':=1 / Lsd':=new() / SND(Lsd')
+    2. State=1 / in(CIDPKey',SSLKey) / RCV({APIKey.credentials.Lsd.{A'.Ysp'}_IDPKey}_CIDPKey') =|> State':=2 / SSLKey':=delete(CIDPKey',SSLKey)
+       / Key':=new() / Expires':=new() / Ss':=new() / Sig':=Hash(Expires'.Ss'.Key'.Uid.APISecret)
+       / Session':=(Key'.Uid.Expires'.Ss'.Sig') / SND({SP.Session'.A'.Ysp'}_CIDPKey')
+       / witness(IDP,SP,sp_idp_sig,Sig')
+end role
+
+role session (
+    C,SP,IDP    : agent,
+    APIKey,Uid  : text,
+    APISecret   : symmetric_key,
+    SSLKey      : (symmetric_key) set,
+    IDPKey      : public_key,
+    Hash        : hash_func )
+def=
+    local
+        SC,RC,SSP,RSP,SIDP,RIDP   : channel(dy)
+    composition
+        client(C,SP,IDP,SSLKey,Hash,SC,RC)
+        / serviceProvider(C,SP,IDP,APIKey,APISecret,IDPKey,Hash,SSP,RSP) 
+        / identityProvider(C,SP,IDP,APIKey,Uid,APISecret,SSLKey,IDPKey,Hash,SIDP,RIDP)
+end role
+
+role enviroment()
+def=
+    local
+        Sslkey                                                                      : (symmetric_key) set
+    const
+        c,sp,idp                                                                    : agent,
+        apikey,uid                                                                  : text,
+        resourcereq,sessionreq,credentials,resource,otherresourcereq,otherresource  : message,
+        apisecret                                                                   : symmetric_key,
+        idpkey                                                                      : public_key,
+        sp_idp_sig,otherresourceid                                                  : protocol_id,
+        h                                                                           : hash_func
+    init
+        Sslkey:={}
+    intruder_knowledge = {otherresourcereq}
+    composition
+        session(c,sp,idp,apikey,uid,apisecret,Sslkey,idpkey,h)
+        / session(c,sp,idp,apikey,uid,apisecret,Sslkey,idpkey,h)
+end role
+
+goal
+    authentication_on sp_idp_sig
+    secrecy_of otherresourceid
+end goal
+
+enviroment() 

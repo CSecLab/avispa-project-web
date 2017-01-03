@@ -1,0 +1,56 @@
+role hubnode (HN,N:agent, SK:symmetric_key,KHN:text, H:hash_func, A:hash_func, Snd,Rcv:channel(dy))
+played_by HN
+def=
+local State: nat,
+IDN,KN,AN,BN,YN,TN,TIDN,XN,RN,FN,KNnew,ANnew,BNnew,Alpha,Eta,Gamma,Beta,MU,KS:text
+const secKHN:protocol_id
+init State :=0
+transition
+1.  State =0 /\ Rcv(start)=|>
+State':=1 /\ IDN':=new() /\ KN':=new() /\ AN':=xor(IDN',H(KHN.KN')) /\ BN':=xor(A(KHN.AN'),KN') /\
+Snd({IDN'.AN'.BN'}_SK) 
+2. State =1 /\ Rcv(TIDN'.YN'.AN'.BN'.TN')=|>
+State':=2 /\ KN':=xor(A(KHN.AN'),BN') /\ XN':=H(KHN.KN') /\ RN':=xor(XN',YN') /\ TIDN':=H(xor(IDN',TN').RN') /\
+FN':=new()/\ Alpha':=xor(XN',FN') /\ Gamma':=A(RN'.FN') /\ KNnew':=new() /\ ANnew':=xor(IDN',H(KHN.KNnew')) /\
+BNnew':=xor(A(KHN.ANnew'),KNnew') /\ Eta':=xor(Gamma',ANnew') /\ MU':=xor(Gamma',BNnew') /\
+Beta':=H(XN'.RN'.FN'.XN') /\  KS':=H(IDN'.RN'.FN'.XN') /\
+Snd(Alpha'.Beta'.Eta'.MU') /\ secret(KHN,secKHN, HN)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role node  (HN,N:agent, SK:symmetric_key, H:hash_func, A:hash_func, Snd,Rcv:channel(dy))
+played_by N
+def=
+local State: nat,
+IDN,KN,AN,BN,YN,TN,TIDN,XN,RN,FN,KNnew,ANnew,BNnew,Alpha,Eta,Gamma,Beta,MU,KS:text
+const secKHN:protocol_id
+init State :=0
+transition
+1. State =0 /\ Rcv({IDN'.AN'.BN'}_SK) =|>
+RN':=new() /\ TN':=new() /\ XN':=xor(AN',IDN') /\ YN':=xor(XN',RN') /\  TIDN':=H(xor(IDN',TN').RN') /\
+Snd(TIDN'.YN'.AN'.BN'.TN')  /\ State':=1
+2. State =1 /\ Rcv(Alpha'.Beta'.Eta'.MU') =|>
+State' :=2 /\ FN':=xor(XN',Alpha') /\ Beta':=H(XN'.RN'.FN'.Eta'.MU') /\ Gamma':=A(RN'.FN') /\ ANnew':=xor(Gamma', Eta') /\ BNnew':=xor(Gamma',MU') /\
+KS':=H(IDN'.RN'.FN'.XN') 
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session (HN,N:agent, SK:symmetric_key, H,A:hash_func, KHN:text)
+def=
+local SHNch,RHNch,SNch,RNch:channel(dy)
+composition
+hubnode(HN,N,SK,KHN,H,A,SHNch,RHNch) /\
+node (HN,N,SK,H,A,SNch,RNch)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+const hn,n:agent, sk:symmetric_key,h, a:hash_func, khn:text,secKHN:protocol_id
+
+intruder_knowledge ={hn,n,sk,h,a}
+composition
+session(hn,n,sk,h,a,khn)
+end role
+
+goal
+secrecy_of  secKHN
+end goal
+environment()

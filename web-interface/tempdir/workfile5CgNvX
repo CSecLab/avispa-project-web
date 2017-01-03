@@ -1,0 +1,84 @@
+%%- U- User ,KM- Key manager 
+%%HLPSL:
+role user(U,KM  : agent, Snd,Rec: channel(dy))   %%user
+    played_by U
+    def=
+
+      local  State     : nat,
+             Pku       : public_key,
+			 Sk: symmetric_key,
+             Passwd        : text
+	
+
+      init State := 0
+	  % knowledge(U) = {inv(Pku)}
+      transition
+
+       1. State = 0
+          /\ Rec(start) =|>
+          State' := 1 
+            /\ Snd(Passwd)
+
+       2. State = 1
+          /\ Rec({Sk}_Passwd) =|>           %%decrypted
+          State' := 2 
+          /\ Snd({inv(Pku)}_Sk)
+		  
+
+
+    end role
+
+role keymanager(KM,U: agent,Snd,Rec: channel(dy))  % Key manager
+    played_by KM
+    def=
+
+      local  State     : nat,
+             Sk: symmetric_key,
+			 Pku       : public_key,
+             Passwd : text
+	 %knowledge(KM) = {{Sk}_Passwd}
+	 const sk : protocol_id
+      init State := 0
+
+      transition
+
+       1. State = 0
+          /\ Rec(Passwd') =|> 
+          State' := 2 
+            /\ Snd({Sk}_Passwd)
+         /\ secrecy(KM,U,sk,Sk)
+		  
+	    2. State = 2
+          /\ Rec(Passwd') =|> 
+          State' := 4 
+            /\ Rec({inv(Pku)}_Sk)
+          
+    end role
+
+   role session (U, KM : agent) def=
+
+      local SU, RU, SKM, RKM: channel (dy)
+      composition
+
+              user(U,KM,SU,RU)
+			  %/\ keymanager(KM,U,SKM,RKM)
+          
+    end role
+
+    role environment() def=
+
+      const  u,km,i         : agent
+      intruder_knowledge={i,u,km}   
+
+      composition
+
+            session(u,km)
+         /\ session(a,i)
+         /\ session(i,b)
+     
+    end role
+   goal
+	secrecy_of sk   %%communication on sk
+    end goal
+    environment()
+

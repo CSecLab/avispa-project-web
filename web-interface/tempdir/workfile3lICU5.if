@@ -1,0 +1,72 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfile3lICU5
+
+section signature:
+
+state_role_C: agent * agent * public_key * nat * text * text * set(agent) * nat -> fact
+state_role_S: agent * agent * public_key * nat * text * text * set(agent) * nat -> fact
+
+
+section types:
+
+sec_1: protocol_id
+MGoal, start: message
+clePublicServeur, KPs: public_key
+Dummy_State, 3, SID, State, 2, 1, 0, 4: nat
+set_44, set_52: set
+serveurMessage, client, C, S, i: agent
+ASGoal, Set_29, Set_17, Dummy_Set_17, Dummy_Set_29: set(agent)
+Dummy_Msg, dummy_nonce, Nc, Msg, Dummy_Nc: text
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(i).
+ state_role_S(serveurMessage,client,clePublicServeur,0,dummy_nonce,dummy_nonce,set_44,3).
+ state_role_C(client,serveurMessage,clePublicServeur,0,dummy_nonce,dummy_nonce,set_52,4)
+
+
+section rules:
+
+step step_0 (S,C,KPs,Dummy_Msg,Dummy_Nc,Dummy_Set_29,SID,Msg,Nc) :=
+ state_role_S(S,C,KPs,0,Dummy_Msg,Dummy_Nc,Dummy_Set_29,SID).
+ iknows(crypt(KPs,pair(Msg,Nc)))
+ =>
+ state_role_S(S,C,KPs,1,Msg,Nc,Dummy_Set_29,SID).
+ secret(Msg,sec_1,Dummy_Set_29).
+ iknows(crypt(inv(KPs),Nc)).
+ contains(C,Dummy_Set_29).
+ contains(S,Dummy_Set_29)
+
+step step_1 (C,S,KPs,Dummy_Msg,Dummy_Nc,Dummy_Set_17,SID,Msg,Nc) :=
+ state_role_C(C,S,KPs,0,Dummy_Msg,Dummy_Nc,Dummy_Set_17,SID).
+ iknows(start)
+=[exists Msg,Nc]=>
+ state_role_C(C,S,KPs,1,Msg,Nc,Dummy_Set_17,SID).
+ secret(Msg,sec_1,Dummy_Set_17).
+ iknows(crypt(KPs,pair(Msg,Nc))).
+ contains(C,Dummy_Set_17).
+ contains(S,Dummy_Set_17)
+
+step step_2 (C,S,KPs,Msg,Nc,Set_17,SID) :=
+ state_role_C(C,S,KPs,1,Msg,Nc,Set_17,SID).
+ iknows(crypt(inv(KPs),Nc))
+ =>
+ state_role_C(C,S,KPs,2,Msg,Nc,Set_17,SID)
+
+
+section properties:
+
+property secrecy_of_sec_1 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_1,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_sec_1 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_1,ASGoal) &
+ not(contains(i,ASGoal))
+

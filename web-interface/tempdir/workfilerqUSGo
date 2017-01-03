@@ -1,0 +1,166 @@
+% --- Authentication Protocol ---
+% Copyright 2014 webis.de
+
+role ps(PS, PT, S, T : agent,
+        TLSsps, TLStps, Air : symmetric_key,
+        SND, RCV : channel(dy))
+    played_by PS def=
+    local
+        Step : nat,
+        Protocol, Hpt, Ns, Hs, Nt : text,
+        IDs, IDps, IDt, IDpt : text,
+        X, Y : message,
+        Hash : hash_func
+    init Step := 1
+    transition
+        1. Step = 1 /\ RCV({Protocol.Step.IDs.Hpt'.Ns'}_TLSsps)
+            =|>
+            request(PS,S,ns_s_ps,Ns')
+            /\ Hs' := Hash(Ns'.IDs)
+            /\ witness(PS,T,hs_ps_t,Hs')
+            /\ Step' := 2
+            /\ SND({Protocol.Step'.IDps.Hpt'.Hs'}_TLStps)
+            /\ Step' := 3
+        3. Step = 3 /\ RCV({X'}_TLStps)
+            =|>
+            Step' := 4
+            /\ witness(PS,PT,ns_ps_pt,Ns)
+            /\ witness(PS,PT,ids_ps_pt,IDs)
+            /\ witness(PS,PT,x_ps_pt,X')
+            /\ SND({Protocol.Step'.IDps.X'.IDs.Ns}_Air)
+            /\ Step' := 6
+        6. Step = 6 /\ RCV({Y'}_TLStps) /\ Hs = Y'(Hs) /\ Hpt = Y'(Hpt)
+            =|>
+            Step' := 7
+            /\ SND({Protocol.Step'.IDps.Y'}_TLSsps)
+            /\ Step' := 8
+end role
+
+role pt(PS, PT, S, T : agent,
+        TLStpt, Air, Initsend : symmetric_key,
+        SND, RCV : channel(dy))
+    played_by PT def=
+    local
+        Step : nat,
+        Protocol, Hpt, Ns, Hs, Nt : text,
+        IDs, IDps, IDt, IDpt : text,
+        X, Y : message
+    init Step := 1
+    transition
+        1. Step = 1 /\ RCV({IDs'.Ns'.Hpt'}_Initsend)
+            =|>
+            Step' := 4
+        4. Step = 4 /\ RCV({Protocol.Step'.IDps.X'.IDs'.Ns'}_Air) /\ IDs = IDs' /\ Ns = Ns'
+            /\ Hpt = X'(Hpt)
+            =|>
+            request(PT,PS,ns_ps_pt,Ns)
+            /\ request(PT,PS,ids_ps_pt,IDs)
+            /\ request(PT,PS,x_ps_pt,X')
+            /\ request(PT,T,nt_t_pt,X'(Nt))
+            /\ Step' := 5
+            /\ SND({{Protocol.Step'.IDpt.X'}_PT}_TLStpt)
+            /\ Step' := 8
+end role
+
+role s(PS, PT, S, T : agent,
+       TLSsps, Initsend : symmetric_key,
+       SND, RCV : channel(dy))
+    played_by S def=
+    local
+        Step : nat,
+        Protocol, Hpt, Ns, Hs, Nt : text,
+        IDs, IDps, IDt, IDpt : text,
+        X, Y : message,
+        Hash : hash_func
+    init Step := 1
+    transition
+        1. Step = 1 /\ RCV(start)
+            =|>
+            Ns' := new()
+            /\ IDs' := new()
+            /\ Hpt' := new()
+            /\ Hs' := Hash(Ns'.IDs')
+            /\ witness(S,PS,ns_s_ps,Ns')
+            /\ SND({Protocol.Step.IDs.Hpt'.Ns'}_TLSsps)
+            /\ SND({IDs'.Ns'.Hpt'}_Initsend)
+            /\ Step' := 7
+        7. Step = 7 /\ RCV({Protocol.Step'.IDps.Y'}_TLSsps) /\ Hpt = Y'(Hpt)
+        /\ Hs = Y'(Hs)
+            =|>
+            SND(success)
+            /\ Step' := 8
+end role
+
+role t(PS, PT, S, T : agent,
+       TLStpt, TLStps : symmetric_key,
+       SND, RCV : channel(dy))
+    played_by T def=
+    local
+        Step : nat,
+        Protocol, Hpt, Ns, Hs, Nt : text,
+        IDs, IDps, IDt, IDpt : text,
+        X, Y : message
+    init Step := 2
+    transition
+        2. Step = 2 /\ RCV({Protocol.Step'.IDps.Hpt'.Hs'}_TLStps)
+            =|>
+            request(T,PS,hs_ps_t,Hs')
+            /\ Nt' := new()
+            /\ witness(T,PT,nt_t_pt,Nt')
+            /\ Step' := 3
+            /\ X' := {Protocol.Step'.IDt.Hpt'.Hs'.Nt'}_T
+            /\ SND({X'}_TLStps)
+            /\ Step' := 5
+        5. Step = 5 /\ RCV({{Protocol.Step'.IDpt.X'}_PT}_TLStpt)
+            /\ Nt = X'(Nt)
+            /\ Hs = X'(Hs)
+            /\ Hpt = X'(Hpt)
+            =|>
+            Step' := 6
+            /\ Y' := {Protocol.Step'.IDt.Hpt.Hs}_T
+            /\ SND({Y'}_TLStps)
+            /\ Step' := 8
+end role
+
+role session(S, PS, T, PT : agent,
+             TLSsps, TLStps, TLStpt, Air, Initsend : symmetric_key)
+    def=
+    local
+        SS, RS, SPS, RPS, ST, RT, SPT, RPT : channel(dy)
+    composition
+    s(PS, PT, S, T, TLSsps, Initsend, SS, RS)
+    /\ ps(PS, PT, S, T, TLSsps, TLStps, Air, SPS, RPS)
+    /\ t(PS, PT, S, T,TLStpt, TLStps, ST, RT)
+    /\ pt(PS, PT, S, T, TLStpt, Air, Initsend, SPT, RPT)
+end role
+
+role enviroment()
+    def=
+    const
+        ns_s_ps, 
+        hs_ps_t, 
+        ns_ps_pt,
+        ids_ps_pt, 
+        x_ps_pt,
+        nt_t_pt 
+            : protocol_id,
+        tlssps, tlstps, tlstpt, air, initsend : symmetric_key,
+        s, ps, t, pt : agent
+    intruder_knowledge = {s, ps, t, pt}
+    composition
+        session(s,ps,t,pt,tlssps,tlstps,tlstpt,air,initsend)
+        /\ session(i,ps,t,pt,tlssps,tlstps,tlstpt,air,initsend)
+end role
+
+
+goal
+    authentication_on ns_s_ps
+    authentication_on hs_ps_t
+    authentication_on ns_ps_pt
+    authentication_on ids_ps_pt
+    authentication_on x_ps_pt
+    authentication_on nt_t_pt
+end goal
+
+enviroment()
+

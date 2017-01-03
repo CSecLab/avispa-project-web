@@ -1,0 +1,66 @@
+role user(
+		U, B			: agent,
+		Ku, Kb			: public_key,
+		U2b, B2u		: channel(dy)
+	)
+	played_by U
+	def=
+	local
+		State			: nat,
+		Data			: text
+	init
+		State := 1
+	transition
+	1.	State =       1 /\ B2u(start) =|>
+		State' :=     3	/\ Data' := new()
+				/\ secret(Data',data,{U,B})
+				/\ U2b({Data'}_Kb)
+end role
+
+role board(
+		U, B			: agent,
+		Ku, Kb			: public_key,
+		U2b, B2u		: channel(dy)
+	)
+	played_by B
+	def=
+	local
+		State			: nat,
+		Data			: text
+	init
+		State := 2
+	transition
+	2.	State =       2 /\ U2b({Data'}_Kb) =|>
+		State' :=     4	/\ B2u({Data'}_Ku)
+end role
+
+role session(
+		U, B				: agent,
+		Ku, Kb				: public_key
+	)
+	def=
+	local
+		u2b, b2u			: channel(dy)
+	composition
+		user(U, B, Ku, Kb, u2b, b2u) /\
+		board(U, B, Ku, Kb, u2b, b2u)
+end role
+
+role environment()
+	def=	
+	const
+		u, b, i			:	agent,
+		ku, kb, ki		:	public_key,
+		data			:	protocol_id
+	intruder_knowledge	=	{u, b, i, ku, kb, ki, inv(ki)}
+	composition
+		session(u, b, ku, kb) /\
+		session(i, b, ki, kb) /\
+		session(u, i, ku, ki)
+end role
+
+goal
+	secrecy_of data
+end goal
+
+environment()

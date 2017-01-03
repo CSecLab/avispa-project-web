@@ -1,0 +1,90 @@
+role tag(Tag,Sensor: agent,
+ InState : message,
+ KM : text,
+ Tkn:text,
+ Snd,Rcv: channel(dy)) played_by Tag def=
+ local
+ State : nat
+ init
+ State := 0
+ transition
+ 0.State=0 / Rcv(Sensor.reqID) =|>
+ State':=1 / Snd(Tag)
+ / InState':= succ(KM,InState)
+ 1.State=1 / Rcv(xor((KM'.Tkn),
+ keygen(KM.InState))) =|>
+ Snd(Tag.keygen(KM'.succ(KM'.InState)))
+ /InState':=succ(KM'.succ(KM'.InState))
+/ State':=0
+ /equest(Tag,Sensor,sensor_tag_kd1,
+ keygen(KM.InState))
+ /witness(Tag,Sensor,tag_sensor_kd1r,
+ keygen(KM'.succ(KM'.InState)))
+end role
+
+role sensor(A: agent,
+ DataBase: (agent.text.message.text) set,
+ Snd,Rcv : channel (dy)) played_by A def=
+ local
+ Tag:agent, InState:message,
+ Tkn,KM,NewKM: text, State:nat
+ init
+State := 0
+ transition
+0.State=0 / Rcv(start) =|>
+ Snd(A.reqID) / State':= 1
+1.State=1 / Rcv(Tag')
+/ in(Tag'.Tkn'.InState'.KM',DataBase)
+=|>
+ State':=0 / NewKM':= new()
+ / DataBase':=cons(Tag'.Tkn'.
+ succ(KM',InState').KM',
+ delete(Tag'.Tkn'.
+ InState'.KM',DataBase))
+/ Snd(xor(NewKM'.Tkn',
+ keygen(KM',succ(KM',InState'))))
+/ State':=2
+/ witness (A,Tag',sensor_tag_kd1,
+ keygen(KM',succ(KM',InState')))
+/ secret(KM',sec_km1,{A,Tag'})
+2.State=2
+ / Rcv(keygen(KM',InState'))
+ / in(Tag'.Tkn'.InState'.KM',DataBase)
+ =|>
+ request(A,Tag,tag_sensor_kd1r,
+ keygen(KM'.InState))
+end role
+
+role environment() def=
+ const
+sensor,tag1,tag2: agent,
+ token1,token2: text,
+ instate1,instate2: message,
+ km1,km2:text,
+ reqID: text,
+ succ,keygen: hash_function,
+ r2t,t2r: channel (dy),
+a:agent,
+ sec_km1,sensor_tag_kd1,
+ tag_sensor_kd1r : protocol_id
+ intruder_knowledge={reqID,succ,
+ keygen,sensor,tag1,tag2,keygen}
+ composition
+ reader(sensor,
+{
+tag1.token1.instate1.km1,
+tag2.token2.instate2.km2
+},
+r2t,t2r)
+ / tag(tag1,sensor,instate1,
+ km1,token1,t2r,r2t)
+ / tag(tag2,sensor,instate2,
+ km2,token2,t2r,r2t)
+end role
+
+goal
+ secrecy_of sec_km1
+ authentication_on sensor_tag_kd1
+ authentication_on tag_sensor_kd1r
+end goal
+environment() 

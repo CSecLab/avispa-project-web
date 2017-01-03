@@ -1,0 +1,300 @@
+role customer(C,M,N: agent,
+                Kcm, Kcn: symmetric_key,
+               G:text,
+               H: hash_func,
+               SND_CM, RCV_CM, SND_CN, RCV_CN: channel (dy)
+               ) played_by C 
+def=
+
+ local State : nat,
+       Na, Nb, Nouncea, Nounceb : text,
+       T1, T2, T4, T6: text,
+       Kps : symmetric_key,
+       X,Y: message,
+       CS1, CS2, MS1, MS2: text,
+       MAC1, MAC2, MAC3, NETC, M1, M2: message
+ const
+       timestamp: protocol_id
+
+ init State := 1
+
+ transition
+ % Initial generating session key/ Customer generates random a and sends g^a to merchant
+ 1. State = 1 /\ 
+    RCV_CM(start) 
+    =|>
+    State' := 2 /\
+    Na' := new() /\
+    Nouncea' := new() /\
+%    X':= exp(G, Na') /\
+    SND_CM(xor(X', H(Kcm)).Nouncea'.H(Kcm.Nouncea'.X')) 
+%    witness(C,M,customer_merchant_expna,X')
+
+ % customer gets b from merchant and compute Kps and sends CS1 to merchant and cs2 to network
+ 2. State = 2 /\ 
+    RCV_CM(xor(exp(G, Nb'), H(Kcm)).Nounceb'.H(Kcm.Nounceb'.Y')) /\ 
+    not(X'=Y')
+    =|> 
+    State' := 3 /\
+    Kps' := exp(Y', Na) /\
+    CS1' := new() /\
+    CS2' := xor(CS1', Kps') /\
+    T1' := new() /\
+    M1':= new() /\
+    MAC1':= H(C.T1'.M1'.CS1'.Kps') /\
+
+    SND_CM(C.M.T1'.MAC1'.M1'.xor(CS1', H(Kps'))) /\
+
+    T2':= new() /\
+    MAC2':= H(C.T2'.M1'.CS2'.Kcn) /\
+    SND_CN(C.M.M1'.T2'.MAC2'.xor(CS2', H(Kcn))) /\
+
+    witness(C,M,customer_merchant_cs1,CS1') /\
+    witness(C,M,customer_merchant_mac1, MAC1') /\
+    witness(C,M,customer_merchant_m1, M1') /\
+    witness(C,N,customer_network_cs2, CS2') /\
+    witness(C,N,customer_network_mac2, MAC2') /\
+%    request(C,M,merchant_customer_expnb, Y) /\
+    secret(Kps', kps, {C,M}) /\
+    secret(CS1',cs1,{C,M})
+
+ % STEP4 Receive
+ 3. State = 3 /\
+    RCV_CM(C.M.T4'.MAC3'.M2'.xor(MS1', Kps))
+    =|>
+    State' := 4 /\
+    request(C,M,merchant_customer_ms1,MS1) /\
+    request(C,M,merchant_customer_mac3,MAC3) /\
+    request(C,M,merchant_customer_m2,M2)
+
+ % STEP6 Receive
+ 3. State = 4 /\
+    RCV_CN(Y'.T6'.NETC')
+    =|>
+    State' := 5 /\
+    request(C,N,network_customer_y,Y') /\
+    request(C,M,network_customer_netc,NETC')
+
+end role
+
+
+
+role merchant(C,M,N: agent,
+                Kcm: symmetric_key,
+                G: text,
+                Km, Kn: public_key,
+                H: hash_func,
+                SND_CM, RCV_CM, SND_MN, RCV_MN: channel (dy)
+               ) played_by M 
+def=
+
+ local State : nat,
+       Na, Nb, Nouncea, Nounceb, X2 : text,
+       Kps : symmetric_key,
+       T1, T3, T4, T5: text,
+       X, Y: message,
+       CS1, CS2, MS1, MS2: text,
+       MAC1, MAC3, NETM, M1, M2: message
+ const
+       timestamp: protocol_id
+
+ init State := 1
+
+ transition
+
+ % Initial generating session key/ mechant generates random b and sends g^b to customer
+ 1. State = 1 /\ 
+    RCV_CM(xor(X', H(Kcm)).Nouncea'.H(Kcm.Nouncea'.X'))
+    =|>
+    State' := 2 /\
+    Nb' := new() /\
+    Nounceb' := new() /\
+    Kps' := exp(X', Nb') /\
+    Y':=exp(G, Nb') /\
+    SND_CM(xor(Y', H(Kcm)). Nounceb'.H(Kcm.Nounceb'.xor(Y', H(Kcm)))) 
+ %   request(M,C,customer_merchant_expna,X) /\
+ %   witness(M,C,merchant_customer_expnb, Y')
+
+ % merchant receive cs1 and compute cs2------ Receiving STEP1
+ 2. State = 2 /\ 
+RCV_CM(C.M.T1'.MAC1'.M1'.xor(CS1', H(Kps)))
+    =|>
+    State' := 3 /\
+    CS2':= xor(Kps, CS1) /\
+    request(M,C,customer_merchant_cs1,CS1) /\
+    request(M,C,customer_merchant_mac1,MAC1) /\
+    request(M,C,customer_merchant_m1,M1) 
+
+
+
+
+ %  Receiving STEP3 and sending STEP4 and STEP5
+ 3. State = 3 /\
+    RCV_MN({{H(M1'.X2')}_Km}_inv(Kn).T3.NETM') /\
+    X2'= CS2
+    =|>
+    State' := 4 /\
+    MS1':= new()/\
+    MS2':= xor(MS1', Kps) /\
+    T4':= new() /\
+    M2':= new() /\
+    MAC3':= H(M.T4'.M2'.MS1'.Kps) /\
+    SND_CM(M.C.T4'.MAC3'.M2'.xor(MS1', H(Kps))) /\
+    T5' := new() /\
+    SND_MN(M.C.T5.{{M2'.MS2'.T5'}_Kn}_inv(Km)) /\
+
+    witness(M,C,merchant_customer_ms1, MS1') /\
+    witness(M,N,merchant_network_ms2, MS2') /\
+    witness(M,C,merchant_customer_mac3, MAC3') /\
+    witness(M,C,merchant_customer_m2, M2') /\
+    request(M,N,network_merchant_netm,NETM) /\
+    secret(MS1',ms1,{C,M})
+
+ 
+end role
+
+
+
+role network(C,M,N: agent,
+                Kcn: symmetric_key,
+        Km, Kn: public_key,
+        H: hash_func,
+        SND_MN, RCV_MN, SND_CN, RCV_CN: channel (dy)
+               ) played_by N 
+def=
+
+ local State : nat,
+       T2, T3, T5, T6: text,
+       X, Y: message,
+       CS1, CS2, MS1, MS2: text,
+       MAC2, NETM, NETC, M1, M2: message
+ const
+       timestamp: protocol_id
+
+ init State := 1
+
+ transition
+
+ % receiving STEP2 and sending STEP3
+ 1. State = 1 /\ 
+    RCV_CN(C.M.M1'.T2'.MAC2'.xor(CS2', H(Kcn)))
+    =|>
+    State' := 2 /\
+    T3' := new() /\
+    NETM':= {{C.M.T3'.M1'.CS2'}_Kn}_(inv(Kn)) /\
+    X':= {{H(M1'.CS2')}_Km}_inv(Kn) /\
+
+    SND_MN(X'.T3'.NETM') /\
+    request(N,C,customer_network_cs2,CS2) /\
+    request(N,C,customer_network_mac2,MAC2) /\
+    witness(N,M,network_merchant_netm, NETM')
+
+ % ------ Receiving STEP5 and sending STEP6
+ 2. State = 2 /\ 
+RCV_MN(M.C.T5'.{{M2'.MS2'.T5'}_Kn}_inv(km))
+    =|>
+    State' := 3 /\
+    T6':= new() /\
+    NETC':= {{M.C.T6'.M2'.MS2'}_Kn}_inv(Kn) /\
+    Y':= H(M2'.MS2'.Kcn) /\
+    SND_CN(Y'.T6'.NETC')/\
+    request(N,M,merchant_network_ms2,MS2) /\
+    witness(N,C,network_customer_y, Y') /\
+    witness(N,C,network_customer_netc, NETC')
+
+end role
+
+
+
+
+role session(C,M,N: agent,
+    G:text,
+    H:hash_func,
+                  Kcm, Kcn, Kps: symmetric_key,
+    Kn, Km: public_key
+
+               ) def=
+
+  local SCM, RCM,
+    SCN, RCN,
+    SMN, RMN: channel(dy)
+
+
+ composition
+  customer (C,M,N,Kcm,Kcn,G,H,SCM,RCM,SCN,RCN) /\
+  merchant (C,M,N,Kcm,G,Km,kn,H,SCM,RCM,SMN,RMN) /\
+  network  (C,M,N,Kcn,Km,Kn,H,SMN,RMN,SCN,RCN)
+end role
+
+
+
+role environment() 
+def=
+ 
+  const i,c,m,n: agent,
+               g: text,
+    h: hash_func,
+    kcn, kcm,kps,kic,kim,kin: symmetric_key,
+    ki, km, kn: public_key,
+    cs1,cs2,ms1,ms2:text,
+    customer_merchant_expna,
+    customer_merchant_cs1,
+    customer_merchant_mac1,
+    customer_merchant_m1,
+    customer_network_cs2,
+    customer_network_mac2,
+    merchant_customer_expnb,
+    merchant_customer_ms1,
+    merchant_customer_mac3,
+    merchant_customer_m2,
+    merchant_network_ms2,
+    network_customer_y,
+    network_customer_netc,
+    network_merchant_x,
+    network_merchant_netm: protocol_id
+
+
+ intruder_knowledge = {c,m,n,g,km, kn, ki, inv(ki),kim,kic,kin}
+
+ composition
+  session(c,m,n,g,h, kcm,kcn,kps,kn,km)
+ % session(i,m,n,g,h,kim,kin,kn,km) /\
+  %session(c,i,n,g,h,kic,kcn,kn,ki) /\
+%  session(c,m,i,g,h,kcm,kic,ki,km)
+
+end role
+
+
+
+goal
+
+  % Entity authentication (G1)
+  % Message authentication (G2)
+  % Replay protection (G3)
+  % Accountability (G17)
+  % Proof of Origin (G18)
+  % Proof of Delivery (G19)
+  authentication_on customer_merchant_expna
+  authentication_on customer_merchant_cs1
+  authentication_on customer_merchant_mac1
+  authentication_on customer_merchant_m1
+  authentication_on customer_network_cs2
+  authentication_on customer_network_mac2
+  authentication_on merchant_customer_expnb
+  authentication_on merchant_customer_ms1
+  authentication_on merchant_customer_mac3
+  authentication_on merchant_customer_m2  
+  authentication_on network_customer_y
+  authentication_on network_customer_netc
+  authentication_on network_merchant_netm
+  authentication_on merchant_network_ms2
+
+  % ID protection (Eavesdr.) (G13)
+  % Conifidentiality (G12) --- Missing in table of D6.1
+  secrecy_of kps
+  secrecy_of cs1
+  secrecy_of cs2
+  secrecy_of ms1
+end goal
+
+environment()

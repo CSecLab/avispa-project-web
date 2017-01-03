@@ -1,0 +1,166 @@
+%	
+%	
+%	
+%	U > B	:	REQ=(r_nuh)+(n_nub)
+%	B > *	:	[i_REQ]
+%	U > H	:	(i_n_nuh)
+%	H > B	:	RES=(t*m_nuh)+(i_m_n_nhb)
+%	B > *	:	[i_RES]
+%	H > U	:	(i_m)
+%	
+%	U > B	:	CON=(i_c_t_nub)
+%	B > *	:	[i_CON]
+%	U > H	:	(i_c)
+%	
+%	
+%	
+%	
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%	USER
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role user(
+	U,H,B		: agent,
+	D		: hash_func,
+	Ku,Kh,Kb	: public_key,
+	Uh,Ub,Hu,Bu	: channel(dy)) played_by U def=
+	
+	local
+		State,N,Nuh,Nub	: nat,
+		R,T,M,X,C	: text,
+		Resr		: {{text.nat.nat}_inv(public_key)}_public_key
+	init
+		State	:= 13
+	transition
+	13.	State	=	13	/\	Bu(start) =|>
+		State'	:=	79	/\	R' := new()
+					/\	N' := new()
+					/\	Nuh' := new()
+					/\	Nub' := new()
+					/\	secret(R', r, {U,H})
+					/\	secret(N', n, {U,H,B})
+					/\	secret(Nuh', nuh, {U,H})
+					/\	secret(Nub', nub, {U,B})
+					/\	Ub({{R'.Nuh'}_inv(Ku)}_Kh.{{N'.Nub'}_inv(Ku)}_Kb)
+					/\	Uh({{N'.Nuh'}_inv(Ku)}_Kh)
+	79.	State	=	79	/\	Hu({{M'}_inv(Kh)}_Ku)
+					/\	Bu({{X'.Nuh}_inv(Kh)}_Ku.Resr') =|>
+		State'	:=	0	/\	T' := xor(X',M')
+					/\	C' := new()
+					/\	secret(C', c, {U,H,B})
+					/\	Ub({{C'.Nub}_inv(Ku)}_Kb)
+					/\	Uh({{C'.Nuh}_inv(Ku)}_Kh)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%	BOARD
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role board(
+	U,H,B		: agent,
+	D		: hash_func,
+	Ku,Kh,Kb	: public_key,
+	Bu,Bh,Ub,Hb	: channel(dy)) played_by B def=
+	
+	local
+		State,N,Nhb,Nub	: nat,
+		M,C		: text,
+		Left		: {{text.nat}_inv(public_key)}_public_key
+	init
+		State	:= 2
+	transition
+	2.	State	=	2	/\	Ub(Left'.{{N'.Nub'}_inv(Ku)}_Kb) =|>
+		State'	:=	5	/\	Bh(Left'.{{N'.Nub'}_inv(Ku)}_Kb)
+	5.	State	=	5	/\	Hb(Left'.{{M'.N'.Nhb'}_inv(Kh)}_Kb) =|>
+		State'	:=	8	/\	Bu(Left'.{{M'.N'.Nhb'}_inv(Kh)}_Kb)
+	8.	State	=	8	/\	Ub({{C'.Nub'}_inv(Ku)}_Kb) =|>
+		State'	:=	0
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%	HOST
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role host(
+	U,H,B		: agent,
+	D		: hash_func,
+	Ku,Kh,Kb	: public_key,
+	Hu,Uh,Hb,Bh	: channel(dy)) played_by H def=
+	
+	local
+		State,N,Nhb,Nuh	: nat,
+		R,T,M,C		: text,
+		Reqr		: {{nat.nat}_inv(public_key)}_public_key
+	init
+		State	:= 46
+	transition
+	46.	State	=	46	/\	Bh({{R'.Nuh'}_inv(Ku)}_Kh.Reqr') 
+					/\	Uh({{N'.Nuh'}_inv(Ku)}_Kh)=|>
+		State'	:=	9	/\	T' := new()
+					/\	M' := new()
+					/\	Nhb' := new()
+					/\	secret(T', t, {U,H})
+					/\	secret(M', m, {U,H,B})
+					/\	secret(Nhb', nhb, {H,B})
+					/\	Hb({{xor(T',M').Nuh}_inv(Kh)}_Ku.{{M'.N.Nhb'}_inv(Kh)}_Kb)
+					/\	Hu({{M'}_inv(Kh)}_Ku)
+	9.	State	=	9	/\	Uh({{C'.Nuh'}_inv(Ku)}_Kh) =|>
+		State'	:=	0
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%	SESSION
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(
+	U,H,B			: agent,
+	D			: hash_func,
+	Ku,Kh,Kb		: public_key,
+	Uh,Ub,Hu,Bu,Bh,Hb	: channel(dy)) def=
+	
+	composition
+		user(U,H,B,D,Ku,Kh,Kb,Uh,Ub,Hu,Bu)
+	/\	board(U,H,B,D,Ku,Kh,Kb,Bu,Bh,Ub,Hb)
+	/\	host(U,H,B,D,Ku,Kh,Kb,Hu,Uh,Hb,Bh)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%	ENVIRONMENT
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+	const
+		u,h,b,i			:	agent,
+		d			:	hash_func,
+		ku,kh,kb,ki		:	public_key,
+		uh,ub,hu,bu,bh,hb	:	channel(dy),
+		r,t,m,n,c,nuh,nub,nhb	:	protocol_id
+	intruder_knowledge	=	{u,h,b,i,d,ku,kh,kb,ki,inv(ki)}
+	composition
+		session(u,h,b,d,ku,kh,kb,uh,ub,hu,bu,bh,hb)
+	/\	session(u,h,b,d,ku,kh,kb,uh,ub,hu,bu,bh,hb)
+	/\	session(i,h,b,d,ki,kh,kb,uh,ub,hu,bu,bh,hb)
+	/\	session(u,i,b,d,ku,ki,kb,uh,ub,hu,bu,bh,hb)
+	/\	session(u,h,i,d,ku,kh,ki,uh,ub,hu,bu,bh,hb)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%	GOAL
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+	secrecy_of	r
+	secrecy_of	t
+	secrecy_of	m
+	secrecy_of	n
+	secrecy_of	c
+	secrecy_of	nuh
+	secrecy_of	nub
+	secrecy_of	nhb
+end goal
+environment()

@@ -1,0 +1,156 @@
+role obu (OBU, AR:agent,
+           F1,F2,F3: hash_func,
+           PRF1,PRF2: hash_func,
+           Snd,Rcv: channel(dy))
+
+played_by OBU def=
+
+  local 
+        State   : nat,
+        IDobu,IDar: text,
+        Nobu,Nar : text,
+        Success : text,
+        HAK : hash(text.text),
+        HEK,HEK_mac1, HEK_mac2,HAK_mac1 : message,
+        MSK, Add_obu, Add_ar : text
+        
+  const sec_hak_obu : protocol_id,
+            success : text
+
+  init  State := 0
+
+  transition
+
+   1. State = 0
+      /\ Rcv(start)
+      =|> 
+      State' := 1
+      /\ Nobu' := new()
+      /\ HEK_mac1' := F1(IDobu.IDar.Nobu')
+      /\ HEK' := PRF1(MSK,Add_obu,Add_ar)
+      /\ Snd(HEK_mac1.{IDobu.IDar.Nobu'}_HEK') 
+
+   2. State = 1
+      /\ Rcv(HEK_mac2'.{IDobu.IDar.Nar'}_HEK)
+      /\ HEK_mac2=F2(IDobu.IDar.Nar')
+      =|> 
+      State' := 2
+      /\ HAK' := PRF2(Nobu.Nar')
+      /\ HAK_mac1' :=F3(HAK'.HEK)
+      /\ Snd(HAK_mac1'.{HAK'}_HEK) 
+      /\ witness(OBU,AR,hak2,HAK')
+
+   3. State = 2
+      /\ Rcv(success) 
+      =|> 
+      State' := 3
+      /\ secret(HAK,sec_hak_obu,{OBU,AR})
+      /\ request(AR,OBU,hak1,HAK)
+  
+
+end role
+
+%--------------------------------------------------------------------------------
+
+role ar (AR, OBU: agent,
+           F1,F2,F3: hash_func,
+           PRF2: hash_func,
+           Snd,Rcv: channel(dy))
+
+played_by AR def=
+
+  local 
+        State   : nat,
+        IDobu,IDar: text,
+        Nobu,Nar : text,
+        Success : text,
+        HAK : hash(text.text),
+        HEK,HEK_mac1, HEK_mac2,HAK_mac1 : message,
+        Add_obu, Add_ar : text
+
+  const sec_hak_ar : protocol_id,
+            success : text
+            
+  init  State := 0
+
+  transition
+
+   1. State = 0 /\ Rcv(HEK_mac1'.{IDobu.IDar.Nobu'}_HEK')
+   						/\ HEK_mac1' =F1(IDobu.IDar.Nobu')
+
+      =|> 
+      State' := 1
+      /\ Nar' := new()
+      /\ HEK_mac2':=F2(IDobu.IDar.Nar')
+      /\ Snd(HEK_mac2'.{IDobu.IDar.Nar'}_HEK) 
+      /\ witness(AR,OBU,hak1,HAK')
+
+
+   2. State = 1 /\ Rcv(HAK_mac1'.{HAK'}_HEK)
+   							/\ HAK_mac1' =F3(HAK'.HEK)
+   							/\ HAK' =PRF2(Nobu.Nar)
+      =|> 
+      State' := 2
+      /\ Snd(success)
+      /\ secret(HAK',sec_hak_ar,{AR,OBU})
+      /\ request(AR,OBU,hak2,HAK)
+
+end role
+
+%--------------------------------------------------------------------------------
+
+role session(OBU,AR: agent,
+%            HEK: symmetric_key,
+						F1,F2,F3 : hash_func,
+            PRF1,PRF2: hash_func)
+def=
+  local SND, RCV : channel (dy)
+
+  composition
+     obu(OBU,AR,F1,F2,F3,PRF1,PRF2,SND,RCV)
+  /\ ar(AR,OBU,F2,F3,PRF1,PRF2,SND,RCV)
+
+end role
+
+%--------------------------------------------------------------------------------
+
+
+role environment()
+def=
+
+  const obu, ar   : agent,
+%        hek,hki    : symmetric_key,
+				f1,f2,f3 : hash_func,
+        prf1, prf2 : hash_func,
+        hak1, hak2 : protocol_id
+     
+
+  intruder_knowledge={obu,ar,prf1,prf2,i}
+
+  composition
+      session(obu,ar,f1,f2,f3,prf1,prf2)
+   /\ session(obu,ar,f1,f2,f3,prf1,prf2)
+   /\ session(i,ar,f1,f2,f3,prf1,prf2)
+  /\ session(obu,i,f1,f2,f3,prf1,prf2)
+ 
+end role
+
+%--------------------------------------------------------------------------------
+
+goal
+
+ % Confidentiality 
+ secrecy_of sec_hak_obu, sec_hak_ar
+
+ % Message authentication 
+ authentication_on hak1
+
+ % Message authentication 
+ authentication_on hak2
+
+end goal
+
+%--------------------------------------------------------------------------------
+
+environment()
+

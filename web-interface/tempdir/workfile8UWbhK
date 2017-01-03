@@ -1,0 +1,108 @@
+%% Protokół UNSAFE
+%% Intruz może przeczytać wiadomość, która jest kodowana kluczem prywatnym B.
+%%
+%%
+
+
+%% NSPK: Needham-Schroeder Public-Key Protocol
+
+%% VARIANT: 
+
+%%original version (of 1978) without key server
+
+role alice (A, B: agent,             
+            Ka, Kb: public_key, 
+            SND, RCV: channel (dy)) 
+played_by A def=
+
+  local State : nat, 
+        Na, Nb: text,
+        Kab : symmetric_key     
+
+  init State := 0
+
+  transition  
+   
+    0.  State  = 0 /\ RCV(start) =|> 
+        State':= 2 /\ Na' := new() /\ SND({Na'}_Kb)
+                   /\ secret(Na',na,{A,B}) 
+                   /\ witness(A,B,bob_alice_na,Na')
+
+    2.  State  = 2 /\ RCV({Na.Kab'}_inv(Kb)) =|> 
+        State':= 4 /\ SND({Kab'}_Kb)
+                   /\ request(A,B, Kab')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob(A, B: agent,      
+         Ka, Kb: public_key,      
+         SND, RCV: channel (dy)) 
+played_by B def=
+
+  local State : nat, 
+        Na, Nb: text,
+        Kab : symmetric_key  
+
+  init State := 1
+
+  transition 
+
+    1.  State  = 1 /\ RCV({Na'}_Kb) =|> 
+        State':= 3 /\ Kab' := new()
+                   /\ SND({Na'.Kab'}_inv(Kb))
+                   /\ secret(Na',{A,B}, Kab', kab) 
+                   /\ witness(B,A,Kab', alice_bob_kab)
+
+    3.  State  = 3 /\ RCV({Kab}_Kb) =|> 
+        State':= 5 /\ request(B,A,bob_alice_na,Na, Kab)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(A, B: agent, Ka, Kb: public_key) def=
+
+  local SA, RA, SB, RB: channel (dy)
+
+  composition 
+
+        alice(A,B,Ka,Kb,SA,RA)
+     /\ bob  (A,B,Ka,Kb,SB,RB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+    const a, b         : agent,
+          ka, kb, ki   : public_key,
+          kab : symmetric_key,
+          na, nb,
+          bob_alice_na : protocol_id
+
+    intruder_knowledge = {a, b, ka, kb, ki, inv(ki)}
+
+    composition
+
+        session(a,b,ka,kb)
+     /\ session(a,i,ka,ki)
+     /\ session(i,b,ki,kb)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of na, kab
+  authentication_on bob_alice_na
+  authentication_on alice_bob_kab
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

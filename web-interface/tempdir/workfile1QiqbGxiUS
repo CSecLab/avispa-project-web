@@ -1,0 +1,167 @@
+role user (Ui, GWN, Sj : agent,
+SKey1 : symmetric_key,
+SKey2 : symmetric_key,
+H, GEN, REP: hash_func, 
+Snd, Rcv: channel(dy))
+played_by Ui
+def=
+local State : nat,
+IDi, PWi, Bi, MIi, AAi, BBi, SIDj, Ai, Ei, Ci, Ni, Li, Pi, Qi, Ki, Kj, T1, T4 : text,
+M1, Kij, SKi, M2, M3, M4, M5, Fi: message,
+Inc : hash_func
+const user_gateway, gateway_sensor, 
+sensor_user, subs1, subs2, subs3, subs4, subs5, subs6, subs7, 
+subs8 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(start) =|>
+State' := 1 /\ IDi' := new()
+/\ Snd({IDi}_SKey1)
+/\ secret({IDi}, subs1, {Ui,GWN,Sj})
+2. State = 1 /\ Rcv({MIi'.Fi'}_SKey1) =|>
+State' := 2 /\ Ki' := new()
+/\ T1' := new()
+/\ SIDj' := new()
+/\ AAi' := GEN(Bi)
+/\ BBi' := GEN(Bi)
+/\ Ai' := H(IDi.PWi.AAi')
+/\ Ei' := xor(BBi', H(IDi.PWi))
+/\ Ci' := xor(Fi', H(PWi.AAi'))
+/\ Ni' := H(MIi'.Ki'.Fi'.T1'.SIDj')
+/\ Li' := xor(Ki', H(MIi'.Fi'.T1'))
+/\ Pi' := xor(SIDj', H(Fi'.T1'))
+/\ Qi' := xor(H(IDi),H(Ki'.T1'))
+/\ Snd(MIi. Ni'. Pi'. Qi'. Li'. T1')
+%/\ secret({PWi}, subs2, {Ui}) 
+%/\ witness(Ui, GWN, user_gateway, Ki') 
+3. State = 2 /\ Rcv(M1'. Kij, T4') =|>
+State' := 3 /\  Kj' := xor(Kij, Ki)
+/\ SKi' := H(H(IDi).SIDj. Ki. Kj')
+/\ M2' :=xor(IDi, H(SKi.Ki))                  %line # 40
+/\ Snd(M2') 
+4. State = 3 /\ Rcv(M3'. M4'. M5') =|>
+State' := 4 /\ MIi' := xor(M3, H(IDi))
+%/\ secret({Ki,Kj}, subs3, {Ui,GWN,Sj})
+%/\ secret({SKi'}, subs4, {Ui,GWN,Sj})
+end role
+
+role gateway (GWN, Ui, Sj  : agent,
+SKey1 : symmetric_key,  
+SKey2 : symmetric_key,  
+H, GEN, REP: hash_func,
+Snd, Rcv: channel(dy) )
+played_by GWN
+def=
+local State : nat,
+IDi, PWi, Bi, MIi, AAi, BBi, SIDj, Ai, Ei, Xgwn, Ci, Ni, Li, Pi, Qi, Ki, Kj, T1, T2, T3, T4, RRi : text,
+M1, Kij, SKi, M2, M3, M4, M5, Fi, Ri, Fj, CCi, Nj, SSj, Vj, Wj, SKgwn  : message,
+Inc : hash_func
+const user_gateway, gateway_sensor, 
+sensor_user, subs1, subs2, subs3, subs4, subs5, subs6, subs7, 
+subs8 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv({IDi'}_SKey1) =|>
+State' := 1 /\ Ri' := new()
+/\ MIi':= H(IDi.Ri')
+/\ Fi' := H(MIi.Xgwn)
+/\ Snd({MIi'.Fi'}_SKey1)
+/\ SIDj' := new()
+/\ Fj' := H(SIDj'.Xgwn)
+/\ Snd({SIDj.Fj'}_SKey2)
+%/\ secret({Xgwn}, subs5, {GWN})
+%/\ secret({Xj}, subs6, {GWN,Sj})
+2. State = 1 /\ Rcv(MIi. Ni'. Pi'. Qi'. Li'. T1') =|> 
+State' := 2 /\ Ki' := xor(Li, H(MIi.Fi.T1))
+/\ CCi' := xor(Qi, H(Ki'.T1))
+/\ SIDj' := xor(Pi, H(Fi.T1))
+/\ T2' := new()
+/\ Nj' := H(CCi'.Fj.T2'.Ki')
+/\ SSj' := xor(CCi', H(Fj.T2'))
+/\ Vj' := xor(Ki'. CCi') 
+/\ Snd(Nj'.SSj'.Vj'.T2')
+3. State = 2 /\ Rcv(Wj'.Kij'.T3') =|> 
+State' := 3 /\ Kj' := xor(Kij,Ki)
+/\ SKgwn' := H(CCi. SIDj. Ki. Kj')
+/\ T4' := new()
+/\ M1' := H(SKgwn'.Kj'.T4')   %line 87 
+/\ Snd(M1'. Kij, T4')
+4. State = 3 /\ Rcv(M2') =|> 
+State' := 4 /\ IDi' := xor(M2, H(SKgwn.Ki))
+/\ RRi' := new()
+/\ MIi' := H(IDi'.RRi')
+/\ Fi' := H(MIi'.Xgwn)
+/\ M3' := xor(MIi', H(IDi))
+/\ M4' := xor(Fi', H(Fi.Ki))
+/\ M5' := H(H(IDi).M3'.M4')
+/\ Snd(M3'. M4'. M5')
+end role
+
+role sensor (Sj, Ui, GWN : agent, 
+SKey1 : symmetric_key,
+SKey2 : symmetric_key,
+% H is hash function
+H, GEN, REP: hash_func,
+Snd, Rcv: channel(dy) )
+played_by Sj
+def=
+local State : nat,
+IDi, PWi, Bi, MIi, AAi, BBi, SIDj, Ai, Ei, Xgwn, Ci, Ni, Li, Pi, Qi, Ki, Kj, T1, T2, T3, T4, RRi : text,
+M1, Kij, SKi, M2, M3, M4, M5, Fi, Ri, Fj, CCi, Nj, SSj, Vj, Wj, SKgwn, SKj  : message,
+Inc : hash_func
+const user_gateway, gateway_sensor, 
+sensor_user, subs1, subs2, subs3, subs4, subs5, subs6, subs7, 
+subs8 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv({SIDj'. Fj'}_SKey2) =|>
+State' := 1 /\ T3' := new()
+2. State= 1 /\ Rcv(Nj'.SSj'.Vj'.T2') =|>
+State' := 2 /\ CCi' := xor(SSj, H(Fj.T2))
+/\ Ki' := xor(Vj,CCi')
+/\ Kj' := new()
+/\ SKj' := H(CCi'.SIDj.Ki'.Kj)
+/\ Wj' := H(SKj'.T3)
+/\ Kij' := xor(Ki', Kj')
+/\ Snd(Wj'.Kij'.T3)
+%/\ secret({Rshrd}, subs7, {Sj,GWN})
+end role
+
+role session(Ui, GWN, Sj: agent,
+SKey1 : symmetric_key,
+SKey2 : symmetric_key,
+H, GEN, REP: hash_func)
+def=
+local SI, SJ, RI, RJ, PI, PJ: channel (dy)
+composition
+user(Ui, GWN, Sj, SKey1, SKey2, H, GEN, REP, SI, RI)
+/\ gateway(Ui, GWN, Sj, SKey1, SKey2, H, GEN, REP, SJ, RJ)
+/\ sensor(Ui, GWN, Sj, SKey1, SKey2, H, GEN, REP, PI, PJ)
+end role
+role environment()
+def=
+const ui, gwn, sj: agent,
+skey1 : symmetric_key,
+skey2 : symmetric_key,
+h, gen, rep: hash_func,
+idi, pwi, mii, aai, bi, sidj, ai, fi, ei, ci, ni, li, pi, qi, ki, kj, t1, t2, t3, t4, m1, m2, m3, m4, m5, ri, 
+ski, skgwn, skj, bbi, cci: text, user_gateway_ki, gateway_sensor_kj, sensor_user, 
+subs1, subs2, subs3, subs4, subs5, subs6, subs7 : protocol_id
+intruder_knowledge = {ui, gwn, sj, h, gen, rep}
+composition
+session( gwn, ui, sj, skey1, skey2, h, gen, rep)
+/\ session(ui, gwn, sj, skey1, skey2, h, gen, rep)
+/\ session(sj, ui, gwn, skey1, skey2, h, gen, rep)
+end role
+goal
+secrecy_of subs1
+secrecy_of subs2
+secrecy_of subs3
+secrecy_of subs4
+secrecy_of subs5
+secrecy_of subs6
+secrecy_of subs7
+authentication_on user_gateway_ki
+authentication_on gateway_sensor_kj
+end goal
+environment()

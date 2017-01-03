@@ -1,0 +1,102 @@
+role sed(U,V        : agent,
+         MAC        : hash_func,    
+         Knwk,Ktcl  : symmetric_key,
+         Cu,Pu      : text,
+         CA         : public_key,
+         Mu,Mv      : protocol_id,
+         SND,RCV    : channel(dy))
+played_by U
+def=
+	local   State:nat,
+                Cv,EPu:text,
+                Eu,Ev:public_key,
+                Mk:symmetric_key
+	init    State := 0
+        accept  State  = 8
+	transition
+		1. State  = 0 /\ RCV(start) =|> 
+                   State':= 2 /\ SND({Cu}_Knwk) 
+                            
+
+		2. State  = 2 /\ RCV({Cv'}_Knwk) =|> 
+                   State':= 4 /\ Eu':=new() 
+                              /\ EPu':=new() 
+                              /\ SND({Eu'}_Knwk)
+
+		3. State  = 4 /\ RCV({Ev'}_Knwk) =|> 
+                   State':= 6 /\ Mk':= new()        
+                              /\ secret(Mk',link_key,{U,V})
+                              /\ SND({MAC(Mk'.Mu)}_Knwk)  
+                              /\ witness(V,U,mac_u,MAC(Mk'.Mu))
+                              
+		4. State  = 6 /\ RCV({MAC(Mk'.Mv)}_Knwk) =|> 
+                   State':= 8 /\ wrequest(V,U,mac_v,MAC(Mk'.Mv))
+end role
+
+
+role sed_or_esi(V,U       : agent,
+		MAC       : hash_func,
+		Knwk,Ktcl : symmetric_key,
+		Cv,Pv     : text,
+                CA        : public_key,
+                Mu,Mv     : protocol_id,
+		SND,RCV   : channel(dy))
+played_by V
+def=
+	local   State:nat,
+                Cu,EPv:text,
+                Eu,Ev:public_key,
+                Mk:symmetric_key
+	init    State := 1
+        accept  State  = 7
+	transition
+		1. State  = 1 /\ RCV({Cu'}_Knwk) =|> 
+                   State':= 3 /\ SND({Cv}_Knwk) 
+                              
+
+		2. State  = 3 /\ RCV({Eu'}_Knwk) =|> 
+                   State':= 5 /\ Ev':=new() 
+                              /\ EPv':=new() 
+                              /\ Mk':= new()
+                              /\ secret(Mk',link_key,{U,V})
+                              /\ SND({Ev'}_Knwk) 
+                              
+
+		3. State  = 5 /\ RCV({MAC(Mk'.Mu)}_Knwk) =|> 
+                   State':= 7 /\ SND({MAC(Mk.Mv)}_Knwk)                             
+                              /\ wrequest(V,U,mac_u,MAC(Mk'.Mu))
+                              /\ witness(V,U,mac_v,MAC(Mk.Mv))
+end role
+
+role session(U,V         : agent,
+             MAC         : hash_func,
+             Cu,Pu,Cv,Pv : text,
+             CA          : public_key,
+             Mu,Mv       : protocol_id,
+             Knwk,Ktcl   : symmetric_key)
+def=
+	local   SNDu,RCVu,SNDv,RCVv:channel(dy)
+	composition
+		sed(U,V,MAC,Knwk,Ktcl,Cu,Pu,CA,Mu,Mv,SNDu,RCVu) /\ sed_or_esi(V,U,MAC,Knwk,Ktcl,Cv,Pv,CA,Mu,Mv,SNDv,RCVv)
+end role
+
+role environment()
+def=
+	const u,v         : agent,
+              mac         : hash_func,
+              pu,pv,cu,cv : text,
+              ktcl,kn     : symmetric_key,
+              ca          : public_key,
+              link_key,mac_u,mac_v,mu,mv : protocol_id
+
+	intruder_knowledge = {u,v,mac,ca,cu,cv,pu,pv,mu,mv}
+	composition
+		session(u,v,mac,cu,pu,cv,pv,ca,mu,mv,kn,ktcl) 
+end role
+
+goal
+	secrecy_of link_key
+        weak_authentication_on mac_u,mac_v
+end goal
+
+environment()

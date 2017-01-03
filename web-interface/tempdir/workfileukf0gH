@@ -1,0 +1,54 @@
+role alice (Ui, Sj : agent, 
+                  SKuisj : symmetric_key,
+                  % H is hash function
+                  H : hash_func,
+                  Snd, Rcv: channel(dy))
+
+played_by Ui def=
+
+local State : nat,
+
+RPWi, PWi, Xu, K, H1, IDi, R1, R2: text, N, V, C1, C2, S2, A, B : text
+
+const alice_bob_r1, bob_alice_r2, subs1, subs2 : protocol_id
+
+init State := 0
+
+transition
+
+%%% Registration phase 
+1. State = 0 /\ Rcv(start) =|>
+
+State' := 1 /\ RPWi' := H(Xu.PWi)
+
+                    /\ Snd({IDi.RPWi'}_SKuisj)
+                    /\ secret({K, H1}, subs1, Sj)
+
+                    /\ secret({PWi, Xu}, subs2, Ui)
+
+2. State = 1 /\ Rcv({IDi.H.xor( xor(H(K.IDi), H(H(Xu.PWi). H(H(Xu.PWi).K))), H1). H(H(Xu.PWi).K) }_SKuisj) =|>
+
+%%%% Login phase
+
+State' := 2 /\ R1' := new()
+
+                     /\ S2' := H(H(Xu.PWi).H(H(Xu.PWi).K)) 
+                     /\ N' := xor( xor(H(K.IDi), H(H(Xu.PWi).
+
+H(H(Xu.PWi).K))), H1) /\ C1' := xor(R1', S2')
+
+/\ Snd(N'.IDi.C1'.h(R1'))
+
+/\ witness(Ui, Sj, alice_bob_r1, R1')
+
+%%%%% Verification phase
+
+3. State = 2 /\ Rcv(xor(R2', H(R1'.H(H(Xu.PWi). H(H(Xu.PWi).K)))). H(H(H(Xu.PWi).H(H(Xu.PWi).K)). R2'.R1')) =|>
+
+State' := 3 /\ C2' := xor(H(R2'.H(H(Xu.PWi).H(H(Xu.PWi).K))), H(H(Xu.PWi). H(H(Xu.PWi).K)))
+
+/\ Snd(C2')
+
+/\ request(Sj, Ui, bob_alice_r2, R2')
+
+end role

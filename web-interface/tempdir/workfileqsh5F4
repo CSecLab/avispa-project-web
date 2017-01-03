@@ -1,0 +1,80 @@
+role reader ( R,T: agent, 
+               K,Kec : symmetric_key,
+			   Rsy,C: text,
+               G : hash_func,
+			   Kr : public_key,
+               Snd,Rec: channel(dy))
+    played_by R
+    def=
+      local  State  : nat,
+             Nr, E : text
+            
+            init State := 0 
+      transition
+       1. State = 0
+          /\ Rec(start)  =|>  State' := 1
+          /\ Nr' := new() 
+          /\ Snd(Nr') 
+          /\ witness(R,T,aut_reader,Nr')
+       2. State = 1
+          /\ Rec(Snd({{xor(C,E')}_Kec.G(xor(E',G(xor(Nr,xor(K,Rsy)))))}_Kr)) 
+          =|>  State' := 2 /\ Snd(G(xor(Nr,G(xor(E',xor(K,Rsy))))))
+          /\ request(R,T,aut_tag,Nr)
+    
+end role
+    role tag ( R,T: agent, 
+               K,Kec : symmetric_key,
+			   Rsy,C: text,
+               G : hash_func,
+			   Kr : public_key,
+               Snd,Rec: channel(dy))
+    played_by T
+    def=
+      local  State  : nat,
+             Nr, E : text
+      init State := 0       
+      transition
+       1. State = 0 /\ Rec(Nr') 
+          =|>
+          State' := 1
+        /\ E' := new()   
+        /\ Snd({{xor(C,E')}_Kec.G(xor(E',G(xor(Nr',xor(K,Rsy)))))}_Kr)
+        /\ witness(T,R,aut_tag,Nr')
+        
+       2. State = 1 /\ Rec(G(xor(Nr,G(xor(E,xor(K,Rsy))))))
+          =|> 
+          State' := 2       
+        /\ request(T,R,aut_reader,Nr)      
+end role
+
+role session(R,T: agent, 
+               K,Kec : symmetric_key,
+			   Rsy,C: text,
+               G : hash_func,
+			   Kr : public_key) 
+def=
+local Se,Re,Sf,Rf : channel(dy)
+const aut_reader, aut_tag : protocol_id
+composition
+tag(T,R,K,Kec,Rsy,C,G,Kr,Se,Re)
+/\ reader(R,T,K,Kec,Rsy,C,G,Kr,Sf,Rf)
+end role
+
+role environment() def=
+const t,r : agent,
+      rs,c : text,
+	  k,kec : symmetric_key,
+      g : hash_func,
+	  kr,ki : public_key
+intruder_knowledge = {t,r,g,kr}
+composition
+session(t,r,k,kec,rs,c,g,kr) 
+end role
+
+    goal
+  
+  %  authentication_on aut_reader
+     authentication_on aut_tag
+    end goal
+
+    environment()

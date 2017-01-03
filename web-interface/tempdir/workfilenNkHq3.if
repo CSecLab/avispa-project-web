@@ -1,0 +1,70 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilenNkHq3
+
+section signature:
+
+state_board: agent * agent * agent * public_key * public_key * public_key * nat * crypt(public_key,crypt(public_key,pair(agent,pair(agent,pair(text,pair(text,pair(text,text))))))) * text * text * nat -> fact
+state_user: agent * agent * agent * public_key * public_key * public_key * nat * crypt(public_key,crypt(public_key,pair(agent,pair(agent,pair(text,pair(text,pair(text,text))))))) * text * text * text * text * text * set(agent) * nat -> fact
+
+
+section types:
+
+set_69: set
+Dummy_Set_26, Set_26, ASGoal: set(agent)
+S1, N2, Dummy_N2, Dummy_N1, Dummy_S1, Dummy_A, Dummy_O, O, dummy_nonce, A, N1: text
+start, MGoal: message
+ReqH, Dummy_ReqH: crypt(public_key,crypt(public_key,pair(agent,pair(agent,pair(text,pair(text,pair(text,text)))))))
+4, 2, State, SID, Dummy_State, 3, 1: nat
+user_host_s1: protocol_id
+Ku, Kh, Kb, dummy_pk, ku, kh, kb, ki: public_key
+U, H, B, dummy_agent, u, h, b, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(u).
+ iknows(h).
+ iknows(b).
+ iknows(ku).
+ iknows(kh).
+ iknows(kb).
+ iknows(ki).
+ iknows(i).
+ state_user(u,h,b,ku,kh,kb,1,crypt(dummy_pk,crypt(dummy_pk,pair(dummy_agent,pair(dummy_agent,pair(dummy_nonce,pair(dummy_nonce,pair(dummy_nonce,dummy_nonce))))))),dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_69,3).
+ state_board(b,u,h,ku,kh,kb,2,crypt(dummy_pk,crypt(dummy_pk,pair(dummy_agent,pair(dummy_agent,pair(dummy_nonce,pair(dummy_nonce,pair(dummy_nonce,dummy_nonce))))))),dummy_nonce,dummy_nonce,4)
+
+
+section rules:
+
+step step_0 (U,H,B,Ku,Kh,Kb,Dummy_ReqH,Dummy_O,Dummy_A,Dummy_S1,Dummy_N1,Dummy_N2,Dummy_Set_26,SID,O,A,S1,N1,N2) :=
+ state_user(U,H,B,Ku,Kh,Kb,1,Dummy_ReqH,Dummy_O,Dummy_A,Dummy_S1,Dummy_N1,Dummy_N2,Dummy_Set_26,SID).
+ iknows(start)
+=[exists S1,N2,N1,A,O]=>
+ state_user(U,H,B,Ku,Kh,Kb,3,crypt(Kh,crypt(Ku,pair(U,pair(H,pair(O,pair(A,pair(S1,N1))))))),O,A,S1,N1,N2,Dummy_Set_26,SID).
+ iknows(pair(crypt(Kh,crypt(Ku,pair(U,pair(H,pair(O,pair(A,pair(S1,N1))))))),crypt(Kb,crypt(Ku,pair(S1,N2))))).
+ secret(N2,n2,Dummy_Set_26).
+ contains(U,Dummy_Set_26).
+ contains(B,Dummy_Set_26)
+
+step step_1 (B,U,H,Ku,Kh,Kb,Dummy_ReqH,Dummy_S1,Dummy_N2,SID,ReqH,S1,N2) :=
+ state_board(B,U,H,Ku,Kh,Kb,2,Dummy_ReqH,Dummy_S1,Dummy_N2,SID).
+ iknows(pair(ReqH,crypt(Kb,crypt(Ku,pair(S1,N2)))))
+ =>
+ state_board(B,U,H,Ku,Kh,Kb,4,ReqH,S1,N2,SID)
+
+
+section properties:
+
+property secrecy_of_n2 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,n2,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_n2 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,n2,ASGoal) &
+ not(contains(i,ASGoal))
+

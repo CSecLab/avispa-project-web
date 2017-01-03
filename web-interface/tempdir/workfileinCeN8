@@ -1,0 +1,121 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Q4(a): Principles of Information Security
+%        End Semester Examination (Spring 2015)
+% Protocol: Secrete key distrubution between two parties
+% A and B in order to establish a secret session key Ks
+% between them.
+% Author: Ashok Kumar Das
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%% Role for User A %%%%%%%%%%%%%%%%%%%%%%%%
+role userA (A, B : agent,
+% public key of user A
+        KUa : public_key,
+% public key of user B
+        KUb : public_key,
+        Snd, Rcv: channel(dy))
+
+played_by A
+def=
+ local State : nat,
+       IDa, N1, N2, Ks: text,
+       M : text
+ const a_b_n1, b_a_n2, a_b_ks, s1: protocol_id
+
+init State := 0
+transition
+1. State = 0 /\ Rcv(start) =|>
+State' := 1  /\ N1' := new()
+             /\ secret(IDa, s1, {A,B})
+% Send the message E_KUb[IDa, N1] to B 
+             /\ Snd({IDa.N1'}_KUb)
+% A has freshly generated the value N1' for B
+            /\ witness(A, B, a_b_n1, N1')
+
+% A receives the message E_KUa[N1, N2] from B 
+2. State = 1 /\ Rcv({N1'.N2'}_KUa) =|>
+% Send the message E_KUb[N2] back to B 
+State' := 2  /\ Snd({N2'}_KUb)
+% Send the message E_KUa[Ks] to B 
+             /\ Ks' := new()
+             /\ Snd({{Ks'}_(inv(KUa))}_(inv(KUb)))
+% A has freshly generated the value Ks' for B
+            /\ witness(A, B, a_b_ks, Ks')
+% A's acceptance of the value N2 generated for A by B
+             /\ request(B, A, b_a_n2, N2')
+end role
+
+%%%%%%%%%%%%%%% Role for User B %%%%%%%%%%%%%%%%%%%%%%%%
+role userB (A, B : agent,
+% public key of user A
+        KUa : public_key,
+% public key of user B
+        KUb : public_key,
+        Snd, Rcv: channel(dy))
+
+played_by B
+def=
+ local State : nat,
+       IDa, N1, N2, Ks: text,
+       M : text
+ const a_b_n1, b_a_n2, a_b_ks, s1: protocol_id
+
+init State := 0
+transition
+% B receives the message E_KUb[IDa, N1] from A 
+1. State = 0 /\ Rcv({IDa.N1'}_KUb) =|>
+State' := 1  /\ N2' := new()
+             /\ secret(IDa, s1, {A,B})
+% Send the message E_KUa[N1, N2] to A 
+             /\ Snd({N1'.N2'}_KUa)
+% B has freshly generated the value N2' for A
+            /\ witness(B, A, b_a_n2, N2')
+
+% B receives the message  E_KUb[N2] from A 
+2. State = 1 /\ Rcv({N2'}_KUb) =|>
+% B receives the message E_KUa[Ks] from A
+State' := 2  
+3. State = 2 /\ Rcv({{Ks'}_(inv(KUa))}_(inv(KUb))) =|>
+% B's acceptance of the value N1 generated for B by A
+State' := 3  /\ request(A, B, a_b_n1, N1)
+% B's acceptance of the value Ks generated for B by A
+             /\ request(A, B, a_b_ks, Ks')
+end role
+
+
+%%%%%%%%%%%%%%% Role for Session %%%%%%%%%%%%%%%%%%%%%%%%
+role session(A, B : agent,
+% public key of user A
+        KUa : public_key,
+% public key of user B
+        KUb : public_key)
+def=
+  local SN1, SN2, RV1, RV2: channel (dy)
+composition
+   userA(A, B, KUa, KUb, SN1, RV1)
+/\ userB(A, B, KUa, KUb, SN1, RV1)
+end role
+
+
+%%%%%%%%%%%%%%% Role for Goal and Environment %%%%%%%%%%%
+role environment()
+def=
+  const a, b: agent,
+        kua, kub : public_key,
+        a_b_n1, b_a_n2, a_b_ks, s1: protocol_id
+
+intruder_knowledge = {a, b, kua, kub}
+composition
+   session(a, b, kua, kub)
+/\ session(i, b, kua, kub)
+/\ session(a, i, kua, kub)
+end role
+
+goal
+  secrecy_of s1
+  authentication_on a_b_n1
+  authentication_on a_b_ks
+  authentication_on b_a_n2
+end goal
+environment()
+

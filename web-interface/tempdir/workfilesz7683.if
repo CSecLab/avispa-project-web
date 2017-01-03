@@ -1,0 +1,78 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilesz7683
+
+section signature:
+
+state_bob: agent * agent * hash_func * symmetric_key * text * apply(hash_func,message) * apply(hash_func,message) * nat * nat -> fact
+state_alice: agent * agent * hash_func * symmetric_key * text * apply(hash_func,message) * apply(hash_func,message) * nat * nat -> fact
+
+
+section types:
+
+h, auth_a: protocol_id
+H, AUTH_A, Dummy_AUTH_A: apply(hash_func,message)
+IPDATAGRAM, Dummy_IPDATAGRAM, dummy_nonce: text
+3, State, 2, 10, 1, 6, 0, 4, SID, Dummy_State: nat
+ASGoal: set(agent)
+start, dummy_msg, MGoal: message
+a, b, B, A, A2Goal, A1Goal, i: agent
+kab, kai, kib, PSK, psk: symmetric_key
+F, f: hash_func
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(f).
+ iknows(a).
+ iknows(b).
+ iknows(kai).
+ iknows(kib).
+ iknows(i).
+ state_alice(a,b,f,psk,dummy_nonce,dummy_msg,dummy_msg,0,3).
+ state_bob(b,a,f,psk,dummy_nonce,dummy_msg,dummy_msg,1,4).
+ state_alice(a,i,f,kai,dummy_nonce,dummy_msg,dummy_msg,0,6).
+ state_bob(b,i,f,kib,dummy_nonce,dummy_msg,dummy_msg,1,10)
+
+
+section rules:
+
+step step_0 (A,B,F,PSK,Dummy_IPDATAGRAM,H,Dummy_AUTH_A,SID,IPDATAGRAM) :=
+ state_alice(A,B,F,PSK,Dummy_IPDATAGRAM,H,Dummy_AUTH_A,0,SID).
+ iknows(start)
+=[exists IPDATAGRAM]=>
+ state_alice(A,B,F,PSK,IPDATAGRAM,H,apply(F,IPDATAGRAM),2,SID).
+ iknows(scrypt(PSK,pair(A,pair(IPDATAGRAM,apply(F,IPDATAGRAM))))).
+ witness(A,B,auth_a,apply(F,IPDATAGRAM))
+
+step step_1 (B,A,F,PSK,Dummy_IPDATAGRAM,H,Dummy_AUTH_A,SID,IPDATAGRAM) :=
+ state_bob(B,A,F,PSK,Dummy_IPDATAGRAM,H,Dummy_AUTH_A,1,SID).
+ iknows(scrypt(PSK,pair(A,pair(IPDATAGRAM,AUTH_A))))
+ =>
+ state_bob(B,A,F,PSK,IPDATAGRAM,H,apply(F,IPDATAGRAM),3,SID)
+
+
+section properties:
+
+property secrecy_of_psk (MGoal,ASGoal) :=
+ [] ((secret(MGoal,psk,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property weak_authentication_on_auth_a (A1Goal,A2Goal,MGoal,SID) :=
+ [] ((wrequest(A1Goal,A2Goal,auth_a,MGoal,SID)
+      /\ ~ equal(A2Goal,i))
+     => witness(A2Goal,A1Goal,auth_a,MGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_psk (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,psk,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state weak_authentication_on_auth_a (A1Goal,A2Goal,MGoal,SID) :=
+ wrequest(A1Goal,A2Goal,auth_a,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,auth_a,MGoal)) &
+ not(equal(A2Goal,i))
+

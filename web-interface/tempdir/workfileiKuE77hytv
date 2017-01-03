@@ -1,0 +1,141 @@
+role aaa_MIP_FA (FA,AAAL,AAAH,MN: agent,
+                 Snd, Rcv: channel(dy),
+                 K_FaAAAL: symmetric_key)
+played_by FA
+def=
+
+  local
+    State              : nat,
+    K_MnFa, K_FaHa     : symmetric_key,
+    SignedRegReq       : {agent.(agent.agent)}_symmetric_key,
+    KeyMnHaKeyMnFa     : {symmetric_key.symmetric_key}_symmetric_key,
+    SignKeyMnHaKeyMnFa : 
+         {{symmetric_key.symmetric_key}_symmetric_key}_symmetric_key
+
+  init State := 0
+
+  transition
+
+   1. State = 0
+      / Rcv(start)
+      =|> 
+      State' := 1
+      / Snd(FA.FA) 
+
+   2. State = 1
+      / Rcv(FA.MN.AAAH.SignedRegReq')
+      =|> 
+      State' := 2
+      / Snd(FA.MN.AAAH.SignedRegReq') 
+	
+   3. State = 2
+      / Rcv( FA.{K_MnFa'.K_FaHa'}_K_FaAAAL.
+              KeyMnHaKeyMnFa'.SignKeyMnHaKeyMnFa'.
+              {FA.{K_MnFa'.K_FaHa'}_K_FaAAAL.
+               KeyMnHaKeyMnFa'.SignKeyMnHaKeyMnFa'}_K_FaAAAL)
+      =|>
+      State' := 3
+      / Snd(KeyMnHaKeyMnFa'.SignKeyMnHaKeyMnFa') 
+      / wrequest(FA,AAAH,k_faha1,K_FaHa')
+      / wrequest(FA,AAAH,k_mnfa1,K_MnFa')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role aaa_MIP_AAAL (AAAL,AAAH,FA,MN: agent,
+                  Snd, Rcv: channel(dy),
+                  K_FaAAAL,K_AAAHAAAL: symmetric_key)
+played_by AAAL
+def=
+
+  local
+    State                : nat,
+    K_MnFa,K_FaHa        : symmetric_key,
+    SignedRegReq         : {agent.(agent.agent)}_symmetric_key,
+    KeyMnFaKeyMnHa       : {symmetric_key.symmetric_key}_symmetric_key,
+    SignedKeyMnFaKeyMnHa : 
+           {{symmetric_key.symmetric_key}_symmetric_key}_symmetric_key
+
+  init State := 0
+  
+  transition
+
+   1. State = 0
+      / Rcv(FA.MN.AAAH.SignedRegReq')
+      =|> 
+      State' := 1 
+      / Snd(FA.MN.AAAH. SignedRegReq') 
+
+   2. State = 1
+      / Rcv( FA.{K_MnFa'.K_FaHa'}_K_AAAHAAAL.
+              KeyMnFaKeyMnHa'.SignedKeyMnFaKeyMnHa'.
+              {FA.{K_MnFa'.K_FaHa'}_K_AAAHAAAL.
+               KeyMnFaKeyMnHa'.SignedKeyMnFaKeyMnHa'}_K_AAAHAAAL)
+      =|>
+      State' := 2
+      / Snd( FA.{K_MnFa'.K_FaHa'}_K_FaAAAL.
+                 KeyMnFaKeyMnHa'.SignedKeyMnFaKeyMnHa'.
+             {FA.{K_MnFa'.K_FaHa'}_K_FaAAAL.
+                 KeyMnFaKeyMnHa'.SignedKeyMnFaKeyMnHa'}_K_FaAAAL)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role aaa_MIP_AAAH (AAAH,AAAL,HA,FA,MN : agent,
+           Snd, Rcv : channel(dy),
+           K_MnAAAH,
+           K_AAAHAAAL,
+           KAAAHHa : symmetric_key)
+played_by AAAH
+def=
+
+  local  State                : nat,
+	 K_FaHa,K_MnHa,K_MnFa : symmetric_key
+
+  const  secFAHA, secFAMN, secMNHA   : protocol_id
+
+  init   State := 0
+
+  transition
+
+   1. State   = 0
+      / Rcv(FA.MN.AAAH.{FA.MN.AAAH}_K_MnAAAH)
+      =|> 
+      State' := 1
+      / K_MnHa' := new()
+      / K_MnFa' := new()
+      / K_FaHa' := new()
+      / Snd( MN.{K_MnHa'.K_FaHa'}_KAAAHHa.
+                 {K_MnFa'.K_MnHa'}_K_MnAAAH.
+                 {MN.{K_MnHa'.K_FaHa'}_KAAAHHa.
+                     {K_MnFa'.K_MnHa'}_K_MnAAAH}_KAAAHHa)
+      / witness(AAAH,FA,k_faha1,K_FaHa')
+      / witness(AAAH,HA,k_faha2,K_FaHa')
+      / witness(AAAH,FA,k_mnfa1,K_MnFa')
+      / witness(AAAH,MN,k_mnfa2,K_MnFa')
+      / witness(AAAH,MN,k_mnha2,K_MnHa')
+      / witness(AAAH,HA,k_mnha1,K_MnHa')
+
+   2. State = 1
+      / Rcv( {K_MnFa.K_MnHa}_K_MnAAAH.
+              {{K_MnFa.K_MnHa}_K_MnAAAH}_K_MnHa.
+               {{K_MnFa.K_MnHa}_K_MnAAAH.
+                {{K_MnFa.K_MnHa}_K_MnAAAH}_K_MnHa}_KAAAHHa)
+      =|>
+      State' := 2
+      / Snd( FA.{K_MnFa.K_FaHa}_K_AAAHAAAL.{K_MnFa.K_MnHa}_K_MnAAAH.
+                {{K_MnFa.K_MnHa}_K_MnAAAH}_K_MnHa.
+	     {FA.{K_MnFa.K_FaHa}_K_AAAHAAAL.{K_MnFa.K_MnHa}_K_MnAAAH.
+                {{K_MnFa.K_MnHa}_K_MnAAAH}_K_MnHa}_K_AAAHAAAL)	
+      / secret(K_FaHa,secFAHA,{FA,HA}) 
+      / secret(K_MnFa,secFAMN,{FA,MN})
+      / secret(K_MnHa,secMNHA,{MN,HA})
+
+end role
+
+
+
+environment()
+ 

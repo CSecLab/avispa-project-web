@@ -1,0 +1,103 @@
+%% HLPSL:
+role susrv (S,U    : agent,
+                Pks,Pku    : public_key, 
+                Snd,Rec: channel(dy))
+played_by S
+def=
+
+  local  State     : nat,
+         Rs   	   : text,
+         Ru	: text
+
+  init State := 0
+
+  transition
+
+   1. State = 0   /\ Rec(start) =|>
+    State' := 2   /\ Rs' := new()
+      /\ Snd({S.Rs'}_Pku)
+      /\ secret(Rs',rs,{S,U}) 
+      /\ witness(S,U,u_s_rs,Rs')
+
+   2. State = 2   /\ Rec({U.Rs.Ru'}_Pks)  =|>
+    State' := 4 /\ Snd({Ru'}_Pku)
+      /\ request(S,U,s_u_ru,Ru')
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role ue (U,S    : agent,
+                Pku,Pks: public_key,
+                Snd,Rec: channel(dy))
+played_by U
+def=
+
+  local  State     : nat,
+         Ru	   : text,
+         Rs : text
+
+  init State := 1
+
+  transition
+
+   1. State = 1
+      /\ Rec({S.Rs'}_Pku)  =|> 
+      State' := 3
+      /\ Ru' := new()
+      /\ Snd({U.Rs'.Ru'}_Pks)
+      /\ secret(Ru',ru,{S,U}) 
+      /\ witness(U,S,s_u_ru,Ru')
+
+   3. State = 3  /\ Rec({Ru}_Pku)   =|> 
+      State' := 5  /\ request(U,S,u_s_rs,Rs)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role session (S, U : agent,
+	      Pku  : public_key,
+              Pks  : public_key) def=
+
+  local SU, RU, SS, RS: channel (dy)
+  composition
+
+          susrv(S,U,Pks,Pku,SS,RS)
+       /\ ue(U,S,Pku,Pks,SU,RU)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role environment() def=
+
+  const  ru,rs,u_s_rs, s_u_ru 	       : protocol_id,
+         u,s,i         : agent,	
+         pku,pks,pki   : public_key
+  
+  intruder_knowledge={i,u,s,pku,pks,pki,inv(pki),{pki.i}_inv(pks)}   
+
+  composition
+
+	session(u,s,pku,pks)
+     /\	session(u,i,pku,pki)
+     /\	session(i,s,pki,pks)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+goal
+
+   secrecy_of ru, rs
+   authentication_on u_s_rs
+   authentication_on s_u_ru
+
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+environment()

@@ -1,0 +1,82 @@
+%% IF specification of /home/compa/Work/Projects/AVISPA/AVISPA-FET-EU-02/shared/assessment_I_Year/hlpsl/EKE2.problems-corrected.hlpsl
+
+section signature:
+
+state_Eke2_Resp: agent * agent * text * function * symmetric_key * nat * text * text * message * message * nat -> fact
+state_Eke2_Init: agent * agent * text * function * symmetric_key * nat * text * text * message * message * nat -> fact
+
+
+section types:
+
+mk : protocol_id
+10, State, 6, 4, CID, 3, CID2, CID1, 1, 2, 0 : nat
+Kab, kib, kai, kab : symmetric_key
+H, h : function
+GX, MK, Dummy_GX, Dummy_MK, Dummy_GY, dummy_msg, MGoal, GY, start : message
+G, X, Y, Dummy_Y, Dummy_X, dummy_nonce, one, two, g : text
+A, B, AGoal, i, b, a : agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(kib).
+ iknows(two).
+ iknows(h).
+ iknows(g).
+ iknows(kai).
+ iknows(one).
+ iknows(a).
+ iknows(b).
+ iknows(start).
+ iknows(i).
+ state_Eke2_Init(a,b,g,h,kab,0,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,3).
+ state_Eke2_Resp(b,a,g,h,kab,0,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,4).
+ state_Eke2_Init(a,i,g,h,kai,0,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,6).
+ state_Eke2_Resp(b,i,g,h,kib,0,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,10)
+
+
+section rules:
+
+step step_0 (A,B,G,H,Kab,Dummy_X,Y,GY,MK,X,CID) :=
+ state_Eke2_Init(A,B,G,H,Kab,0,Dummy_X,Y,GY,MK,CID).
+ iknows(start)
+=[exists X]=>
+ state_Eke2_Init(A,B,G,H,Kab,1,X,Y,GY,MK,CID).
+ iknows(scrypt(Kab,exp(G,X)))
+
+step step_1 (A,B,G,H,Kab,X,Dummy_Y,Dummy_GY,Dummy_MK,Y,CID) :=
+ state_Eke2_Init(A,B,G,H,Kab,1,X,Dummy_Y,Dummy_GY,Dummy_MK,CID).
+ iknows(pair(scrypt(Kab,exp(G,Y)),apply(H,pair(apply(H,pair(pair(pair(pair(A,B),exp(G,X)),exp(G,Y)),exp(exp(G,Y),X))),one))))
+ =>
+ state_Eke2_Init(A,B,G,H,Kab,2,X,Y,exp(G,Y),apply(H,pair(pair(pair(pair(A,B),exp(G,X)),exp(G,Y)),exp(exp(G,Y),X))),CID).
+ iknows(apply(H,pair(apply(H,pair(pair(pair(pair(A,B),exp(G,X)),exp(G,Y)),exp(exp(G,Y),X))),two))).
+ witness(A,B,mk,apply(H,pair(pair(pair(pair(A,B),exp(G,X)),exp(G,Y)),exp(exp(G,Y),X))))
+
+step step_2 (B,A,G,H,Kab,Dummy_Y,Dummy_X,Dummy_GX,Dummy_MK,Y,X,CID) :=
+ state_Eke2_Resp(B,A,G,H,Kab,0,Dummy_Y,Dummy_X,Dummy_GX,Dummy_MK,CID).
+ iknows(scrypt(Kab,exp(G,X)))
+=[exists Y]=>
+ state_Eke2_Resp(B,A,G,H,Kab,1,Y,X,exp(G,X),apply(H,pair(pair(pair(pair(A,B),exp(G,X)),exp(G,Y)),exp(exp(G,X),Y))),CID).
+ iknows(pair(scrypt(Kab,exp(G,Y)),apply(H,pair(apply(H,pair(pair(pair(pair(A,B),exp(G,X)),exp(G,Y)),exp(exp(G,X),Y))),one))))
+
+step step_3 (B,A,G,H,Kab,Y,X,GX,MK,CID) :=
+ state_Eke2_Resp(B,A,G,H,Kab,1,Y,X,GX,MK,CID).
+ iknows(apply(H,pair(apply(H,pair(pair(pair(pair(A,B),GX),exp(G,Y)),exp(GX,Y))),two)))
+ =>
+ state_Eke2_Resp(B,A,G,H,Kab,2,Y,X,GX,MK,CID).
+ request(B,A,mk,apply(H,pair(pair(pair(pair(A,B),GX),exp(G,Y)),exp(GX,Y))),CID)
+
+
+section goals:
+
+goal authenticate_MK (A,B,MK,CID) :=
+ request(B,A,mk,MK,CID).
+ not(witness(A,B,mk,MK)) &
+ not(equal(A,i))
+goal replay_protection_MK (A,B,MK,CID1,CID2) :=
+ request(B,A,mk,MK,CID1).
+ request(B,A,mk,MK,CID2) &
+ not(equal(CID1,CID2)) &
+ not(equal(A,i))
+

@@ -1,0 +1,59 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileXE5K19
+
+section signature:
+
+state_bob: agent * agent * text * nat * text * text * message * message * nat -> fact
+state_alice: agent * agent * text * nat * text * text * message * message * nat -> fact
+
+
+section types:
+
+Dummy_State, 3, SID, 0, State, 2, 1, 4: nat
+a, b, B, A, i: agent
+dummy_msg, Y, K, start, X, Dummy_Y, Dummy_K, Dummy_X: message
+Dummy_Na, dummy_nonce, g, ni, Nb, Nsecret, G, Na, Dummy_Nb, Dummy_Nsecret: text
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(g).
+ iknows(ni).
+ iknows(i).
+ state_alice(a,b,g,1,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,3).
+ state_bob(b,a,g,0,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,4)
+
+
+section rules:
+
+step step_0 (A,B,G,Dummy_Na,Nsecret,X,K,SID,Na) :=
+ state_alice(A,B,G,1,Dummy_Na,Nsecret,X,K,SID).
+ iknows(start)
+=[exists Na]=>
+ state_alice(A,B,G,2,Na,Nsecret,X,K,SID).
+ iknows(exp(G,Na))
+
+step step_1 (A,B,G,Na,Dummy_Nsecret,Dummy_X,Dummy_K,SID,Nsecret,X) :=
+ state_alice(A,B,G,2,Na,Dummy_Nsecret,Dummy_X,Dummy_K,SID).
+ iknows(X)
+=[exists Nsecret]=>
+ state_alice(A,B,G,3,Na,Nsecret,X,exp(X,Na),SID).
+ iknows(scrypt(exp(X,Na),Nsecret))
+
+step step_2 (B,A,G,Dummy_Nb,Nsecret,Dummy_Y,Dummy_K,SID,Nb,Y) :=
+ state_bob(B,A,G,0,Dummy_Nb,Nsecret,Dummy_Y,Dummy_K,SID).
+ iknows(Y)
+=[exists Nb]=>
+ state_bob(B,A,G,1,Nb,Nsecret,Y,exp(Y,Nb),SID).
+ iknows(exp(G,Nb))
+
+step step_3 (B,A,G,Nb,Dummy_Nsecret,Y,K,SID,Nsecret) :=
+ state_bob(B,A,G,1,Nb,Dummy_Nsecret,Y,K,SID).
+ iknows(scrypt(K,Nsecret))
+ =>
+ state_bob(B,A,G,2,Nb,Nsecret,Y,K,SID)
+
+

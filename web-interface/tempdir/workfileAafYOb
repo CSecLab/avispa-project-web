@@ -1,0 +1,93 @@
+role noeud (N,C: agent, Mac:hash_func,H:hash_func,Ch:hash_func,Snd,Rcv: channel(dy))
+
+played_by N
+def=
+
+local State : nat,
+No: text,
+Key:message,
+Index:text set,
+F:text set,
+Fprime:text set
+
+init State := 0 
+transition
+
+1. State = 0 /\ Rcv(start)
+=|>State' := 1
+			  /\ No' := new()
+			  /\ F'  := new()
+			  /\ Fprime' := new()		
+			  /\ Snd(N.C.No'.Ch(F'.Fprime').Mac(No'.Fprime'))
+		      /\ Key':=H(F'.Fprime')
+			  /\ secret(Key',key,{N,C})
+			 
+2. State = 1  /\ Rcv({N.C.Index'}_Key.Mac(Key,Index'.N.C))
+=|> State' := 2 
+			  /\ Snd(Mac(Key,No.Index))
+			  /\ witness(N,C,noeud_coordinateur_index,Index)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role coordinateur (N,C: agent,Mac:hash_func,H:hash_func,Ch:hash_func,Snd,Rcv: channel(dy))
+
+played_by C
+def=
+
+local State : nat,
+No: text,
+Key:message,
+Index:text set,
+F:text set,
+Fprime:text set
+
+init State := 0
+transition
+1. State = 0/\ Rcv(N.C.No'.Ch(F'.Fprime').Mac(No'.Fprime'))
+=|>State' := 1
+			/\ Index':=new()
+			/\ Key':=H(F'.Fprime')
+			/\ Snd({N.C.Index'}_Key'.Mac(Key',Index'.N.C))
+            
+2. State = 1 /\ Rcv(Mac(Key,No.Index))
+=|>State' := 2
+			 /\ request(N,C,noeud_coordinateur_index,Index)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(N,C: agent,Mac:hash_func,H:hash_func,Ch:hash_func )
+def=
+local SN, RN, SC, RC: channel (dy)
+
+composition
+noeud(N,C,Mac,H,Ch,SN,RN)
+/\ coordinateur(N,C,Mac,H,Ch,SC,RC)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+def=
+const n, c, i : agent,
+mac:hash_func,
+h:hash_func,
+ch:hash_func,
+key , noeud_coordinateur_index: protocol_id
+intruder_knowledge={n,c,mac,h}
+
+composition
+session(n,c,mac,h,ch)
+/\ session(n,i,mac,h,ch)%%% intruder impersonates coordinateur
+/\session(i,c,mac,h,ch)%%% intruder impersonates noeud capteur
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+secrecy_of key
+authentication_on noeud_coordinateur_index
+
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

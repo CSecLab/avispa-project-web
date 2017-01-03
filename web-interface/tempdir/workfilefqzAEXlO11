@@ -1,0 +1,151 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role admin (SA,HN,N:agent, KHN,KN,IDN:text, SK:symmetric_key, H:hash_func, Snd,Rcv:channel(dy))
+played_by SA
+def=
+local State:nat,
+AN,BN:text
+const secKHN,secIDN,secKN,node_hubnode: protocol_id
+init State:=0
+transition
+1. State =0 /\ Rcv(start) =|>
+State':=1 /\ 
+AN':=xor(IDN,H(KHN.KN)) /\ 
+BN':= xor(xor(KHN,AN'),KN) /\
+Snd({IDN.AN'.BN'}_SK) 
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role node (SA,HN,N:agent, SK:symmetric_key, H:hash_func, Snd,Rcv:channel(dy))
+played_by N
+def=
+local State:nat,
+IDN,AN,BN,YN,TN,TIDN,XN,RN,FN,KNnew,ANnew,BNnew,Alpha,Eta,Gamma,Beta,MU,KS:text
+const secKHN,secIDN,secKN,node_hubnode: protocol_id
+init State:=0
+transition
+1. State =0 /\ Rcv({IDN.AN'.BN'}_SK) =|>
+State':=1 /\ 
+RN':=new() /\ 
+TN':=new() /\ 
+XN':=xor(AN',IDN) /\
+YN':= xor(XN',RN') /\
+TIDN':= H(xor(IDN,TN').RN') /\
+Snd(TIDN'.YN'.AN'.BN'.TN') 
+2. State =1 /\ Rcv(Alpha'.Beta'.Eta'.MU') =|>
+State' :=2 /\ FN':=xor(XN',Alpha') /\ 
+Beta':=H(XN'.RN'.FN'.Eta'.MU') /\ 
+Gamma':=xor(RN'.FN') /\ 
+ANnew':=xor(Gamma', Eta') /\ 
+BNnew':=xor(Gamma',MU') /\
+KS':=H(IDN'.RN'.FN'.XN') /\ 
+AN':=ANnew' /\ BN':=BNnew /\
+secret(IDN,secIDN,{SA,N,HN})/\
+witness (N,HN,node_hubnode,RN) /\ 
+request (N,HN,node_hubnode,RN)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role hubnode (SA,HN,N:agent, KHN:text, H:hash_func, Snd,Rcv:channel(dy))
+played_by HN
+def=
+local State:nat,
+IDN,KN,AN,BN,YN,TN,TIDN,XN,RN,FN,KNnew,ANnew,BNnew,Alpha,Eta,Gamma,Beta,MU,KS:text
+const secKHN,secIDN,secKN,node_hubnode: protocol_id
+init State:=0
+transition
+1. State =0 /\ Rcv(TIDN'.YN'.AN'.BN'.TN')=|>
+State':=1 /\ KN':=xor(xor(KHN,AN'),BN') /\ 
+XN':=H(KHN.KN') /\ IDN':=xor(XN',AN') /\ 
+RN':=xor(XN',YN') /\ TIDN':=H(xor(IDN',TN').RN') /\
+FN':=new()/\ Alpha':=xor(XN',FN') /\ 
+Gamma':=xor(RN',FN') 
+/\ KNnew':=new() /\ ANnew':=xor(IDN',H(KHN.KNnew')) /\
+BNnew':=xor(xor(KHN,ANnew'),KNnew') /\ 
+Eta':=xor(Gamma',ANnew') /\ MU':=xor(Gamma',BNnew') /\
+Beta':=H(XN'.RN'.FN'.Eta'.MU') /\  KS':=H(IDN'.RN'.FN'.XN') /\
+secret(KHN,secKHN,{SA,HN})/\
+secret(KN,secKN,{SA,HN}) /\
+Snd(Alpha'.Beta'.Eta'.MU') 
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session (SA, HN,N:agent, SK:symmetric_key, H:hash_func, KHN,KN,IDN:text)
+def=
+local SHNch,RHNch,SNch,RNch,SSAch,RSAch,T1,T2:channel(dy)
+composition
+admin (SA,HN,N, KHN,KN,IDN, SK, H, SSAch,RSAch) /\
+hubnode(SA,HN,N,KHN,H,SHNch,RHNch) /\
+node (SA,HN,N,SK,H,SNch,RNch)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+const sa,hn,n:agent, sk:symmetric_key,h:hash_func, khn,kn,idn:text,
+secKHN,secIDN,secKN,node_hubnode:protocol_id
+intruder_knowledge ={sa,hn,n,h}
+composition
+session(sa,hn,n,sk,h,khn,kn,idn)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+secrecy_of  secKHN
+secrecy_of secIDN
+secrecy_of secKN
+authentication_on node_hubnode
+end goal
+environment()
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% OFMC
+% Version of 2006/02/13
+SUMMARY
+  SAFE
+DETAILS
+  BOUNDED_NUMBER_OF_SESSIONS
+PROTOCOL
+  C:\SPAN\testsuite\results\wban.if
+GOAL
+  as_specified
+BACKEND
+  OFMC
+COMMENTS
+STATISTICS
+  parseTime: 0.01s
+  searchTime: -41.78s
+  visitedNodes: 62 nodes
+  depth: 2 plies
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+SUMMARY
+  SAFE
+
+DETAILS
+  BOUNDED_NUMBER_OF_SESSIONS
+  TYPED_MODEL
+
+PROTOCOL
+  C:\SPAN\testsuite\results\wban.if
+
+GOAL
+  As Specified
+
+BACKEND
+  CL-AtSe
+
+STATISTICS
+
+  Analysed   : 3 states
+  Reachable  : 1 states
+  Translation: 0.04 seconds
+  Computation: 0.02 seconds
+
+
+
+
+
+
+
+
+
+

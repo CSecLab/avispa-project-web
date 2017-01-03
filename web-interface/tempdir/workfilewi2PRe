@@ -1,0 +1,90 @@
+role ms(
+	MS,BS:agent,
+	Kmsk:symmetric_key,
+	Hash,Trun:hash_func,
+	SND,RCV:channel(dy))
+played_by MS def=
+  local State :nat,
+        N_ms,N_bs:text,
+	MSid,Gid,BSid:text,
+        Ktck,Kpmk:symmetric_key,
+        Tms:{text.symmetric_key}_symmetric_key,
+        Cmac:{text.text.{text.symmetric_key}_symmetric_key.text}_symmetric_key
+	
+  init State :=0
+  transition
+  1.State  =0/RCV(start)=|>
+    State':=2/Kpmk':=Trun(Kmsk.160)
+	     /Ktck':=Trun(Kpmk.128)
+	     /secret(Ktck',k1,{MS})
+             /N_ms':=new()
+	     /MSid':=new()
+	     /Cmac':={MSid'.Gid.Tms.N_ms'}_Ktck'
+	     /SND((MSid'.BSid.Tms.N_ms').Cmac')
+  2.State  =2/RCV(N_ms'.N_bs'.Gid.Tms'.Cmac')=|>
+    State':=4
+             /SND(N_bs'.N_ms'.Cmac')
+             /equest(MS,BS,bs_ms_cmac,Cmac')
+             /witness(MS,BS,ms_bs_cmac,Cmac')
+end role
+role bs(
+	MS,BS:agent,
+	Kmgk:symmetric_key,
+	Hash,Trun,Dot:hash_func,
+	SND,RCV:channel(dy))
+played_by BS def=
+  local State :nat,
+	N_ms,N_bs:text,
+	MSid,Gid,BSid:text,
+	Ktmgk,Ktck,Kpmk:symmetric_key,
+        Tms:{text.symmetric_key}_symmetric_key,
+        Cmac:{text.text.{text.symmetric_key}_symmetric_key.text}_symmetric_key
+  init State :=1
+  transition
+  1.State  =1/RCV((MSid'.BSid.{MSid'.Kpmk}_Ktmgk.N_ms').Cmac')=|>
+    State':=3/Ktmgk':=Hash(Kmgk.MS)
+	     /secret(Ktmgk',k,{BS})
+	     /MSid':=Dot(Ktck.MSid'.48)
+	     /N_bs':=new()
+	     /Tms':={MSid'.Kpmk}_Ktmgk'
+	     /SND(N_ms'.N_bs'.Gid.Tms'.Cmac')
+             /witness(BS,MS,bs_ms_cmac,Cmac')
+  2.State  =3/RCV(N_ms'.N_bs'.Gid.Tms'.Cmac')=|>
+    State':=5/equest(BS,MS,ms_bs_cmac,Cmac')            
+end role 
+role session(
+	MS,BS:agent,
+	Kmsk,Kmgk:symmetric_key,
+	Hash,Trun,Dot:hash_func)
+def=
+  local  SMS,RMS,SBS,RBS:channel(dy)
+  composition
+	ms(MS,BS,Kmsk,Hash,Trun,SMS,RMS)
+	/s(MS,BS,Kmgk,Hash,Trun,Dot,SBS,RBS)
+end role
+role environment()
+def=
+  const a,b:agent,
+	ka,kb,ki:symmetric_key,
+        h,t,d:hash_func,
+   	bs_ms_cmas,ms_bs_cmac,k,k1:protocol_id
+  intruder_knowledge={a,b,ka,kb,ki}
+  composition
+	session(a,b,ka,kb,h,t,d)
+	/session(a,i,ka,ki,h,t,d)
+	/session(i,b,ki,kb,h,t,d)
+end role
+
+goal
+  secrecy_of k,k1
+  authentication_on ms_bs_cmac
+  authentication_on bs_ms_cmac
+end goal
+
+environment()
+	
+
+
+
+  
+ 

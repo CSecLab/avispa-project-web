@@ -1,0 +1,157 @@
+
+role reader (
+A, B				: agent,
+KJ				: symmetric_Key,
+H				: hash_func,
+IDJ				: text,
+SND,RCV				: channel(dy)
+)
+
+
+played_by A
+
+def=
+
+	local State				: nat,
+        RJ1,RJ2,TJ				: text,
+	AJ,BJ,CJ,DJ,YJ				: text
+
+const sec_kj1				: protocol_id
+
+init State := 0
+transition
+
+
+	1. State = 0 /\ RCV(start) =|>
+		   State' := 2 /\ RJ1' := new()
+                               /\ SND(RJ1') 
+			       
+	
+
+
+	2. State = 2 /\ RCV(AJ'.BJ'.TJ') =|> 
+		   State' := 4 /\ RJ2' := xor(AJ',H(xor(KJ,RJ1)))	       
+		        /\ BJ' := H(IDJ.RJ1.RJ2'.KJ.TJ')
+		        /\ request(A,B,bj,BJ')
+		        /\ CJ' := H(xor(RJ1,xor(RJ2',KJ)))
+                        /\ witness(A,B,cj,CJ')
+                         /\ SND(CJ')
+       		         /\ secret(KJ,sec_kj1,{A,B})
+
+       3. State = 4 /\ RCV(YJ'.DJ') =|> 
+		   State' := 6 /\ DJ' := H(xor(YJ',xor(KJ,RJ1)))
+			 /\ request(A,B,dj,DJ')
+		        
+	
+end role
+
+	
+role tag(
+	B, A				: agent,
+	KJ				: symmetric_key,
+	H				: hash_func,
+	IDJ,YJ				: text,
+	SND,RCV				: channel(dy)
+	)
+	
+
+played_by B
+
+def=
+
+	local State						: nat,
+	RJ1,RJ2,TJ						: text,
+	AJ,BJ,CJ,DJ						: text
+const sec_kj2							: protocol_id
+	      
+init State := 1
+transition
+	 
+	1. State = 1 /\ RCV(RJ1') =|>  
+	   	State' := 3 /\ RJ2' := new()
+		    /\ AJ' := xor(H(xor(KJ,RJ1')),RJ2')
+		     /\ TJ' := new()
+		     /\ BJ' := H(IDJ.RJ1'.RJ2'.KJ.TJ')	  
+		     /\ witness(B,A,bj,BJ')
+		     /\ SND(AJ'.BJ'.TJ')
+		      /\ secret(KJ,sec_kj2,{B,A})
+                        
+	  
+	
+	2. State = 3 /\ RCV(CJ') =|>
+		State' := 5 /\ CJ' := H(xor(RJ1,xor(RJ2,KJ)))  
+			 /\ request(B,A,cj,CJ')
+		         /\ DJ' := H(xor(YJ,xor(KJ,RJ1)))
+			 /\ SND(YJ.DJ')
+			 /\ witness(B,A,dj,DJ') 
+         
+end role
+
+
+role session(
+
+	A, B		: agent,
+	KJ		: symmetric_key,
+	H		: hash_func,
+	IDJ,YJ		: text
+	)
+	
+def=
+
+	local SA, RA, SB, RB : channel(dy)
+
+	
+composition
+		reader(A,B,KJ,H,IDJ,SA,RA)
+		/\ tag(B,A,KJ,H,IDJ,YJ,SB,RB)
+
+
+end role
+
+
+
+role environment()
+
+
+def=
+
+	const	a,b						: agent,
+		kj,ki						: symmetric_key,
+		h						: hash_func,
+		idj,idi,yj,yi					: text,
+		sec_kj1, sec_kj2, bj, cj, dj			: protocol_id
+		
+	intruder_knowledge = {a,b,h,ki,idi,yi}
+	
+composition
+
+		session(a,b,kj,h,idj,yj)
+		/\ session(a,b,kj,h,idj,yj)
+		/\ session(a,i,ki,h,idi,yi)
+		/\ session(i,b,ki,h,idi,yi)
+		
+end role
+
+
+
+
+
+goal
+	secrecy_of sec_kj1, sec_kj2
+	authentication_on bj
+	authentication_on cj
+	authentication_on dj
+
+
+end goal
+
+
+
+environment()
+    
+
+
+
+
+
+  

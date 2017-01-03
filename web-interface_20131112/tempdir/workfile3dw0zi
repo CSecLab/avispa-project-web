@@ -1,0 +1,165 @@
+ role payer(A ,B ,C ,D : agent,
+          PA,PB,PC,PD : public_key,
+          Kac               : symmetric_key,
+	H : hash_func,
+           SND_ac,RCV_ac,SND_ab,RCV_ab :channel(dy))
+
+played_by A def=
+
+local
+         State       :nat,
+       R,J,P,T,IDc,IDb,IDa  :text,
+      M : {text.text.text}_inv(public_key),
+       V : {text.text}_inv(public_key),
+      CHECK :{text.text.text.text}_inv(public_key)
+const id: protocol_id
+init State:=0
+
+transition
+
+         1. State=0
+                                    /\ RCV_ab(start) =|>
+
+            State':=2         
+                                    /\ SND_ab (A.B.PA.IDc)
+
+         2. State=2                 /\ RCV_ab(A.B.PB.{R}_PC)  =|>
+
+            State':=4                /\ M' :={{R}_PC.IDb.J}_inv(PA)
+                                        /\ SND_ac(A.B.{M.PA.H(M,Kac)}_PC)
+                                        /\ witness(A,C,id,H(M,Kac))
+
+         3.State=4     
+                                      /\  RCV_ac(A.B.V)     =|>
+
+            State':=6            /\  CHECK':={P.T.J.H(Kac,IDa)}_inv(PA)
+                                     /\  SND_ab(A.B.{V.CHECK}_PB)
+end role
+
+role payee (A,B,C,D:agent,
+          PA,PB,PC,PD : public_key,
+          Kbd : symmetric_key,
+          H : hash_func,
+          SND_ab,RCV_ab,SND_bd :channel(dy))
+
+played_by B def=
+
+local
+                State  :   nat,
+              IDc,  R , J: text,
+V : {text.text}_inv(public_key),
+ CHECK :{text.text.text.text}_inv(public_key)
+init
+            State:=1
+
+transition
+
+              1. State=1
+                             /\ RCV_ab(A.B.PA.IDc) =|>
+
+                 State':=3
+                             /\ R':=new()
+                             /\ SND_ab(A.B.{R}_PC.PB)
+                             /\secret(R,id,{B,C})
+              
+            2. State=3
+                            /\ RCV_ab(A.B.{V.CHECK}_PB) =|>
+                State':=9
+                            /\ request(C,B,id,H(R,J))
+		/\ SND_bd(B.D.{CHECK.H(CHECK,Kbd)}_PD)
+		/\ witness(B,D,id,H(CHECK,Kbd))
+
+end role
+
+role issuer(A,B,C,D : agent,
+	PA,PB,PC,PD : public_key,
+	Kac : symmetric_key,
+	H : hash_func,
+	SND_ac,RCV_ac:channel(dy))
+
+played_by C  def=
+
+local
+	State :   nat,
+	R,J,P,T :text,
+ 	M : {text.text.text}_inv(public_key),	
+ 	V : {text.text}_inv(public_key),
+	CHECK :{text.text.text.text}_inv(public_key)
+init     State:= 5
+transition
+
+	1.State=5
+		/\ RCV_ac(A.B.{M.PA.H(M.Kac)}_PC)
+		/\ request (C,A,id,H(M,Kac))   =|>
+	State' :=7
+		/\SND_ac(A.B.{H(R.J).PA}_inv(PC))
+end role	
+
+role acq(A,B,C,D : agent,
+	PA,PB,PC,PD :public_key,
+	Kbd : symmetric_key,
+	H:hash_func,
+	SND_bd,RCV_bd: channel(dy))
+played_by  D
+def=
+	local   State:nat,
+	IDb:text,
+	CHECK :{text.text.text.text}_inv(public_key)
+init  State:=10
+transition
+
+	1.State=10
+		/\ RCV_bd(A.B.{CHECK.H(CHECK,Kbd)}_PD)     =|>
+	      State' :=12 
+		/\  request(D,B,id,H(CHECK,Kbd))
+
+		/\  SND_bd(A.B.{CHECK.IDb}_inv(PD))
+end role
+
+role session (A,B,C,D:agent,
+	PA,PB,PC,PD : public_key,
+	Kac , Kbd : symmetric_key,
+	H : hash_func)
+          
+             def=
+
+local
+Sac,Rac,
+Sab,Rab,
+Sbd,Sba,Rba,Sca,Rca,Rcd,
+Sdc,Rdb : channel(dy)
+
+composition
+
+               payer(A,B,C,D,PA,PB,PC,PD,Kac,H,Sac,Rac,Sab,Rab)
+               /\ payee(A,B,C,D,PA,PB,PC,PD,Kbd,H,Sba,Rba,Sbd)
+	/\ issuer(A,B,C,D,PA,PB,PC,PD,Kac,H, Sca,Rca)
+	/\ acq(A,B,C,D,PA,PB,PC,PD,Kbd,H,Rdb,Sdc)
+end role
+
+role environment() def=
+              const  a,b,c,d :agent,
+	pa,pb,pc,pd : public_key,
+                 kac,kbd,kic,kid,kai,kbi : symmetric_key,
+	   h: hash_func,
+	 id : protocol_id
+
+
+ intruder_knowledge = {a,b,c,d,kai,kic, kbi,kid,h}
+
+composition
+              session(a,b,c,d,pa,pb,pc,pd,kac,kbd,h)
+              /\  session(i,b,c,d,pa,pb,pc,pd,kic,kbd,h)
+              /\  session (a,i,c,d,pa,pb,pc,pd,kac,kid,h)
+	/\  session(a,b,i,d,pa,pb,pc,pd,kai,kbd,h)
+	/\  session(a,b,c,i,pa,pb,pc,pd,kac, kbi,h)
+end role
+
+goal
+
+  secrecy_of id
+authentication_on  id
+
+
+end goal
+environment()

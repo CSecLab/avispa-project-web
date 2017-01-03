@@ -1,0 +1,121 @@
+% Secure VM migration module
+role client_cloud(A, B : agent,  
+           H : hash_func,
+           Ka, Kt: public_key,  %% Kt is the public key of a TTP (ie. CA)
+           SND, RCV: channel (dy))
+played_by A
+def=
+   local Ra : text,
+         Rb: text,
+         State: nat,
+         Kb: public_key,
+         Kvmk,K_eik : symmetric_key,
+         VM : text
+         %K_eik : text
+   const vm_encr_key,ra_num : protocol_id
+   init  State := 0
+
+   transition
+
+   1.  State = 0
+       /\ RCV(start)
+       =|>
+       State' := 2
+       /\ SND(A)
+ 
+     2.  State = 2
+       /\ RCV(Rb') =|>
+       State' := 3
+       /\ Ra' := new()
+       /\ SND (Ra'.Rb'.{H(Ra'.Rb')}_(inv(Ka)).Ka)
+       /\ secret({H(Ra'.Rb')}_(inv(Ka)),ra_num,{A,B})
+       /\ witness(A,B,bob_alice_num,H(Ra'.Rb'))
+
+   4.  State = 3
+     /\ RCV (Rb.Ra.{H(Rb.Ra)}_(inv(Kb)).Kb')
+	  =|>
+       State' := 5
+      /\ request(B,A,alice_bob_num,H(Ra.Rb))
+      /\ SND (({VM}_Kvmk).({H(VM)}_(inv(Ka))).{(Kvmk.K_eik)}_Kb) 
+      /\ secret(Kvmk,vm_encr_key,{A,B})
+      
+end role
+
+%%%###########server
+role server_cloud(A, B : agent,
+         H : hash_func,
+         Kb, Kt: public_key,
+         SND, RCV: channel (dy))
+played_by B
+def=
+
+   local Rb, Ra: text,
+         State: nat,
+         Ka: public_key,
+         Kvmk,K_eik : symmetric_key,
+         VM : text
+         %K_eik : text
+   const rb_num : protocol_id   
+   init  State := 1
+
+   transition
+
+   1.  State = 1
+       /\ RCV(A)   =|>
+       State' := 3
+       /\ Rb' := new()
+       /\ SND(Rb')
+   2.  State = 3
+       /\ RCV(Ra'.Rb.{H(Ra'.Rb)}_(inv(Ka)).Ka')
+       =|>
+       State' := 5
+       /\ SND(Rb.Ra'.{H(Rb.Ra')}_(inv(Kb)).Kb)
+       /\ witness(B,A,alice_bob_num,H(Rb.Ra'))
+       /\ request(A,B,bob_alice_num,H(Rb.Ra'))
+       /\ secret({H(Rb.Ra')}_(inv(Kb)),rb_num,{B,A})	 
+    3.  State = 5
+	  /\ RCV (({VM'}_Kvmk').({H(VM')}_Ka).{(Kvmk'.K_eik')}_(inv(Kb)))
+           =|>
+       State' := 7
+end role
+
+role session(A,B: agent,
+             Ka, Kb, Kt: public_key,
+             H : hash_func)
+def=
+
+   local  SA, SB, RA, RB: channel (dy)
+
+   composition
+                client_cloud(A,B,H,Ka,Kt,SA,RA)
+           /\   server_cloud(A,B,H,Kb,Kt,SB,RB)
+
+end role
+
+role environment()
+def=  
+   const alice_bob_num,bob_alice_num  : protocol_id,
+           h       : hash_func,
+         a, b           : agent,
+         ka, kb, ki, kt : public_key
+
+   intruder_knowledge = { a, b, ka, kb, kt, ki, inv(ki),
+                          {i.ki}_(inv(kt)) }  
+
+   composition
+        session(a,b,ka,kb,kt,h)
+    /\  session(a,i,ka,ki,kt,h)
+    /\  session(i,b,ki,kb,kt,h)
+
+end role
+
+goal
+  secrecy_of vm_encr_key  % Addresses G7
+  secrecy_of rb_num,ra_num
+   %non-repudiation is pending
+  authentication_on alice_bob_num  % Addresses G1, G2, G3
+  authentication_on bob_alice_num  % Addresses G1, G2, G3
+
+end goal
+
+environment()           

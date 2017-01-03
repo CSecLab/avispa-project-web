@@ -1,0 +1,223 @@
+%  1. C -> AS : IDc || IDtgs || TS1
+%
+%  2. AS -> C : E(Kc, [Kc,tgs ||  IDtgs || TS2 || Lifetime2 || TICKETtgs])
+%		TICKETtgs = E(Ktgs,[Kc,tgs || IDc || ADc || IDtgs || TS2 || Lifetime2])
+%  
+%  3. C -> TGS : IDv || TICKETtgs || AUTHENTICATORc
+%		TICKETtgs = E(Ktgs,[Kc,tgs || IDc || ADc || IDtgs || TS2 || Lifetime2])
+%		AUTHENTICATORc = E(Kc,tgs, [IDc || ADc || TS3])
+%
+%  4. TGS -> C : E(Kc,tgs, [Kc,v || IDv || TS4 || TICKETv])
+%		TICKETv = E(Kv, [Kc,v || IDc || ADc || IDv || TS4 || Lifetime4])
+%
+%  5. C -> V : TICKETv || AUTHENTICATORc
+%		TICKETv = E(Kv, [Kc,v || IDc || ADc || IDv || TS4 || Lifetime4])
+%		AUTHENTICATORc = E(Ktgs, [IDc || ADc || TS5])
+%
+%  6. V -> C : E(Kc,v, [TS5 + 1])
+
+
+% Authentication Server (AS)
+role kerberos_AS (AS, C, TGS : agent,
+                 Snd, Rcv   : channel (dy),
+                 K_C_AS, K_AS_TGS : symmetric_key)
+played_by AS
+def=
+
+  local 	State              	: nat,
+  	K_C_TGS	: symmetric_key,
+        	Timestamp_1  	: text,
+        	Timestamp_2	: text, 
+	Lifetime_2, NID 	: text
+
+  const 	k_c_tgs_1, k_c_tgs_2 	: protocol_id,
+  	sec_as_K_C_TGS 	: protocol_id
+
+  init  State := 0
+
+  transition
+
+   1. State = 0  /\ Rcv(C.TGS.Timestamp_1'.NID') =|> 
+      State':= 1 /\ Timestamp_2' := new()
+              /\ Lifetime_2' := new()
+              /\ K_C_TGS' := new()
+              /\ Snd({K_C_TGS'.TGS.Timestamp_2'.Lifetime_2'.{C.NID'.TGS.K_C_TGS'.Timestamp_2'.Lifetime_2'}_K_AS_TGS}_K_C_AS) 
+              /\ witness(AS,C,k_c_tgs_1,K_C_TGS')
+              /\ witness(AS,TGS,k_c_tgs_2,K_C_TGS')
+              /\ secret(K_C_TGS',sec_as_K_C_TGS,{AS,C,TGS})
+
+end role
+
+
+% Ticket Granting Server (TGS)
+role 	kerberos_TGS (TGS, AS, V, C 	: agent,
+	Snd, Rcv    			: channel (dy),
+	K_AS_TGS, K_TGS_V  		: symmetric_key)
+played_by TGS
+def=
+
+  local 	State						: nat,
+  	K_C_TGS					: symmetric_key,
+       	K_C_V						: symmetric_key,
+        	Lifetime_2, Lifetime_4, NID, NID2				: text,
+	Timestamp_2, Timestamp_3, Timestamp_4	: text
+        	
+  const 	t1, k_c_v_1, k_c_v_2 			: protocol_id,
+  	sec_tgs_K_C_TGS, sec_tgs_K_C_V 	: protocol_id
+
+  init  State := 0
+
+  transition
+
+   1. State = 0  /\ Rcv(V.{C.NID'.TGS.K_C_TGS'.Timestamp_2'.Lifetime_2'}_K_AS_TGS.{C.NID2'.Timestamp_3'}_K_C_TGS') =|>
+      State':= 1 /\ K_C_V' := new()
+              /\ Timestamp_4' := new()
+              /\ Lifetime_4' := new()
+              /\ Snd({V.K_C_V'.Timestamp_4'.{C.NID'.V.K_C_V'.Timestamp_4'.Lifetime_4'}_K_TGS_V}_K_C_TGS') 
+              /\ wrequest(TGS,C,t1,Timestamp_3')
+              /\ wrequest(TGS,AS,k_c_tgs_2,K_C_TGS')
+              /\ witness(TGS,C,k_c_v_1,K_C_V')
+              /\ witness(TGS,V,k_c_v_2,K_C_V')
+              /\ secret(K_C_TGS',sec_tgs_K_C_TGS,{AS,C,TGS})
+              /\ secret(K_C_V',sec_tgs_K_C_V,{TGS,C,V})
+
+end role
+
+
+% Server (V)
+role 	kerberos_V (V, TGS, C 	: agent,
+	Snd, Rcv 		: channel (dy),
+ 	K_TGS_V     		: symmetric_key)
+played_by V
+def=
+
+  local	State			: nat,
+  	Timestamp_4, NID, Lifetime_4, Timestamp_3		: text,
+  	K_C_V			: symmetric_key
+
+  const	t2a, t2b 	: protocol_id,
+  	sec_v_K_C_V 	: protocol_id
+
+  init  State := 0
+
+  transition
+
+   1. State = 0  /\ Rcv({K_C_V'.C.NID'.V.Timestamp_4'.Lifetime_4'}_K_TGS_V.{C.NID'.Timestamp_3'}_K_C_V') =|> 
+      State':= 1 /\  Snd({Timestamp_4'}_K_C_V')
+              /\ witness(V,C,t2a,Timestamp_4') 
+              /\ wrequest(V,TGS,k_c_v_2,K_C_V')
+              /\ wrequest(V,C,t2b,Timestamp_4')
+              /\ secret(K_C_V',sec_v_K_C_V,{TGS,C,V})
+
+end role
+
+
+% Client (C)
+role kerberos_C (C, AS, TGS, V 	: agent,
+		Snd, Rcv	: channel (dy),
+		K_C_AS		: symmetric_key)
+played_by C
+def=
+
+  local State				: nat,
+      K_C_TGS, K_C_V			: symmetric_key,      
+      Tstart, Texpire, Timestamp_1, Timestamp_2, Timestamp_3,Timestamp_4, Timestamp_5    	: text,
+      Ticket_1, Ticket_2 : {agent.text.agent.symmetric_key.text.text}_symmetric_key,
+      NID, NID2, Lifetime_2  : text
+
+  const sec_c_K_C_TGS, sec_c_K_C_V : protocol_id
+
+  init  State := 0
+
+  transition
+
+   1. State = 0  /\ Rcv(start) =|> 
+      State':= 1 /\ NID' := new()
+              /\ Snd(C.TGS.Timestamp_1.NID') 
+
+   2. State = 1  /\ Rcv({K_C_TGS'.TGS.Timestamp_2'.Lifetime_2'.Ticket_1'}_K_C_AS) =|> 
+      State':= 2 /\ NID2' := new()
+              /\ Timestamp_3' := new()
+              /\ Snd(V.Ticket_1'.{C.NID2'.Timestamp_3'}_K_C_TGS') 
+              /\ witness(C,TGS,t1,Timestamp_3')
+              /\ wrequest(C,AS,k_c_tgs_1,K_C_TGS')
+              /\ secret(K_C_TGS',sec_c_K_C_TGS,{AS,C,TGS})
+
+   3. State = 2  /\ Rcv({K_C_V'.V.Timestamp_4'.Ticket_2'}_K_C_TGS)  =|>
+      State':= 3 /\ Timestamp_5' := new()
+              /\ Snd(Ticket_2'.{C.NID2'.Timestamp_5'}_K_C_V') 
+              /\ witness(C,V,t2b,Timestamp_5')
+              /\ wrequest(C,TGS,k_c_v_1,K_C_V')
+              /\ secret(K_C_V',sec_c_K_C_V,{TGS,C,V})
+
+   4. State = 3  /\ Rcv({Timestamp_5}_K_C_V) =|> 
+      State':= 4 /\ wrequest(C,V,t2a,Timestamp_5)
+
+end role
+
+
+
+role session( C, AS, TGS, V 		: agent,
+              K_C_AS, K_AS_TGS, K_TGS_V	: symmetric_key)
+def=
+
+   local V_C, R_C, V_AS, R_AS, V_TGS, R_TGS, V_V, R_V : channel (dy)
+
+   composition
+
+        kerberos_C(C,AS,TGS,V,V_C,R_C,K_C_AS) 
+     /\ kerberos_AS(AS,C,TGS,V_AS,R_AS,K_C_AS,K_AS_TGS)
+     /\ kerberos_TGS(TGS,AS,V,C,V_TGS,R_TGS,K_AS_TGS,K_TGS_V)
+     /\ kerberos_V(V,TGS,C,V_V,R_V,K_TGS_V)
+
+end role
+
+
+role environment() def=
+
+  const  c, as, tgs, v, i           : agent,
+
+         k_c_as, k_as_tgs, k_tgs_v, k_i_as      : symmetric_key
+
+  intruder_knowledge = {c,as,tgs,v,k_i_as
+                       }
+
+  composition
+        session(c,as,tgs,v,k_c_as,k_as_tgs,k_tgs_v)
+
+ /\     session(i,as,tgs,v,k_i_as,k_as_tgs,k_tgs_v)
+
+
+end role
+
+goal
+
+  %secrecy_of K_C_TGS, K_C_V 
+  secrecy_of sec_as_K_C_TGS,
+             sec_tgs_K_C_TGS, sec_tgs_K_C_V,
+             sec_v_K_C_V,
+             sec_c_K_C_TGS, sec_c_K_C_V % addresses G10
+
+  %Kerberos_C weakly authenticates Kerberos_AS on k_c_tgs
+  weak_authentication_on k_c_tgs_1 % addresses G1, G7, and G8
+  %Kerberos_TGS weakly authenticates Kerberos_AS on k_c_tgs
+  weak_authentication_on k_c_tgs_2 % addresses G1, G7, and G8
+
+  %Kerberos_C weakly authenticates Kerberos_TGS on k_c_v
+  weak_authentication_on k_c_v_1 % addresses G1, G7, and G8
+  %Kerberos_V weakly authenticates Kerberos_TGS on k_c_v
+  weak_authentication_on k_c_v_2 % addresses G1, G7, and G8
+
+  %Kerberos_C weakly authenticates Kerberos_V on t2a
+  weak_authentication_on t2a % addresses G1 and G2
+  %Kerberos_V weakly authenticates Kerberos_C on t2b
+  weak_authentication_on t2b % addresses G1 and G2
+  
+  %Kerberos_TGS weakly authenticates Kerberos_C on t1
+  weak_authentication_on t1 % addresses G1 and G2
+
+end goal
+
+
+
+environment()

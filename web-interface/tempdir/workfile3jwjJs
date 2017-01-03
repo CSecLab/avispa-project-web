@@ -1,0 +1,127 @@
+role role_A(A,S,KDC:agent,
+						Xa:symmetric_key,
+						Qa:public_key,
+						Certa:text,
+						Hash:hash_func,
+						SND,RCV:channel(dy))
+played_by A
+
+def=
+	local
+		State:nat,
+		Ta,R:text
+
+	init
+		State := 0
+
+	transition
+		1. State=0  =|> 
+			 State':=1 /\ R':=new() 
+								 /\ Ta':=new() 
+								 /\ SND({R'}_Hash(xor(Xa,Ta')).Ta'.{{R'}_Hash(xor(Xa,Ta')).Certa}_inv(Qa))
+		4. State=1 /\ RCV(R.S) =|> 
+			 State':=2 /\ request(A,KDC,alice_kdc_R,R)
+								 /\ witness(A,KDC,kdc_alice_Ta,Ta)
+								 /\ witness(A,KDC,kdc_alice_R,R)
+
+end role
+
+role role_S(A,S,KDC:agent,
+						Xs:symmetric_key,
+						MAC,Hash:hash_func,
+						Qa:public_key,
+						SND,RCV:channel(dy))
+played_by S
+
+def=
+	local
+		State:nat,
+		Mesg:message,
+		L,M:symmetric_key,
+		Certa,Ta:text,
+		Tkdc,R:text
+
+	init
+		State := 0
+
+	transition
+		1. State=0 /\ RCV(Mesg') =|> 
+			 State':=1 /\ SND(Mesg'.MAC(Xs.Mesg'))
+		3. State=1 /\ RCV({R'}_Hash(xor(Xs,Tkdc')).Tkdc'.A.MAC(Xs.{R'}_Hash(xor(Xs,Tkdc')).A)) =|> 
+			 State':=2 /\ SND(R'.S)
+			 					 /\ request(S,KDC,s_kdc_Tkdc,Tkdc')
+
+end role
+
+role role_KDC(A,S,KDC:agent,
+							Xa,Xs:symmetric_key,
+							MAC,Hash:hash_func,
+							Qa:public_key,
+							Certa:text,
+							SND,RCV:channel(dy))
+
+played_by KDC
+
+def=
+	local
+		State:nat,
+		Ta,R,Tkdc:text
+
+	init
+		State := 0
+
+	transition
+		2. State=0 /\ RCV({R'}_Hash(xor(Xa,Ta')).Ta'.{{R'}_Hash(xor(Xa,Ta')).Certa}_inv(Qa).MAC(Xs.{R'}_Hash(xor(Xa,Ta')).Ta'.{{R'}_Hash(xor(Xa,Ta')).Certa}_inv(Qa))) =|> 
+			 State':=1 /\ Tkdc':=new() 
+								 /\ SND({R'}_Hash(xor(Xs,Tkdc')).Tkdc'.A.MAC(Xs.{R'}_Hash(xor(Xs,Tkdc')).A))
+								 /\ request(KDC,A,kdc_alice_Ta,Ta')
+								 /\ request(KDC,A,kdc_alice_R,R')
+								 /\ witness(KDC,S,s_kdc_Tkdc,Tkdc')
+								 /\ witness(KDC,A,alice_kdc_R,R')
+end role
+
+role session(A,S,KDC:agent,
+							Xs,Xa,Xak,Xsk:symmetric_key,
+							MAC,Hash:hash_func,
+							Qa:public_key,
+							Certa:text)
+def=
+
+	local
+		SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+
+	composition
+		role_KDC(A,S,KDC,Xak,Xsk,MAC,Hash,Qa,Certa,SND3,RCV3) 
+	/\ role_S(A,S,KDC,Xs,MAC,Hash,Qa,SND2,RCV2) 
+	/\ role_A(A,S,KDC,Xa,Qa,Certa,Hash,SND1,RCV1)
+
+end role
+
+role environment()
+def=
+
+	const
+		certa,certi:text,
+		mac:hash_func,
+		keyserver,alice,sensor:agent,
+		xs,xa,xi:symmetric_key,
+		qa:public_key,
+		hashi:hash_func,
+		kdc_alice_Ta,kdc_alice_R,alice_kdc_R,s_kdc_Tkdc:protocol_id
+
+	intruder_knowledge = {mac,hashi,alice,sensor,keyserver,qa}
+
+	composition
+		session(alice,sensor,keyserver,xs,xa,xa,xs,mac,hashi,qa,certa)
+	/\ session(i,sensor,keyserver,xs,xi,xa,xs,mac,hashi,qa,certi)
+	/\ session(alice,i,keyserver,xi,xa,xa,xs,mac,hashi,qa,certa)
+end role
+
+goal
+	authentication_on kdc_alice_Ta
+	authentication_on kdc_alice_R
+	authentication_on alice_kdc_R
+	authentication_on s_kdc_Tkdc
+end goal
+
+environment()

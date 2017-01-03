@@ -1,0 +1,154 @@
+%%HLPSL:
+role server (A, B, S: agent, 
+    H : hash_func,
+            Ka, Kb,Ks: public_key,             
+            SND, RCV: channel (dy)) 
+played_by A def=
+
+  local AccessAck,RequestAccess,Challenge, T1,T2,T4,T5,E:text,
+ Nds,Ndo,Ndt:text,
+  DKS: hash(text.text.text),
+  State : nat,
+    MA,MB: text
+
+ const sec_s_DKS : protocol_id
+
+  init State := 0
+
+  transition  
+   
+    0.  State  = 0 /\ RCV({RequestAccess'.T1'.A.E'.Ndo'}_Ks) =|> 
+  State':= 1 /\ Challenge' := new() 
+  /\ Nds' := new()
+  /\ T2' := new()
+  /\ DKS' := H(Challenge',Nds',T2')
+  /\ SND({Challenge'.T2'.Nds'.DKS'.S}_Ka)
+  /\ witness(S,A,nds,Nds')
+  
+
+    2.  State  = 1 /\ RCV({Challenge'.T4'.Ndt'.B}_Ka) =|> 
+  State':= 2 /\ AccessAck' := new()
+  /\ Nds' := new()
+  /\ T5' := new()
+  /\ DKS' := H(AccessAck',Nds',T5')
+  /\ SND({AccessAck'.T5'.Nds'.DKS'.S}_Ka)
+   /\ request(S,A,nds,Nds)
+  /\ secret(DKS,sec_s_DKS,{S,A})
+
+end role
+
+role device1 (A, B, S: agent,  
+    H : hash_func, 
+            Ka, Ks: public_key,              
+            SND, RCV: channel (dy)) 
+played_by A def=
+
+  local  RequestAccess,Challenge,AccessAck,T1,T2,T3,T4,T5,E:text,
+  Ndo,Nds:text,
+  DK: hash(text.text.text.text),
+  State : nat,
+    MA,MB: text
+
+ const sec_a_DK : protocol_id
+
+  init State := 0
+
+  transition  
+   
+    0.  State  = 0 /\ RCV(start) =|> 
+  State':= 1 /\ RequestAccess' := new()
+    /\ E' := new()
+    /\ T1' := new() 
+    /\ Ndo':= new()
+    /\ DK' := H(RequestAccess'.T1'.E'.Ndo')
+    /\ SND({RequestAccess'.T1'.A.E'.DK'.Ndo'}_Ks)
+    /\witness(A,S,ndo,Ndo')
+
+
+    2.  State  = 1 /\ RCV({Challenge'.T2'.Nds'.S}_Ka) =|> 
+  State':= 2 /\ T3' := new()
+  /\ Ndo':= new()
+  /\ SND(Challenge'.T3'.A.Ndo') %broadcasting the challenge
+  /\witness(A,B,ndo,Ndo')
+  
+
+    4.  State  = 2 /\ RCV({AccessAck'.T5'.Nds'.S}_Ka) =|> 
+  State':= 3 /\ request(A,S,ndo,Ndo)
+                /\ secret(DK,sec_a_DK,{A,S})
+
+
+
+end role
+
+role device2 (A, B, S: agent,  
+    H : hash_func,
+            Ks, Ka: public_key,                
+            SND, RCV: channel (dy)) 
+played_by A def=
+
+  local Challenge,T3,T4 : text,
+  Ndo,Nds,Ndt:text,
+  DKT: hash(text.text.text.text),
+  State : nat,
+  MA,MB: text
+
+   const sec_b_DKT : protocol_id
+
+  init State := 0
+
+  transition  
+   
+    0.  State  = 0 /\ RCV(Challenge'.T3'.A.Ndo') =|> 
+  State':= 1  /\ Ndt' := new()
+  /\ T4' := new()
+  /\ DKT' := H(Challenge',Ndt',T4')
+  /\ SND({Challenge'.T4'.Ndt'.DKT'.B}_Ka)
+  /\ witness(B,S,ndt,Ndt')
+
+
+end role
+
+role session(A, B, S: agent, H : hash_func, Ka, Kb, Ks: public_key) def=
+
+  local SA, RA, SB, RB, SC, RC: channel (dy)
+
+  composition 
+
+  device1(A,B,S,H,Ka,Ks,SA,RA)
+     /\ device2 (A,B,S,H,Ks,Kb,SB,RB)
+     /\ server(A,B,S,H,Ka,Kb,Ks,SC,RC) 
+
+end role
+
+role environment() def=
+
+    const a, b, s         : agent,
+    ka, kb, ks, ki   : public_key,
+    h : hash_func,
+
+    ndo,ndt,nds : protocol_id
+
+    intruder_knowledge = {a, b, s, h, ka, kb, ki, inv(ki)}
+
+    composition
+
+  session(a,b,s,h,ka,kb,ks)
+    % /\ session(a,s,ka,ki,ks)
+ 
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  
+  secrecy_of sec_a_DK
+  authentication_on nds
+  %authentication_on ndt
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

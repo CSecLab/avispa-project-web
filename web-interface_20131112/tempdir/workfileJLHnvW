@@ -1,0 +1,78 @@
+role reader(
+R,T:agent,
+K:text,
+H:hash_func,
+SND,RCV:channel(dy))
+played_by R def=
+
+local
+State:nat,
+Nr,Nt:text
+
+init
+State:=0
+
+transition
+1.State=0/\RCV(start)=|>
+  State':=2/\Nr':=new()/\SND(Nr')
+
+2.State=2/\RCV(Nt'.H(Nt'.Nr.K))=|>
+  State':=4/\secret(K,tk,{R,T})
+
+end role
+
+role tag(
+R,T:agent,
+K:text,
+H:hash_func,
+SND,RCV:channel(dy))
+played_by T def=
+
+local
+State:nat,
+Nr,Nt:text
+
+init
+State:=1
+
+transition
+1.State=1/\RCV(Nr')=|>
+  State':=3/\Nt':=new()/\SND(Nt'.H(Nt'.Nr'.K))
+
+end role
+
+role session(
+R,T:agent,
+K:text,
+H:hash_func)
+def=
+
+local SNDRT,RCVRT,SNDTR,RCVTR:channel(dy)
+
+composition
+reader(R,T,K,H,SNDRT,RCVRT)/\tag(R,T,K,H,SNDTR,RCVTR)
+
+end role
+
+role environment()
+def=
+
+const tk:protocol_id,
+r,t:agent,
+k:text,
+h:hash_func
+
+intruder_knowledge(h,r,t)
+
+composition
+session(r,t,k,h)
+
+end role
+
+goal
+secrecy_of tk
+
+end goal
+
+environment()
+

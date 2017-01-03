@@ -1,0 +1,62 @@
+role keyowner(
+	A,B : agent,
+	SND,RCV : channel(dy))
+played_by A def=
+       local
+	State : nat,
+	UINFO,QUES,ANS,INFORM: text
+init
+	State :=0
+transition
+senddelete. State=0 /\ RCV(start)=|>
+	      State':=1 /\ UINFO':=new() /\ SND(UINFO)
+receivequestion. State=1 /\ RCV(QUES)=|>
+	 State':=2 /\ ANS':=new() /\ SND(ANS)
+receivestatus. State=2 /\ RCV(INFORM)=|>
+	 State':=3 /\ witness(A,B,delete_ans,ANS)
+end role
+
+role keymanager(
+	A,B :agent,
+	SND,RCV :channel(dy))
+played_by B def=
+ local
+ 	State :nat,
+ 	UINFO,QUES,ANS,INFORM: text
+		
+ init
+	State :=0
+ transition
+ receivedelete. State=0 /\ RCV(UINFO)=|>
+ 		   State':=1 /\ QUES':=new() /\ SND(QUES)
+ receiveanswer. State=1 /\ RCV(ANS)=|>
+ 		  State':=2 /\ SND(INFORM)/\ secret(B,A,delete_ans,ANS)
+ 
+end role
+
+role session(
+	A,B :agent)
+def=
+ local SA, SB, RA, RB : channel(dy)
+ composition
+  keyowner(A,B,SA,RA)
+ /\ keymanager(A,B,SB,RB)
+end role
+
+role environment()
+def=
+const delete_ans,
+k1 : protocol_id,
+      a,b : agent
+intruder_knowledge = {a,b}
+composition
+session(a,b)
+/\ session(a,i)
+/\ session(i,b)
+end role
+
+goal
+secrecy_of k1
+authentication_on delete_ans
+end goal
+environment()

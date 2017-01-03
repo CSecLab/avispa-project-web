@@ -1,0 +1,193 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%Mobile%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role mobile (
+
+    UE,WAP              : agent,
+    F1, F2,F3           : hash_func,
+    PRF_SHA1            : hash_func,
+    HMAC                : hash_func,
+    MK                  : symmetric_key, 
+    SND,RCV             : channel (dy))
+
+played_by UE def=
+
+  local
+    R_UE,R_WAP                             : text,
+    ID_UE, SSID, R_HSS, T_EXP              : text,
+    MAC1  : hash(hash(symmetric_key.text.text.text.text).message),
+    MAC2  : hash(hash(symmetric_key.text.text.text.text).message),
+    Q_I   : hash(symmetric_key.text.text.text.text),
+    K_WAP,K_UE : message,
+    State            : nat 
+
+  const
+    request_id,
+    respond_id,
+    success     : text,
+    sec_qi1, 
+    at_rand,
+    at_rand2    : protocol_id
+ 
+  init 
+    State := 0 
+  
+  transition
+
+  1. State   = 0
+       /\ RCV(request_id)
+     =|>
+     State' := 2
+       /\ ID_UE' := new()
+       /\ SSID'  := new()
+       /\ R_HSS' := new()
+       /\ R_UE'  := new()
+       /\ T_EXP' := new()
+       /\ SND(respond_id.ID_UE'.SSID'.R_HSS'.T_EXP'.R_UE')
+
+  2. State   = 2
+       /\ RCV(K_WAP'.MAC1')
+       /\ K_WAP'  = F2(SSID'.R_UE'.R_WAP')
+       /\ Q_I'    = F3(MK.ID_UE'.SSID'.R_HSS'.T_EXP')
+       /\ MAC1'  = HMAC(PRF_SHA1(Q_I').K_WAP')
+     =|>
+     State' := 4
+       
+       /\ K_UE'  := F1(ID_UE'.R_UE'.R_WAP')
+       /\ MAC2'  := HMAC(PRF_SHA1(Q_I').K_UE')
+       /\ SND(K_UE'.MAC2')
+       /\ request(UE,WAP,at_rand,R_WAP')
+       /\ witness(UE,WAP,at_rand2,R_WAP')
+       /\ secret(Q_I',sec_qi1,{UE,WAP})
+       
+
+  3. State   = 4 /\ RCV(success) =|>
+     State' := 6 
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%WAP%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role wap (
+
+    UE,WAP              : agent,
+    F1, F2, F3          : hash_func,
+    PRF_SHA1            : hash_func,
+    HMAC                : hash_func,
+    MK                  : symmetric_key, 
+    SND,RCV             : channel (dy))
+played_by WAP def=
+
+  local
+    R_UE,R_WAP          : text,
+    ID_UE, SSID, R_HSS, T_EXP              : text,
+    MAC1 : hash(hash(symmetric_key.text.text.text.text).message),
+    MAC2 : hash(hash(symmetric_key.text.text.text.text).message),
+    Q_I  : hash(symmetric_key.text.text.text.text),
+    K_WAP,K_UE : message,
+    State            : nat
+
+  const
+    request_id,
+    respond_id,
+    success     : text,
+    sec_qi2, 
+    at_rand,
+    at_rand2    : protocol_id
+ 
+
+  init 
+    State := 1 
+
+  transition
+
+  1. State   = 1
+       /\ RCV(start)
+     =|>
+     State' := 3
+       /\ SND(request_id)
+
+  2. State   = 3
+       /\ RCV(respond_id.ID_UE'.SSID'.R_HSS'.T_EXP'.R_UE')
+     =|>
+     State' := 5
+       /\ R_WAP' := new()
+       /\ K_WAP'   := F2(SSID'.R_UE'.R_WAP')
+       /\ Q_I'     := F3(MK.ID_UE'.SSID'.R_HSS'.T_EXP')
+       /\ MAC1'    := HMAC(Q_I.K_WAP')
+       /\ SND(K_WAP'.MAC1')
+       /\ witness(UE,WAP,at_rand,R_WAP')
+       /\ secret(Q_I',sec_qi2,{UE,WAP})
+       
+
+  3. State   = 5
+       /\ RCV(K_UE'.MAC2')
+       /\ K_UE'  = F1(ID_UE'.R_UE'.R_WAP')
+       /\ MAC2' = HMAC(Q_I.K_UE')
+     =|>
+     State' := 7
+       /\ SND(success)
+       /\ request(UE,WAP,at_rand2,R_WAP)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%SESSION%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(
+    UE,WAP              : agent,
+    F1,F2,F3         : hash_func,
+    PRF_SHA1         : hash_func,
+    HMAC             : hash_func,
+    MK               : symmetric_key)
+def=
+
+local
+    SNDUE, RCVUE, SNDWAP, RCVWAP : channel (dy)
+
+const 
+    at_rand,at_rand2       : protocol_id
+
+  composition
+     mobile(UE,WAP,F1,F2,F3,PRF_SHA1,HMAC,MK,SNDUE,RCVUE)
+  /\ wap(UE,wap,F1,F2,F3,PRF_SHA1,HMAC,MK,SNDWAP,RCVWAP)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%Environement%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+  const 
+    ue,wap                  : agent,
+    kps,kis                 : symmetric_key, % !!one per user   !!
+    f1,f2,f3                : hash_func,
+    prf_sha1                : hash_func,
+    hmac                    : hash_func
+
+  intruder_knowledge = {ue,wap,i,f1,f2,f3,prf_sha1,hmac
+
+                       }
+ 
+  composition
+     session(ue,wap,f1,f2,f3,prf_sha1,hmac,kps)
+%  /\ session(ue,wap,f1,f2,f3,prf_sha1,hmac,kps)
+% /\ session(i,wap,f1,f2,f3,prf_sha1,hmac,kis)
+
+end role
+
+
+
+goal
+
+  %secrecy_of Q_I
+  secrecy_of sec_qi1, sec_qi2
+
+  %Mobile authenticates WAP on at_rand
+  authentication_on at_rand
+  %WAP authenticates Mobile on at_rand2
+  authentication_on at_rand2
+
+end goal
+
+
+
+environment()

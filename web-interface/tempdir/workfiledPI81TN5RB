@@ -1,0 +1,46 @@
+role role_R(R:agent,T:agent,Idj:public_key,Rtsj:public_key,SND,RCV:channel(dy))
+played_by R
+def=
+	local
+		State:nat,Rr:text,Tr:text,Ctrxj:public_key
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ Ctrxj':=new() /\ Rr':=new() /\ SND({Rtsj.Rr'.inv(Ctrxj')}_Idj.{inv(Rtsj).Rr'.inv(Ctrxj')}_inv(Rtsj))
+		2. State=1 /\ RCV({Rtsj.Tr'.inv(Ctrxj)}_Idj.{Rtsj.Tr'.Ctrxj}_Idj) =|> State':=2 /\ witness(R,T,auth_2,Tr')
+end role
+
+role role_T(R:agent,T:agent,Idj:public_key,Rtsj:public_key,SND,RCV:channel(dy))
+played_by T
+def=
+	local
+		State:nat,Rr:text,Tr:text,Ctrxj:public_key
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV({Rtsj.Rr'.inv(Ctrxj')}_Idj.{inv(Rtsj).Rr'.inv(Ctrxj')}_inv(Rtsj)) =|> State':=1 /\ Tr':=new() /\ SND({Rtsj.Tr'.inv(Ctrxj')}_Idj.{Rtsj.Tr'.Ctrxj'}_Idj)
+end role
+
+role session1(R:agent,T:agent,Idj:public_key,Rtsj:public_key)
+def=
+	local
+		SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_T(R,T,Idj,Rtsj,SND2,RCV2) /\ role_R(R,T,Idj,Rtsj,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		k1:public_key,reader:agent,tag:agent,k2:public_key,auth_1:protocol_id,auth_2:protocol_id
+	intruder_knowledge = {tag}
+	composition
+		session1(reader,tag,k1,k2)
+end role
+
+goal
+	authentication_on auth_1
+	authentication_on auth_2
+end goal
+
+environment()

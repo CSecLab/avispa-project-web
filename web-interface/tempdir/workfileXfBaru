@@ -1,0 +1,165 @@
+
+
+
+
+role server (User_1, Server_1 : agent,
+
+SymKey : symmetric_key,
+
+Hash: hash_func,
+
+Send, Receive: channel(dy)
+)
+
+
+
+
+played_by Server_1
+
+
+
+def=
+local 
+State : nat,
+KY,Sec,Fir,Id,As,HKY,DEL,DF, B,A,In: text
+const second_u,first_u,s1,s2 : protocol_id
+init State := 1
+transition
+1. State = 1 /\Receive({KY'}_SymKey) =|>
+State':=3
+/\B':=new()
+/\secret(B',s2,{User_1,Server_1})
+/\A':=new()
+/\secret(A',s1,{Server_1})
+/\DF':=xor(KY',A')
+/\Send({KY'.Hash.DF'.B'}_SymKey)
+2.State=3/\Receive(Id'.DF'.In'.Fir')=|>
+State':=5
+/\Sec':=new()
+
+
+
+
+/\request(Server_1,User_1,first_u,Fir') 
+
+
+
+end role
+
+
+
+
+role session(User_1, Server_1 : agent)
+def=
+local 
+SymKey : symmetric_key,
+
+Hash : hash_func,
+
+SU,SS,RU,RS:channel(dy),
+
+KY, A,B,DF: text
+const s1,s2 : protocol_id
+composition
+user(User_1,Server_1,SymKey,Hash,SU,RU)
+/\server(User_1,Server_1,SymKey,Hash,SS,RS)
+end role
+
+
+
+
+role environment ()
+def=
+const user_Agent,server_Agent : agent,
+
+h: hash_func,
+
+s1,s2,first_u,second_u : protocol_id
+
+
+intruder_knowledge={user_Agent,server_Agent,h}
+composition
+session(user_Agent,server_Agent)
+end role
+
+
+
+
+
+
+
+
+role user (User_1, Server_1 : agent,
+SymKey : symmetric_key,
+Hash : hash_func,
+Send, Receive: channel(dy))
+
+
+
+played_by User_1
+def=
+local State : nat,
+KY, DF, B,Fir,Id,As,In,Sec,DEL,DF_new,SK_new: text
+const s1,s2,first_u,second_u : protocol_id
+init 
+State := 0
+
+
+
+transition
+1. State = 0 /\Receive(start) =|>
+
+State' := 2 /\KY' := new()
+
+/\Send({KY'}_SymKey)
+/\secret({KY'}, s1, {User_1,Server_1})
+/\secret({SymKey}, s2, {User_1,Server_1})
+
+
+
+2.State = 2 /\Receive({KY.Hash.DF'.B'}_SymKey)
+=|>State':= 4
+
+
+
+3.State=4 /\Receive({KY'.Hash.DF'.B'}_SymKey)=|>
+State':=6
+/\Fir':=new()
+/\witness(User_1,Server_1,first_u,Fir')  
+
+/\Id':=xor(Hash(KY'),Hash(xor(DF',xor(B',Fir'))))
+
+/\As':=Hash(xor(Id',Hash(KY)))
+
+/\In':=Hash(xor(Fir',xor(DF',xor(As',B'))))
+/\Send(Id'.DF'.In'.Fir')
+
+
+
+4.State=6=|>
+State':=8
+/\SK_new':=new()
+
+/\DF_new':=xor(DF',xor(Hash(KY),Hash(SK_new')))
+
+/\DF':=DF_new'
+end role
+
+
+
+
+
+
+
+goal
+
+	secrecy_of s1
+	
+	secrecy_of s2
+	
+	authentication_on first_u
+	authentication_on second_u
+	
+end goal
+
+environment()

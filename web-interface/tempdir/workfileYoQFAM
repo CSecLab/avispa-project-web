@@ -1,0 +1,332 @@
+role group_member1 (GCKS, GM1, GM2: agent,
+SKEYID_a1: symmetric_key,% key derived in step 1 to secure step 2
+SKEYID_b: symmetric_key,% key derived in step 3 to secure step 4
+Hash: hash_func,
+RP_ID: nat,% routing protocol id
+SND_GM1, RCV_GM1: channel(dy))
+
+played_by GM1 def=
+
+local
+State: nat,
+M_id, M_id_rcv: nat,
+KREQ: nat,
+Ni, Nr, N1, N2: text,% nonces
+Sa, Sa1, Sa2: text,% security associations
+Cert, Cert_in: text,% certificate
+K_SCOPE: nat,% key scope
+PT: text,% policy token
+ADJ: message,% adjacency info
+KD1: symmetric_key,% incoming traffic encryption key for GM1
+KD2: symmetric_key,% outgoing traffic encryption key for GM1
+HDR_GC, HDR_GM1, HDR_GM2: text,% headers
+
+%hashes
+HS1, HS2, HS3, HS4: message
+
+init
+State:= 0
+
+transition
+
+%GCKS-GM communication
+1. State = 0 /\ RCV_GM1(start)
+ 
+=|>
+State' := 2 /\ Ni' := new() % nonce for replay protection
+/\ M_id' := 1 % message id
+% hash for integrity purposes
+/\ HS1' := Hash(SKEYID_a1.M_id'.Ni'.RP_ID)
+/\ HDR_GM1' := new() % header
+% send the msg to the GCKS
+/\ SND_GM1(HDR_GM1'.{HS1'.Ni'.RP_ID}_SKEYID_a1)
+/\ secret(SKEYID_a1, skeyida1, {GCKS, GM1})
+
+2. State = 2 /\ RCV_GM1(HDR_GC'.{Hash(SKEYID_a1.M_id_rcv'.Ni.Nr'.
+Sa'.Cert'.K_SCOPE'.PT'.ADJ'). Nr'.Sa'.Cert'.K_SCOPE'.PT'.ADJ'}_ SKEYID_a1)
+
+=|>
+State' := 4 /\ M_id' := 3
+/\ HS2' := Hash(SKEYID_a1.M_id'.Ni.Nr')
+/\ HDR_GM1' := new()
+/\ SND_GM1(HDR_GM1'.{HS2'}_SKEYID_a1)
+/\ request(GM1, GCKS, gm1_gcks_ni, Ni)
+/\ witness(GM1, GCKS, gcks_gm1_nr, Nr')
+% GM-GM communication
+
+3. State = 4 /\ RCV_GM1(HDR_GM2'.{Hash(SKEYID_b.M_id_rcv'.N1'.Cert_in').
+N1'.Cert_in'}_ SKEYID_b)
+
+=|>
+State' := 6 /\ M_id' := 2
+/\ N2' := new()
+/\ HS3' := Hash(SKEYID_b.M_id'.N1'.N2'.Cert)
+/\ HDR_GM1' := new()
+/\ SND_GM1(HDR_GM1'.{HS3'.N2'.Cert}_SKEYID_b)
+/\ witness(GM1, GM2, gm2_gm1_n1, N1')
+
+4. State = 6 /\ RCV_GM1(HDR_GM2'.{Hash(SKEYID_b.M_id_rcv'.N1.N2.
+Sa1'.KD1'.KREQ').Sa1'.KD1'.KREQ'}_ SKEYID_b)
+/\ KREQ' = 1 
+
+=|>
+State' := 8 /\ M_id' := 4
+/\ Sa2' := new()
+/\ KD2' := new()
+/\ HS4' := Hash(SKEYID_b.M_id'.N1.N2.Sa2'.KD2')
+/\ HDR_GM1' := new()
+/\ SND_GM1(HDR_GM1'.{HS4'.Sa2'.KD2'}_ SKEYID_b)
+/\ secret(Sa2', sa2_gm_gm, {GM1, GM2})
+/\ secret(KD2', kd2_gm_gm, {GM1, GM2})
+/\ request(GM1, GM2, gm1_gm2_n2, N2)
+
+end role
+
+role group_member2 (GCKS, GM1, GM2: agent,
+SKEYID_a2: symmetric_key,% shared with the GCKS
+SKEYID_b: symmetric_key,% shared with GM1
+Hash: hash_func,
+RP_ID: nat,
+SND_GM2, RCV_GM2: channel(dy))
+
+played_by GM2 def=
+
+local
+State: nat,
+M_id1, M_id2, M_id_rcv: nat,
+KREQ: nat,
+Ni, Nr, N1, N2: text,
+Sa, Sa1, Sa2: text,
+Cert, Cert_in: text,
+K_SCOPE: nat,
+PT: text,
+ADJ: message,
+KD1: symmetric_key,% outgoing traffic encryption key for GM2
+KD2: symmetric_key,% incoming traffic encryption key for GM2
+HDR_GC, HDR_GM2, HDR_GM1: text,
+
+%hashes
+H1, H2, H3, H4: message
+
+init
+State:= 0
+/\ KREQ:= 1
+transition
+
+% GCKS-GM communication
+1. State = 0 /\ RCV_GM2(start) 
+
+=|>
+State' := 2 /\ Ni' := new()
+/\ M_id1' := 1
+/\ H1' := Hash(SKEYID_a2.M_id1'.Ni'.RP_ID)
+/\ HDR_GM2' := new()
+/\ SND_GM2(HDR_GM2'.{H1'.Ni'.RP_ID}_ SKEYID_a2)
+/\ secret(SKEYID_a2, skeyida2, {GCKS, GM2})
+
+2. State = 2 /\ RCV_GM2(HDR_GC'.{Hash(SKEYID_a2.M_id_rcv'.Ni.Nr'.
+Sa'.Cert'.K_SCOPE'.PT'.ADJ'). Nr'.Sa'.Cert'.K_SCOPE'.PT'.ADJ'}_ SKEYID_a2)
+
+=|>
+State' := 4 /\ M_id1' := 3
+/\ H2' := Hash(SKEYID_a2.M_id1'.Ni.Nr')
+/\ HDR_GM2' := new()
+/\ SND_GM2(HDR_GM2'.{H2'}_SKEYID_a2)
+/\ request(GM2, GCKS, gm2_gcks_ni, Ni)
+/\ witness(GM2, GCKS, gcks_gm2_nr, Nr')
+
+% GM-GM communication begins
+/\ M_id2' := 1
+/\ N1' := new()
+/\ H3' := Hash(SKEYID_b.M_id2'.N1'.Cert)
+/\ HDR_GM2' := new()
+/\ SND_GM2(HDR_GM2'.{H3'.N1'.Cert}_SKEYID_b)
+/\ secret(SKEYID_b, skeyidb, {GM1, GM2})
+
+4. State = 4 /\ RCV_GM2(HDR_GM1'.{Hash(SKEYID_b.M_id_rcv'.N1.N2'.
+Cert_in').N2'.Cert_in'}_ SKEYID_b)
+
+=|>
+State' := 6 /\ M_id2' := 3
+/\ Sa1' := new()
+/\ KD1' := new()
+/\ H4' := Hash(SKEYID_b.M_id2'.N1.N2'.Sa1'.KD1'.KREQ)
+/\ HDR_GM2' := new()
+/\ SND_GM2(HDR_GM2'.{H4'.Sa1'.KD1'.KREQ}_ SKEYID_b)
+/\ secret(Sa1', sa1_gm_gm, {GM1, GM2})
+/\ secret(KD1', kd1_gm_gm, {GM1, GM2})
+/\ request(GM2, GM1, gm2_gm1_n1, N1)
+/\ witness(GM2, GM1, gm1_gm2_n2, N2')
+
+5. State = 6 /\ RCV_GM2(HDR_GM1'.{Hash(SKEYID_b.M_id_rcv'.N1.N2.
+Sa2'.KD2').Sa2'.KD2'}_SKEYID_b)
+
+=|>
+State' := 8
+
+end role
+
+role gc_ks (GCKS, GM1, GM2: agent,
+SKEYID_a1, SKEYID_a2: symmetric_key,
+Hash: hash_func,
+K_SCOPE: nat,
+PT: text,
+ADJ1, ADJ2: message, % adjacencies corresponding to various GMs
+SND_GCKS, RCV_GCKS: channel(dy))
+
+played_by GCKS def=
+
+local
+State: nat,
+M_id, M_id_rcv: nat,
+Ni, Nr: text,
+RP_ID: nat,
+Sa: text,
+Cert: text,
+HDR_GC, HDR_GM1, HDR_GM2: text,
+
+%hashes
+Hash1, Hash2: message
+
+init
+State:= 1
+
+transition
+
+1. State = 1 /\ RCV_GCKS(HDR_GM1'.{Hash(SKEYID_a1.M_id_rcv'.
+Ni'.RP_ID').Ni'.RP_ID'}_SKEYID_a1)
+
+=|>
+State' := 3 /\ Nr' := new()
+/\ M_id' := 2
+/\ Sa' := new() % generate security association policy
+% and give it to the GM
+/\ Cert' := new() % generate a certificate for the GM
+/\ Hash1' := Hash(SKEYID_a1.M_id'.Ni'.Nr'.Sa'.Cert'.
+K_SCOPE.PT.ADJ1)
+/\ HDR_GC' := new()
+/\ SND_GCKS(HDR_GC'.{Hash1'.Nr'.Sa'.Cert'.K_SCOPE.
+PT.ADJ1}_ SKEYID_a1)
+/\ secret(Sa', sa1_gcks_gm, {GCKS, GM1})
+/\ witness(GCKS, GM1, gm1_gcks_ni, Ni')
+
+2. State = 3 /\ RCV_GCKS(HDR_GM1'.{Hash(SKEYID_a1.M_id_rcv'.
+Ni.Nr)}_SKEYID_a1)
+
+=|>
+State' := 1 /\ request(GCKS, GM1, gcks_gm1_nr, Nr)
+
+3. State = 1 /\ RCV_GCKS(HDR_GM2'.{Hash(SKEYID_a2.M_id_rcv'.Ni'.
+RP_ID').Ni'.RP_ID'}_SKEYID_a2)
+
+=|>
+State' := 2 /\ Nr' := new()
+/\ M_id' := 2
+/\ Sa' := new()
+/\ Cert' := new()
+/\ Hash2' := Hash(SKEYID_a2.M_id'.Ni'.Nr'.Sa'.Cert'.
+K_SCOPE.PT.ADJ2)
+/\ HDR_GC' := new()
+/\ SND_GCKS(HDR_GC'.{Hash2'.Nr'.Sa'.Cert'.K_SCOPE.PT.
+ADJ2}_ SKEYID_a2)
+/\ secret(Sa', sa2_gcks_gm, {GCKS, GM2})
+/\ witness(GCKS, GM2, gm2_gcks_ni, Ni')
+
+4. State = 2 /\ RCV_GCKS(HDR_GM2'.{Hash(SKEYID_a2.M_id_rcv'.
+Ni.Nr)}_SKEYID_a2)
+
+=|>
+State' := 1 /\ request(GCKS, GM2, gcks_gm2_nr, Nr)
+
+end role
+
+role session(GCKS, GM1, GM2: agent,
+SKEYID_a1, SKEYID_a2, SKEYID_b: symmetric_key,
+Hash: hash_func,
+K_SCOPE: nat,
+PT: text,
+ADJ1, ADJ2: message,
+RP_ID: nat)
+
+def=
+
+local
+S_GM1, R_GM1, S_GCKS, R_GCKS, S_GM2, R_GM2: channel(dy)
+
+composition
+
+gc_ks(GCKS, GM1, GM2, SKEYID_a1, SKEYID_a2, Hash, K_SCOPE, PT,
+ADJ1, ADJ2, S_GCKS, R_GCKS)
+/\ group_member2(GCKS, GM1, GM2, SKEYID_a2, SKEYID_b, Hash, RP_ID,
+S_GM2, R_GM2)
+/\ group_member1(GCKS, GM1, GM2, SKEYID_a1, SKEYID_b, Hash, RP_ID,
+S_GM1, R_GM1)
+
+end role
+
+role environment()
+
+def=
+
+const
+gcks, gm1, gm2: agent,
+skeyid_a1, skeyid_a2, skeyid_b, skeyid_i_gcks,
+skeyid_i_gm1, skeyid_i_gm2: symmetric_key,
+hash_fn: hash_func,
+kscope: nat,
+pt: text,
+adj1, adj2: message,
+rpid: nat,
+sa1_gcks_gm, sa2_gcks_gm, skeyida1,
+skeyida2: protocol_id,% related to GCKS-GM communication
+sa1_gm_gm, kd1_gm_gm, sa2_gm_gm,
+kd2_gm_gm, skeyidb: protocol_id,% related to GM-GM communication
+gm1_gcks_ni, gcks_gm1_nr, gm2_gcks_ni,
+gcks_gm2_nr: protocol_id,% related to GCKS-GM communication
+gm2_gm1_n1, gm1_gm2_n2: protocol_id % related to GM-GM communication
+
+intruder_knowledge = {gcks, gm1, gm2, hash_fn, rpid, skeyid_i_gcks,
+skeyid_i_gm1, skeyid_i_gm2, kscope, pt, adj1, adj2}
+
+composition
+session(gcks, gm1, gm2, skeyid_a1, skeyid_a2, skeyid_b, hash_fn,
+kscope, pt, adj1, adj2, rpid)
+/\session(gcks, gm1, gm2, skeyid_a1, skeyid_a2, skeyid_b, hash_fn,
+kscope, pt, adj1, adj2, rpid)
+/\session(gcks, gm1, i, skeyid_a1, skeyid_i_gcks, skeyid_i_gm1, hash_fn,
+kscope, pt, adj1, adj2, rpid)
+/\session(gcks, i, gm2, skeyid_i_gcks, skeyid_a2, skeyid_i_gm2, hash_fn,
+kscope, pt, adj1, adj2, rpid)
+/\session(i, gm1, gm2, skeyid_i_gm1, skeyid_i_gm2, skeyid_b, hash_fn,
+kscope, pt, adj1, adj2, rpid)
+
+end role
+
+goal
+% SA information given by the GCKS to the GMs
+secrecy_of sa1_gcks_gm
+secrecy_of sa2_gcks_gm
+
+% SKEYIDs
+secrecy_of skeyida1
+secrecy_of skeyida2
+secrecy_of skeyidb
+
+% SAs generated by GMs secrecy_of sa1_gm_gm
+secrecy_of sa1_gm_gm
+secrecy_of sa2_gm_gm
+
+% Traffic keys generated by GMs
+secrecy_of kd1_gm_gm
+secrecy_of kd2_gm_gm
+
+% Authentication based on nonces
+authentication_on gm1_gcks_ni
+authentication_on gcks_gm1_nr
+authentication_on gm2_gcks_ni
+authentication_on gcks_gm2_nr
+authentication_on gm2_gm1_n1
+authentication_on gm1_gm2_n2
+end goal
+
+environment()

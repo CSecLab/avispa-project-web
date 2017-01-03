@@ -1,0 +1,115 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfile2y5bfA
+
+section signature:
+
+state_server: agent * agent * agent * hash_func * public_key * public_key * public_key * public_key * nat * text * set(agent) * set(agent) * nat -> fact
+state_borne: agent * agent * agent * hash_func * public_key * public_key * public_key * public_key * nat * text * set(agent) * nat -> fact
+state_client: agent * agent * agent * public_key * public_key * public_key * public_key * nat * text * set(agent) * nat -> fact
+
+
+section types:
+
+ack, Ack: hash_func
+client_borne_nb, borne_client_nc, sx: protocol_id
+MGoal, start: message
+Dummy_X, dummy_nonce, X: text
+pkc, pkb, pki, pks, qrc, PKc, PKb, PKs, QRC: public_key
+5, SID, dummy_nat, 4, Dummy_State, 3, State, 2, 1, 0, 12, 11, 9, 7: nat
+set_97, set_96, set_92, set_85, set_114, set_113, set_111, set_109, set_107, set_106, set_105, set_103: set
+c, b, s, C, B, S, i: agent
+Dummy_Set_39, Dummy_Set_21, ASGoal, Set_57, Set_55, Set_39, Set_21, Dummy_Set_57, Dummy_Set_55: set(agent)
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(c).
+ iknows(b).
+ iknows(s).
+ iknows(pks).
+ iknows(pkc).
+ iknows(pkb).
+ iknows(pki).
+ iknows(inv(pki)).
+ iknows(qrc).
+ iknows(i).
+ state_client(c,b,s,pkc,pkb,pks,qrc,0,dummy_nonce,set_85,3).
+ state_borne(b,c,s,ack,pkc,pkb,pks,qrc,0,dummy_nonce,set_92,4).
+ state_server(s,c,b,ack,pkc,pkb,pks,qrc,dummy_nat,dummy_nonce,set_96,set_97,5).
+ state_client(c,i,s,pkc,pki,pks,qrc,0,dummy_nonce,set_103,7).
+ state_server(s,c,i,ack,pkc,pki,pks,qrc,dummy_nat,dummy_nonce,set_106,set_107,9).
+ state_client(c,b,i,pkc,pkb,pki,qrc,0,dummy_nonce,set_109,11).
+ state_borne(b,c,i,ack,pkc,pkb,pki,qrc,0,dummy_nonce,set_111,12)
+
+
+section rules:
+
+step step_0 (C,B,S,PKc,PKb,PKs,QRC,Dummy_X,Dummy_Set_21,SID,X) :=
+ state_client(C,B,S,PKc,PKb,PKs,QRC,0,Dummy_X,Dummy_Set_21,SID).
+ iknows(start)
+=[exists X]=>
+ state_client(C,B,S,PKc,PKb,PKs,QRC,1,X,Dummy_Set_21,SID).
+ iknows(pair(C,X)).
+ secret(X,sx,Dummy_Set_21).
+ contains(C,Dummy_Set_21).
+ contains(S,Dummy_Set_21)
+
+step step_1 (C,B,S,PKc,PKb,PKs,QRC,Dummy_X,Set_21,SID,X) :=
+ state_client(C,B,S,PKc,PKb,PKs,QRC,1,Dummy_X,Set_21,SID).
+ iknows(crypt(QRC,crypt(inv(PKs),pair(C,pair(X,B)))))
+ =>
+ state_client(C,B,S,PKc,PKb,PKs,QRC,2,X,Set_21,SID).
+ iknows(crypt(QRC,crypt(inv(PKs),pair(C,pair(X,B)))))
+
+step step_2 (B,C,S,Ack,PKc,PKb,PKs,QRC,Dummy_X,Dummy_Set_39,SID,X) :=
+ state_borne(B,C,S,Ack,PKc,PKb,PKs,QRC,0,Dummy_X,Dummy_Set_39,SID).
+ iknows(crypt(QRC,crypt(inv(PKs),pair(C,pair(X,B)))))
+ =>
+ state_borne(B,C,S,Ack,PKc,PKb,PKs,QRC,1,X,Dummy_Set_39,SID).
+ iknows(crypt(inv(PKs),pair(C,pair(X,B)))).
+ secret(X,sx,Dummy_Set_39).
+ contains(B,Dummy_Set_39).
+ contains(S,Dummy_Set_39)
+
+step step_3 (B,C,S,Ack,PKc,PKb,PKs,QRC,Dummy_X,Set_39,SID,X) :=
+ state_borne(B,C,S,Ack,PKc,PKb,PKs,QRC,1,Dummy_X,Set_39,SID).
+ iknows(crypt(PKb,apply(Ack,pair(C,pair(X,B)))))
+ =>
+ state_borne(B,C,S,Ack,PKc,PKb,PKs,QRC,2,X,Set_39,SID)
+
+step step_4 (S,C,B,Ack,PKc,PKb,PKs,QRC,Dummy_X,Dummy_Set_55,Set_57,SID,X) :=
+ state_server(S,C,B,Ack,PKc,PKb,PKs,QRC,0,Dummy_X,Dummy_Set_55,Set_57,SID).
+ iknows(crypt(PKs,pair(C,X)))
+ =>
+ state_server(S,C,B,Ack,PKc,PKb,PKs,QRC,1,X,Dummy_Set_55,Set_57,SID).
+ iknows(crypt(QRC,crypt(inv(PKs),pair(C,pair(X,B))))).
+ secret(X,sx,Dummy_Set_55).
+ contains(S,Dummy_Set_55).
+ contains(C,Dummy_Set_55)
+
+step step_5 (S,C,B,Ack,PKc,PKb,PKs,QRC,Dummy_X,Set_55,Dummy_Set_57,SID,X) :=
+ state_server(S,C,B,Ack,PKc,PKb,PKs,QRC,1,Dummy_X,Set_55,Dummy_Set_57,SID).
+ iknows(crypt(inv(PKs),pair(C,pair(X,B))))
+ =>
+ state_server(S,C,B,Ack,PKc,PKb,PKs,QRC,2,X,Set_55,Dummy_Set_57,SID).
+ iknows(crypt(PKb,apply(Ack,pair(C,pair(X,B))))).
+ secret(X,sx,Dummy_Set_57).
+ contains(S,Dummy_Set_57).
+ contains(B,Dummy_Set_57)
+
+
+section properties:
+
+property secrecy_of_sx (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sx,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_sx (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sx,ASGoal) &
+ not(contains(i,ASGoal))
+

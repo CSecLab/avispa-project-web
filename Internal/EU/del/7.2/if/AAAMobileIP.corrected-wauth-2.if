@@ -1,0 +1,119 @@
+%% IF specification of /home/friends/drwho/Desktop/Archivio/Work/Science/AVISPA/AVISPA-FET-EU-02/shared/testsuite/hlpsl/AAAMobileIP.corrected.hlpsl
+
+section signature:
+
+state_AAA_MIP_HA: agent * agent * agent * symmetric_key * nat * message * symmetric_key * symmetric_key * symmetric_key * nat -> fact
+state_AAA_MIP_AAAH: agent * agent * agent * agent * agent * symmetric_key * symmetric_key * symmetric_key * nat * symmetric_key * symmetric_key * symmetric_key * nat -> fact
+state_AAA_MIP_AAAL: agent * agent * agent * agent * symmetric_key * symmetric_key * nat * message * message * message * symmetric_key * symmetric_key * nat -> fact
+state_AAA_MIP_FA: agent * agent * agent * agent * symmetric_key * nat * symmetric_key * symmetric_key * message * message * message * nat -> fact
+state_AAA_MIP_MN: agent * agent * agent * symmetric_key * nat * symmetric_key * symmetric_key * nat -> fact
+
+
+section types:
+
+n_fa, k_mnha, k_mnfa, k_faha : protocol_id
+S, 7, CID, 6, 5, 3, 4, 2, 1, 0 : nat
+Kmn3ah, Kfa3al, K3ah3al, Kha3ah, K_MnFa, K_FaHa, K_MnHa, K_AAAHHa, K_MnAAAH, K_AAAHAAAL, KAAAHHa, K_FaAAAL, Dummy_K_FaHa, Dummy_K_MnHa, Dummy_K_MnFa, dummy_sk, k_ha_aaah, k_aaah_aaal, k_fa_aaal, k_mn_aaah : symmetric_key
+KeyMnFaKeyMnHa, SignedKeyMnFaKeyMnHa, SignedRegReq, Dummy_SignedKeyMnFaKeyMnHa, Dummy_KeyMnFaKeyMnHa, Dummy_SignKeyMnHaKeyMnFa, Dummy_KeyMnHaKeyMnFa, Dummy_SignedRegReq, KeyMnHaKeyMnFa, SignKeyMnHaKeyMnFa, dummy_msg, MGoal, start : message
+MN, FA, AAAL, AAAH, HA, AGoal, ha, aaah, aaal, i, fa, mn : agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(mn).
+ iknows(fa).
+ iknows(aaal).
+ iknows(aaah).
+ iknows(ha).
+ iknows(start).
+ iknows(i).
+ state_AAA_MIP_MN(mn,aaah,fa,k_mn_aaah,0,dummy_sk,dummy_sk,3).
+ state_AAA_MIP_FA(fa,aaal,aaah,mn,k_fa_aaal,0,dummy_sk,dummy_sk,dummy_msg,dummy_msg,dummy_msg,4).
+ state_AAA_MIP_AAAL(aaal,aaah,fa,mn,k_fa_aaal,k_aaah_aaal,0,dummy_msg,dummy_msg,dummy_msg,dummy_sk,dummy_sk,5).
+ state_AAA_MIP_AAAH(aaah,aaal,ha,fa,mn,k_mn_aaah,k_aaah_aaal,k_ha_aaah,0,dummy_sk,dummy_sk,dummy_sk,6).
+ state_AAA_MIP_HA(ha,aaah,mn,k_ha_aaah,0,dummy_msg,dummy_sk,dummy_sk,dummy_sk,7)
+
+
+section rules:
+
+step step_0 (MN,AAAH,FA,K_MnAAAH,K_MnFa,K_MnHa,CID) :=
+ state_AAA_MIP_MN(MN,AAAH,FA,K_MnAAAH,0,K_MnFa,K_MnHa,CID).
+ iknows(pair(FA,FA))
+ =>
+ state_AAA_MIP_MN(MN,AAAH,FA,K_MnAAAH,1,K_MnFa,K_MnHa,CID).
+ iknows(pair(pair(pair(FA,MN),AAAH),scrypt(K_MnAAAH,pair(pair(FA,MN),AAAH))))
+
+step step_1 (MN,AAAH,FA,K_MnAAAH,Dummy_K_MnFa,Dummy_K_MnHa,K_MnFa,K_MnHa,CID) :=
+ state_AAA_MIP_MN(MN,AAAH,FA,K_MnAAAH,1,Dummy_K_MnFa,Dummy_K_MnHa,CID).
+ iknows(pair(scrypt(K_MnAAAH,pair(K_MnFa,K_MnHa)),scrypt(K_MnHa,scrypt(K_MnAAAH,pair(K_MnFa,K_MnHa)))))
+ =>
+ state_AAA_MIP_MN(MN,AAAH,FA,K_MnAAAH,2,K_MnFa,K_MnHa,CID)
+
+step step_2 (FA,AAAL,AAAH,MN,K_FaAAAL,K_MnFa,K_FaHa,KeyMnHaKeyMnFa,SignKeyMnHaKeyMnFa,SignedRegReq,CID) :=
+ state_AAA_MIP_FA(FA,AAAL,AAAH,MN,K_FaAAAL,0,K_MnFa,K_FaHa,KeyMnHaKeyMnFa,SignKeyMnHaKeyMnFa,SignedRegReq,CID).
+ iknows(start)
+ =>
+ state_AAA_MIP_FA(FA,AAAL,AAAH,MN,K_FaAAAL,1,K_MnFa,K_FaHa,KeyMnHaKeyMnFa,SignKeyMnHaKeyMnFa,SignedRegReq,CID).
+ iknows(pair(FA,FA))
+
+step step_3 (FA,AAAL,AAAH,MN,K_FaAAAL,K_MnFa,K_FaHa,KeyMnHaKeyMnFa,SignKeyMnHaKeyMnFa,Dummy_SignedRegReq,SignedRegReq,CID) :=
+ state_AAA_MIP_FA(FA,AAAL,AAAH,MN,K_FaAAAL,1,K_MnFa,K_FaHa,KeyMnHaKeyMnFa,SignKeyMnHaKeyMnFa,Dummy_SignedRegReq,CID).
+ iknows(pair(pair(pair(FA,MN),AAAH),SignedRegReq))
+ =>
+ state_AAA_MIP_FA(FA,AAAL,AAAH,MN,K_FaAAAL,2,K_MnFa,K_FaHa,KeyMnHaKeyMnFa,SignKeyMnHaKeyMnFa,SignedRegReq,CID).
+ iknows(pair(pair(pair(FA,MN),AAAH),SignedRegReq))
+
+step step_4 (FA,AAAL,AAAH,MN,K_FaAAAL,Dummy_K_MnFa,Dummy_K_FaHa,Dummy_KeyMnHaKeyMnFa,Dummy_SignKeyMnHaKeyMnFa,SignedRegReq,K_MnFa,K_FaHa,KeyMnHaKeyMnFa,SignKeyMnHaKeyMnFa,CID) :=
+ state_AAA_MIP_FA(FA,AAAL,AAAH,MN,K_FaAAAL,2,Dummy_K_MnFa,Dummy_K_FaHa,Dummy_KeyMnHaKeyMnFa,Dummy_SignKeyMnHaKeyMnFa,SignedRegReq,CID).
+ iknows(pair(pair(pair(pair(FA,scrypt(K_FaAAAL,pair(K_MnFa,K_FaHa))),KeyMnHaKeyMnFa),SignKeyMnHaKeyMnFa),scrypt(K_FaAAAL,pair(pair(pair(FA,scrypt(K_FaAAAL,pair(K_MnFa,K_FaHa))),KeyMnHaKeyMnFa),SignKeyMnHaKeyMnFa))))
+ =>
+ state_AAA_MIP_FA(FA,AAAL,AAAH,MN,K_FaAAAL,3,K_MnFa,K_FaHa,KeyMnHaKeyMnFa,SignKeyMnHaKeyMnFa,SignedRegReq,CID).
+ iknows(pair(KeyMnHaKeyMnFa,SignKeyMnHaKeyMnFa)).
+ wrequest(FA,AAAH,kfaha,K_FaHa,CID).
+ wrequest(FA,AAAH,kmnfa,K_MnFa,CID)
+
+step step_5 (AAAL,AAAH,FA,MN,K_FaAAAL,K_AAAHAAAL,KeyMnFaKeyMnHa,SignedKeyMnFaKeyMnHa,Dummy_SignedRegReq,K_MnFa,K_FaHa,SignedRegReq,CID) :=
+ state_AAA_MIP_AAAL(AAAL,AAAH,FA,MN,K_FaAAAL,K_AAAHAAAL,0,KeyMnFaKeyMnHa,SignedKeyMnFaKeyMnHa,Dummy_SignedRegReq,K_MnFa,K_FaHa,CID).
+ iknows(pair(pair(pair(FA,MN),AAAH),SignedRegReq))
+ =>
+ state_AAA_MIP_AAAL(AAAL,AAAH,FA,MN,K_FaAAAL,K_AAAHAAAL,1,KeyMnFaKeyMnHa,SignedKeyMnFaKeyMnHa,SignedRegReq,K_MnFa,K_FaHa,CID).
+ iknows(pair(pair(pair(FA,MN),AAAH),SignedRegReq))
+
+step step_6 (AAAL,AAAH,FA,MN,K_FaAAAL,K_AAAHAAAL,Dummy_KeyMnFaKeyMnHa,Dummy_SignedKeyMnFaKeyMnHa,SignedRegReq,Dummy_K_MnFa,Dummy_K_FaHa,KeyMnFaKeyMnHa,SignedKeyMnFaKeyMnHa,K_MnFa,K_FaHa,CID) :=
+ state_AAA_MIP_AAAL(AAAL,AAAH,FA,MN,K_FaAAAL,K_AAAHAAAL,1,Dummy_KeyMnFaKeyMnHa,Dummy_SignedKeyMnFaKeyMnHa,SignedRegReq,Dummy_K_MnFa,Dummy_K_FaHa,CID).
+ iknows(pair(pair(pair(pair(FA,scrypt(K_AAAHAAAL,pair(K_MnFa,K_FaHa))),KeyMnFaKeyMnHa),SignedKeyMnFaKeyMnHa),scrypt(K_AAAHAAAL,pair(pair(pair(FA,scrypt(K_AAAHAAAL,pair(K_MnFa,K_FaHa))),KeyMnFaKeyMnHa),SignedKeyMnFaKeyMnHa))))
+ =>
+ state_AAA_MIP_AAAL(AAAL,AAAH,FA,MN,K_FaAAAL,K_AAAHAAAL,2,KeyMnFaKeyMnHa,SignedKeyMnFaKeyMnHa,SignedRegReq,K_MnFa,K_FaHa,CID).
+ iknows(pair(pair(pair(pair(FA,scrypt(K_FaAAAL,pair(K_MnFa,K_FaHa))),KeyMnFaKeyMnHa),SignedKeyMnFaKeyMnHa),scrypt(K_FaAAAL,pair(pair(pair(FA,scrypt(K_FaAAAL,pair(K_MnFa,K_FaHa))),KeyMnFaKeyMnHa),SignedKeyMnFaKeyMnHa))))
+
+step step_7 (AAAH,AAAL,HA,FA,MN,K_MnAAAH,K_AAAHAAAL,KAAAHHa,Dummy_K_FaHa,Dummy_K_MnHa,Dummy_K_MnFa,K_FaHa,K_MnHa,K_MnFa,CID) :=
+ state_AAA_MIP_AAAH(AAAH,AAAL,HA,FA,MN,K_MnAAAH,K_AAAHAAAL,KAAAHHa,0,Dummy_K_FaHa,Dummy_K_MnHa,Dummy_K_MnFa,CID).
+ iknows(pair(pair(pair(FA,MN),AAAH),scrypt(K_MnAAAH,pair(pair(FA,MN),AAAH))))
+=[exists K_MnFa,K_FaHa,K_MnHa]=>
+ state_AAA_MIP_AAAH(AAAH,AAAL,HA,FA,MN,K_MnAAAH,K_AAAHAAAL,KAAAHHa,1,K_FaHa,K_MnHa,K_MnFa,CID).
+ iknows(pair(pair(pair(MN,scrypt(KAAAHHa,pair(K_MnHa,K_FaHa))),scrypt(K_MnAAAH,pair(K_MnFa,K_MnHa))),scrypt(KAAAHHa,pair(pair(MN,scrypt(KAAAHHa,pair(K_MnHa,K_FaHa))),scrypt(K_MnAAAH,pair(K_MnFa,K_MnHa)))))).
+ witness(AAAH,FA,kfaha,K_FaHa).
+ witness(AAAH,FA,kmnfa,K_MnFa)
+
+step step_8 (AAAH,AAAL,HA,FA,MN,K_MnAAAH,K_AAAHAAAL,KAAAHHa,K_FaHa,K_MnHa,K_MnFa,CID) :=
+ state_AAA_MIP_AAAH(AAAH,AAAL,HA,FA,MN,K_MnAAAH,K_AAAHAAAL,KAAAHHa,1,K_FaHa,K_MnHa,K_MnFa,CID).
+ iknows(pair(pair(scrypt(K_MnAAAH,pair(K_MnFa,K_MnHa)),scrypt(K_MnHa,scrypt(K_MnAAAH,pair(K_MnFa,K_MnHa)))),scrypt(KAAAHHa,pair(scrypt(K_MnAAAH,pair(K_MnFa,K_MnHa)),scrypt(K_MnHa,scrypt(K_MnAAAH,pair(K_MnFa,K_MnHa)))))))
+ =>
+ state_AAA_MIP_AAAH(AAAH,AAAL,HA,FA,MN,K_MnAAAH,K_AAAHAAAL,KAAAHHa,2,K_FaHa,K_MnHa,K_MnFa,CID).
+ iknows(pair(pair(pair(pair(FA,scrypt(K_AAAHAAAL,pair(K_MnFa,K_FaHa))),scrypt(K_MnAAAH,pair(K_MnFa,K_MnHa))),scrypt(K_MnHa,scrypt(K_MnAAAH,pair(K_MnFa,K_MnHa)))),scrypt(K_AAAHAAAL,pair(pair(pair(FA,scrypt(K_AAAHAAAL,pair(K_MnFa,K_FaHa))),scrypt(K_MnAAAH,pair(K_MnFa,K_MnHa))),scrypt(K_MnHa,scrypt(K_MnAAAH,pair(K_MnFa,K_MnHa)))))))
+
+step step_9 (HA,AAAH,MN,K_AAAHHa,Dummy_KeyMnFaKeyMnHa,K_MnFa,Dummy_K_FaHa,Dummy_K_MnHa,KeyMnFaKeyMnHa,K_FaHa,K_MnHa,CID) :=
+ state_AAA_MIP_HA(HA,AAAH,MN,K_AAAHHa,0,Dummy_KeyMnFaKeyMnHa,K_MnFa,Dummy_K_FaHa,Dummy_K_MnHa,CID).
+ iknows(pair(pair(pair(MN,scrypt(K_AAAHHa,pair(K_MnHa,K_FaHa))),KeyMnFaKeyMnHa),scrypt(K_AAAHHa,pair(pair(MN,scrypt(K_AAAHHa,pair(K_MnHa,K_FaHa))),KeyMnFaKeyMnHa))))
+ =>
+ state_AAA_MIP_HA(HA,AAAH,MN,K_AAAHHa,1,KeyMnFaKeyMnHa,K_MnFa,K_FaHa,K_MnHa,CID).
+ iknows(pair(pair(KeyMnFaKeyMnHa,scrypt(K_MnHa,KeyMnFaKeyMnHa)),scrypt(K_AAAHHa,pair(KeyMnFaKeyMnHa,scrypt(K_MnHa,KeyMnFaKeyMnHa)))))
+
+section goals:
+
+goal weak_authenticate_K_MnFa (AAAH,FA,K_MnFa,CID) :=
+ wrequest(FA,AAAH,k_mnfa,K_MnFa,CID).
+ not(witness(AAAH,FA,k_mnfa,K_MnFa)) &
+ not(equal(AAAH,i))
+

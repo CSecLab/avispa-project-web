@@ -1,0 +1,128 @@
+role user(
+		U, H, B			: agent,
+		Ku, Kh, Kb		: public_key,
+		Hash			: hash_func,
+		U2h, H2u, U2b, B2u	: channel(dy)
+	)
+	played_by U
+	def=
+	local
+		State			: nat,
+		Req_host		: {{text.text}_inv(public_key)}_public_key,
+		Req_board		: {{text.text}_inv(public_key)}_public_key,
+		Uhoa, N1, N2, N3	: text
+	init
+		State := 1
+	transition
+	1.	State = 1 /\ B2u(start) =|>
+		State' :=     3	/\ Uhoa' := new()
+				/\ N1' := new()
+				/\ N2' := new()
+				/\ N3' := new()
+				/\ secret(Uhoa', uhoa, {U, H})
+				/\ secret(N1', n1, {U, H})
+				/\ secret(N2', n2, {U, B})
+				/\ secret(N3', n3, {U, B})
+				/\ Req_host' := {{Uhoa'.N1'}_inv(Ku)}_Kh
+				/\ Req_board' := {{N2'.N3'}_inv(Ku)}_Kb
+				/\ U2b(Req_host'.Req_board')
+				/\ U2h({{N1'.N2'}_inv(Ku)}_Kh)
+end role
+
+role board(
+		U, H, B			: agent,
+		Ku, Kh, Kb		: public_key,
+		Hash			: hash_func,
+		B2h, H2b, U2b, B2u	: channel(dy)
+	)
+	played_by B
+	def=
+	local
+		State			: nat,
+		Req_host		: {{text.text}_inv(public_key)}_public_key,
+		Req_board		: {{text.text}_inv(public_key)}_public_key,
+		N2, N3, N4, M		: text,
+		Req_all			: {{text.text}_inv(public_key)}_public_key.{{text.text}_inv(public_key)}_public_key,
+		Res_user		: {{text.text}_inv(public_key)}_public_key,
+		Res_board		: {{text.text.text}_inv(public_key)}_public_key,
+		Res_all			: {{text.text}_inv(public_key)}_public_key.{{text.text.text}_inv(public_key)}_public_key,
+		Sig			: {hash_func}_inv(public_key)
+	init
+		State := 2
+	transition
+	2.	State = 2 /\ U2b(Req_host'.{{N2'.N3'}_inv(Ku)}_Kb) =|>
+		State' :=     5	/\ Req_all' := Req_host'.{{N2'.N3'}_inv(Ku)}_Kb
+				/\ Sig' := {Hash(Req_all')}_inv(Kb)
+%				/\ B2u(Req_all'.Sig')
+				/\ B2h(Req_all'.Sig')
+	5.	State = 5 /\ H2b(Res_user'.{{M'.N2'.N4'}_inv(Kh)}_Kb) =|>
+		State' :=     6
+end role
+
+role host(
+		U, H, B			: agent,
+		Ku, Kh, Kb		: public_key,
+		Hash			: hash_func,
+		B2h, H2b, U2h, H2u	: channel(dy)
+	)
+	played_by H
+	def=
+	local
+		State			: nat,
+		Req_host		: {{text.text}_inv(public_key)}_public_key,
+		Req_board		: {{text.text}_inv(public_key)}_public_key,
+		Req_all			: {{text.text}_inv(public_key)}_public_key.{{text.text}_inv(public_key)}_public_key,
+		Res_user		: {{text.text}_inv(public_key)}_public_key,
+		Res_board		: {{text.text.text}_inv(public_key)}_public_key,
+		Res_all			: {{text.text}_inv(public_key)}_public_key.{{text.text.text}_inv(public_key)}_public_key,
+		Uhoa, N1, N1_, N2, N4, T, M	: text
+		
+	init
+		State := 3
+	transition
+	3.	State = 3 /\ B2h({{Uhoa'.N1'}_inv(Ku)}_Kh.Req_board.{Hash(Req_all)}_inv(Kb)) /\ U2h({{N1_'.N2'}_inv(Ku)}_Kh) =|>
+		State' :=     4 /\ T' := new()
+				/\ M' := new()
+				/\ N4' := new()
+				/\ H2b({{T'.N1'}_inv(Kh)}_Ku.{{M'.N2'.N4'}_inv(Kh)}_Kb)
+end role
+
+role session(
+		U, H, B				: agent,
+		Ku, Kh, Kb			: public_key,
+		Hash				: hash_func
+	)
+	def=
+	local
+		U2b, B2u, U2h, H2u, H2b, B2h	: channel(dy)		
+	composition
+		user(U, H, B, Ku, Kh, Kb, Hash, U2h, H2u, U2b, B2u) /\
+		board(U, H, B, Ku, Kh, Kb, Hash, B2h, H2b, U2b, B2u) /\
+		host(U, H, B, Ku, Kh, Kb, Hash, B2h, H2b, U2h, H2u)
+end role
+
+role environment()
+	def=	
+	const
+		user_host_s1	:	protocol_id,
+		u, h, b, i	:	agent,
+		hf		:	hash_func,
+		ku, kh, kb, ki	:	public_key
+	intruder_knowledge	=	{u, h, b, i, hf, ku, kh, kb, ki}
+	composition
+		session(u, h, b, ku, kh, kb, hf)
+		/\
+		session(u, i, b, ku, ki, kb, hf) /\
+		session(u, h, i, ku, kh, ki, hf) /\
+		session(i, h, b, ki, kh, kb, hf)
+end role
+
+goal
+	secrecy_of uhoa
+	secrecy_of n1
+	secrecy_of n2
+	secrecy_of n3
+end goal
+
+
+environment()

@@ -1,0 +1,105 @@
+role server_Init (S,C   : agent,
+           	Kcs   : symmetric_key,
+		F     : hash_func,
+ 		Snd, Rcv: channel(dy))
+played_by S
+def=
+           
+  local State	  : nat,
+        Rc, Rs, P : text,
+	Es        : public_key
+
+  const sec_kcs1  : protocol_id
+
+  init  State := 0
+
+  transition
+   1. State   = 0 /\ Rcv(start) =|>
+      State' := 1 /\ Rs' := new()/\ Kcs' := F(Rc', Rs') /\  Snd(Rs')
+
+   2. State   = 1 /\ Rcv({Rc'}_Es') /\ Rcv({F(Rc'), P, C}_Kcs') =|>  
+      State' := 2 /\ Snd({Rc'}_Kcs)
+	
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% C <- S: Rs
+role server_Resp (S,C : agent,
+                Kcs : symmetric_key,
+ 		F: hash_func,
+                Snd, Rcv: channel(dy))
+played_by C
+def=
+           
+  local State  : nat,
+        Rc, Rs, P : text
+
+  const sec_kcs : protocol_id
+
+  init  State := 0
+
+  transition
+   1. State   = 0 /\ Rcv(Rs') =|>  
+      State' := 1 /\ Rc' := new() 
+		  /\ Kcs' := F(Rc',Rs')
+		  /\ snd({Rc'}_Es.{F(Rs'),P,C}_Kcs')
+
+
+   2. State   = 1 /\ Rcv({f(Rs')}_Kcs') =|>
+      State' := 2 /\ request(S,C,nc,Rs')/\ secret(Kcs,sec_kcs,{C,S})
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(C,S: agent,
+	     
+	    
+             Kcs: symmetric_key,
+             F: hash_func)
+def=
+
+  local LC, LS, MC, MS: channel (dy)
+
+  composition         server_Resp(S, C, Kcs, F, LS, MS)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%man in the middle
+role environment()
+def=
+
+  const c, s, i       : agent,
+	
+        kcs, kci, ksi : symmetric_key,
+        f             : hash_func,
+        nc, ns        : protocol_id
+
+  intruder_knowledge = {c, s, f, kci, ksi}
+
+  composition
+ session(c,s,kcs,f) /\ session(c,i,kci,f) /\ session(s,i,ksi,f)
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+ %secrecy of the shared key
+ secrecy_of sec_kcs1, sec_kcs2
+                         
+ %CHAP_Init authenticates CHAP_Resp on nb
+ authentication_on ns  % Addresses G1, G2
+ %CHAP_Resp authenticates CHAP_Init on na
+ authentication_on nc  % Addresses G1, G2
+  
+end goal
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+}
+ 

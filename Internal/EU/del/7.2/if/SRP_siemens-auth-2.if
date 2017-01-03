@@ -1,0 +1,103 @@
+%% IF specification of /home/compa/Work/Projects/AVISPA/AVISPA-FET-EU-02/shared/assessment_I_Year/hlpsl/SRP_siemens.hlpsl
+
+section signature:
+
+state_SRP_Resp: agent * agent * symmetric_key * text * function * text * nat * text * text * message * message * message * message * nat -> fact
+state_SRP_Init: agent * agent * symmetric_key * function * text * nat * text * text * text * message * message * message * message * nat -> fact
+
+
+section types:
+
+k : protocol_id
+Kab, kab, kbi, kai : symmetric_key
+Dummy_DHX, Dummy_M, M, Dummy_K, K, Dummy_DHY, DHX, V, Dummy_V, dummy_msg, MGoal, DHY, start : message
+A, B, AGoal, b, a, i : agent
+Salt, Dummy_Nb, Nb, Dummy_Salt, Na, Dummy_Na, G, dummy_nonce, g, s_kab, s_kbi, s_kai : text
+H, h : function
+6, 4, CID, State, 3, CID2, CID1, 2, 1, 0, 9 : nat
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(b).
+ iknows(g).
+ iknows(h).
+ iknows(a).
+ iknows(kai).
+ iknows(kbi).
+ iknows(s_kai).
+ iknows(s_kbi).
+ iknows(start).
+ iknows(i).
+ state_SRP_Init(a,b,kab,h,g,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,dummy_msg,3).
+ state_SRP_Resp(b,a,kab,s_kab,h,g,0,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,dummy_msg,4).
+ state_SRP_Init(a,i,kai,h,g,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,dummy_msg,6).
+ state_SRP_Init(b,i,kbi,h,g,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,dummy_msg,9)
+
+
+section rules:
+
+step step_0 (A,B,Kab,H,G,Na,Nb,Salt,DHY,V,K,M,CID) :=
+ state_SRP_Init(A,B,Kab,H,G,0,Na,Nb,Salt,DHY,V,K,M,CID).
+ iknows(start)
+ =>
+ state_SRP_Init(A,B,Kab,H,G,1,Na,Nb,Salt,DHY,V,K,M,CID).
+ iknows(A)
+
+step step_1 (A,B,Kab,H,G,Dummy_Na,Nb,Dummy_Salt,DHY,Dummy_V,K,M,Na,Salt,CID) :=
+ state_SRP_Init(A,B,Kab,H,G,1,Dummy_Na,Nb,Dummy_Salt,DHY,Dummy_V,K,M,CID).
+ iknows(Salt)
+=[exists Na]=>
+ state_SRP_Init(A,B,Kab,H,G,2,Na,Nb,Salt,DHY,exp(G,apply(H,pair(Salt,apply(H,pair(A,Kab))))),K,M,CID).
+ iknows(exp(G,Na))
+
+step step_2 (A,B,Kab,H,G,Na,Dummy_Nb,Salt,Dummy_DHY,V,Dummy_K,Dummy_M,Nb,CID) :=
+ state_SRP_Init(A,B,Kab,H,G,2,Na,Dummy_Nb,Salt,Dummy_DHY,V,Dummy_K,Dummy_M,CID).
+ iknows(scrypt(V,exp(G,Nb)))
+ =>
+ state_SRP_Init(A,B,Kab,H,G,3,Na,Nb,Salt,exp(G,Nb),V,apply(H,pair(V,exp(exp(G,Nb),Na))),apply(H,pair(pair(pair(pair(pair(apply(H,G),apply(H,A)),Salt),exp(G,Na)),scrypt(V,exp(G,Nb))),apply(H,pair(V,exp(exp(G,Nb),Na))))),CID).
+ iknows(apply(H,pair(pair(pair(pair(pair(apply(H,G),apply(H,A)),Salt),exp(G,Na)),scrypt(V,exp(G,Nb))),apply(H,pair(V,exp(exp(G,Nb),Na)))))).
+ witness(A,B,k,apply(H,pair(V,exp(exp(G,Nb),Na))))
+
+step step_3 (A,B,Kab,H,G,Na,Nb,Salt,DHY,V,K,M,CID) :=
+ state_SRP_Init(A,B,Kab,H,G,3,Na,Nb,Salt,DHY,V,K,M,CID).
+ iknows(apply(H,pair(pair(exp(G,Na),M),K)))
+ =>
+ state_SRP_Init(A,B,Kab,H,G,4,Na,Nb,Salt,DHY,V,K,M,CID)
+
+step step_4 (B,A,Kab,Salt,H,G,Na,Nb,M,K,DHX,Dummy_V,CID) :=
+ state_SRP_Resp(B,A,Kab,Salt,H,G,0,Na,Nb,M,K,DHX,Dummy_V,CID).
+ iknows(A)
+ =>
+ state_SRP_Resp(B,A,Kab,Salt,H,G,1,Na,Nb,M,K,DHX,exp(G,apply(H,pair(Salt,apply(H,pair(A,Kab))))),CID).
+ iknows(Salt)
+
+step step_5 (B,A,Kab,Salt,H,G,Dummy_Na,Dummy_Nb,Dummy_M,Dummy_K,Dummy_DHX,V,Na,Nb,CID) :=
+ state_SRP_Resp(B,A,Kab,Salt,H,G,1,Dummy_Na,Dummy_Nb,Dummy_M,Dummy_K,Dummy_DHX,V,CID).
+ iknows(exp(G,Na))
+=[exists Nb]=>
+ state_SRP_Resp(B,A,Kab,Salt,H,G,2,Na,Nb,apply(H,pair(pair(pair(pair(pair(apply(H,G),apply(H,A)),Salt),exp(G,Na)),scrypt(V,exp(G,Nb))),apply(H,pair(V,exp(exp(G,Na),Nb))))),apply(H,pair(V,exp(exp(G,Na),Nb))),exp(G,Na),V,CID).
+ iknows(scrypt(V,exp(G,Nb)))
+
+step step_6 (B,A,Kab,Salt,H,G,Na,Nb,M,K,DHX,V,CID) :=
+ state_SRP_Resp(B,A,Kab,Salt,H,G,2,Na,Nb,M,K,DHX,V,CID).
+ iknows(M)
+ =>
+ state_SRP_Resp(B,A,Kab,Salt,H,G,3,Na,Nb,M,K,DHX,V,CID).
+ iknows(apply(H,pair(pair(DHX,M),K))).
+ request(B,A,k,K,CID)
+
+
+section goals:
+
+goal authenticate_K (A,B,K,CID) :=
+ request(B,A,k,K,CID).
+ not(witness(A,B,k,K)) &
+ not(equal(A,i))
+goal replay_protection_K (A,B,K,CID1,CID2) :=
+ request(B,A,k,K,CID1).
+ request(B,A,k,K,CID2) &
+ not(equal(CID1,CID2)) &
+ not(equal(A,i))
+

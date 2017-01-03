@@ -1,0 +1,72 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilec5kOlH
+
+section signature:
+
+state_tag: agent * agent * text * hash_func * nat * text * text * nat -> fact
+state_reader: agent * agent * text * hash_func * nat * text * text * set(agent) * nat -> fact
+
+
+section types:
+
+set_49: set
+tk: protocol_id
+MGoal, start: message
+h, H: hash_func
+ASGoal, Set_20, Dummy_Set_20: set(agent)
+r, t, R, T, i: agent
+3, State, 4, 2, 1, 0, SID, Dummy_State: nat
+k, Nr, Nt, K, Dummy_Nt, Dummy_Nr, dummy_nonce: text
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(h).
+ iknows(r).
+ iknows(t).
+ iknows(i).
+ state_reader(r,t,k,h,0,dummy_nonce,dummy_nonce,set_49,3).
+ state_tag(t,r,k,h,1,dummy_nonce,dummy_nonce,4)
+
+
+section rules:
+
+step step_0 (R,T,K,H,Dummy_Nr,Nt,Set_20,SID,Nr) :=
+ state_reader(R,T,K,H,0,Dummy_Nr,Nt,Set_20,SID).
+ iknows(start)
+=[exists Nr]=>
+ state_reader(R,T,K,H,2,Nr,Nt,Set_20,SID).
+ iknows(Nr)
+
+step step_1 (R,T,K,H,Nr,Dummy_Nt,Dummy_Set_20,SID,Nt) :=
+ state_reader(R,T,K,H,2,Nr,Dummy_Nt,Dummy_Set_20,SID).
+ iknows(pair(Nt,apply(H,pair(Nt,pair(Nr,K)))))
+ =>
+ state_reader(R,T,K,H,4,Nr,Nt,Dummy_Set_20,SID).
+ secret(K,tk,Dummy_Set_20).
+ contains(R,Dummy_Set_20).
+ contains(T,Dummy_Set_20)
+
+step step_2 (T,R,K,H,Dummy_Nr,Dummy_Nt,SID,Nr,Nt) :=
+ state_tag(T,R,K,H,1,Dummy_Nr,Dummy_Nt,SID).
+ iknows(Nr)
+=[exists Nt]=>
+ state_tag(T,R,K,H,3,Nr,Nt,SID).
+ iknows(pair(Nt,apply(H,pair(Nt,pair(Nr,K)))))
+
+
+section properties:
+
+property secrecy_of_tk (MGoal,ASGoal) :=
+ [] ((secret(MGoal,tk,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_tk (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,tk,ASGoal) &
+ not(contains(i,ASGoal))
+

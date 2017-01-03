@@ -1,0 +1,126 @@
+role kgc(K,A,B:agent,
+            SKab,Kab:symmetric_key,
+			Add,Sub,Mul,H:hash_func,
+			Puba,Mpk,Pubb:public_key,
+			Snd,Rcv:channel(dy))
+played_by K
+def=
+local State:nat,
+    G,Msk,IDa,IDb,Da,Db,Xa,Pa,Va,Xb,Pb,Vb,R,K1,K2,Ts,K3,C,W,S,D,M,D1,Y:text
+	  
+	  const alice_xa,bob_xbsk,kgc_msk,subs1,subs2,subs3,subs4:protocol_id
+init State := 0
+transition
+1. State=0/\Rcv(start)=|>
+State':=1/\Msk':=new()
+         /\Mpk':=H(G,Msk)
+         /\Da':=H(IDa.msk)
+         /\Db':=H(IDb.msk)
+         /\Snd(Da.Db)
+         /\secret({Msk},subs1,{K,A})
+         /\secret({Msk},subs2,{K,B})
+         /\witness(K,A,kgc_msk,Msk')
+         /\witness(K,B,kgc_msk,Msk')
+  end role
+  
+role alice(K,A,B:agent,
+            SKab,Kab:symmetric_key,
+			Add,Sub,Mul,H:hash_func,
+			Puba,Mpk,Pubb:public_key,
+			Snd,Rcv:channel(dy))
+played_by A
+def=
+local State:nat,
+      G,Msk,IDa,IDb,Da,Db,Xa,Pa,Va,Xb,Pb,Vb,R,K1,K2,Ts,K3,C,W,S,D,M,D1,Y:text
+	  
+	  const alice_xa,bob_xbsk,kgc_msk,subs1,subs2,subs3,subs4:protocol_id
+init State := 0
+transition 
+1.State=0/\Rcv(Da)=|>
+   State':=1 /\Xa':=new()
+             /\Va':=xor(Da,H(Xa))
+             /\Pa':=exp(G,Va)
+             /\ R':=new()
+             /\K1':=exp(G,R)
+             /\K2':=H(IDa.K1.Da)
+             /\Ts':=new()
+             /\SKab':=exp(Pubb,Xa)
+             /\Kab':=H(SKab.Mpk.IDb)
+             /\D':=Mul(K2,R)
+             /\K3':=exp(G,D)
+             /\C':= ({M}_K3)
+             /\W':=H(M.IDa.IDb.K3.Ts)
+             /\F':=Mul(Mul(Mul(IDa,W),Xa),K1)
+             /\S':=Sub(D.F)
+             /\Snd({C.W.S.K1.Ts}_Kab)
+             /\secret({Va},subs3,{A,B})
+end role
+
+role bob(K,A,B:agent,
+            SKab,Kab:symmetric_key,
+			Add,Sub,Mul,H:hash_func,
+			Puba,Mpk,Pubb:public_key,
+			Snd,Rcv:channel(dy))
+played_by B
+def=
+local State:nat,
+      G,Msk,IDa,IDb,Da,Db,Xa,Pa,Va,Xb,Pb,Vb,R,K1,K2,Ts,K3,C,W,S,D,M,D1,Y:text
+	  
+	  const alice_va,bob_vb,kgc_msk,subs1,subs2,subs3,subs4:protocol_id
+init State := 0 
+  transition
+1.State=0/\Rcv({C.W.S.K1.Ts}_Kab)=|>
+State':=1/\Xb':=new()
+             /\Vb':=xor(Db,H(Xb)
+             /\Pb':=exp(G,Vb)
+             /\D1':=Mul(Mul(IDa,W),K1)
+             /\Y':=exp(Puba,D1)
+             /\K3':=Add(exp(G,S),Y) 
+             /\ secret({Vb},subs4,{B,A})   
+     end role
+     
+role session(K,A,B:agent,
+            SKab,Kab:symmetric_key,
+			Add,Sub,Mul,H:hash_func,
+			Puba,Mpk,Pubb:public_key
+			)
+
+def= 
+local SA,SB,SK,RA,RB,RK:channel(dy)    
+composition
+kgc(K,A,B,SKab,Kab,Add,Sub,Mul,H,Puba,Mpk,Pubb,SK,RK)
+/\alice(K,A,B,SKab,Kab,Add,Sub,Mul,H,Puba,Mpk,Pubb,SA,RA)  
+/\bob(K,A,B,SKab,Kab,Add,Sub,Mul,H,Puba,Mpk,Pubb,SB,RB)    
+end role
+
+role environmtnt
+def=
+const k,a,b,i:agent,
+skab,kab:symmetric_key,
+add,sub,mul,h:hash_func,
+puba,mpk,pubb:public_key,
+ g,ida,idb,da,db,xa,pa,xb,pb,r,k1,k2,ts,k3,c,w,s,d,m,d1,y:text
+ alice_va,bob_vb,kgc_msk,subs1,subs2,subs3,subs4:protocol_id
+ 
+ intruder_knowledge={k,a,b,add,sub,mul,h,puba,mpk,pubb}
+ 
+ composition
+ session(k,a,b,skab,kab,add,sub,mul,h,puba,mpk,pubb)
+ /\session(k,a,b,skab,kab,add,sub,mul,h,puba,mpk,pubb)
+ /\session(k,a,b,skab,kab,add,sub,mul,h,puba,mpk,pubb)
+ 
+ end role
+ 
+ goal
+  secrecy_of subs1
+ secrecy_of subs2
+ secrecy_of subs3
+ secrecy_of subs4
+ authentication_on alice_va
+ authentication_on merchant_bank_y
+ authentication_on bob_vb
+ authentication_on kgc_msk
+ end goal
+ 
+ environment()
+                  

@@ -1,0 +1,74 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilegi5949
+
+section signature:
+
+state_bob: agent * agent * hash_func * symmetric_key * message * apply(hash_func,message) * nat * nat -> fact
+state_alice: agent * agent * hash_func * symmetric_key * message * apply(hash_func,message) * nat * nat -> fact
+
+
+section types:
+
+ASGoal: set(agent)
+auth_a: protocol_id
+psk, PSK: symmetric_key
+f, F: hash_func
+AUTH_A, Dummy_AUTH_A: apply(hash_func,message)
+dummy_msg, MGoal, IPDATAGRAM, start, Dummy_IPDATAGRAM: message
+A2Goal, A1Goal, a, b, B, A, i: agent
+SID, 3, State, 2, 1, 0, 10, 6, 4, Dummy_State: nat
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(f).
+ iknows(a).
+ iknows(b).
+ iknows(i).
+ state_alice(a,b,f,psk,dummy_msg,dummy_msg,0,3).
+ state_bob(b,a,f,psk,dummy_msg,dummy_msg,1,4).
+ state_alice(a,i,f,psk,dummy_msg,dummy_msg,0,6).
+ state_bob(b,i,f,psk,dummy_msg,dummy_msg,1,10)
+
+
+section rules:
+
+step step_0 (A,B,F,PSK,Dummy_IPDATAGRAM,Dummy_AUTH_A,SID,IPDATAGRAM) :=
+ state_alice(A,B,F,PSK,Dummy_IPDATAGRAM,Dummy_AUTH_A,0,SID).
+ iknows(start)
+=[exists IPDATAGRAM]=>
+ state_alice(A,B,F,PSK,IPDATAGRAM,apply(F,IPDATAGRAM),2,SID).
+ iknows(A)
+
+step step_1 (B,A,F,PSK,Dummy_IPDATAGRAM,Dummy_AUTH_A,SID) :=
+ state_bob(B,A,F,PSK,Dummy_IPDATAGRAM,Dummy_AUTH_A,1,SID).
+ iknows(A)
+ =>
+ state_bob(B,A,F,PSK,Dummy_IPDATAGRAM,apply(F,IPDATAGRAM),3,SID)
+
+
+section properties:
+
+property secrecy_of_psk (MGoal,ASGoal) :=
+ [] ((secret(MGoal,psk,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property weak_authentication_on_auth_a (A1Goal,A2Goal,MGoal,SID) :=
+ [] ((wrequest(A1Goal,A2Goal,auth_a,MGoal,SID)
+      /\ ~ equal(A2Goal,i))
+     => witness(A2Goal,A1Goal,auth_a,MGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_psk (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,psk,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state weak_authentication_on_auth_a (A1Goal,A2Goal,MGoal,SID) :=
+ wrequest(A1Goal,A2Goal,auth_a,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,auth_a,MGoal)) &
+ not(equal(A2Goal,i))
+

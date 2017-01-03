@@ -1,0 +1,117 @@
+role user(
+U,S : agent,
+K,Ea : symmetric_key,
+Hash :hash_func,
+SND,RCV : channel(dy))
+played_by U def=
+
+local
+
+State :nat,
+Un1,Pass1,Na,Aa,Ba,Ra,Ga,Hx,Cid,Mi,Ya,Ms,Ua  : text,
+K1 : message
+const e_m,g_m,h_m :protocol_id
+init
+State := 0
+
+transition
+1.State = 0 /\RCV(start) =|>
+   State' := 2 /\Un1' := new()
+	    /\ Pass1' := new()
+	    /\ SND({Un1'.Pass1'}_K)
+	     /\secret(Pass1',g_m,{U,S})
+	    /\secret(Un1',h_m,{U,S})
+
+2.State = 2 /\ RCV({Na'.Aa'.Ba'}_K) =|>
+   State' := 4 /\Ra' := new()
+	    /\Ea' := exp(Ra,Ga)
+	    /\ Hx' := xor(Na',Hash(Un1'.Pass1'))
+	    /\ Cid' :=xor(Hash(Un1'.Pass1'),Hx')
+	    /\ Mi' := Hash(Un1'.Hx'.Ya')
+	    /\SND({Mi}_Ea)
+	    /\secret(Ea,e_m,{U,S})
+3.State =4  /\ RCV({Ms'.Ua'}_K)=|>
+    State' :=6
+            
+end role
+
+
+
+role server(
+U,S : agent,
+K,Ea,Sk : symmetric_key,
+Hash :hash_func,
+SND,RCV : channel(dy))
+played_by S def=
+
+local
+
+State :nat,
+Un1,Pass1,Ya,Xa,Na,Aa,Ba,Da,Mi,Mi1,Mi2,Ua,Ca,Hx,Ms : text,
+K1 :message
+const  f_n,y_k,z_k,m_k,p_p : protocol_id
+init
+State := 1
+
+transition
+1.State = 1 /\RCV({Un1'.Pass1'}_K) =|>
+  State' := 3 /\ Xa' := new()
+	   /\ Ya' :=new()
+	   /\ Na' := xor(Hash(Un1'.Pass1'),Hash(Xa'))
+	   /\ Aa' := xor(xor(Hash(Un1'.Pass1'),Pass1'),Hash(Ya'))
+	   /\ Ba' := xor(xor(Ya',Un1'),Xa')
+	   /\ Da' := Hash(xor(Hash(Un1'.Ya'),Xa'))
+                    /\ SND({Na'.Aa'.Ba'}_K)
+	  /\secret(Na',f_n,{U,S}) 
+	   /\secret(Aa',z_k,{U,S})
+	   /\secret(Ba',m_k,{U,S})
+
+2.State = 3 /\ RCV({Mi}_Ea) =|>
+  State' := 5 /\ Mi1' :=Hash(Un1'.Hx'.Ya)
+	  /\ Mi2' := {Mi}_Ea'
+	  /\ Ua' := new()
+	  /\ Ca' :=exp(Ea',Xa')
+	  /\ Ms' := Hash(Ca.Ua.Mi) 
+	  /\SND({Ms'.Ua'}_K)
+	  /\secret(Ms',y_k,{U,S})
+	  /\secret(Ua',p_p,{U,S})
+end role
+
+role session(
+U,S : agent,
+K : symmetric_key,
+Hash :hash_func)
+
+def=
+local SA,SB,RA,RB :channel(dy)
+
+composition
+user(U,S,K,Hash,SA,RA) /\ server(U,S,K,Hash,SB,RB)
+
+end role
+
+
+role environment()
+def=
+const
+bob_alice_nb,
+k1: protocol_id,
+kab,kai,kib : symmetric_key,
+u,s : agent,
+h : hash_func
+
+intruder_knowledge={u,s,h,kai,kib}
+
+composition
+  session(u,s,kab,h)
+/\session(u,i,kai,h)
+/\session(i,s,kib,h)
+
+end role
+
+environment()
+
+
+
+
+         

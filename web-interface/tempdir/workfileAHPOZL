@@ -1,0 +1,149 @@
+role alice (Ui, SNj, BS   : agent,
+           SKubs, SJubs  : symmetric_key,
+            H : hash_func,
+            Snd, Rcv: channel(dy))
+played_by Ui
+def=
+ local State  : nat,
+       IDi, A,B,C1,C2,PWi,K, Xa,T1,TS,Ack:  text
+       
+const bs_bob,  bob_server, subs, sub1, sub2, sub3 : protocol_id
+
+
+init  State := 0
+
+transition
+   1.State = 0      /\Rcv(start)=|>
+     State' :=1     /\Snd(Ui.BS.{IDi.PWi}_SKubs)
+                     /\ secret({K}, subs, BS)
+                        /\ secret({PWi}, sub1, {Ui,BS})
+                        /\ secret({SKubs}, sub2, {BS,Ui})
+                        /\ secret({Xa}, sub3, {Ui,BS,SNj})      
+			  
+  2. State   = 1    /\Rcv(ack) =|>
+      State' := 2  /\ Snd(Ui.SNj.IDi, PWi) 
+                   
+                  
+ end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role bs (Ui, SNj, BS   : agent,
+         SKubs, SJubs  : symmetric_key,
+         H : hash_func,
+         Snd, Rcv: channel(dy))
+played_by BS
+def=
+local State  : nat,
+       IDi, A,B,C1,C2,PWi,K, Xa,T1,TS,Ack:  text
+       
+const  bs_bob,  bob_server, subs, sub1, sub2, sub3 : protocol_id
+
+ init  State := 0
+
+transition
+1. State   = 0     /\ Rcv(Ui.BS.{IDi.PWi}_SKubs) =|>
+   State':=1            /\ A':=H(IDi.K)
+                        /\ B':= H(A'.H(PWi))  
+                         /\ TS':= new()  
+                        /\ secret({K}, subs, BS)
+                        /\ secret({PWi}, sub1, {Ui,BS})
+                        /\ secret({SKubs}, sub2, {BS,Ui})
+                        /\ Snd(ack)
+			/\Snd(BS.SNj.{IDi.A'.TS'}_SJubs)
+                       /\ secret({SJubs}, sub3, {BS,SNj})
+                       /\ witness(BS,SNj, bs_bob, TS')   
+          		  
+    2.State=1      /\Rcv(SNj.BS.IDi.xor(H(H(IDi.K).H(PWi)),H(IDi.K) ).H(xor(T1',H(H(IDi.K).H(PWi))).T1') =|>
+      State':=2    /\ request(SNj, BS, bob_server, T1')
+                                   
+                   /\Snd(BS.SNj.Ack)
+                        
+                          
+               
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role bob (Ui, SNj, BS   : agent,
+          SKubs, SJubs  : symmetric_key,
+	 H : hash_func,
+                Snd, Rcv: channel(dy))
+played_by SNj
+def=
+local State  : nat,
+       IDi, A,B,C1,C2,PWi,K, Xa,T1,TS,Ack:  text
+       
+const  bs_bob,  bob_server, subs, sub1, sub2, sub3 : protocol_id
+
+   init  State := 0
+
+  transition
+   1. State   = 0 /\ Rcv(BS.SNj.{IDi.H(IDi.K).TS'}_SJubs)  =|>  
+      State' := 1    /\ secret({K}, subs, BS)
+                        /\ secret({PWi}, sub1, {Ui,BS})
+                        /\ secret({SKubs}, sub2, {BS,Ui})
+                        /\ secret({SJubs}, sub3, {BS,SNj})  
+                        /\ request(BS,SNj, bs_bob, Ts') 
+   2. State   = 1 /\ Rcv(Ui.SNj.IDi, PWi)=|> 
+      State' := 2 /\ T1':= new()
+                  /\ C1':= H(xor(T1',H(H(IDi.K).H(PWi)))
+                  /\ C2':= xor(H(H(IDi.K).H(PWi)),H(IDi.K) )
+                  /\ Snd(SNj.BS.IDi.C2'.C1'.T1')
+                  
+   3. State   = 2 /\ Rcv(BS.SNj.Ack)=|> 
+      State' := 3 /\ witness(SNj, BS, bob_server, T1')
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(Ui,SNj, BS: agent,
+	   SKubs, SJubs  : symmetric_key,
+          H : hash_func 
+	)
+def=
+
+  local  SI, SJ, RI, RJ,BI,BJ: channel (dy)
+  
+  composition
+           alice(Ui, BS,SNj,SKubs,SJubs, H, SI, RI)
+         /\   bs(Ui, BS,SNj, SKubs,SJubs,H, BI, BJ)   
+        /\  bob(Ui,BS,SNj, SKubs,SJubs, H, SJ, RJ)
+      
+
+end role 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role environment()
+def=
+
+  const ui,snj,bs    : agent,
+        skubs, sjubs: symmetric_key,
+        h   : hash_func,
+      idi, a,b, c2,c1, pwi,k, t1,ts,ack:  text,
+  alice_server, bs_bob,  bob_server, subs, sub1, sub2, sub3 : protocol_id
+
+
+  intruder_knowledge = {ui, snj,idi, h}
+
+  composition
+	session(ui,bs,snj,skubs,sjubs,h) /\
+	session(ui,bs,snj,skubs,sjubs,h) 
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+  secrecy_of subs
+  secrecy_of sub3
+  secrecy_of sub1
+  secrecy_of sub2
+  authentication_on bs_bob
+  authentication_on bob_server
+  
+end goal
+ 
+
+environment()
+

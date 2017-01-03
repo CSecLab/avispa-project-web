@@ -1,0 +1,163 @@
+role mobile(M,S,E:agent,
+            Snd_ME,Rec_ME,Snd_MS: channel(dy),
+             Kms,IK,CK : symmetric_key,
+            Imsi: text,
+            F1,F2,F3,F4,F5   : hash_func)
+played_by M
+def=
+
+  local          State                                  : nat, 
+	      Sqn,Rnd,Rnd_mme,Mac    : text,
+                    KK ,AK                               : symmetric_key
+  const        secrethash                        : hash_func
+
+  init  State := 1
+
+  transition
+
+    1.  State = 1 /\ Rec_ME(start) =|> 
+        State':=2 /\ KK' := secrethash(Kms)
+                  /\ Rnd' := new()
+                  /\ Snd_MS({Imsi}_KK'.Rnd'.F3({Imsi.Rnd'}_KK')) 
+                  /\ secret(secrethash,secrethash_id,{M,S}) 
+                  /\ secret(Imsi,imsi_id,{M,S})
+                  /\ secret(KK',k_id,{M,S})
+
+    2.  State = 2 /\ Rec_ME(xor(Sqn',AK').Mac'.Rnd_mme') =|>  
+        State':=3 /\ Snd_ME( F4(Rnd_mme'.CK.IK))
+                  /\ secret(Sqn',sqn_id,{E,M})
+                  /\ secret(AK',ak_id,{M,E})
+                  /\ request(M,E,mac_id,Mac')
+                  /\ witness(M,E,rndmme_id,Rnd_mme')
+
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+role hss(S,E,M                                             : agent,
+	    Snd_MME,Rec_MME,Rec_SM    :  channel(dy),
+            Kms,Kes,IK,CK                                 :  symmetric_key,
+            Imsi                                                  :   text,
+            F1,F2,F3,F4,F5                                   :  hash_func)
+
+played_by S
+def=
+
+  local  State          : nat,
+            Rnd           : text,
+            KK             :symmetric_key
+
+  init  State := 31 
+
+  transition
+
+    1.  State   = 31       /\  Rec_SM({Imsi'}_KK'.Rnd'.F3({Imsi'.Rnd'}_KK')) =|> 
+        State' := 32        /\  CK' := F1(KK'.Rnd')
+                                 /\   IK' :=  F2(KK'.Rnd')
+                                 /\ Snd_MME({CK'.IK'}_Kes)
+	 	     /\ secret(KK',k_id,{S,M})
+		     /\ secret(Imsi',imsi_id,{S,M})
+                                 /\ secret (Kes, kes_id, {S,E})
+
+   
+            
+		     
+        
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role mme(E,M,S                                  :  agent,
+            Snd_M,Rec_M,Snd_S,Rec_S  : channel(dy),
+            Kes                                         : symmetric_key,
+            F3,F4,F5                                   :  hash_func)
+played_by E
+def=
+
+  local State                                    :  nat, 
+	Sqn,Rnd_mme,Mac          :  text,
+              CK,IK ,AK                          :  symmetric_key  
+   const    add                                :  hash_func
+ 
+  init  State := 11
+
+  transition
+
+    1.  State = 11  /\  Rec_S({CK'.IK'}_Kes) =|> 
+        State':=12  /\  Sqn'      := new()  
+                         /\  Rnd_mme'  := new()
+                         /\  Mac'       := F3({Sqn'.Rnd_mme'}_IK')
+                         /\  AK'       := F5(Rnd_mme.CK'.IK')
+                        /\   Snd_M(xor(Sqn',AK').Mac'.Rnd_mme')
+                       /\    secret(Sqn',sqn_id,{E,M})
+                       /\    secret(AK',ak_id,{E,M})
+                       /\    secret (Kes, kes_id, {S,E})
+                       /\    witness(E,M,mac_id,Mac')
+
+    2.  State  = 12 /\ Rec_M(F4(Rnd_mme'.CK.IK)) =|>  
+        State' :=13 /\ Sqn' := add(Sqn,1)
+	          /\ request(M,S,rndmme_id,Rnd_mme') 
+	          
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(M,S,E                                  :  agent,
+	     Kms,Kes,IK,CK                      : symmetric_key,
+	     Imsi                                       : text,
+                   F1,F2,F3,F4,F5                        : hash_func,
+                   Snd_ME,Rec_ME,Snd_MS,Snd_MME,Rec_MME,Rec_SM,Snd_M,Rec_M,Snd_S,Rec_S: channel(dy)) def=
+
+   composition
+
+	    mobile(M,S,E,Snd_ME,Rec_ME,Snd_MS, Kms,IK,CK,Imsi,F1,F2,F3,F4,F5 )
+       /\      hss(S,E,M ,Snd_MME,Rec_MME,Rec_SM,Kms,Kes,IK,CK,Imsi,F1,F2,F3,F4,F5)
+       /\      mme(E,M,S,Snd_M,Rec_M,Snd_S,Rec_S,Kes,F3,F4,F5)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+ def=
+
+ local
+      Snd_me,Rec_me,Snd_ms,Snd_mme,Rec_mme,Rec_sm,Snd_m,Rec_m,Snd_s,Rec_s  : channel (dy)
+
+      const secrethash_id,imsi_id,k_id,ak_id,sqn_id,mac_id,kes_id,rndmme_id         : protocol_id,
+       m, i, s,e                                                           : agent,
+       kms,kes,ik,ck,kmi,kis                                       : symmetric_key,
+       f1, f2,f3,f4, f5                                                    : hash_func,
+       imsi                                                                : text
+
+ intruder_knowledge={m,s,e,i,kms,kmi,f1,f2,f3,f4,f5}
+
+ composition
+ 
+              session(m,s,e,kms,kes,ik,ck,imsi,f1,f2,f3,f4,f5,Snd_me,Rec_me,Snd_ms,Snd_mme,Rec_mme,Rec_sm,Snd_m,Rec_m,Snd_s,Rec_s) 
+      /\   session(i,s,e,kis,kes,ik,ck,imsi,f1,f2,f3,f4,f5,Snd_me,Rec_me,Snd_ms,Snd_mme,Rec_mme,Rec_sm,Snd_m,Rec_m,Snd_s,Rec_s)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  % Confidentiality (G12)
+  secrecy_of ak_id,sqn_id,secrethash_id,imsi_id,k_id,kes_id
+
+  % Message Authentication (G2)
+  % Mobile weakly authenticates Server on r1  % the nonce R
+  authentication_on mac_id
+
+  % Message Authentication (G2)
+  % Server weakly authenticates Mobile on r2  % the nonce R
+  authentication_on rndmme_id
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+

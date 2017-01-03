@@ -1,0 +1,63 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileqnX1NW
+
+section signature:
+
+state_sensor: agent * agent * hash_func * public_key * public_key * nat * symmetric_key * text * text * text * text * text * text * set(agent) * nat -> fact
+
+
+section types:
+
+sk1, pw, sk2: protocol_id
+Passwd, Msg, Username, Rp, Rs, Hello, dummy_nonce: text
+set_64: set
+MsgK, Dummy_MsgK, dummy_sk: symmetric_key
+Set_25, Dummy_Set_25, ASGoal: set(agent)
+State, 3, 1, 0, Dummy_State, SID: nat
+start, MGoal: message
+PuS, PuSP, pus, pusp, ki: public_key
+H, h: hash_func
+SP, S, s, sp, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(s).
+ iknows(sp).
+ iknows(i).
+ state_sensor(s,sp,h,pus,pusp,0,dummy_sk,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_64,3)
+
+
+section rules:
+
+step step_0 (S,SP,H,PuS,PuSP,Dummy_MsgK,Username,Hello,Rp,Rs,Msg,Passwd,Set_25,SID,MsgK) :=
+ state_sensor(S,SP,H,PuS,PuSP,0,Dummy_MsgK,Username,Hello,Rp,Rs,Msg,Passwd,Set_25,SID).
+ iknows(start)
+=[exists MsgK]=>
+ state_sensor(S,SP,H,PuS,PuSP,1,MsgK,Username,Hello,Rp,Rs,Msg,Passwd,Set_25,SID).
+ iknows(crypt(PuSP,pair(MsgK,crypt(inv(PuS),apply(H,scrypt(MsgK,Msg))))))
+
+step step_1 (S,SP,H,PuS,PuSP,Dummy_MsgK,Username,Hello,Rp,Rs,Msg,Passwd,Dummy_Set_25,SID,MsgK) :=
+ state_sensor(S,SP,H,PuS,PuSP,1,Dummy_MsgK,Username,Hello,Rp,Rs,Msg,Passwd,Dummy_Set_25,SID).
+ iknows(scrypt(MsgK,Msg))
+ =>
+ state_sensor(S,SP,H,PuS,PuSP,3,MsgK,Username,Hello,Rp,Rs,Msg,Passwd,Dummy_Set_25,SID).
+ contains(SP,Dummy_Set_25).
+ contains(S,Dummy_Set_25)
+
+
+section properties:
+
+property secrecy_of_sk1 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sk1,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_sk1 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sk1,ASGoal) &
+ not(contains(i,ASGoal))
+

@@ -1,0 +1,164 @@
+ % Client Side Role and Client's transition
+
+ role alice ( A , S  : agent, 
+              Password : text,
+              B,C      : message,
+              Hash     : hash_func,
+              Kas      : symmetric_key,
+              Snd, Rcv : channel(dy)) played_by A def=
+
+  local State , N      : nat,
+        C1 , C2 , C3 ,
+        D1 , D2 , D3 ,
+        D4 , D5        : message 
+ 
+  const    sec_c_Kas   : protocol_id    
+
+  init State := 0
+
+  transition
+
+   0.    State  = 0  /\ Rcv(start) =|>
+         State' := 2 /\ Password' := new() /\ B' := xor(Password,1) /\ Snd({A.{Hash(Hash(B'))}})
+                     /\ secret(Password,sec_c_Kas,{A,S})
+                     /\ witness(A,S,np,Password)
+
+   2.    State = 4   /\ Snd(login) =|>
+         State' := 5
+         
+
+   4.    State  = 4  /\ Rcv(N) =|>
+         State' := 6 /\ D1' := Hash(xor(Password,N'))  /\ D2' := Hash(Hash(xor(Password,N'))) /\ C1' := xor(D1',D2')
+                     /\ D3' := Hash(Hash(xor(Password,xor(N',1))))  /\ D4' := Hash(xor(Password,N')) /\ C2' := xor(D3',D4')
+                     /\ D5' := Hash(xor(Password,xor(N',1))) /\ C3' := Hash(Hash(D5')) 
+                     /\ Snd(C1'.C2'.C3')
+                     /\ request(A,S,na,N)
+
+end role
+
+
+
+
+
+% Server Side role and Server's transition
+
+role server ( S, A  : agent,
+              Password : text,
+              B,C      : message,
+              Hash     : hash_func,
+              Kas      : symmetric_key,
+              Snd, Rcv : channel(dy)) played_by S def=
+
+  local State        : nat,
+        N            : nat,
+        B1,B2, 
+        B3,B4, 
+        B5           : message
+
+  const sec_s_Kas    : protocol_id
+
+  init State := 0
+        
+
+  transition
+
+   1.    State  =  1 /\ Rcv(A.(Hash(Hash(xor(Password,1))))) =|>
+         State' := 2 /\ C' :=  Hash(Hash(xor(Password,N')))
+                     /\ secret(Password,sec_s_Kas,{A,S})
+                     /\ request(S,A,np,Password)
+         
+
+   3.    State = 3   /\ Rcv(login) =|> 
+         State' := 5 /\ Snd(N') 
+                     /\ witness(S,A,na,N)
+
+   5.    State = 5   /\ Rcv(C1'.C2'.C3') =|>
+         State' := 6  
+        
+   7.    State = 6   /\ not(C1'= C2') =|>
+         State' := 7 /\ B1' := Hash(xor(Password,N))  /\ B2' := xor(C1',Hash(B1'))
+                     /\ B1':= B2'
+                     /\ B3' :=Hash(Hash(xor(Password,xor(N,1)))) /\ B4' := xor(C2', Hash(xor(Password,N)))
+                     /\ B5' := B3'
+                     /\ B3' := B4'
+
+    8.   State = 8   /\ C3'= B5' =|>
+         State' := 9 /\ C' := Hash(Hash(xor(Password,xor(N,1))))
+                     /\ N' := xor(N',1)
+
+end role
+
+
+
+
+
+% Session creation and composition of server and client 
+
+role session( A , S    : agent, 
+              Password : text,
+              B,C      : message,
+              Hash     : hash_func,
+              Kas      : symmetric_key,
+              Snd,Rcv  : channel(dy))  def= 
+
+
+composition
+
+  alice (A,S,Password,B,C,Hash,Kas,Snd,Rcv) 
+  /\
+  server (S,A,Password,B,C,Hash,Kas,Snd,Rcv)
+
+end role
+
+
+
+
+
+% Inclusion of the third party that is inclusion of intruder  
+
+role environment()
+
+  def= 
+      const   a,s,i    : agent, 
+              password : text,
+              b,c      : message,
+              hash     : hash_func,
+              kas,
+              kai,
+              kbi      : symmetric_key,
+              na,nb    : protocol_id
+
+  intruder_knowledge = {a,s,hash,b,c}
+
+  composition 
+  session(a,s,password,b,c,hash,Kas)
+  /\
+  session(i,s,password,b,c,hash,Kai)
+  /\
+  session(a,i,password,b,c,hash,Kbi)
+
+end role             
+
+
+
+
+% Secrecy and authentication based on protocol id 
+
+goal
+  
+  % secrecy of the shared key
+
+  secrecy_of sec_c_Kas, sec_s_Kas
+  
+  % S authenticates A on password
+
+  authentication_on np                                    
+
+  % A authenticates S on N
+
+  authentication_on na                                     
+  
+end goal 
+
+
+environment()

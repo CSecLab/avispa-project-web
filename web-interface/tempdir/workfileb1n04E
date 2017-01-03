@@ -1,0 +1,145 @@
+
+%%%%%%%%%%%%%% Role Server %%%%%%%%%%%%%%%%%
+role server( T, S : agent ,
+                   K,P : symmetric_key,
+                   EPC:text,
+	  Snd,RCV : channel(dy))
+   
+ played_by S
+
+def=
+
+	local 
+                    Nr,Nt : text,
+                    State : nat,
+                    Auth1:message
+                     
+                 
+                init 
+                    State := 0
+     
+                transition
+
+                    0.State=0  /\    RCV(start) =|> 
+                    State' := 2  /\    Nr' := new() 
+                                     /\    Snd(Nr')
+
+
+                     1.State=2    /\    RCV (xor(crc(EPC.Nr.Nt'),K).Nt') =|>
+                     State' := 4   /\    Auth1' := crc(EPC.Nr.Nt')
+                                       /\    request(S,T,auth_Tag,Auth1')
+                     
+                      2.State=4   /\    Snd(xor(crc(EPC.Nt),P)) =|>
+                      State' := 4  %/\    witness(S,T,auth_EPC,EPC)
+                                       %/\    witness(S,T,auth_P,P)
+                                       /\    P' := succ(P)
+                                       /\    K' := succ(K)
+ end role          
+
+%%%%%%%%%%%%%%%End Role Server %%%%%%%%%%%%%%%%%%%%%    
+
+%%%%%%%%%%%%%%% Role Tag %%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role tag (T,S : agent,
+              K,P : symmetric_key,
+              EPC :text,
+              Snd,Rcv : channel(dy))
+ 
+played_by T 
+
+def=
+
+	local 
+                    Nr,Nt : text,
+                    State : nat,
+                    Auth  :message
+
+                init 
+                    State := 1
+
+                transition 
+               
+                     0.State=1 /\ Rcv(Nr') =|>
+                     State' :=3 /\  Nt' := new()
+                                    /\  Snd(xor(crc(EPC,Nr,Nt'),K))
+                                   % /\  witness(T,S, auth_EPC,EPC)
+                                   % /\  witness(T,S,auth_K,K)
+                                    /\  secret(EPC,id,{T,S})
+                          
+                   1.State=3   /\  Rcv(xor(crc(EPC.Nt),P)) =|>
+                  State' := 3   /\  Auth' := xor(crc(EPC.Nt),P)
+                                    /\  request( S,T,auth_Server,Auth')
+                                    /\  K' := succ(K)
+                                    /\  P'  := succ(P)
+
+end role
+
+%%%%%%%%%%%%%% End Role Tag%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%% Role Session %%%%%%%%%%%%%
+
+role session( T,S : agent,
+                     K,P : symmetric_key,
+                     EPC : text)
+
+def=
+                     local
+                        Snd,Rcv :channel(dy)
+
+                    composition
+
+                        tag(T,S,K,P,EPC,Snd,Rcv) /\
+                        server(S,T,K,P,EPC,Snd,Rcv)  
+                        
+end role
+%%%%%%%%%%%%%%%%%%% End Role session %%%%%%%%%%%%
+
+role enviroment() 
+
+
+def=
+const
+   id,auth_EPC,auth_K,auth_P,auth_Tag,auth_Server : protocol_id,
+   k,p,kis,kit : symmetric_key,
+   tag,server : agent,
+   epc,epci : text,
+   succ,crc : hash_func
+
+
+intruder_knowledge = { tag,server,i,kis,kit,epci,succ,crc}
+
+composition
+
+       session(tag,server,k,p,epc)
+    /\session(tag,i,k,kit,epc)
+    /\session(i,server,kis,p,epci)
+
+end role
+
+%%%%%%%%%%%%%%%%%% End Role enviroment %%%%%%%%
+
+  goal 
+
+secrecy_of id
+authentication_on  auth_Tag 
+authentication_on  auth_Server   
+authentication_on  auth_K
+authentication_on  auth_EPC   
+authentication_on  auth_P
+
+end goal
+
+
+enviroment()
+        
+
+
+ 
+
+
+                       
+
+
+              
+ 
+              	        

@@ -1,0 +1,88 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileIOmL9I
+
+section signature:
+
+state_keymanager: agent * agent * nat * text * text * nat -> fact
+state_keyowner: agent * agent * nat * text * text * nat -> fact
+
+
+section types:
+
+ASGoal: set(agent)
+k1, key_file: protocol_id
+MGoal, start: message
+dummy_nonce, UINFO, KEYFILE, Dummy_KEYFILE, Dummy_UINFO: text
+A2Goal, A1Goal, a, b, A, B, i: agent
+SID, SID2, SID1, State, 3, 1, 0, 10, 6, 4, Dummy_State: nat
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(i).
+ state_keyowner(a,b,0,dummy_nonce,dummy_nonce,3).
+ state_keymanager(b,a,0,dummy_nonce,dummy_nonce,4).
+ state_keyowner(a,i,0,dummy_nonce,dummy_nonce,6).
+ state_keymanager(b,i,0,dummy_nonce,dummy_nonce,10)
+
+
+section rules:
+
+step step_0 (A,B,Dummy_UINFO,KEYFILE,SID,UINFO) :=
+ state_keyowner(A,B,0,Dummy_UINFO,KEYFILE,SID).
+ iknows(start)
+=[exists UINFO]=>
+ state_keyowner(A,B,1,UINFO,KEYFILE,SID).
+ iknows(Dummy_UINFO)
+
+step step_1 (A,B,UINFO,KEYFILE,SID) :=
+ state_keyowner(A,B,1,UINFO,KEYFILE,SID).
+ iknows(KEYFILE)
+ =>
+ state_keyowner(A,B,3,UINFO,KEYFILE,SID).
+ witness(A,B,key_file,KEYFILE)
+
+step step_2 (B,A,UINFO,Dummy_KEYFILE,SID,KEYFILE) :=
+ state_keymanager(B,A,0,UINFO,Dummy_KEYFILE,SID).
+ iknows(UINFO)
+=[exists KEYFILE]=>
+ state_keymanager(B,A,1,UINFO,KEYFILE,SID).
+ iknows(Dummy_KEYFILE)
+
+
+section properties:
+
+property secrecy_of_k1 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,k1,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_key_file (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,key_file,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,key_file,MGoal))
+     /\ ((request(A1Goal,A2Goal,key_file,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,key_file,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_k1 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,k1,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_key_file (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,key_file,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,key_file,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_key_file (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,key_file,MGoal,SID1).
+ request(A1Goal,A2Goal,key_file,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

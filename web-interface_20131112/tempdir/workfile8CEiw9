@@ -1,0 +1,39 @@
+role alice(A,B:agent, G:text, Snd,Rcv:channel(dy)) played_by A def=
+local State:nat, Na,Nb,Nsecret:text, K:message
+init State:=1
+transition
+1. State=1 /\ Rcv(start) =|>
+   State':=2 /\ Na':=new() /\ Snd(exp(G,Na'))
+/\ witness(A,B,bob_alice_na,Na')
+2. State=2 /\ Rcv(exp(G,Nb')) =|>
+   State':=3 /\ K':=exp(exp(G,Na),Na) /\ Nsecret':= new() /\ Snd({Nsecret'}_K')
+             /\ request(A,B,alice_bob_nb,Nb')
+end role
+role bob (B,A: agent, G:text, Snd,Rcv:channel(dy)) played_by B def=
+local State : nat,Na, Nb,Nsecret: text, K: message
+init State:=0
+transition
+1. State=0   /\ Rcv(exp(G,Na')) =|>
+   State':=1 /\ Nb':=new() /\ K' := exp(exp(G,Nb'),Nb') /\ Snd(exp(G,Nb'))
+             /\ witness(B,A,alice_bob_nb,Nb')
+2. State=1 /\ Rcv({Nsecret'}_K) =|>
+   State':=2 /\ request(B,A,bob_alice_na,Na)
+end role
+role session (A,B: agent, G: text) def=
+local Sa, Ra,Sb,Rb: channel(dy)
+composition
+alice(A,B,G,Sa,Ra) /\ bob(B,A,G,Sb,Rb)
+end role
+role environment() def=
+
+const a, b: agent, g: text
+na, nb,alice_bob_nb, blice_nob_aa  : protocol_id
+intruder_knowledge = {a,b}
+composition
+session(a,b,g)
+end role
+goal
+authentication_on alice_bob_nb
+  authentication_on bob_alice_na
+end goal
+environment()          

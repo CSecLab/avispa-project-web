@@ -1,0 +1,136 @@
+role role_U(U:agent,A:agent,B:agent,C:agent,S:agent,Kua:symmetric_key,H:function,SND,RCV:channel(dy))
+played_by U
+def=
+	local
+		State:nat,Nv:text,HandoverCmd:text,UpdateSI:text,Nsi:text,Kub:symmetric_key,UpdateSIRes:text,Nb:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> 
+		   State':=1 /\ Nsi':=new() 
+		             /\ witness(U,B,auth_3,Nsi')
+					 /\ SND({Nsi'}_Kua)
+		7. State=1 /\ RCV({HandoverCmd'.Nv'.Nb'}_Kua) =|> 
+		   State':=2 /\ Kub' := HandoverCmd'
+		8. State=2 /\ RCV({UpdateSI'}_Kub) =|> 
+		   State':=3 /\ Kub' := H (Kub,UpdateSI')
+		             /\ secret(Kub',sec_2,{U,S,B})
+             		 /\ UpdateSIRes':=new()
+					 /\ SND({UpdateSIRes'.Nb}_Kub')
+					 /\ request(U,B,auth_4,Nb) 
+end role
+
+role role_A(U:agent,A:agent,B:agent,C:agent,S:agent,KPs:public_key,KPa:public_key,KPb:public_key,KPc:public_key,H:function,Kas:symmetric_key,Kua:symmetric_key,SND,RCV:channel(dy))
+played_by A
+def=
+	local
+		State:nat,Kac:symmetric_key,HandoverReq:text,Na:text,Nsi:text,Kab:symmetric_key,HandoverAck:text,Nv:text,HandoverCmd:text,Nb:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV({Nsi'}_Kua) =|>
+  		   State':=1 /\ Na':=new() 
+		             /\ SND({Nsi'.Na'.A.{H(Nsi'.Na'.A)}_inv(KPa)}_Kas)
+		3. State=1 /\ RCV({Kab'.B.Kac'.C.Na.Nv'.{H(Kab'.B.Kac'.C.Na.Nv')}_inv(KPs)}_Kas) =|>
+      	   State':=2 /\ secret(Kab',sec_1,{A,S,B})
+		5. State=2 /\ RCV({HandoverReq'.Na.Nb'.B.A.{H(Nsi.Na.Nb'.Nv.B.A)}_inv(KPb)}_Kab) =|>
+   		   State':=3 /\ secret(Kab,sec_1,{A,S,B})
+  		             /\ HandoverAck':=new()
+					 /\ SND({HandoverAck'.Nb}_Kab)
+					 /\ HandoverCmd':=new()
+					 /\ SND({HandoverCmd'.Nv.Nb}_Kua)
+end role
+
+role role_B(U:agent,A:agent,B:agent,C:agent,S:agent,KPs:public_key,KPa:public_key,KPb:public_key,KPc:public_key,H:function,Kbs:symmetric_key,SND,RCV:channel(dy))
+played_by B
+def=
+	local
+		State:nat,HandoverReq:text,Nv:text,Na:text,Kab:symmetric_key,HandoverAck:text,UpdateSI:text,Nsi:text,Kub:symmetric_key,UpdateSIRes:text,Nb:text,Knub:symmetric_key
+	init
+		State := 0
+	transition
+		3. State=0 /\ RCV({Nsi'.Na'.Nv'.A.B.Kab'.{H(Nsi'.Na'.Nv'.A.B.Kab')}_inv(KPs)}_Kbs) =|>
+		   State':=1 /\ secret(Kab',sec_1,{A,S,B})
+		             /\ Nb':=new()
+					 /\ witness(B,U,auth_4,Nb')
+					 /\ HandoverReq':=new()
+					 /\ SND({HandoverReq'.Na'.Nb'.B.A.{H(Nsi'.Na'.Nb'.Nv'.B.A)}_inv(KPb)}_Kab')
+		6. State=1 /\ RCV({HandoverAck'.Nb}_Kab) =|>
+           State':=2 /\ secret(Kab',sec_1,{A,S,B})
+            	     /\ Kub':= H (Nsi,Nb)
+					 /\ secret(Kub',sec_2,{U,S,B})
+					 /\ UpdateSI':=new()
+				%	 /\ Knub' := H (Kub',UpdateSI')
+					 /\ SND({UpdateSI'}_H(Nsi',Nb'))
+		9. State=2 /\ RCV({UpdateSIRes'.Nb}_Kub) =|>
+     	   State':=3 /\ secret(Knub,sec_2,{U,S,B})
+            		 /\ request(B,U,auth_3,Nsi') 
+end role
+
+role role_C(U:agent,A:agent,B:agent,C:agent,S:agent,KPs:public_key,KPa:public_key,KPb:public_key,KPc:public_key,H:function,Kcs:symmetric_key,SND,RCV:channel(dy))
+played_by C
+def=
+	local
+		State:nat,Kac:symmetric_key,Na:text,Nsi:text,Nv:text
+	init
+		State := 0
+	transition
+		4. State=0 /\ RCV({Nsi'.Na'.Nv'.A.C.Kac'.{H(Nsi'.Na'.Nv'.A.C.Kac')}_inv(KPs)}_Kcs) =|> State':=1
+end role
+
+role role_S(U:agent,A:agent,B:agent,C:agent,S:agent,KPa:public_key,KPb:public_key,KPc:public_key,KPs:public_key,H:function,Kas:symmetric_key,Kbs:symmetric_key,Kcs:symmetric_key,SND,RCV:channel(dy))
+played_by S
+def=
+	local
+		State:nat,Kab:symmetric_key,Kac:symmetric_key,Na:text,Nsi:text,Nv:text
+	init
+		State := 0
+	transition
+		2. State=0 /\ RCV({Nsi'.Na'.A.{H(Nsi'.Na'.A)}_inv(KPa)}_Kas) =|>
+	       State':=1 /\ Nv':=new()
+            		 /\ Kac':=new()
+					 /\ Kab':=new()
+					 /\ secret(Kab',sec_1,{A,S,B})
+					 /\ SND({Kab'.B.Kac'.C.Na'.Nv'.{H(Kab'.B.Kac'.C.Na'.Nv')}_inv(KPs)}_Kas)
+					 /\ SND({Nsi'.Na'.Nv'.A.B.Kab'.{H(Nsi'.Na'.Nv'.A.B.Kab')}_inv(KPs)}_Kbs)
+					 /\ SND({Nsi'.Na'.Nv'.A.C.Kac'.{H(Nsi'.Na'.Nv'.A.C.Kac')}_inv(KPs)}_Kcs)
+end role
+
+role session1(Kcs:symmetric_key,Kbs:symmetric_key,Kas:symmetric_key,H:function,KPs:public_key,KPc:public_key,KPb:public_key,KPa:public_key,U:agent,A:agent,B:agent,C:agent,S:agent,Kua:symmetric_key)
+def=
+	local
+		SND5,RCV5,SND4,RCV4,SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_U(U,A,B,C,S,Kua,H,SND5,RCV5)
+	/\ role_S(U,A,B,C,S,KPa,KPb,KPc,KPs,H,Kas,Kbs,Kcs,SND4,RCV4)
+	/\ role_C(U,A,B,C,S,KPs,KPa,KPb,KPc,H,Kcs,SND3,RCV3)
+	/\ role_B(U,A,B,C,S,KPs,KPa,KPb,KPc,H,Kbs,SND2,RCV2)
+	/\ role_A(U,A,B,C,S,KPs,KPa,KPb,KPc,H,Kas,Kua,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		h												:function,
+		charlie,alice,bob,server,ue						:agent,
+		kPs,kPb,kPa,kPc,kPi									:public_key,		
+		kas,kbs,kcs,kua,kai,kui,kis							:symmetric_key,
+		sec_1:protocol_id,sec_2:protocol_id,auth_3:protocol_id,auth_4:protocol_id
+	intruder_knowledge = {alice,bob,charlie,server,h,ue,kPs,kPc,kPb,kPa,kai,kPi,inv(kPi),kui}
+	composition
+		session1(kcs,kbs,kas,h,kPs,kPc,kPb,kPa,ue,alice,bob,charlie,server,kua)
+%	/\	session1(kcs,kbs,kai,h,kPs,kPc,kPb,kPi,ue,i,bob,charlie,server,kui)
+%	/\	session1(kcs,kis,kas,h,kPs,kPc,kPi,kPa,ue,alice,i,charlie,server,kua)
+%	/\	session1(Kcs,Kbs,Kas,h,KPs,KPc,KPb,KPa,ue,alice,bob,charlie,server,Kua)
+%	/\	session1(Kcs,Kbs,Kas,h,KPs,KPc,KPb,KPa,ue,alice,bob,charlie,server,Kua)
+
+end role
+
+goal
+	secrecy_of sec_1
+	secrecy_of sec_2
+	authentication_on auth_3
+	authentication_on auth_4
+end goal
+
+environment()

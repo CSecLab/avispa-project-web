@@ -1,0 +1,59 @@
+role alice (A,B: agent, SND, RCV: channel (dy)) played_by A def=
+	local 
+		msg: text   
+  	transition     
+ 		a_start.  
+ 				RCV(start) 
+ 				=|>  
+				SND(msg)	                     
+end role
+
+
+
+
+role bob (A,B: agent, SND, RCV: channel(dy)) played_by B def=
+	local
+		State: nat, msg : text
+	init
+		State := 0
+  	transition
+		b_rcv. 
+			RCV(msg) 
+			=|> 
+			State' := 1 					
+end role
+
+
+
+
+role session (A,B: agent) def= 
+	local 
+		AB, BA: channel(dy)
+
+	composition
+		alice(A, B, AB, BA)
+		/\
+		bob(A, B, BA, AB) 
+end role
+
+
+
+
+role environment() def=
+	const
+		a,b: agent
+
+	intruder_knowledge = {a, b}
+
+	composition 
+		session(a,b)
+	
+end role
+
+
+goal
+	secrecy_of msg
+end goal
+
+
+environment()

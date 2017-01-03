@@ -1,0 +1,231 @@
+role cvp_Init (User, Card, HTTP_Server   : agent,
+                Pk_U, Pk_C: public_key,
+                Static_Key   : symmetric_key,
+SndUserCard, RcvUserCard : channel(dy))
+
+played_by User 
+def=
+
+  local State  : nat,
+       Card_Challenge, Host_Challenge : text,
+        Session_Key      : {text.text}_symmetric_key -> symmetric_key,
+        Host_Cryptogram     : {text.text}_symmetric_key -> text,
+        Card_Cryptogram     : {text.text}_symmetric_key -> text
+
+
+  const session_key2, host_cryptogram, card_cryptogram, host_challenge, card_challenge : protocol_id,
+         true : bool
+  init  State := 0
+
+  transition
+
+  1. State   = 0   /\ RcvUserCard(start) =|>
+      State' := 1  /\  SndUserCard(User.HTTP_Server)
+              
+
+   2. State   = 1 /\ RcvUserCard(true) =|>
+      State' := 2 /\ Host_Challenge':= new()
+                  /\ SndUserCard({Host_Challenge'}_(Pk_C))
+                
+
+
+
+
+   3. State   = 2 /\ RcvUserCard({Card_Challenge'}_(Pk_U). {Card_Challenge'.Host_Challenge}_({Host_Challenge.Card_Challenge'}_(Static_Key))) =|>
+      State' := 3  /\  Session_Key':={Host_Challenge.Card_Challenge'}_(Static_Key)
+                   /\  Card_Cryptogram':= {Card_Challenge'.Host_Challenge}_(Session_Key')
+                   /\  Host_Cryptogram':= {Host_Challenge.Card_Challenge'}_(Session_Key')
+	       /\  secret(Session_Key',session_key2 ,{User, Card})
+	      /\  request (User, Card, host_challenge, Host_Challenge)
+                   /\  SndUserCard(Host_Cryptogram')
+                   /\  witness(User, Card, card_challenge, Card_Challenge') 
+                  
+
+   4. State =3 /\ RcvUserCard(true)=|>
+       State':=4
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role cvp_Verify (Authority, HTTP_Server, Card, User : agent,
+               Pk_A, Pk_CA  : public_key,
+                H, Hash : hash_func,
+                RcvAuthorityCard, SndAuthorityServer, RcvAuthorityServer, SndAuthorityCard : channel(dy))
+
+
+played_by Authority
+def= 
+ local	State  		: nat,
+	Pk_U		: public_key,
+	 ReqNum, Signature   : text
+      	
+	const    sig, signature		: protocol_id
+
+ init  State := 0
+
+
+
+
+  transition
+
+  1. State   = 0  /\ RcvAuthorityCard(ReqNum'.User.HTTP_Server)=|>
+        State' := 1 /\ SndAuthorityServer(User)
+		
+2. State   = 1  /\ RcvAuthorityServer(Pk_U.User.{Hash(Pk_U.User)}_inv(Pk_CA))=|>
+	State' := 2   /\ Signature':={H(ReqNum.Pk_U)}_inv(Pk_A)
+			/\ SndAuthorityCard(ReqNum.Pk_U.Signature')	
+                     /\ witness(Authority,Card, signature, Signature')
+
+
+ 
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role getCertificate(HTTP_Server, Authority, User, Card : agent,
+		Pk_CA, Pk_U : public_key,
+		 Hash : hash_func,
+		 SndServerAuthority, RcvServerAuthority: channel(dy))
+
+played_by HTTP_Server
+
+def= local 
+	State : nat
+
+
+init  State := 0
+
+  transition
+
+  1. State   = 0  /\  RcvServerAuthority(User)=|>
+	 State' := 1 /\   SndServerAuthority(Pk_U.User.{Hash(Pk_U.User)}_inv(Pk_CA))
+
+
+end role
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role cvp_Resp (Card, User, Authority, HTTP_Server : agent,
+        Pk_C, Pk_A : public_key,
+        H : hash_func,
+                Static_Key : symmetric_key,
+                RcvCardUser, SndCardAuthority, RcvCardAuthority, SndCardUser : channel(dy))
+
+
+
+played_by Card def=
+
+  local State  : nat,
+        Host_Challenge,Card_Challenge, ReqNum : text,
+        Pk_U : public_key,
+        Session_Key : {text.text}_symmetric_key -> symmetric_key,
+        Card_Cryptogram  : {text.text}_symmetric_key -> text,
+        Host_Cryptogram  : {text.text}_symmetric_key -> text,
+       Signature :  text
+
+
+
+  const session_key1,  signature, host_cryptogram, card_cryptogram, host_challenge, card_challenge  : protocol_id,
+      true: bool
+
+  init  State := 0
+
+  transition
+
+  1. State   = 0  /\ RcvCardUser(User.HTTP_Server)=|>
+      State' := 1 /\  ReqNum':=new()
+                     /\  SndCardAuthority(ReqNum'.User.HTTP_Server)
+                
+
+  2. State = 1 /\ RcvCardAuthority(ReqNum.Pk_U.{H(ReqNum.Pk_U)}_inv(Pk_A))=|>
+       State' := 2 /\ Signature' := {H(ReqNum.Pk_U)}_inv(Pk_A)
+		/\  request(Card,Authority,signature,Signature')
+                     /\  SndCardUser(true)
+
+
+   3. State   = 2 /\ RcvCardUser({Host_Challenge'}_(Pk_C))=|>
+      State' := 3 /\Card_Challenge' := new()
+                  /\ Session_Key':={Host_Challenge'.Card_Challenge'}_(Static_Key)
+                  /\ Card_Cryptogram':= {Card_Challenge'.Host_Challenge'}_(Session_Key')
+	      /\ secret(Session_Key',session_key1, {User, Card})
+                  /\ SndCardUser({Card_Challenge'}_(Pk_U).Card_Cryptogram')
+                  /\ witness(Card,User, host_challenge,Host_Challenge')
+                
+
+
+  4. State   = 3 /\ RcvCardUser({Host_Challenge.Card_Challenge}_Session_Key) =|>
+      State' := 4  /\ Host_Cryptogram':= {Host_Challenge.Card_Challenge}_(Session_Key)
+                        /\ request(Card, User,card_challenge,Card_Challenge)
+                        /\ SndCardUser(true)
+                       
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role session(User, Card, Authority, HTTP_Server : agent,
+             Pk_U, Pk_C, Pk_A, Pk_CA : public_key,
+             H, Hash : hash_func,
+             Static_Key: symmetric_key)
+def=
+
+  local  SUC, RUC,  RCU, SCA, RCA, SCU, RAC, SAS, RAS, SAC, SSA, RSA  : channel (dy)
+
+  composition
+           cvp_Init(User, Card, HTTP_Server, Pk_U, Pk_C, Static_Key, SUC, RUC)
+       /\  cvp_Resp(Card, User, Authority, HTTP_Server, Pk_C, Pk_A, H, Static_Key, RCU, SCA, RCA, SCU)
+       /\  cvp_Verify(Authority, HTTP_Server, Card, User, Pk_A, Pk_CA, H, Hash, RAC, SAS, RAS, SAC)
+       /\  getCertificate(HTTP_Server, Authority, User, Card, Pk_CA, Pk_U, Hash, SSA, RSA)
+       
+end role
+
+
+role environment() 
+def=
+
+  const u, c, a, http_server         : agent,
+        static_key     : symmetric_key,
+         h, hash2 : hash_func,
+      pku, pkc, pka, pki, pkca : public_key
+
+  intruder_knowledge = {u, c, a, static_key, h, hash2,  http_server, pki, pku, pkc, pka, pkca,  inv(pki)}
+
+  composition
+        	
+	session(u, c, a, http_server, pku, pkc, pka, pkca, h, hash2, static_key) /\
+	session(u, i, i, http_server, pku, pki, pka,  pkca, h, hash2, static_key) /\
+        session(i, c, a, http_server, pki, pkc, pka,  pkca, h, hash2, static_key)/\
+	
+session(u, c, i, http_server, pku, pkc, pki,  pkca, h, hash2, static_key)
+%session(u, c, a, i, pku, pkc, pka, pkca, h, hash2, static_key)
+end role
+
+
+goal
+
+  %confidentialité des clés de session
+ secrecy_of session_key1, session_key2
+
+%Authentification mutuelle
+ authentication_on card_challenge % de la carte
+ authentication_on host_challenge  % de l'utilisateur
+     
+%Authentification d el'entité déléguée
+    authentication_on signature
+
+end goal
+
+
+
+environment()
+
+                                                        

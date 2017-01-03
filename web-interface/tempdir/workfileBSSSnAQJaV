@@ -1,0 +1,73 @@
+role provider(
+	% Entite desirant utilise un service heberge sur le provider
+	P, C     : agent,
+	% Cle secrete connue par l'ensemble des entites declarees au sein du cloud
+	Kcloud   : symmetric_key,
+	SND, RCV : channel(dy))
+played_by P def=
+	local
+		State  : nat,
+		Np, Nc : text
+
+	const sec_N1   : protocol_id
+
+	init State     := 0
+
+	transition
+		1. State = 0 /\ RCV(start) =|> State' := 1 /\ Np' := new() /\ SND(Np') /\ witness(P,C,aut_provider,Np')
+		2. State = 1 /\ RCV({Nc'.Np}_Kcloud) =|> State' := 2 /\ SND({Np.Nc'}_Kcloud) /\ secret(Nc',sec_N1,{P,C}) /\ request(P,C,aut_client,Nc')
+
+end role
+
+role client(
+	% Entite offrant un service declare au sein du cloud
+	C, P     : agent,
+	% Cle secrete connue par l'ensemble des entites declarees au sein du cloud
+	Kcloud   : symmetric_key,
+	SND, RCV : channel(dy))
+played_by C def=
+	local
+		State  : nat,
+		Nc, Np : text
+
+	const sec_N2   : protocol_id
+
+	init State     := 0
+
+	transition
+		1. State = 0 /\ RCV(Np') =|> State' := 1 /\ Nc' := new()  /\ SND({Nc'.Np'}_Kcloud) /\  secret(Nc',sec_N2,{C,P}) /\ witness(C,P,aut_client,Nc')
+		2. State = 1 /\ RCV({Np.Nc}_Kcloud) =|> State' := 2 /\ request(C,P,aut_provider,Np)
+
+end role
+
+role session(
+	C, P     : agent,
+	Kcloud   : symmetric_key)
+	def=
+
+	local
+		Sp, Rp, Sc, Rc : channel(dy)
+
+	composition
+		client(C,P,Kcloud,Sc,Rc) /\ provider(P,C,Kcloud,Sp,Rp)
+end role
+
+role environment()
+	def=
+	
+	const c1, c2, p          : agent,
+	k1, k2                   : symmetric_key,
+	aut_client, aut_provider : protocol_id
+	intruder_knowledge = {c1,c2,p}
+	
+	composition
+	session(c1,p,k1) /\ session(c2,p,k2)
+end role
+
+goal
+	secrecy_of sec_N2, sec_N1
+	authentication_on aut_provider
+	authentication_on aut_client
+end goal
+
+environment()

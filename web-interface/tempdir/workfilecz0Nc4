@@ -1,0 +1,41 @@
+role sip_server_2(
+                SS2,DS : agent,
+                CH_DS_SS2,CH_SS2_DS,CH_SS1_SS2,CH_SS2_SS1 : channel(dy)) 
+        
+        played_by SS2 def=
+
+        local State: nat,
+              Dest : protocol_id,
+              UAC  : agent,
+              Nonce: text,
+              Y    : hash(text.hash(agent.text).hash(protocol_id))
+
+        init State := 1
+        
+        transition
+        
+        6. State = 1
+        /\ CH_SS1_SS2(sipregister.UAC'.Dest')
+        =|>
+        State':= 2
+        /\ CH_SS2_DS(Dest'.UAC')
+
+        7. State = 2 
+        /\ CH_DS_SS2(Nonce'.UAC)
+        =|>
+        State':= 3
+        /\ CH_SS2_SS1(sip401.Nonce')
+
+        8. State = 3 
+        /\ CH_SS1_SS2(sipregister.UAC.Dest.Nonce.Y')
+        =|>
+        State':= 4
+        /\ CH_SS2_DS(Dest.UAC.Nonce.Y')
+
+        9. State = 4
+        /\ CH_DS_SS2(UAC.success)
+        =|>
+        State':= 5
+        /\ CH_SS2_SS1(sip200)
+
+end role

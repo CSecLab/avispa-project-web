@@ -1,0 +1,99 @@
+%% IF specification of /home/friends/drwho/Desktop/Archivio/Work/Science/AVISPA/AVISPA-FET-EU-02/shared/testsuite/hlpsl/KerberosV.corrected.hlpsl
+
+section signature:
+
+state_Kerberos_S: agent * agent * agent * symmetric_key * nat * text * text * text * symmetric_key * nat -> fact
+state_Kerberos_G: agent * agent * agent * agent * symmetric_key * symmetric_key * nat * symmetric_key * symmetric_key * text * text * text * text * text * text * text * nat -> fact
+state_Kerberos_A: agent * agent * agent * agent * symmetric_key * symmetric_key * nat * symmetric_key * text * text * text * text * nat -> fact
+state_Kerberos_C: agent * agent * agent * agent * symmetric_key * nat * symmetric_key * symmetric_key * text * text * text * text * text * text * text * text * text * text * message * message * nat -> fact
+
+
+section types:
+
+k_cs, k_cg, t2 : protocol_id
+Tstart2, Texpire2, T2, N2, Lifetime_2, Tstart, Texpire, T, Lifetime_1, N1, Dummy_Texpire2, Dummy_Tstart2, Dummy_T2, Dummy_Texpire, Dummy_Tstart, Dummy_T, Dummy_Lifetime_2, Dummy_N2, Dummy_Lifetime_1, Dummy_N1, dummy_nonce : text
+St, 11, 10, 9, 6, CID, 5, 4, 3, 2, 1, 0 : nat
+K_CA, K_AG, K_GS, K_CS, K_CG, Dummy_K_CS, Dummy_K_CG, dummy_sk, kia, kgs, kag, kca : symmetric_key
+Dummy_Ticket_2, Dummy_Ticket_1, Ticket_1, Ticket_2, dummy_msg, MGoal, start : message
+c, C, A, G, S, AGoal, s, i, g, a : agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(kia).
+ iknows(c).
+ iknows(a).
+ iknows(g).
+ iknows(s).
+ iknows(start).
+ iknows(i).
+ state_Kerberos_C(c,a,g,s,kca,0,dummy_sk,dummy_sk,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,3).
+ state_Kerberos_A(a,c,s,g,kca,kag,0,dummy_sk,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,4).
+ state_Kerberos_G(g,a,s,c,kag,kgs,0,dummy_sk,dummy_sk,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,5).
+ state_Kerberos_S(s,g,c,kgs,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,6).
+ state_Kerberos_A(a,i,s,g,kia,kag,0,dummy_sk,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,9).
+ state_Kerberos_G(g,a,s,i,kag,kgs,0,dummy_sk,dummy_sk,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,10).
+ state_Kerberos_S(s,g,i,kgs,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,11)
+
+
+section rules:
+
+step step_0 (C,A,G,S,K_CA,K_CG,K_CS,Dummy_N1,N2,Dummy_Lifetime_1,Lifetime_2,T,T2,Tstart,Texpire,Tstart2,Texpire2,Ticket_1,Ticket_2,N1,Lifetime_1,CID) :=
+ state_Kerberos_C(C,A,G,S,K_CA,0,K_CG,K_CS,Dummy_N1,N2,Dummy_Lifetime_1,Lifetime_2,T,T2,Tstart,Texpire,Tstart2,Texpire2,Ticket_1,Ticket_2,CID).
+ iknows(start)
+=[exists N1,Lifetime_1]=>
+ state_Kerberos_C(C,A,G,S,K_CA,1,K_CG,K_CS,N1,N2,Lifetime_1,Lifetime_2,T,T2,Tstart,Texpire,Tstart2,Texpire2,Ticket_1,Ticket_2,CID).
+ iknows(pair(pair(pair(C,G),Lifetime_1),N1))
+
+step step_1 (C,A,G,S,K_CA,Dummy_K_CG,K_CS,N1,Dummy_N2,Lifetime_1,Dummy_Lifetime_2,Dummy_T,T2,Dummy_Tstart,Dummy_Texpire,Tstart2,Texpire2,Dummy_Ticket_1,Ticket_2,K_CG,N2,Lifetime_2,T,Tstart,Texpire,Ticket_1,CID) :=
+ state_Kerberos_C(C,A,G,S,K_CA,1,Dummy_K_CG,K_CS,N1,Dummy_N2,Lifetime_1,Dummy_Lifetime_2,Dummy_T,T2,Dummy_Tstart,Dummy_Texpire,Tstart2,Texpire2,Dummy_Ticket_1,Ticket_2,CID).
+ iknows(pair(pair(C,Ticket_1),scrypt(K_CA,pair(pair(pair(pair(G,K_CG),Tstart),Texpire),N1))))
+=[exists T,N2,Lifetime_2]=>
+ state_Kerberos_C(C,A,G,S,K_CA,2,K_CG,K_CS,N1,N2,Lifetime_1,Lifetime_2,T,T2,Tstart,Texpire,Tstart2,Texpire2,Ticket_1,Ticket_2,CID).
+ iknows(pair(pair(pair(pair(S,Lifetime_2),N2),Ticket_1),scrypt(K_CG,pair(C,T))))
+
+step step_2 (C,A,G,S,K_CA,K_CG,Dummy_K_CS,N1,N2,Lifetime_1,Lifetime_2,T,Dummy_T2,Tstart,Texpire,Dummy_Tstart2,Dummy_Texpire2,Ticket_1,Dummy_Ticket_2,K_CS,T2,Tstart2,Texpire2,Ticket_2,CID) :=
+ state_Kerberos_C(C,A,G,S,K_CA,2,K_CG,Dummy_K_CS,N1,N2,Lifetime_1,Lifetime_2,T,Dummy_T2,Tstart,Texpire,Dummy_Tstart2,Dummy_Texpire2,Ticket_1,Dummy_Ticket_2,CID).
+ iknows(pair(pair(S,Ticket_2),scrypt(K_CG,pair(pair(pair(pair(S,K_CS),Tstart2),Texpire2),N2))))
+=[exists T2]=>
+ state_Kerberos_C(C,A,G,S,K_CA,3,K_CG,K_CS,N1,N2,Lifetime_1,Lifetime_2,T,T2,Tstart,Texpire,Tstart2,Texpire2,Ticket_1,Ticket_2,CID).
+ iknows(pair(Ticket_2,scrypt(K_CS,pair(C,T2)))).
+ wrequest(C,G,kcs,K_CS,CID)
+
+step step_3 (C,A,G,S,K_CA,K_CG,K_CS,N1,N2,Lifetime_1,Lifetime_2,T,T2,Tstart,Texpire,Tstart2,Texpire2,Ticket_1,Ticket_2,CID) :=
+ state_Kerberos_C(C,A,G,S,K_CA,3,K_CG,K_CS,N1,N2,Lifetime_1,Lifetime_2,T,T2,Tstart,Texpire,Tstart2,Texpire2,Ticket_1,Ticket_2,CID).
+ iknows(scrypt(K_CS,T2))
+ =>
+ state_Kerberos_C(C,A,G,S,K_CA,4,K_CG,K_CS,N1,N2,Lifetime_1,Lifetime_2,T,T2,Tstart,Texpire,Tstart2,Texpire2,Ticket_1,Ticket_2,CID)
+
+step step_4 (A,C,S,G,K_CA,K_AG,Dummy_K_CG,Dummy_N1,Dummy_Lifetime_1,Dummy_Tstart,Dummy_Texpire,K_CG,N1,Lifetime_1,Tstart,Texpire,CID) :=
+ state_Kerberos_A(A,C,S,G,K_CA,K_AG,0,Dummy_K_CG,Dummy_N1,Dummy_Lifetime_1,Dummy_Tstart,Dummy_Texpire,CID).
+ iknows(pair(pair(pair(C,G),Lifetime_1),N1))
+=[exists Texpire,Tstart,K_CG]=>
+ state_Kerberos_A(A,C,S,G,K_CA,K_AG,1,K_CG,N1,Lifetime_1,Tstart,Texpire,CID).
+ iknows(pair(pair(C,scrypt(K_AG,pair(pair(pair(pair(C,G),K_CG),Tstart),Texpire))),scrypt(K_CA,pair(pair(pair(pair(G,K_CG),Tstart),Texpire),N1))))
+
+step step_5 (G,A,S,C,K_AG,K_GS,Dummy_K_CG,Dummy_K_CS,Dummy_Lifetime_2,Dummy_Tstart,Dummy_Texpire,Dummy_T,Dummy_Tstart2,Dummy_Texpire2,Dummy_N2,K_CG,K_CS,Lifetime_2,Tstart,Texpire,T,Tstart2,Texpire2,N2,CID) :=
+ state_Kerberos_G(G,A,S,C,K_AG,K_GS,0,Dummy_K_CG,Dummy_K_CS,Dummy_Lifetime_2,Dummy_Tstart,Dummy_Texpire,Dummy_T,Dummy_Tstart2,Dummy_Texpire2,Dummy_N2,CID).
+ iknows(pair(pair(pair(pair(S,Lifetime_2),N2),scrypt(K_AG,pair(pair(pair(pair(C,G),K_CG),Tstart),Texpire))),scrypt(K_CG,pair(C,T))))
+=[exists Texpire2,Tstart2,K_CS]=>
+ state_Kerberos_G(G,A,S,C,K_AG,K_GS,1,K_CG,K_CS,Lifetime_2,Tstart,Texpire,T,Tstart2,Texpire2,N2,CID).
+ iknows(pair(pair(S,scrypt(K_GS,pair(pair(pair(pair(C,S),K_CS),Tstart),Texpire))),scrypt(K_CG,pair(pair(pair(pair(S,K_CS),Tstart2),Texpire2),N2)))).
+ witness(G,C,kcs,K_CS)
+
+step step_6 (S,G,C,K_GS,Dummy_Tstart2,Dummy_Texpire2,Dummy_T2,Dummy_K_CS,Tstart2,Texpire2,T2,K_CS,CID) :=
+ state_Kerberos_S(S,G,C,K_GS,0,Dummy_Tstart2,Dummy_Texpire2,Dummy_T2,Dummy_K_CS,CID).
+ iknows(pair(scrypt(K_GS,pair(pair(pair(pair(C,S),K_CS),Tstart2),Texpire2)),scrypt(K_CS,pair(C,T2))))
+ =>
+ state_Kerberos_S(S,G,C,K_GS,1,Tstart2,Texpire2,T2,K_CS,CID).
+ iknows(scrypt(K_CS,T2))
+
+
+section goals:
+
+goal weak_authenticate_K_CS (G,C,K_CS,CID) :=
+ wrequest(C,G,k_cs,K_CS,CID).
+ not(witness(G,C,k_cs,K_CS)) &
+ not(equal(G,i))
+

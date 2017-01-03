@@ -1,0 +1,114 @@
+role masterstation(SM, MS         : agent,
+                    N             : message,
+                    Dms, G, Reg   : text,
+                    Hsh    : hash_func,
+                    SND, RCV : channel(dy))
+
+played_by MS
+
+def=
+
+  local                 State    : nat,
+                            H    :symmetric_key,
+           L, M, Md, Aum, Auk    : message,
+                         Rsm     : text
+const smartmeter_masterstation_aum, masterstation_smartmeter_auk, smartmeter_masterstation_rsm, smartmeter_masterstation_h,
+      masterstation_smartmeter_m: protocol_id
+                     init State := 0
+
+transition
+1. State = 0  /\ RCV(start) =|>
+   State':= 2 /\ L':= Hsh(sm.Reg)
+              /\ M':= exp(exp(G,Dms), L')
+              /\ Aum':= Hsh(M'.N)
+              /\ SND(M'. Aum')
+              /\ witness(MS,SM,smartmeter_masterstation_aum,Aum)
+2. State = 2  /\ RCV({H'. xor(Rsm',Hsh(N)).Hsh(M).Auk'}_H'.MS) =|>
+   State':= 4 /\ SND({Hsh(Rsm'.H'.N)}_H'.SM)
+              /\ witness(MS,SM,smartmeter_masterstation_rsm,Rsm')
+              /\ witness(MS,SM,smartmeter_masterstation_h,H')
+              /\ request(MS,SM,masterstation_smartmeter_auk,Auk')
+              /\ request(MS,SM,masterstation_smartmeter_m,M)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role smartmeter(SM, MS        : agent,
+                    Reg, G    : text,
+                    N             : message,
+                    Hsh       : hash_func,
+                    SND, RCV  : channel(dy))
+
+played_by SM
+
+def=
+
+  local State            : nat,
+    Dsm,Rsm              : text,
+                    H    :symmetric_key,
+      L, M, Md, Aum, Auk : message
+const smartmeter_masterstation_aum, masterstation_smartmeter_auk, smartmeter_masterstation_rsm, smartmeter_masterstation_h,
+      masterstation_smartmeter_m: protocol_id 
+                     init State := 1
+transition
+1. State = 1  /\ RCV(M'. Aum') =|>
+   State':= 3 /\ Dsm':= new()
+              /\ L':= Hsh(sm.reg)
+              /\ H':= exp(exp(G, Dsm'), L')
+              /\ Md':= exp(M', Dsm')
+              /\ Rsm':= new()
+              /\ Auk':= Hsh(H'. Rsm'. N)
+              /\ witness(SM,MS,masterstation_smartmeter_auk,Auk)
+              /\ SND({H'. xor(Rsm',Hsh(N)).Hsh(M').Auk'}_H'.MS)
+              /\ witness(SM,MS,masterstation_smartmeter_m,M')
+2. State = 3  /\ RCV({Hsh(Rsm.H.N)}_H.SM) =|>
+   State':= 5 /\ request(SM,MS,smartmeter_masterstation_aum,Aum')
+              /\ request(SM,MS,smartmeter_masterstation_rsm,Rsm)
+              /\ request(SM,MS,smartmeter_masterstation_h,H)
+              /\ secret(Rsm',rsm,{SM,MS})
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(SM, MS : agent,
+                    Reg, G, Dms    : text,
+                    N             : message,
+                            Hsh    : hash_func)
+
+def=
+local SMS, RMS,
+SSM, RSM : channel (dy)
+composition
+   masterstation(SM, MS, N, Dms, G, Reg, Hsh, SMS, RMS)
+/\ smartmeter (SM, MS, Reg, G, N, Hsh, SSM, RSM)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+def=
+const smartmeter_masterstation_aum, masterstation_smartmeter_auk, smartmeter_masterstation_rsm, smartmeter_masterstation_h,
+      masterstation_smartmeter_m, rsm: protocol_id,
+                        ms, sm       : agent,
+                        n, kism, kmsi: symmetric_key,
+                                  hsh: hash_func
+intruder_knowledge = {sm, ms, kism, kmsi}
+composition
+     session(sm, ms, reg, g, dms, n, hsh)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+  secrecy_of rsm
+  authentication_on smartmeter_masterstation_aum
+  authentication_on masterstation_smartmeter_auk
+  authentication_on masterstation_smartmeter_m
+  authentication_on smartmeter_masterstation_rsm
+  authentication_on smartmeter_masterstation_h
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+enviroment()
+  

@@ -1,0 +1,94 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfile89CTdI
+
+section signature:
+
+state_cn: agent * agent * agent * public_key * public_key * public_key * hash_func * text * text * text * text * text * text * text * text * text * text * nat * nat -> fact
+state_ha: agent * agent * agent * public_key * public_key * public_key * hash_func * text * text * text * text * text * text * text * text * text * text * text * nat * nat -> fact
+state_mn: agent * agent * agent * public_key * public_key * public_key * hash_func * text * text * text * text * text * text * text * text * text * nat * nat -> fact
+
+
+section types:
+
+ASGoal: set(agent)
+coa, cnn, mnn, han: protocol_id
+MGoal, start: message
+has, HASH: hash_func
+mnpuk, cnpuk, hapuk, MNPUK, HAPUK, CNPUK: public_key
+3, SID, 4, 2, State, 5, 1, 0, Dummy_State: nat
+mn1, ha1, cn1, MN, HA, CN, i: agent
+dummy_nonce, MNN, CNN, HAN, MNHOA, MNCOA, HAADDR, CNADDR, HATS, MOD, CNTS, TSMN, Dummy_CNTS, Dummy_CNN, Dummy_MNN: text
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(i).
+ state_mn(mn1,ha1,cn1,mnpuk,hapuk,cnpuk,has,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,0,3).
+ state_ha(ha1,mn1,cn1,mnpuk,hapuk,cnpuk,has,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,1,4).
+ state_cn(cn1,mn1,ha1,mnpuk,hapuk,cnpuk,has,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,2,5)
+
+
+section rules:
+
+step step_0 (MN,HA,CN,MNPUK,CNPUK,HAPUK,HASH,Dummy_MNN,Dummy_CNN,Dummy_CNTS,MNHOA,MNCOA,CNADDR,HAADDR,TSMN,MOD,SID,MNN,CNN,CNTS) :=
+ state_mn(MN,HA,CN,MNPUK,CNPUK,HAPUK,HASH,Dummy_MNN,Dummy_CNN,Dummy_CNTS,MNHOA,MNCOA,CNADDR,HAADDR,TSMN,MOD,0,SID).
+ iknows(start)
+=[exists MNN,CNN,CNTS]=>
+ state_mn(MN,HA,CN,MNPUK,CNPUK,HAPUK,HASH,MNN,CNN,CNTS,MNHOA,MNCOA,CNADDR,HAADDR,TSMN,MOD,3,SID).
+ iknows(crypt(CNPUK,apply(HASH,pair(CNN,MNN))))
+
+step step_1 (HA,MN,CN,MNPUK,HAPUK,CNPUK,HASH,Dummy_MNN,HAN,MNHOA,MNCOA,CNADDR,HAADDR,TSMN,MOD,HATS,Dummy_CNN,CNTS,SID,MNN,CNN) :=
+ state_ha(HA,MN,CN,MNPUK,HAPUK,CNPUK,HASH,Dummy_MNN,HAN,MNHOA,MNCOA,CNADDR,HAADDR,TSMN,MOD,HATS,Dummy_CNN,CNTS,1,SID).
+ iknows(crypt(CNPUK,apply(HASH,pair(CNN,MNN))))
+ =>
+ state_ha(HA,MN,CN,MNPUK,HAPUK,CNPUK,HASH,MNN,HAN,MNHOA,MNCOA,CNADDR,HAADDR,TSMN,MOD,HATS,CNN,CNTS,5,SID)
+
+step step_2 (CN,MN,HA,MNPUK,HAPUK,CNPUK,HASH,Dummy_MNN,Dummy_CNN,HAN,MNHOA,MNCOA,HAADDR,CNADDR,HATS,MOD,CNTS,SID,MNN,CNN) :=
+ state_cn(CN,MN,HA,MNPUK,HAPUK,CNPUK,HASH,Dummy_MNN,Dummy_CNN,HAN,MNHOA,MNCOA,HAADDR,CNADDR,HATS,MOD,CNTS,2,SID).
+ iknows(crypt(CNPUK,apply(HASH,pair(CNN,MNN))))
+ =>
+ state_cn(CN,MN,HA,MNPUK,HAPUK,CNPUK,HASH,MNN,CNN,HAN,MNHOA,MNCOA,HAADDR,CNADDR,HATS,MOD,CNTS,4,SID)
+
+
+section properties:
+
+property secrecy_of_coa (MGoal,ASGoal) :=
+ [] ((secret(MGoal,coa,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_mnn (MGoal,ASGoal) :=
+ [] ((secret(MGoal,mnn,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_cnn (MGoal,ASGoal) :=
+ [] ((secret(MGoal,cnn,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_han (MGoal,ASGoal) :=
+ [] ((secret(MGoal,han,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_coa (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,coa,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_mnn (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,mnn,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_cnn (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,cnn,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_han (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,han,ASGoal) &
+ not(contains(i,ASGoal))
+

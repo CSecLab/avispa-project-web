@@ -1,0 +1,84 @@
+role Alice (A, B: agent,
+Ka, Ks: public_key,
+KeyRing: (agent, public_key) set,
+SND, RCV: channel (dy)) played_by A def=
+exists State : nat, Na : text(fresh),
+Nb: text, Kb: public_key
+init State=0
+transition
+% Start of the protocol, provided Alice already knows
+% Bob¡¯s public key
+step1a. State=0 /\ RCV(start) /\ in((B,Kb¡¯), KeyRing)
+=|> State¡¯=2 /\ SND({Na¡¯.A}Kb¡¯)
+% Start of the protocol if Alice must request Bob¡¯s
+% public key from the server.
+step1b. State=0 /\ RCV(start) /\ not(in((B,Kb¡¯), KeyRing))
+=|> State¡¯=1 /\ SND(A.B)
+% Receipt of response from key-server
+step2. State = 1 /\ RCV({B.Kb¡¯}inv(Ks))
+=|> KeyRing¡¯ = cons((B,Kb¡¯), KeyRing) /\ SND({Na¡¯.A}Kb¡¯)
+/\ State¡¯ = 2
+% Receiving the second message of the protocol and sending
+% the third
+step3. State=2 /\ RCV({Na.Nb¡¯}Ka)
+=|> State¡¯=3 /\ SND({Nb¡¯}Kb)
+end role
+role Bob(A, B: agent,
+Ka, Ks: public_key,
+KeyRing: (agent, public_key) set,
+SND, RCV: channel (dy)) played_by B def=
+exists State : nat, Na: text, Nb: text (fresh),
+Ka: public_key
+init State=0
+transition
+% Normal start of the protocol, if Bob knows Alice¡¯s
+% public key
+step1a. State=0 /\ RCV({Na¡¯.A}Kb) /\ in((A,Ka¡¯), KeyRing)
+=|> State¡¯=2 /\ SND({Na¡¯.Nb¡¯}Ka¡¯)
+% Start of the protocol if Bob must request Alice¡¯s public
+% key from the key-server.
+step1b. State=0 /\ RCV({Na¡¯.A}Kb) /\ not(in((A,Ka¡¯), KeyRing))
+=|> State¡¯=1 /\ SND(B.A)
+% Receipt of response from key-server
+step2. State = 1 /\ RCV({A.Ka¡¯}inv(Ks))
+=|> KeyRing¡¯ = cons((A,Ka¡¯), KeyRing) /\ SND({Na.Nb¡¯}Ka¡¯)
+/\ State¡¯ = 2
+% Last step of the protocol
+step2. State=2 /\ RCV({Nb}Ka)
+=> State¡¯=3
+end role
+% The key server
+role server(Ks: public_key,
+KeyMap: (agent,public_key) set,
+SND,RCV: channel (dy)) def=
+exists A:agent, B:agent, Kb: public_key
+transition
+step0. RCV(A¡¯.B¡¯) /\ in((B,Kb¡¯), KeyMap)
+=|> SND({B¡¯.Kb¡¯}inv(Ks))
+end role
+role NSPK(S,R: agent -> channel (dy),Ks: public_key,
+Instances: (agent,agent, public_key,public_key) set,
+Agents: agent set)
+def=
+exists A, B: agent, Ka, Kb: public_key,
+KeySet: agent -> (agent, public_key) set
+init /\_{in(A,Agents)} KeySet(A)=[]
+composition
+/\_{in((A,B,Ka,Kb),Instances)}
+Alice(A,B,Ka,Ks,KeySet(A),S(A),R(A))
+/\ Bob(A,B,Ka,Ks,KeySet(B),S(B),R(B))
+end role
+role Environment() def=
+composition
+NSPK([(a,s_a),(b,s_b)], % S
+[(a,r_a),(b,r_b)], % R
+ks,
+[(a,b,ka,kb),(a,i,ka,ki)], % Instances
+[a,b,i]) % Agents
+/\ server(ks, [(a,ka),(b,kb),(i,ki)], snd_srv, rcv_srv)
+end role
+goal Alice weakly authenticates Bob on Nb
+Bob weakly authenticates Alice on Na
+secrecy_of Na, Nb
+end goal
+Environment()

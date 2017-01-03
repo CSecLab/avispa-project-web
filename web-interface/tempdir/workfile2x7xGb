@@ -1,0 +1,129 @@
+% HLPSL code used for the verification of A TPM-Based Architecture
+% for Improved Security And Anonymity in Vehicula Ad hoc Netorks
+%
+% This code can be submited to AVISPA and SPAN tools
+% Both tools can be obtained here: http://www.irisa.fr/lande/genet/span/
+% 
+% HLPSL Code from Olivier Heen and Gilles Guette.
+% Thanks to Thomas Genet for useful remarks.
+
+
+role roletpma (APPA,APPB,TPMA,PCA,MS:agent,EK,Kca:public_key,SND,RCV:channel(dy)) played_by TPMA def=
+local	State,Alpha:nat, AiK,SignKey:public_key, Msg,Break:message
+init	State :=1
+transition
+1.	State  =1 /\ RCV(request)	=|>	State':=2 /\ AiK':=new() /\ SND({AiK'.EK}_Kca) /\ secret(AiK',sec_AiK,{TPMA,PCA})
+2.	State  =2 /\ RCV(Msg')		=|>	State':=3
+3.	State  =3 /\ RCV(tpmsign.Break')=|>	State':=4 /\ SignKey':=new() /\ SND({Break'}_SignKey'.{SignKey'}_inv(AiK).{AiK.Alpha}_inv(Kca))
+end role
+
+role roleappa (APPA,APPB,TPMA,PCA,MS:agent,EK,Kca:public_key,SND,RCV:channel(dy)) played_by APPA def=
+local	State,Alpha:nat, SignedBreak,Break,Msg:message, AiK:public_key
+init	State :=1
+transition
+
+1.	State  =1 /\ RCV(start)		=|>	State':=2 /\ SND(request)
+2.	State  =2 /\ RCV({AiK'.EK}_Kca) =|>	State':=3 /\ SND({AiK'.EK}_Kca)
+3.	State  =3 /\ RCV(Msg')		=|>	State':=4 /\ SND(Msg')
+4.	State  =4			=|>	State':=5 /\ Break':=new() /\ SND(tpmsign.Break')
+5.	State  =5 /\ RCV(SignedBreak')	=|>	State':=6 /\ SND(SignedBreak')
+end role
+
+role rolems (APPA,APPB,TPMA,PCA,MS:agent,EK,Kca:public_key,SND,RCV:channel(dy)) played_by MS def=
+local	State :nat, Msg:message
+init	State :=1
+transition
+1.	State  =1 /\ RCV(Msg')		=|>	State':=1 /\ SND(Msg')
+end role
+
+role rolepca (APPA,APPB,TPMA,PCA,MS:agent,EK,Kca:public_key,SND,RCV:channel(dy)) played_by PCA def=
+local	Alpha,State:nat, Session:symmetric_key, AiK:public_key
+init	State :=1
+transition
+1.	State  =1 /\ RCV({AiK'.EK'}_Kca)=|>	State':=2 /\ Session':=new() /\ 
+	SND({{AiK'.Alpha}_inv(Kca)}_Session'.{Session'.AiK'}_EK') /\
+	secret(Session',sec_session,{PCA,TPMA})
+end role
+
+role roleappb (APPA,APPB,TPMA,PCA,MS:agent,EK,Kca:public_key,SND,RCV:channel(dy)) played_by APPB def=
+local	Alpha,State:nat, Msg,SignedBreak:message, AiK,SignKey:public_key
+init	State :=1
+transition
+1.	State  =1 /\ RCV(SignedBreak')	=|>	State':=2
+end role
+
+role environment() def=
+local	SND, RCV: channel(dy)
+const	appa,appb,tpma,ms,pca:agent, request,tpmsign : message, ek, kca : public_key
+intruder_knowledge = {appa,appb,tpma,ms,pca,ek,kca}
+composition
+	roleappa(appa,appb,tpma,pca,ms,ek,kca,SND,RCV)
+/\	roletpma(appa,appb,tpma,pca,ms,ek,kca,SND,RCV)
+/\	rolems  (appa,appb,tpma,pca,ms,ek,kca,SND,RCV)
+/\	rolepca (appa,appb,tpma,pca,ms,ek,kca,SND,RCV)
+/\	roleappb(appa,appb,tpma,pca,ms,ek,kca,SND,RCV)
+end role
+
+goal
+	secrecy_of sec_session,sec_AiK
+end goal
+
+environment()
+\end{verbatimtab}
+}
+
+
+\subsection*{"compact.hlpsl"}
+
+{\tiny
+\begin{verbatimtab}
+role rolecara (CARA,CARB,PCA,MS:agent,EK,Kca:public_key,SND,RCV:channel(dy)) played_by CARA def=
+local	State,Alpha:nat, AiK,SignKey:public_key, SignedBreak,Msg,Break:message
+init	State :=1
+transition
+1.	State  =1 /\ RCV(start)		=|>	State':=2 /\ AiK':=new() /\ secret(AiK',sec_AiK,{CARA,PCA}) /\ SND({AiK'.EK}_Kca)
+2.	State  =2 /\ RCV(Msg')		=|>	State':=3
+3.	State  =3 /\ RCV(tpmsign.Break')=|>	State':=4 /\ SignKey':=new() 
+		  /\ SND({Break'}_SignKey'.{SignKey'}_inv(AiK).{AiK.Alpha}_inv(Kca))
+		  /\ secret(AiK,sec_AiK,{CARA,PCA})
+4.	State  =4			=|>	State':=5 /\ Break':=new() /\ SND(tpmsign.Break')
+5.	State  =5 /\ RCV(SignedBreak')	=|>	State':=6 /\ SND(SignedBreak')
+end role
+
+role rolems (CARA,CARB,PCA,MS:agent,EK,Kca:public_key,SND,RCV:channel(dy)) played_by MS def=
+local	State :nat, Msg:message
+init	State :=1
+transition
+1.	State  =1 /\ RCV(Msg')		=|>	State':=1 /\ SND(Msg')
+end role
+
+role rolepca (CARA,CARB,PCA,MS:agent,EK,Kca:public_key,SND,RCV:channel(dy)) played_by PCA def=
+local	Alpha,State:nat, Session:symmetric_key, AiK:public_key
+init	State :=1
+transition
+1.	State  =1 /\ RCV({AiK'.EK'}_Kca)=|>	State':=2 /\ Session':=new() /\ secret(Session',sec_session,{PCA,CARA})
+		  /\ SND({{AiK'.Alpha}_inv(Kca)}_Session'.{Session'.AiK'}_EK')
+end role
+
+role rolecarb (CARA,CARB,PCA,MS:agent,EK,Kca:public_key,SND,RCV:channel(dy)) played_by CARB def=
+local	Alpha,State:nat, Msg,SignedBreak:message, AiK,SignKey:public_key
+init	State :=1
+transition
+1.	State  =1 /\ RCV(SignedBreak') =|>	State':=2
+end role
+
+role environment() def=
+local	SND, RCV: channel(dy)
+const	cara,carb,ms,pca:agent, request,tpmsign:message, ek,kca:public_key
+intruder_knowledge = {cara,carb,ms,pca,ek,kca}
+composition
+	rolecara(cara,carb,pca,ms,ek,kca,SND,RCV) /\ rolems  (cara,carb,pca,ms,ek,kca,SND,RCV)
+/\	rolepca (cara,carb,pca,ms,ek,kca,SND,RCV) /\ rolecarb(cara,carb,pca,ms,ek,kca,SND,RCV)
+end role
+
+goal
+	secrecy_of sec_session,sec_AiK
+end goal
+
+environment()
+

@@ -1,0 +1,62 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileo9xYRv
+
+section signature:
+
+
+
+section types:
+
+alice_bob_num: protocol_id
+MGoal, start: message
+H, h: hash_func
+TOKENID, TICKETID, Nonce, ItemID, ServID, TransID, S, SID2, SID1, SID, 6, 5, 4, 3, 2, 1, 0, TICKETID2, 11, 9, 7: nat
+SignK_C, SignK_M, SignK_P, SignK_B, sign_c, sign_m, sign_p, sign_b, sign_i: public_key
+MasterKeyMB, masterkeycb, masterkeymb, SessionKeyCM, SessionKeyCB, SessionKeyCP, PIN, OTP, MasterKeyCB, SessionKeyMP: symmetric_key
+C, M, P, B, A2Goal, A1Goal, c, m, p, b, i: agent
+Password, UserID, ItemInfo, Price, Conform_Msg, DigMoney, N1: text
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(c).
+ iknows(m).
+ iknows(p).
+ iknows(b).
+ iknows(sign_c).
+ iknows(sign_m).
+ iknows(sign_p).
+ iknows(sign_b).
+ iknows(sign_i).
+ iknows(inv(sign_i)).
+ iknows(i)
+
+
+section rules:
+
+
+section properties:
+
+property authentication_on_alice_bob_num (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,alice_bob_num,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,alice_bob_num,MGoal))
+     /\ ((request(A1Goal,A2Goal,alice_bob_num,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,alice_bob_num,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state authentication_on_alice_bob_num (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,alice_bob_num,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,alice_bob_num,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_alice_bob_num (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,alice_bob_num,MGoal,SID1).
+ request(A1Goal,A2Goal,alice_bob_num,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

@@ -1,0 +1,118 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileb3Fu3iUa5d
+
+section signature:
+
+state_server: agent * agent * public_key * text * text * hash_func * nat * text * text * message * message * message * message * message * message * nat -> fact
+state_tag: agent * agent * public_key * text * hash_func * nat * text * text * message * message * message * message * message * message * message * nat -> fact
+
+
+section types:
+
+ASGoal: set(agent)
+R1, R2, M, TK2, TK1, Auts, Auks, Dummy_Auks, Dummy_Auts, Dummy_TK1, Dummy_TK2, Dummy_M, Dummy_R2, Dummy_R1, dummy_msg, start, MGoal: message
+tag_server_auts, tag_server_atus, server_tag_xT, xT: protocol_id
+Hsh, hsh: hash_func
+Dummy_N, L, XT, P, Dummy_XT, Dummy_L, dummy_nonce, ki, p, xs, N, Xs: text
+Ps, ps: public_key
+T, S, A2Goal, A1Goal, t, s, i: agent
+4, SID, State, Dummy_State, 3, SID2, 2, SID1, 1, 0, 5: nat
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(t).
+ iknows(s).
+ iknows(ki).
+ iknows(i).
+ state_tag(t,s,ps,xs,hsh,1,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,3).
+ state_server(s,t,ps,p,xs,hsh,0,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,4)
+
+
+section rules:
+
+step step_0 (T,S,Ps,P,Hsh,Dummy_L,Dummy_XT,Dummy_R1,Dummy_R2,Dummy_M,Dummy_TK2,Dummy_TK1,Auts,Auks,SID,L,XT,R2) :=
+ state_tag(T,S,Ps,P,Hsh,1,Dummy_L,Dummy_XT,Dummy_R1,Dummy_R2,Dummy_M,Dummy_TK2,Dummy_TK1,Auts,Auks,SID).
+ iknows(R2)
+=[exists XT,L]=>
+ state_tag(T,S,Ps,P,Hsh,3,L,XT,exp(L,P),R2,apply(Hsh,pair(exp(L,P),pair(R2,exp(L,Ps)))),xor(XT,apply(Hsh,pair(exp(L,P),pair(R2,exp(L,Ps))))),exp(L,Ps),Auts,Auks,SID).
+ iknows(pair(exp(L,Ps),xor(XT,apply(Hsh,pair(exp(L,P),pair(R2,exp(L,Ps))))))).
+ witness(T,S,server_tag_xT,XT)
+
+step step_1 (T,S,Ps,P,Hsh,L,XT,R1,R2,M,TK2,TK1,Dummy_Auts,Dummy_Auks,SID) :=
+ state_tag(T,S,Ps,P,Hsh,3,L,XT,R1,R2,M,TK2,TK1,Dummy_Auts,Dummy_Auks,SID).
+ iknows(Auts)
+ =>
+ state_tag(T,S,Ps,P,Hsh,5,L,XT,R1,R2,M,TK2,TK1,apply(Hsh,pair(XT,R1)),apply(Hsh,pair(XT,R1)),SID).
+ request(T,S,tag_server_auts,apply(Hsh,pair(XT,R1)),SID)
+
+step step_2 (S,T,Ps,Xs,P,Hsh,Dummy_N,XT,R1,Dummy_R2,M,TK2,TK1,Auts,SID,N) :=
+ state_server(S,T,Ps,Xs,P,Hsh,0,Dummy_N,XT,R1,Dummy_R2,M,TK2,TK1,Auts,SID).
+ iknows(start)
+=[exists N]=>
+ state_server(S,T,Ps,Xs,P,Hsh,2,N,XT,R1,exp(N,P),M,TK2,TK1,Auts,SID).
+ iknows(exp(N,P))
+
+step step_3 (S,T,Ps,Xs,P,Hsh,N,Dummy_XT,Dummy_R1,R2,Dummy_M,Dummy_TK2,Dummy_TK1,Dummy_Auts,SID,TK2,TK1) :=
+ state_server(S,T,Ps,Xs,P,Hsh,2,N,Dummy_XT,Dummy_R1,R2,Dummy_M,Dummy_TK2,Dummy_TK1,Dummy_Auts,SID).
+ iknows(pair(TK1,TK2))
+ =>
+ state_server(S,T,Ps,Xs,P,Hsh,4,N,xor(TK2,apply(Hsh,pair(exp(inv(Xs),TK1),pair(R2,TK1)))),exp(inv(Xs),TK1),R2,apply(Hsh,pair(exp(inv(Xs),TK1),pair(R2,TK1))),TK2,TK1,apply(Hsh,pair(xor(TK2,apply(Hsh,pair(exp(inv(Xs),TK1),pair(R2,TK1)))),exp(inv(Xs),TK1))),SID).
+ request(S,T,server_tag_xT,xor(TK2,apply(Hsh,pair(exp(inv(Xs),TK1),pair(R2,TK1)))),SID).
+ iknows(apply(Hsh,pair(xor(TK2,apply(Hsh,pair(exp(inv(Xs),TK1),pair(R2,TK1)))),exp(inv(Xs),TK1)))).
+ witness(S,T,tag_server_auts,apply(Hsh,pair(xor(TK2,apply(Hsh,pair(exp(inv(Xs),TK1),pair(R2,TK1)))),exp(inv(Xs),TK1))))
+
+
+section properties:
+
+property secrecy_of_xT (MGoal,ASGoal) :=
+ [] ((secret(MGoal,xT,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_tag_server_auts (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,tag_server_auts,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,tag_server_auts,MGoal))
+     /\ ((request(A1Goal,A2Goal,tag_server_auts,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,tag_server_auts,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_server_tag_xT (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,server_tag_xT,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,server_tag_xT,MGoal))
+     /\ ((request(A1Goal,A2Goal,server_tag_xT,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,server_tag_xT,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_xT (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,xT,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_tag_server_auts (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,tag_server_auts,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,tag_server_auts,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_tag_server_auts (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,tag_server_auts,MGoal,SID1).
+ request(A1Goal,A2Goal,tag_server_auts,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_server_tag_xT (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,server_tag_xT,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,server_tag_xT,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_server_tag_xT (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,server_tag_xT,MGoal,SID1).
+ request(A1Goal,A2Goal,server_tag_xT,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

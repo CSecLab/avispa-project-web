@@ -1,0 +1,104 @@
+%% PROTOCOL: DCS:Digital Currency System
+%% PURPOSE: 
+%% MOBILE,SERVER
+%% ATTACKS: Man-in-the-middle attack,
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%     
+%%HLPSL:
+role mobile (M, S: agent,             
+            Kpum, Kpus: public_key,      
+            Hash:hash_func,
+            Ks:symmetric_key
+            SND, RCV: channel (dy)) 
+played_by M def=
+
+  local State : nat, 
+        fname,lname,dob,pwd,imsi :  text
+        Ks:message
+  init State := 1
+
+  transition  
+   
+    0.  State  = 1 / RCV(start) =|> 
+	State':= 3 / ped' := new() / SND(fname,lname,pwd,Kpum,dob,imsi,ano)
+		   / secret(Kprm,{M}) 
+		   / witness(A,B,bob_alice_na,Na')
+
+    2.  State  = 3 / RCV(Kpus) =|> 
+	State':= 5/Ks’=Hash(Kpus,Kprm,Kpum) 
+		   / SND({Ks’,RNo}_Kpus)
+    3.  State  = 5 / RCV({Ks}_Kpus) =|> 
+	State':= 7/SND({amt,RNO}_Ks)
+		   / witmess(S,M,dcs,Ks)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role server (M, S: agent,             
+            Kpum, Kpus: public_key,      
+            Hash:hash_func,
+            Ks:message
+            SND, RCV: channel (dy)) 
+played_by S def=
+
+  local State : nat, 
+        fname,lname,dob,pwd,imsi :  text
+ 
+  init State := 2
+
+  transition  
+   
+    1.  State  = 2 / RCV(fname,lname,pwd,Kpum,dob,imsi,ano) =|> 
+	State:= 4 / SND)Kpus)
+		   / secret(Kprs,{S}) 
+    2.  State  = 4 / RCV(({Ks,RNo}_Kpus) =|> 
+	State':= 6 / Ks’=Hash(Kpus,Kprs,Kpum) 
+		   / SND({Ks’}_Kpum)
+		  / request(M,S,dcs,Hs)
+,end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(M, S: agent, Kpum, Kpus: public_key,Hash: hash_func) def=
+
+  local SA, RA, SB, RB: channel (dy)
+
+  composition 
+
+	mobile(M,S,Kpum,Kprs,SA,RA)
+     / server(M,S,Kpus,Kprs,SA,RA)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+    const M, S	       : agent,
+	  Kpus, Kpum ,Kpui : public_key,
+	 dcs : protocol_id
+	h : Hash_func
+
+    intruder_knowledge = {M,S,Kpum,Kpus,Kpri}
+
+    composition
+
+	session(M,S,Kpus,Kpum,h)
+     / session(M,I,Kpui,Kpum,h)
+     / session(I,S,Kpus,Kpui,h)
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of Kprm,Kprs,Ks
+  authentication_on dcs
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+ 

@@ -1,0 +1,197 @@
+% pt ex 2.2
+% serverul s trebuie sa aiba nonce-urile si de la a si de la b ori comunica a cu s si apoi s cu b si apoi cu a si tot asa ori acu b si apoi cu s
+% in ex2.2 greseala vine din faptul ca b nu a trimis la server nonce-ul lui
+%i acolo e autentificare numai dintr-o parte
+%si autentificarile nu sunt din ambele parti
+
+
+%%it is desired that a different shared key is established for
+%%each communication - session key
+%%– to ensure independence across sessions
+%%– to avoid long-term storage of a large number of shared keys
+%%– to limit the number of cipher-texts available for cryptanalysis
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%HLPSL:
+
+
+
+
+%%comments:
+
+%%%%%  Ka, Kb, cheie simetrica 
+%% {x}_y inseamna ca a criptat cheia x cu y
+%% cand definim rolurile avem parametri: A,S,B sunt parametri de tip agent, ka,kb de tip simetric key si SND_SA,...sunt de channnel sugerand ca acestea sunt %%canalele pe care rolul Alice va comunica
+%% dy - permite intruder model pe canal
+%% vor fi declarate niste variabile locale, de tip text
+%% starea va fi initializata cu 0 in metoda init
+%% cand avem o stare cu x' --> asta inseamna ca este noua valoare a variabilei x. valoare variabilei NU se schimba decat daca tranzitia e completa.
+
+%% Roluri: composition sunt sessiuni ale protocolului si se ruleaza in paralel
+
+%% X ---- Where X is a local variable used instead of {K’.Na.Ns’}_Kb, X should be declared of the
+%%compound type {symmetric_key.text.text}_symmetric_key, because the value to be received
+%%for it has the following form: a symmetric key and two bit-strings, which are jointly encrypted by
+%%a symmetric key. One could also give X the most general type message, but we prefer to default
+%%to the most specific type possible when modelling, as this facilitates the analysis of the protocols
+%%when running the AVISPA Tool with the argument --typed_model=strongly. One can still
+%%perform an untyped analysis by specifying the --typed_model=no argument to those back-ends
+%%that support it, or disable compound typing by specifying --typed_model=yes.
+
+
+
+
+
+
+role alice (A, S, B: agent,
+		Ka, Kb : symmetric_key,
+		SND_SA, RCV_SA, SND_BA, RCV_BA: channel(dy))
+played_by A
+def=
+
+	local State : nat,
+		Na,Nb,Ns : text,
+		K : symmetric_key,
+		X : {symmetric_key.text.text}_symmetric_key
+	init State := 0
+	
+%% Alice primeste mesajul sa inceapa rularea protocolului prin (start). Genereaza o noua valoare pentru nonce ul Na(random) si cripteaza aceast nonce cu Ka %%cand vrea sa-l trimita pe canal. Dupa aceasta tranzitie, Alice va avea starea 2.
+%% A.B.{Na'}_Ka -- inseanmna ca Ka este o cheie shared de A si de B
+%% cand alice ajunge in starea 2 primeste de la B inapoi mesajul trimis impreuna cu nonce ul Nb criptat cu cheia Kb. Alice 
+
+	
+	
+	
+	
+	transition
+	1. State = 0 /\ RCV_BA(start) =|>
+		State':= 2 /\ Na' := new()
+					/\ SND_BA(A.B.{Na'}_Ka)
+
+	2. State = 2 /\ RCV_BA(A.B.{Na}_Ka.{Nb'}_Kb) =|>
+		State':= 4 /\ SND_SA(A.B.{Na}_Ka.{Nb}_Kb)	
+					
+	3. State = 4 /\ RCV_SA(A.B.{K'.Na.Ns'}_Ka.X') =|>
+		State':= 6 /\ SND_BA(A.B.X'.{Na.Ns'}_K')
+			   /\ witness(A,B,alice_bob_na,Na)
+		
+	4. State = 6 /\ RCV_BA(A.B.{Ns.Na}_K.{Ns.Nb}_K) =|>
+		State':= 8 /\ SND_BA(A.B.{Ns.Nb}_K)
+			  /\ request(A,B,bob_alice_nb,Nb)		
+		
+	
+end role
+
+
+
+role server (A, S, B : agent,
+		Ka, Kb : symmetric_key,
+		SND_AS, RCV_AS: channel(dy))
+played_by S
+def=
+
+	local State : nat,
+		Ns,Na, Nb : text,
+		K : symmetric_key
+
+	init State := 5
+
+	transition
+	1. State = 5 /\ RCV_AS(A.B.{Na'}_Ka.{Nb'}_Kb) =|>
+		State':= 7 /\ Ns' := new() /\ K' := new()
+					/\ SND_AS(A.B.{K'.Na'.Ns'}_Ka.{K'.Nb'.Ns'}_Kb)
+					/\ secret(K',k,{A,B,S})
+
+end role
+
+role bob (A, S, B: agent,
+		Kb, Ka : symmetric_key,
+		SND_AB, RCV_AB: channel(dy))
+played_by B
+def=
+
+	local State : nat,
+		Ns, Na, Nb : text,
+		K : symmetric_key
+		
+	init State := 1
+
+	transition
+	1. State = 1 /\ RCV_AB(A.B.{Na'}_Ka) =|>
+		State':= 3 /\ Nb' := new() 
+					/\ SND_AB(A.B.{Na'}_Ka.{Nb'}_Kb)
+
+	2. State = 3 /\ RCV_AB(A.B.{K'.Nb'.Ns'}_Kb.{Na'.Ns'}_K') =|>
+	   State':= 5 /\ SND_AB(A.B.{Ns'.Na'}_K'.{Ns'.Nb'}_K')
+				   /\request(B,A,alice_bob_na,Na')
+				   /\ witness(B,A,bob_alice_nb,Nb')%
+
+	
+	3.State = 5 /\ RCV_AB(A.B.{Ns'.Nb'}_K') =|>
+		State':= 7 
+	
+end role
+
+%% in the session role are declared all the channels folosite de basic roles,dy la fel- pt intruder, dolev yao, intruderul este networkul
+%%DESCRIE o singura executie a protocolului
+
+role session(A, S, B : agent,  
+		Ka, Kb : symmetric_key)
+def=
+
+	local
+		SSA, RSA,
+		SBA, RBA,
+		SAS, RAS,
+		SAB, RAB : channel (dy)
+	
+	composition
+		alice (A, S, B, Ka, Kb, SSA, RSA, SBA, RBA)
+			/\ server(A, S, B, Ka, Kb, SAS, RAS)
+			/\ bob (A, S, B, Ka, Kb, SAB, RAB)
+
+end role
+
+%% environment role este un rol global, numit si top level role, contine mai multe sesiuni si aici intrusul poate juca roluri ca un user legitimat
+%% tot aici este declarata cunostinta intruderului, de obicei numele agentilor, si in cazul asta i reprezinta cheia simetrica a intrusului
+%% din parametri observam ca i va juca rolul unui agent ok, are shared chiar si o cheie cu serverul pt o comunicare mai credibila
+
+role environment()
+def=
+
+	    const a, b, s : agent,
+		ka, kb, ki : symmetric_key,
+		alice_bob_na, bob_alice_nb, k: protocol_id
+
+	intruder_knowledge = {a, b, s, ki}
+
+	composition
+		   session(a,s,b,ka,kb)
+		/\ session(a,s,i,ka,ki)
+		/\ session(i,s,b,ki,kb)
+
+end role
+
+%% secrecy_of k inseamna ca orice valori apar in prima pozitie a secretului si contin k in a doua pozitie, sunt secrete.
+%% pt autentificare avem nevoie de witness si de request.
+%%request(A,B,alice_bob_k1ab,K1ab’)  -- inseamna ca "agentul A accepta valoarea lui k1ab' si se bazeaza pe garantia ca agentul b exista si este de acord cu ea %%pt val aceasta;
+%%authentication_on alice_bob_na --rolul care autentifica, rolul care trebuie autentificat, variabila de verificat
+%%witness(B,A,alice_bob_k1ab,K1ab’) -- inseamna "agentul B afirma ca vrea sa fie peer ul agentului A si e de acord cu valoarea lui K1ab' intr un protocol de %%autentficare alice_bob_k1ab "
+
+%% secret()  If you want to express that a certain value (represented by a term T) produced or selected by a
+%%role played by A is a shared secret between A and a set of agents (say, B and C), then write the
+%%following secret facts in role played by A in the transition in which T is determined:
+%%secret(T,t,{A,B,C})
+%%The label t (of type protocol_id) is used to identify the goal. In the HLPSL goal section, give
+%%the statement secrecy_of t to refer to it.
+
+goal
+	
+	authentication_on alice_bob_na
+	authentication_on bob_alice_nb
+	secrecy_of k
+end goal
+
+
+%% o instantiere a top rolului
+
+environment()

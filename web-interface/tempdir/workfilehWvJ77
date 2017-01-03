@@ -1,0 +1,82 @@
+role srp_Init (A,B : agent, Password,Kb,Ka : symmetric_key, H : function,
+	       G : text,       Snd,Rcv:channel(dy))
+played_by A
+def=
+  local State : nat, Na    :text, Salt  : message,
+	DHY, V, K, Khs,MA,MB,MC: message
+  const sec_i_K : protocol_id
+  init  State := 0
+  transition
+  1. State = 0  /\ Rcv(start) =|>
+     State':= 1 /\ Na' := new()
+                         /\ MA' := H(H(G).H(A).H(Password).H(exp(G,Na')))
+                        /\ Snd(A.exp(G,Na').MA')  
+  2. State = 1  /\ Rcv(H(H(DHY').exp(G,Na).MA.K').Salt'.B)  =|>
+     State':= 2 /\ V' := exp(G,H(Salt'.H(A.Password))) 
+             /\ Khs' :={B.Kb}_(inv(Ka))
+                /\ K' := H( V'.DHY'.Khs')
+%%          MC' := H(H(G).H(A).Salt'.exp(G,Na').DHY'.B.K' )
+                /\ Snd( H(H(G).H(A).Salt'.exp(G,Na').DHY'.B.K'))
+                /\ witness(A,B,k1,K')
+             %%   /\ secret(K',sec_i_K,{A,B})
+               /\ request(A,B,k2,K)
+  
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role srp_Resp (B,A : agent, Ka,Kb,Password : symmetric_key, Salt : message,
+	       H: function,   G: text,  Snd, Rcv:channel(dy))
+played_by B
+def=
+  local State : nat,   Nb,Na    : text,	Khs,DHX,MA,MB,MC, K, V: message
+  const sec_r_K : protocol_id
+  init  State := 0
+  transition
+%% DHX denotes the public Die-Helman key of entity X
+  1. State = 0  /\ Rcv(A.DHX'.MA') =|>  
+     State':= 1 /\ Nb' := new()
+                    /\ V' := exp(G,H(Salt.H(A.Password)))
+                    /\ Khs':={A.Ka}_(inv(Kb))
+                    /\ K' := H( V'.DHX'.Khs')
+                   %% /\ MB':=H(H(exp(G,Nb')).DHX'.MA'.K')
+                    /\ Snd(H(H(exp(G,Nb')).DHX.MA.K').Salt'.B) 
+                    /\ witness(B,A,k2,K')
+                    /\ secret(K',sec_r_K,{A,B})
+  2. State = 1  /\ Rcv(H(H(G).H(A).Salt'.DHX'.exp(G,Nb').B.K' )) =|>
+                              
+     State':= 2  /\   request(B,A,k1,K)
+
+end role
+%%%%%%%	
+role session(A,B: agent, Ka,Kb,Password: symmetric_key, Salt: message,
+	     H: function, G: text)
+def=
+   local SA,RA,SB,RB: channel (dy)
+   composition
+           srp_Init(A,B,Ka,Kb,Password,H,G,SA,RA)  /\
+           srp_Resp(B,A,Kb,Ka,Password,Salt,H,G,SB,RB)
+end role
+
+%%%%%%%%%%%%%	
+role environment()
+def=
+  const k1,k2 : protocol_id,   a,b,i: agent,  ka,kb,kab,kai,kbi: symmetric_key,
+	s_ab,s_ai,s_bi: message,  h:function,  g:text
+ intruder_knowledge = {i, kai, kbi, s_ai, s_bi}
+ composition
+	   session(a,b,ka,kb,kab,s_ab,h,g)
+	/\ session(a,i,ka,kb,kai,s_ai,h,g)
+	/\ session(b,i,kb,ka,kbi,s_bi,h,g)
+end role
+
+%%%%%%%%%%%%%%%%%%%% 	
+  goal
+    %secrecy_of k1
+   secrecy_of sec_i_K, sec_r_K
+
+    %SRP_Init authenticates SRP_Resp on k
+    authentication_on k2
+    %SRP_Resp authenticates SRP_Init on k
+    authentication_on k1
+end goal
+environment()
+

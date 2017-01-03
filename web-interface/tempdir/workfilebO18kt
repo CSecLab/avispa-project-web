@@ -1,0 +1,85 @@
+﻿role source_node(
+A,B,C,X : agent,
+Ka, Kb, Kc, Kt, Kx : public_key,
+RCV, SND : channel(dy))
+played_by A def=
+local
+RDP,REP : protocol_id,
+State : nat,
+NA,Ts1,E1,Ts2,E2,Ts3,E3,Ts4,E4 : text
+const
+a_b_IPa, a_b_IPx, a_a_Na : protocol_id
+init State := 0
+transition
+step1.
+State = 0 /\ RCV(start)
+=|>
+State’:= 4 /\ Na’ := new()
+/\ SND({RDP.X.Na’}_inv(Ka).{A.Ka.Ts1.E1}_inv(Kt))
+/\ witness(A,B,a_b_IPx,X) /\ witness(A,B,a_a_Na,Na’)
+step2.
+State = 4 /\ RCV({{REP.A’.Na’}_inv(Kx)}_inv(Kb).{X’.Kx.Ts4’.E4’}_inv(Kt).
+{B’.Kb.Ts2’.E2’}_inv(Kt))
+=|>
+State’:= 8 /\ wrequest(A,B,a_b_IPa,A’) /\ wrequest(A,B,a_a_Na,Na’)
+end role
+const
+a_b_IPa, a_b_IPx, a_a_Na : protocol_id
+init State := 1
+transition
+step1.
+State = 1 /\ RCV({RDP.X’.Na’}_inv(Ka).{A’.Ka.Ts1’.E1’}_inv(Kt))
+=|>
+State’:= 5 /\ SND({{RDP.X’.Na’}_inv(Ka)}_inv(Kb).
+{A’.Ka.Ts1’.E1’}_inv(Kt).{B.Kb.Ts2.E2}_inv(Kt))
+/\ wrequest(B,A,a_b_IPx,X’) /\ wrequest(B,A,a_a_Na,Na’)
+/\ witness(B,C,a_b_IPx,X’) /\ witness(B,C,a_a_Na,Na’)
+step2.
+State = 5 /\ RCV({{REP.A’.Na’}_inv(Kx)}_inv(Kc).
+{X’.Kx.Ts4’.E4’}_inv(Kt).
+{C’.Kc.Ts3’.E3’}_inv(Kt))
+=|>
+State’:= 9 /\ SND({{REP.A’.Na’}_inv(Kx)}_inv(Kb).
+{X’.Kx.Ts4’.E4’}_inv(Kt).{B.Kb.Ts2.E2}_inv(Kt))
+/\ wrequest(B,C,a_b_IPa,A’) /\ wrequest(B,C,a_a_Na,Na’)
+/\ witness(B,A,a_b_IPa,A’) /\ witness(B,A,a_a_Na,Na’)
+end role
+
+role session(
+A,B,C,X : agent,
+Ka, Kb, Kc, Kt, Kx : public_key)
+def=
+local
+RCV1,SND1,RCV2,SND2,RCV3,SND3,RCV4,SND4 : channel(dy)
+composition
+source_node(A,B,C,X,Ka,Kb,Kc,Kt,Kx,RCV1,SND1)
+/\ intermediate_node1(A,B,C,X,Ka,Kb,Kc,Kt,Kx,RCV2,SND2)
+/\ intermediate_node2(A,B,C,X,Ka,Kb,Kc,Kt,Kx,RCV3,SND3)
+/\ final_node(A,B,C,X,Ka,Kb,Kc,Kt,Kx,RCV4,SND4)
+end role
+role environment()
+def=
+const
+a_b_IPa, a_b_IPx, a_a_Na : protocol_id,
+a,b,c,x : agent,
+ka,kb,kc,kt,kx : public_key
+intruder_knowledge ={a,b,c,x,ka,kb,kc,kt,kx}
+composition
+session(a,b,c,x,ka,kb,kc,kt,kx)
+/\ session(a,i,c,x,ka,kb,kc,kt,kx)
+end role
+goal
+weak_authentication_on a_b_IPa
+weak_authentication_on a_b_IPx
+weak_authentication_on a_a_Na
+end goal
+environment()
+role intermediate_node1(
+A,B,C,X : agent,
+Ka, Kb, Kc, Kt, Kx : public_key,
+RCV,SND : channel(dy))
+played_by B def=
+local
+RDP,REP : protocol_id,
+State : nat,
+Na,Ts1,E1,Ts2,E2,Ts3,E3,Ts4,E4 : text

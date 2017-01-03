@@ -1,0 +1,93 @@
+role alice
+( A,B:agent,
+Hash:hash_func,
+Kb:symmetric_key,
+Snd,Rcv:channel(dy))
+
+played_by A def=
+local
+state:nat,
+Na,Nb:text
+
+init state:=0
+
+transition
+
+1. state=0/\Rcv(start)=|>
+state'=2/\Na'=new(),Nb'=new()
+/\Snd({Hash(Na'.Nb'}_Kb)
+
+2. state=2/\Rcv({Hash((Na.A).Nb}_Kb)
+   state=4/\Snd(Hash(A.B))
+
+end role
+
+
+role bob
+( A,B:agent,
+Hash:hash_func,
+Kb:symmetric_key,
+Snd,Rcv:channel(dy))
+
+played_by B def=
+local
+state:nat,
+Na,Nb:text
+
+init state:=1
+
+transition
+
+1. state=1/\Rcv({Hash(Na'.Nb'}_Kb)=|>
+state'=3/\Snd({Hash((Na'.A).Nb'}_Kb)
+2. state=3/\Rcv(Hash(A.B))
+   state=5
+           /\
+
+end role
+
+role session( A,b:agent,
+Hash:hash_func,
+Kb:Symmetric_key)
+
+def=
+
+local
+
+SA,RA,SB,RB:channel(dy)
+
+composition
+
+alice(A,B,Hash,Kb,SA,RA)
+/\bob(A,B,hash,Kb,SA,RA)
+
+end role
+
+role environment()
+def=
+const 
+a,b:agent,
+kab,kib,kai:symmetric_key,
+na,nb:protocol_id,
+h:hash_func,
+
+composition
+ 
+session(a,b,kab,h)
+/\session(a,i,kai,h)
+/\session(i,b,kbi,h)
+end role
+
+goal
+secrecy_of kb,
+weak_authentication_on na,
+weak_authentication_on nb
+ end goal
+
+environment()
+
+
+
+
+
+

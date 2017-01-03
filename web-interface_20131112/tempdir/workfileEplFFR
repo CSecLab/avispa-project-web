@@ -1,0 +1,78 @@
+%% PROTOCOL: NSPK: Needham-Schroeder Public-Key Protocol
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%HLPSL:
+
+role initiator(A, B     : agent,
+               Ka, Kb   : public_key,
+               SND, RCV : channel (dy))
+played_by A def=
+
+  local State : nat,
+        Na, X : text
+
+  init State := 1
+
+  transition
+   
+    1.  State  = 1 /\ RCV(start) 
+    =|> State':= 2 /\ Na' := new() /\ SND({Na'.A}_Kb)
+		   /\ secret(Na',secret_id_na,{A,B})
+
+    2.  State  = 2 /\ RCV({Na.X'}_Ka)
+    =|>	State':= 3 /\ SND({X'}_Kb)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role responder(B, A      : agent,
+               Kb, Ka    : public_key,
+               SND, RCV  : channel (dy)) 
+played_by B def=
+
+  local State : nat,
+	Nb, Y : text
+
+  init State := 1
+
+  transition 
+
+    1.  State  = 1 /\ RCV({Y'.A}_Kb)
+    =|> State':= 2 /\ Nb' := new() /\ SND({Y'.Nb'}_Ka)
+                   /\ secret(Nb',secret_id_nb,{A,B})
+    2.  State  = 2 /\ RCV({Nb}_Kb)
+    =|> State':= 3
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+    local Snd, Rcv: channel (dy)
+
+    const i, a, b, c        : agent,
+	  ka, kb, kc, ki : public_key,
+	  secret_id_na, secret_id_nb : protocol_id
+
+    intruder_knowledge = {i, a, b, c, ka, kb, kc, ki, inv(ki)}
+
+    composition
+
+	initiator(a,i,ka,ki,Snd,Rcv)
+     /\ responder(b,a,kb,ka,Snd,Rcv)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of secret_id_na, secret_id_nb
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+  

@@ -1,0 +1,106 @@
+%% Two Party EEC-based AKE Protocol using SC-PKC
+%% A : Initiator
+%% B : Responder
+%% Ra is selected by A and Rb is selected by B
+
+role alice(
+A, B : agent,
+SND, RCV : channel(dy),
+H, Union, Pred : function,
+Ka, Kb,P:  symmetric_key)
+
+played_by A
+def=
+local State : nat,
+Ya,Yb : public_key,
+Xa,Xb, Sk : symmetric_key,
+Ra,Rb : text,
+Ta, Tb, Sa, Sb : message
+const key_id1 : protocol_id
+init State:=0
+transition
+1.State=0/\RCV(start)=|>
+State' :=2
+/\Ra' :=new()
+/\Ta' :=Pred(Pred(Ra, Xa), P) 
+/\Ka' :=Pred(Xa, Yb)
+/\Sa' :=H(Union(Ta, Ka))
+/\SND(Ta.Sa)
+2.State=2/\RCV(Tb'.Sb')/\Sb'=H(Union(Tb, Ka))=|>
+State':=4
+/\Sk':=H(Union(Ta, Union(Tb, Union(Sa, Union(Sb, Pred(Pred(Ra, Xa), Tb))))))
+/\secret(Xa, key_id1, {a, b})
+/\request(A, B, pxa, Xa)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role bob(
+B, A : agent,
+SND, RCV : channel(dy),
+H, Union, Pred: function,
+Kb, Ka, P :  symmetric_key)
+played_by B
+
+def=
+local State : nat,
+Ya,Yb : public_key,
+Xa, Xb, Sk : symmetric_key,
+Ra, Rb : text,
+Tb,Ta, Sb, Sa : message
+const key_id2 : protocol_id
+init State:=1
+
+transition
+1.State=1/\RCV(Ta'.Sa')
+/\Sa'=H(Union(Ta, Kb))=|>
+State':=3
+/\Rb':=new()
+/\Tb' :=Pred(Pred(Rb, Xb), P)
+/\Kb':=Pred(Xb, Ya)
+/\Sb':=H(Union(Tb, Kb))
+/\Sk' :=H(Union(Ta, Union(Tb, Union(Sa, Union(Sb, Pred(Pred(Rb, Xb), Ta))))))
+/\SND(Tb.Sb)
+/\secret(Xb, key_id2, {b, a})
+/\request(B, A, pxb, Xb)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(
+A, B : agent,
+H, Union, Pred : function,
+Ka, Kb, P :  symmetric_key)
+
+def=
+local 
+SendA, ReceiveA : channel(dy),
+SendB, ReceiveB : channel(dy)
+
+composition
+
+alice(A, B, SendA, ReceiveA, H, Union, Pred, Ka, Kb, P)
+/\bob(B,A,SendB,ReceiveB, H, Union, Pred, Ka, Kb, P)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+const
+pxa : protocol_id,
+pxb : protocol_id,
+kb, ka, ki, p : symmetric_key,
+a, b, i : agent,
+h, union, pred : function
+intruder_knowledge={a, b, ki, h, union, pred, p}
+
+composition
+
+session(a, b, h, union, pred, ka, kb, p)
+/\session(a, i, h, union, pred, ka, ki, p)
+/\session(i, b, h, union, pred, ki, kb, p)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+secrecy_of  key_id1,key_id2
+authentication_on pxa
+authentication_on pxb
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()
+

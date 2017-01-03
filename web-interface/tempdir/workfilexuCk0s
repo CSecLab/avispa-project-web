@@ -1,0 +1,65 @@
+role keyowner(
+	A,B : agent,
+	M :message,
+	SND,RCV : channel(dy))
+played_by A def=
+       local
+	State : nat,
+	KP,KEY,TCODE,ACODE: message
+	
+init
+	State :=0
+transition
+1. State=0 /\ RCV(start)=|>
+	      State':=2 /\ KP':=new() /\ SND(KP)
+2. State=2 /\ RCV(TCODE)=|>
+	 State':=4 /\ KEY':=new() /\ SND(KEY)
+3. State=4 /\ RCV(ACODE)=|>
+	State':=6 /\ witness(A,B,access_code,ACODE)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role keymanager(
+	A,B :agent,
+	M :message,
+	SND,RCV :channel(dy))
+played_by B def=
+ local
+ 	State :nat,
+ 	KP,KEY,TCODE,ACODE: message	
+ init
+	State :=1
+ transition
+ 1. State=1 /\ RCV(KP)=|>
+ 		   State':=3 /\ TCODE':=new() /\ SND(TCODE)
+ 2.	State=3 /\ RCV(KEY)=|>
+ 		State':=5 /\ ACODE':=new() /\ SND(ACODE)/\ secret(B,A,access_code,ACODE)/\ accept(B,A,access_code,ACODE)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(
+	A,B :agent,
+	M : message)
+def=
+ local SA, SB, RA, RB : channel(dy)
+ composition
+  keyowner(A,B,M,SA,RA)
+ /\ keymanager(A,B,M,SB,RB)
+end role
+
+role environment()
+def=
+const access_code,k1 : protocol_id,
+      a,b : agent,
+      mab,mia,mib:message
+intruder_knowledge = {a,b,mab}
+composition
+session(a,b,mab)
+/\ session(a,i,mia)
+/\ session(i,b,mib)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+secrecy_of k1
+authentication_on access_code
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

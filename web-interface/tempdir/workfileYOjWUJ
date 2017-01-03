@@ -1,0 +1,95 @@
+role mtcd (MTCD, AAA: agent, GK: symmetric_key, 
+F1,F2,F3,F4 : hash_func,
+SND, RCV: channel (dy))
+played_by MTCD 
+def=
+local
+State: nat,
+Rmtcd, Rhss, Raaa, IDhss, Key: text,
+Kma : message
+const 
+
+    mtcd_aaa, aaa_mtcd  : protocol_id
+init 
+State := 0
+transition
+1. State = 0
+/\RCV (start) 
+=|>
+State' := 2
+/\Rmtcd' := new()
+/\SND (Rmtcd')
+2.  State = 2
+/\RCV ({F2(Raaa'. Rhss'.Rmtcd)}_({F3(IDhss'. Rhss')}_GK).Raaa'. Rhss')
+/\witness (MTCD, AAA, aaa_mtcd, Raaa', Rhss')
+=|>
+State' := 4
+/\Key' := new()
+/\ Kma':= {F4(Key')}_({F3(IDhss'. Rhss')}_GK)
+/\ secret (Kma', {AAA, MTCD})
+3.   State = 4
+/\SND ({F1(Raaa. Key')}_Kma)
+/\wrequest (MTCD, AAA, mtcd_aaa, Raaa) 
+=|>
+State' := 6
+end role 
+role aaa (MTCD, AAA: agent, GK: symmetric_key, F1,F2,F3,F4 : hash_func,
+SND, RCV: channel (dy))
+played_by AAA 
+def=
+local
+State: nat,
+Rmtcd, Rhss, Raaa, IDhss, Key: text,
+Kma : message
+const 
+    mtcd_aaa, aaa_mtcd : protocol_id
+init
+State := 1
+transition
+1. State = 1
+/\RCV (Rmtcd') 
+=|>
+State' := 3
+/\Raaa' := new ()
+/\IDhss' := new()
+/\Rhss' := new()
+/\SND ({F2(Raaa'. Rhss'. Rmtcd')}_({F3(IDhss'. Rhss')}_GK). Raaa'.Rhss')
+/\wrequest (AAA, MTCD, aaa_mtcd, Raaa',Rhss')
+2. State = 3
+/\RCV({F1(Raaa. Key')}_Kma')
+/\witness (AAA, MTCD, mtcd_aaa, Raaa)
+=|>
+State' := 5
+/\Kma':= {F4(Key')}_({F3(IDhss'. Rhss')}_GK)
+/\secret (Kma',{AAA, MTCD})
+end role 
+
+role session(MTCD, AAA: agent,GK:
+symmetric_key,F1,F2,F3,F4 : hash_func)
+def=
+local SNDmtcd,RCVmtcd,SNDaaa,RCVaaa : channel (dy)
+const 
+    mtcd_aaa, aaa_mtcd : protocol_id
+composition
+mtcd(MTCD,AAA,GK,F1,F2,F3,F4,SNDmtcd,RCVmtcd)
+/\ 
+aaa(MTCD,AAA,GK,F1,F2,F3,F4,SNDaaa,RCVaaa)
+end role
+role environment()
+def=
+const 
+mtcd, aaa : agent,
+f1,f2,f3,f4 : hash_func,
+gkma,gkia : symmetric_key
+intruder_knowledge={mtcd,aaa,i,f1,f2,f3,f4}
+composition
+session(mtcd,aaa,gkma,f1,f2,f3,f4)
+%/\ session(mtcd,aaa,gkma,f1,f2,f3,f4)
+%/\ session(i,aaa,gkia,f1,f2,f3,f4)
+end role
+goal
+authentication_on mtcd_aaa
+authentication_on aaa_mtcd
+
+end goal
+environment() 

@@ -1,0 +1,97 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfile1arZb9
+
+section signature:
+
+state_authorization: agent * agent * agent * agent * symmetric_key * symmetric_key * symmetric_key * nat * nat -> fact
+state_server: agent * agent * agent * agent * symmetric_key * nat * text * nat -> fact
+state_owner: agent * agent * agent * agent * symmetric_key * symmetric_key * nat * nat -> fact
+state_client: agent * agent * agent * agent * symmetric_key * symmetric_key * symmetric_key * symmetric_key * nat * nat -> fact
+
+
+section types:
+
+dummy_nonce, Nx: text
+10, State, 9, 8, 6, SID, 5, 4, Dummy_State, 3, 7, 2, 1, 0: nat
+Kca, Kcs1, Kcs2, kco, kcs1, Kco, kcs2, kca, kio, kia, kis1, kis2: symmetric_key
+S, C, A, O, c, o, a, s, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(c).
+ iknows(a).
+ iknows(o).
+ iknows(s).
+ iknows(kio).
+ iknows(kia).
+ iknows(kis1).
+ iknows(kis2).
+ iknows(i).
+ state_client(o,c,s,a,kco,kca,kcs1,kcs2,0,3).
+ state_owner(s,o,c,a,kco,kca,1,4).
+ state_server(a,o,c,s,kcs1,6,dummy_nonce,5).
+ state_authorization(c,o,s,a,kca,kcs1,kcs2,3,6).
+ state_client(o,i,s,a,kco,kca,kis1,kis2,0,8).
+ state_owner(s,o,i,a,kco,kca,1,9).
+ state_server(a,o,i,s,kis1,6,dummy_nonce,10)
+
+
+section rules:
+
+step step_0 (C,A,O,S,Kco,Kca,Kcs1,Kcs2,SID) :=
+ state_client(C,A,O,S,Kco,Kca,Kcs1,Kcs2,0,SID)
+ =>
+ state_client(C,A,O,S,Kco,Kca,Kcs1,Kcs2,2,SID).
+ iknows(scrypt(Kco,Kco))
+
+step step_1 (C,A,O,S,Kco,Kca,Kcs1,Kcs2,SID) :=
+ state_client(C,A,O,S,Kco,Kca,Kcs1,Kcs2,2,SID).
+ iknows(scrypt(Kco,Kca))
+ =>
+ state_client(C,A,O,S,Kco,Kca,Kcs1,Kcs2,4,SID).
+ iknows(scrypt(Kca,Kca))
+
+step step_2 (C,A,O,S,Kco,Kca,Kcs1,Kcs2,SID) :=
+ state_client(C,A,O,S,Kco,Kca,Kcs1,Kcs2,4,SID).
+ iknows(scrypt(Kca,Kcs1))
+ =>
+ state_client(C,A,O,S,Kco,Kca,Kcs1,Kcs2,6,SID).
+ iknows(scrypt(Kcs2,Kcs2))
+
+step step_3 (C,A,O,S,Kco,Kca,Kcs1,Kcs2,SID) :=
+ state_client(C,A,O,S,Kco,Kca,Kcs1,Kcs2,6,SID).
+ iknows(scrypt(Kca,Kcs1))
+ =>
+ state_client(C,A,O,S,Kco,Kca,Kcs1,Kcs2,7,SID).
+ iknows(scrypt(Kcs1,Kcs1))
+
+step step_4 (O,C,A,S,Kco,Kca,SID) :=
+ state_owner(O,C,A,S,Kco,Kca,1,SID).
+ iknows(scrypt(Kco,Kco))
+ =>
+ state_owner(O,C,A,S,Kco,Kca,2,SID).
+ iknows(scrypt(Kco,Kca))
+
+step step_5 (S,C,A,O,Kcs1,Nx,SID) :=
+ state_server(S,C,A,O,Kcs1,6,Nx,SID).
+ iknows(scrypt(Kcs1,Kcs1))
+ =>
+ state_server(S,C,A,O,Kcs1,7,Nx,SID).
+ iknows(Nx)
+
+step step_6 (A,C,O,S,Kca,Kcs1,Kcs2,SID) :=
+ state_authorization(A,C,O,S,Kca,Kcs1,Kcs2,3,SID).
+ iknows(scrypt(Kca,Kca))
+ =>
+ state_authorization(A,C,O,S,Kca,Kcs1,Kcs2,4,SID).
+ iknows(scrypt(Kca,Kcs1))
+
+step step_7 (A,C,O,S,Kca,Kcs1,Kcs2,SID) :=
+ state_authorization(A,C,O,S,Kca,Kcs1,Kcs2,3,SID).
+ iknows(scrypt(Kcs2,Kcs2))
+ =>
+ state_authorization(A,C,O,S,Kca,Kcs1,Kcs2,6,SID).
+ iknows(scrypt(Kca,Kcs1))
+
+

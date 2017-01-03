@@ -1,0 +1,89 @@
+role ms(
+	MS,BS:agent,
+	Kck,Ktek:symmetric_key,
+	Hash:hash_func,
+	SND_MB,RCV_MB:channel(dy))
+played_by MS def=
+  local State :nat,
+        Rms,Rms1,Cms,L,Data:text,
+        hs1,hs2:symtric_key,
+        Tms:{agent.symmetric_key}_symmetric_key,
+        Cmac:{text.agent.{agent.symmetric_key}_symmetric_key.text}_symmetric_key
+  const id_gw:text
+  init State :=0
+  transition
+  1.State  =0/RCV_MB(start)=|>
+    State':=2/Rms':=new()
+             /hs1':=Hash(Rms')
+             /hs2':=Hash(hs1)/Cms:=0
+	     /Cmac':={id_gw.Cms.hs2}_Kck
+	     /SND_MB((id_gw.Cms.hs2).Cmac')
+  2.State  =2/RCV_MB({Data}_Ktek)=|>
+    State':=4/Rms1':=new()
+             /hs1':=Hash(Rms1')
+             /hs2':=Hash(hs1)/Cms:=1
+	     /Cmac':={id_gw.Cms.hs2}_Kck
+             /SND_MB((id_gw.Cms.hs2).Cmac')
+             /equest(MS,BS,bs_ms_cmac,Cmac')
+             /witness(MS,BS,ms_bs_cmac,Cmac')
+  3.State  =4/RCV_MB({Cbs.L'}_Ktek)=|>
+    State':=6/SND_MB({Cms.L'}_Ktek)
+end role
+role bs(
+	MS,BS:agent,
+        Ktek,Kck:symmetric_key,
+	Hash:hash_func,
+	SND_MB,RCV_MB:channel(dy))
+played_by BS def=
+  local State :nat,
+        Rms,s,Cbs,Data,L:text,
+        Ktek,Kck:symmetric_key,
+        Tms:{agent.symmetric_key}_symmetric_key,
+        Cmac:{text.agent.{agent.symmetric_key}_symmetric_key.text}_symmetric_key
+  const id_gw:text
+  init State :=1
+  transition
+  1.State  =1/RCV_MB((id_gw1.Cms.hs2).Cmac')=|>
+    State':=3/SND_MB({Data}_Ktek)
+  2.State  =3/RCV_MB(id_gw1.Cms.hs2).Cmac')=|>
+    State':=9/witness(BS,MS,bs_ms_cmac,Cmac')
+             /L':=new()
+             /SND_MB({Cbs.L'}_Ktek)
+ 3.State  =11/SCV_MB({Cms.n'.L'}_Ktek)=|>
+   State':=13     
+end role 
+
+
+role session(
+	MS,BS:agent,
+	Ktek,Kck:symmetric_key,
+	Hash:hash_func)
+def=
+  local  SMB,RMB:channel(dy)
+  composition
+	ms(MS,BS,Ktek,Kck,Hash,SMB,RMB)
+	/s(MS,BS,Ktek,Kck,Hash,SMB,RMB)
+       
+end role
+role environment()
+def=
+  const m,b:agent,
+        km,kb,ki:symmetric_key,
+        mul,h:hash_func,
+        bs_ms_cmac,ms_bs_cmac:protocol_id
+  intruder_knowledge={m,b,km,kb,ki,mul,h}
+  composition
+	session(m,b,km,kb,mul,ht)
+	/session(i,b,ki,kb,mul,h)
+	/session(m,i,km,ki,mul,h)
+       
+end role
+
+goal
+  
+  authentication_on ms_bs_cmac
+  authentication_on bs_ms_cmac
+end goal
+
+environment()
+	  

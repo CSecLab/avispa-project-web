@@ -1,0 +1,178 @@
+%% Here is a typical example of an HLPSL specification
+%% ---------------------------------------------------
+
+%% PROTOCOL: NSPK: Needham-Schroeder Public-Key Protocol
+%% VARIANT: original version (of 1978) without key server
+%% PURPOSE: Two-party mutual autentication
+%% MODELER: David von Oheimb, Siemens CT IC 3, January 2005
+%% ALICE_BOB:
+%%\begin{verbatim}
+%% 1. A  - {Na.A}_Kb ----> B
+%% 2. A  B
+%%\end{verbatim}
+%% PROBLEMS: 3
+%% CLASSIFICATION: G1, G3, G12
+%% ATTACKS: Man-in-the-middle attack,
+%% where in the first session Alice talks with the intruder as desired
+%% and in the second session Bob wants to talk with Alice but actually
+%% talks to the intruder. Therefore, also the nonce Nb gets leaked.
+%%\begin{verbatim}
+%% 1.1  A  - {Na.A}_Ki --> i   	
+%% 2.1                     i(A)  - {Na.A}_Kb  -> B   	
+%% 2.2                     i(A)  B
+%%\end{verbatim}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%HLPSL:
+role user (A, B: agent,             
+            Kug: public_key,
+            IDu: text,
+            Hash: hash_func,
+            SND, RCV: channel (dy)) 
+played_by A def=
+
+  local State : nat, 
+        Nu, Nx: text,
+        V1:
+
+  init State := 0
+
+  transition  
+   
+  0.  State  = 0 /\ RCV(start) =|> 
+	State':= 4 
+  /\ Nu' := new()
+  /\ Kug := xor(Kug2,Hash(IDu.PSWu))
+  /\ Nx := xor(Kug,Nu)
+  /\ AIDu := Hash(IDu.Kug.Nu.TSug)
+  /\ V1 := Hash(AIDu.Kug.Nx.SNid)
+  /\ SND(AIDu.Nx.TSug.SNid.V1)
+	/\ secret(Na',na,{A,B}) 
+	/\ witness(A,B,bob_alice_na,Na')
+
+  2.  State  = 4 /\ RCV({SK3.V4.TSug}) =|> 
+	State':= 5
+  /\ SK := xor(Hash(Kug.IDu.Nu),SK3)
+  /\
+  /\
+  /\
+	/\ request(A,B,alice_bob_nb,Nb')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role sensor(A, B: agent,      
+         Ka, Kb: public_key,      
+         SND, RCV: channel (dy)) 
+played_by B def=
+
+  local State : nat, 
+	Na, Nb: text
+
+  init State := 1
+
+  transition 
+
+  1.  State  = 2 /\ RCV({AIDu.SK2.T.V2}) =|> 
+	State':= 3 
+  /\ T2 := new() 
+  /\ SK := xor(Hash(Kgs),SK2)
+  /\ V3 := Hash(SK.Kgs.SNid.T2)
+  /\ Kgs := Hash(Kgs.SNid)
+  /\ SND({T2.SNid.V3})
+	/\ secret(Nb',nb,{A,B}) 
+	/\ witness(B,A,alice_bob_nb,Nb')
+
+    3.  State  = 3 /\ RCV({Nb}_Kb) =|> 
+	State':= 5 /\ request(B,A,bob_alice_na,Na)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role gateway(A, B: agent,      
+         Ka, Kb: public_key,      
+         SND, RCV: channel (dy)) 
+played_by B def=
+
+  local State : nat, 
+  Na, Nb: text
+
+  init State := 1
+
+  transition 
+
+  1.  State  = 1 /\ RCV(AIDu.Nx.TSug.SNid.V1) =|> 
+  State':= 3 
+  /\ SK := new() 
+  /\ T := new()
+  /\ Nu := xor(Kug,Nx)
+  /\ SK2 := xor(Hash(Kgs),SK)
+  /\ V2 := Hash(AIDu.SK2.T.Kgs)
+  /\ SND({AIDu.SK2.T.V2})
+  /\ secret(Nb',nb,{A,B}) 
+  /\ witness(B,A,alice_bob_nb,Nb')
+
+  3.  State  = 3 /\ RCV({T2.SNid.V3}) =|> 
+  State':= 5 
+  /\ m := Add(m)
+  /\ TSugnew := m
+  /\ TSug := xor(Hash(Kug.IDu.Nu),TSugnew)
+  /\ SK3 := xor(Hash(Kug.IDu.Nu),SK)
+  /\ V4 := Hash(SK3.Nu.TSug.Kug)
+  /\ Kugnew := Hash(Kug.IDm.TSugnew)
+  /\ Kug := Kugnew
+  /\ Kgsnew := Hash(Kgs.SNid)
+  /\ Kgs := Kgsnew
+  /\ SND({SK3.V4.TSug})
+  /\ request(B,A,bob_alice_na,Na)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(
+  USER, GATEWAY, SENSOR: agent,
+  Kug, Kgs: symmetric_key
+  Add, Hash: hash_func) 
+
+  def=
+  local UG, GU, SG, GS: channel (dy)
+
+  composition 
+
+	user(USER,GATEWAY,Kug,Hash,UG,GU)
+  /\ sensor(SENSOR,GATEWAY,Kgs,Hash,Add,SG,GS)
+  /\ gateway(GATEWAY,USER,SENSOR,Kug,Hash,Add,UG,GU,SG,GS)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+    const user, gateway, sensor: agent,
+	  kug, kgs                   : symmetric_key,
+	  hash, add                  : hash_func
+
+    intruder_knowledge = {a, b, ka, kb, ki, inv(ki)}
+
+    composition
+
+	session(a,b,ka,kb)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of Kug, Kgs
+  authentication_on user_sensor_sk
+  authentication_on sensor_user_sk
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

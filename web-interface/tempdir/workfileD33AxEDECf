@@ -1,0 +1,206 @@
+role client(C,B,M:agent,
+            Kc,Km,Key,K,Kcb,Kbc:symmetric_key,
+			H:hash_func,
+			Pubx,Mpk,Puby:public_key,
+			Snd,Rcv:channel(dy))
+played_by C
+def=
+local State:nat,
+      IMEIx,IDc,V,Dx,TDx,X,Msk,G,SKc,K1,N,Vi,Rvi,Rwi,Ri,Ei,Ts,IDm,Q,IMEIy,Dy,TDy,Y,SKm,K2,SKcm,Inv,Amt,Pay,R1,Succ,Bill,Payc,M1,M2,M3,Z,CNO,C1,Rc:text
+	  
+	  const client_bank_x,bank_client_msk,merchant_bank_y,bank_merchant_msk,subs1,subs2,subs3,subs4:protocol_id
+init State := 0
+transition
+1.State =0 /\Rcv(start)=|>
+  State':=1/\X':=new()
+           /\IDc':=new()
+           /\Msk':=new()
+           /\V':=xor(H(X.IDc),IMEIx)
+           /\Dx':=H(X.IMEIx)
+           /\Pubx':=exp(G,X)
+           /\K1':=H(IMEIx.Pubx,X)
+           /\Snd({IDc.Dx.Pubx.K1}_Kc)
+           /\secret({X},subs1,C)
+           
+           /\secret({Msk},subs2,{C,B})	
+           /\witness(C,B,client_bank_x,X')
+		
+2.State =1/\ Rcv({B.TDx.Mpk}_Kc)=|>
+  State':=2/\N':=new()
+           /\Ts':=new()
+           /\Vi':=H(IDc.N.V)
+           /\Rvi':=xor(Vi,Ts)
+           /\Rwi':=H(Dx.H(Amt).SKc)
+           /\Ri':=xor(Rvi,Rwi)
+           /\Ei':=xor(H(Rvi.K1),H(N))
+           /\Kcb':=H(Kc.Rvi.Ts)
+           /\Snd(Dx.H(Amt).Vi.Ri.{Ei.Amt.TDx}_Kcb)
+           
+3.State =2 /\ Rcv(M2.M3.Z.H(CNO).{CNO.TDx}_Kbc)=|>         
+  State':=3/\C1':=xor(H(N),M2)
+           /\M3':=H(C1.Z)
+           /\M1':=xor(Ei,C1)
+           /\Kbc':=H(H(CNO).M1'.Z)
+           /\Inv':=new()
+           /\Msk':=new()
+           /\Amt':=xor(Pay.Inv)
+		   /\R1':=H(IMEIx.Inv.Pubx.Pay)
+		   /\Key':=H(IMEIx.Pubx.Kc.Pay)
+		   /\Snd(IMEIx.Inv.Pubx.Amt.H(IMEIx.Inv.Pubx.Pay).{Pay.TDx}_Key)
+		   
+4.State =3/\Rcv({Succ.Bill.Inv}_K)		=|>   
+		   
+		   
+  State':=4  /\Msk':=new()
+         /\request(B,C,bank_client_msk,Msk')
+
+		   
+end role
+
+
+
+
+
+role bank(C,B,M:agent,
+            Kc,Km,Key,K,Kcb,Kbc:symmetric_key,
+			H:hash_func,
+			Pubx,Mpk,Puby:public_key,
+			Snd,Rcv:channel(dy))
+played_by B
+def=
+local State:nat,
+      IMEIx,IDc,V,Dx,TDx,X,Msk,G,SKc,K1,N,Vi,Rvi,Rwi,Ri,Ei,Ts,IDm,Q,IMEIy,Dy,TDy,Y,SKm,K2,SKcm,Inv,Amt,Pay,R1,Succ,Bill,Payc,M1,M2,M3,Z,CNO,C1,Rc:text
+	  
+	  const client_bank_x,bank_client_msk,merchant_bank_y,bank_merchant_msk,subs1,subs2,subs3,subs4:protocol_id
+init State := 0
+transition
+1.State =0/\Rcv({IMEIx.Dx.Pubx.K1}_Kc)=|>
+  State':=1/\Msk':=new()
+           /\Mpk':=exp(G,Msk)
+		   /\TDx':=H(Dx.Msk)
+
+
+		   /\SKc':=exp(Pubx,Msk)
+		   /\Kc':=H(SKc.Dx.K1)
+		   /\Snd({B.TDx.Mpk}_Kc)
+		   /\secret({X},subs1,C)
+           
+           /\secret({Msk},subs2,{C,B})	
+           /\witness(B,C,bank_client_msk,Msk')
+           
+ 2.State =1/\Rcv({Dx.H(Amt).Vi.Ri.{Ei.Amt.TDx}_Kcb}_Kc)    =|>
+   State':=2/\Rwi':=H(Dx.H(Amt).SKc)
+            /\Rvi':=xor(Ri,Rwi')
+            /\Ts':=xor(Rvi',Vi)
+            /\Kcb':=H(Kc.Rvi'.Ts')      
+            /\Rc':=new() 
+            /\M1':=xor(Ei,Rc) 
+            /\M2':=xor(H(Rvi'.K1),M1')
+            /\Z':=H(Msk.B) 
+            /\M3':=H(Rc.Z)
+            /\Kbc':=H(H(CNO).M1'.Z')
+            /\Snd({M2.M3.Z.H(CNO).{CNO.TDx}_Kbc})
+
+3.State =2/\Rcv({IMEIy.Dy.Puby.K2}_Km.Pubx.IMEIx.Pay.R1.{Pay.TDx}_Key) =|>
+  State':=3/\Msk':=new()
+           /\TDy':=H(Dy.Msk)
+		  /\SKm':=exp(Puby.Msk)
+		  /\Km':=H(SKm.K2.Dy)
+		  /\Succ':=new()
+		  /\Bill':=new()
+		  /\Snd({Succ.Bill.B}_Km)
+		  /\secret({Y},subs3,M)
+           
+           /\secret({Msk},subs4,{M,B})	
+           /\witness(B,M,bank_merchant_msk,Msk')
+  end role
+  
+  
+ role merchant(C,B,M:agent,
+            Kc,Km,Key,K,Kcb,Kbc:symmetric_key,
+			H:hash_func,
+			Pubx,Mpk,Puby:public_key,
+			Snd,Rcv:channel(dy))  
+played_by M
+def=
+local State:nat,
+     IMEIx,IDc,V,Dx,TDx,X,Msk,G,SKc,K1,N,Vi,Rvi,Rwi,Ri,Ei,Ts,IDm,Q,IMEIy,Dy,TDy,Y,SKm,K2,SKcm,Inv,Amt,Pay,R1,Succ,Bill,Payc,M1,M2,M3,Z,CNO,C1,Rc:text
+	  
+	  const client_bank_x,bank_client_msk,merchant_bank_y,bank_merchant_msk,subs1,subs2,subs3,subs4 :protocol_id
+init State := 0
+transition
+1.State =0/\Rcv(IMEIx.Inv.Pubx.Amt.H(IMEIx.Inv.Pubx.Pay).{Pay.TDx}_Key) =|>
+State':= 1/\Y':=new()
+           /\Msk':=new()
+           /\IDm':=new()
+           /\Q':=H(Y.IDm)
+           /\Dy':=xor(H(Y.IDm),IMEIy)
+           /\Puby':=exp(G,Y)
+           /\K2':=H(IMEIy.Puby.Y)
+		   /\Payc':=xor(Amt.Inv)
+           /\Snd({IDm.Dy.Puby.K2}_Km.Pubx.IMEIx.Pay.R1.{Pay.TDx}_Key)
+           /\secret({Y},subs3,M)
+           
+           /\secret({Msk},subs4,{M,B})	
+           /\witness(M,B,merchant_bank_y,Y')
+		   
+2.State =1/\Rcv({Succ.Bill.B}_Km) =|>
+State':=2/\Msk':=new()
+         /\SKcm':=exp(Pubx.Y)
+		 /\K':=H(SKcm.IMEIy.Bill)
+		 /\Snd({Succ.Bill.Inv}_K)
+/\request(B,M,bank_merchant_msk,Msk')
+end role
+
+
+role session(C,B,M:agent,
+            Kc,Km,Key,K,Kcb,Kbc:symmetric_key,
+			H:hash_func,
+			Pubx,Mpk,Puby:public_key)
+			
+def=
+local SC,SB,SM,RC,RB,RM:channel(dy)	
+composition
+client(C,B,M,Kc,Km,Key,K,Kcb,Kbc,H,Pubx,Mpk,Puby,SC,RC)
+/\bank(C,B,M,Kc,Km,Key,K,Kcb,Kbc,H,Pubx,Mpk,Puby,SB,RB)
+/\merchant(C,B,M,Kc,Km,Key,K,Kcb,Kbc,H,Pubx,Mpk,Puby,SM,RM)
+end role
+
+		
+ role environment()
+def=
+const c,b,m,i:agent,
+      kc,km,key,k,kcb,kbc:symmetric_key,
+	  h:hash_func,
+	  pubx,mpk,puby:public_key,
+	  
+	  
+	  
+	  v,q,dx,tdx,tdy,x,y,g,skc,skm,skcm,k1,k2,r1,succ,bill,n,vi,rvi,rwi,ei,ts,rc,m1,m2,m3,z,cno,c1:text,
+client_bank_x,bank_client_msk,merchant_bank_y,bank_merchant_msk,subs1,subs2,subs3,subs4:protocol_id
+
+
+intruder_knowledge={c,b,m,h,mpk,pubx,puby}
+
+composition
+   session(c,b,m,kc,km,key,k,kcb,kbc,h,mpk,pubx,puby)
+ /\session(c,b,m,kc,km,key,k,kcb,kbc,h,mpk,pubx,puby) 
+/\session(c,b,m,kc,km,key,k,kcb,kbc,h,mpk,pubx,puby) 
+ 
+ 
+ end role
+ 
+ goal
+ secrecy_of subs1
+ secrecy_of subs2
+ secrecy_of subs3
+ secrecy_of subs4
+ authentication_on client_bank_x
+ authentication_on merchant_bank_y
+ authentication_on bank_client_msk
+ authentication_on bank_merchant_msk
+ end goal
+ 
+ environment()
+ 
+ 

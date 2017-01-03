@@ -1,0 +1,106 @@
+
+
+role user (A,B   : agent,
+                H  : hash_func,
+	Kab   : symmetric_key,
+                Snd, Rcv: channel(dy))
+played_by A
+def=
+           
+  local State  : nat,
+        Na, Nb, N1a, N1b : text
+
+  const sec_kab1, sec_n1a1 : protocol_id
+
+
+  init  State := 0
+
+  transition
+   1. State   = 0 / Rcv(start) =|>
+      State' := 1 / Na' := new() / Snd(Na'.{N1a'}_Kab.H(Na'.{N1a'}_Kab.A))
+
+   2. State   = 1 / Rcv(Nb'.{N1b'}_Kab.H(Nb',{N1b'}_Kab,B')) =|> 
+      State' := 2 / secret(Kab,sec_kab1,{A,B})
+                  / witness(A,B,a,A') 
+                  / secret(N1a,sec_n1a1,{A,B})
+
+
+end role
+
+
+role server (B,A : agent,
+                Kab : symmetric_key,
+                H: hash_func,
+                Snd, Rcv: channel(dy))
+played_by B
+def=
+           
+  local State  : nat,
+        Na, Nb, N1a, N1b  : text
+
+  const sec_kab2, sec_n1b2 : protocol_id
+ 
+
+  init  State := 0
+
+  transition
+   1. State   = 0 / Rcv(Na'.{N1a'}_Kab.H(Na',{N1a'}_Kab,A')) =|>  
+      State' := 1 / Nb' := new() / Snd(Nb'.{N1b'}_Kab.H(Nb'.{N1b'}_Kab.B))
+                  / witness(B,A,b,B')
+		  / secret(Kab,sec_kab2,{A,B})
+		  / secret(N1b,sec_n1b2,{A,B})
+
+
+                  
+
+end role
+
+
+role session(A,B: agent,
+             Kab: symmetric_key,
+             H: hash_func)
+def=
+
+  local SA, SB, RA, RB: channel (dy)
+
+  composition
+           client(A, B, Kab, H, SA, RA)
+       /  server(B, A, Kab, H, SB, RB)
+end role
+
+
+role environment()
+def=
+
+  const a, b          : agent,
+        kab 	      : symmetric_key,
+        h             : hash_func,
+        na, nb        : protocol_id
+
+  intruder_knowledge = {a, b, h, na, nb }
+
+  composition
+        session(a,b,kab,h) 
+        
+
+end role
+
+
+
+
+goal
+
+ %secrecy of the shared key
+ secrecy_of sec_kab1, sec_kab2 
+ secrecy_of sec_n1a1, sec_n1b2 
+                         
+ 
+ authentication_on a  
+
+ authentication_on b  
+  
+end goal
+ 
+
+
+environment() 

@@ -1,0 +1,63 @@
+role mn(MN,HA,CN: agent, 
+                          
+               SND,RCV,SND1,RCV1: channel(dy)) 
+	played_by MN def= 
+	local N,HOA,COA,X,VERK,T,S,CN1,HMAC,NCN,YP,HMACCN: text , State: nat  
+	init State := 0 
+	transition   
+    	0.State = 0 /\ RCV(start) =|>
+     	State' := 3 /\N' :=new() /\ HOA' :=new() /\ COA' :=new() /\ X' :=new() /\ VERK' :=new() /\ T' :=new() /\ S' :=new() /\ SND(N'.HOA'.COA'.X'.VERK'.T.'S')
+	3.State = 3 /\ NCN' :=new() /\ YP' :=new() /\ HMACCN' :=new() /\RCV1(NCN'.N'.YP'.HMACCN') =|>
+	State' :=  5/\ CN1' :=new() /\ SND1(CN1'.HOA'.COA'.HMAC')
+end role 
+
+role ha(MN,HA,CN:agent, 
+                      
+              SND,RCV: channel(dy)) 
+	played_by HA def= 
+	local N,NCN,YP,HMACCN,HOA,COA,TCN,CERTCN,SCN: text,State: nat
+	init State := 2 
+	transition 
+	2.State = 2 /\ N' :=new() /\ HOA' :=new() /\ COA' :=new() /\ X' :=new() /\ VERK' :=new() /\ T' :=new() /\ S' :=new() /\ RCV(N'.HOA'.COA'.X'.VERK'.T'.S') =|>
+	   State':= 7 /\ NCN' :=new() /\ YP' :=new() /\ HMACCN :=new() /\ SND(NCN'.N'.YP'.HMACCN')
+end role 
+
+role cn(MN,HA,CN: agent, 
+                 SND,RCV,RCV1: channel(dy)) 
+	played_by CN def= 
+	N,HOA,COA,X,VERK,T,S,CN1,HMAC,NCN,YP,HMACCN,TCN,CERTCN,SCN: text , State:  nat 
+	init State := 1 
+	transition
+	1.State = 1 /\ N' :=new() /\ HOA' :=new() /\ COA' :=new() /\ X' :=new() /\ VERK' :=new() /\ T' :=new() /\ S' :=new() /\ RCV(N'.HOA'.COA'.X'.VERK'.T'.S') =|>
+	   State':=  4/\ NCN' :=new() /\ YP' :=new() /\ HMACCN :=new() /\ TCN' :=new() /\ CERTCN' :=new() /\ SCN :=new() /\ SND(NCN'.YP'.HMACCN'.TCN'.CERTCN'.SCN')
+	4.State = 4 /\ CN1' := new() /\ RCV1(CN1'.HOA'.COA'.HMAC') =|>
+	State':= 6 
+end role
+role session( MN,HA,CN: agent)
+	 
+def= 
+
+	local MN,HA,CN,SMN,RMN,RCN: channel(dy) 
+
+	composition 
+	mn( MN,HA,CN,SMN,RMN,RCN) /\ ha( MN,HA,CN,SMN,RMN,RCN)/\cn( MN,HA,CN,SMN,RMN,RCN) 
+	 
+end role 
+
+
+role environment() 
+def= 
+
+const  mn1,ha1,cn1: agent, 
+       
+     
+
+composition 
+	session(mn1,ha1,cn1) 
+
+end role 
+
+
+
+environment() 
+

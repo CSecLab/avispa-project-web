@@ -1,0 +1,71 @@
+role reader( 
+A,B:agent, 
+SND,RCV: channel(dy), 
+H,PLUS: Function, 
+X: message 
+) 
+played_by A 
+def= 
+local State:nat, 
+Na,Nb:text, 
+M,Z,P:message 
+const x1:protocol_id 
+init State:=0 
+transition 
+1.State=0/\ RCV(start)=|> State':=2 /\ Na':=new() /\ SND(Na') 
+2.State=2/\ RCV(M')=|> State':=3/\witness(B,A,m,M')/\ secret(X,x1,{A,B}) 
+ 3.State=3/\ RCV(Nb') =|>State':=4 
+4.State=4/\RCV(P') /\M'=xor(H(xor(xor(Na',Nb'),P')),H(xor(P',X)))=|>State':=6 /\ 
+Z':=H(xor(xor(H(xor(xor(Na',Nb'),P')),H(xor(P',X))),H(xor(P',X))))/\SND(Z')/\ 
+P':=PLUS(P') /\ witness(A,B,z,Z') 
+end role 
+role tag( 
+A,B:agent, 
+SND,RCV: channel(dy), 
+H,PLUS:function, 
+X:message 
+) 
+played_by B 
+def= 
+local State:nat, 
+Nb,Na:text, 
+M,Z,P:message
+const x2:protocol_id 
+init State:=1 
+transition 
+1.State=1/\ RCV(Na')=|> State':=5/\Nb':=new()  /\ 
+M':=xor(H(xor(xor(Na',Nb'),P')),H(xor(P',X)))/\SND(M')/\SND(Nb') /\SND(P') /\
+witness(A,B,m,M') 
+2.State=5/\ RCV(Z')/\
+Z'=H(xor(xor(H(xor(xor(Na',Nb'),P')),H(xor(P',X))),H(xor(P',X))))=|>State':=7/\P':=PLUS
+(P')/\witness(B,A,z,Z') 
+end role 
+role session( 
+A,B:agent, 
+H,PLUS:function, 
+X:message) 
+def= 
+local SA,RA,SB,RB:channel(dy) 
+composition 
+reader(A,B,SA,RA,H,PLUS,X) 
+/\tag(A,B,SB,RB,H,PLUS,X) 
+end role 
+role environment() 
+def= 
+const 
+na,nb,m,z,p:protocol_id, 
+a,b:agent, 
+h,plus:function, 
+x:message 
+intruder_knowledge={a,b,h,plus,na,nb} 
+composition 
+session(a,b,h,plus,x) 
+/\session(a,i,h,plus,x) 
+/\session(i,b,h,plus,x) 
+end role 
+goal 
+secrecy_of x1,x2 
+authentication_on m 
+authentication_on z 
+end goal 
+environment() 

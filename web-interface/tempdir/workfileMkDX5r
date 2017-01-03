@@ -1,0 +1,56 @@
+role
+role_U(U:agent,K:text,R:text,T:text,SND,RCV:channel(dy)
+) 
+played_by U 
+def= 
+  local 
+ 
+  State:nat,Tn:text,Hash:function,Xor:function 
+  init 
+    State := 0 
+  transition 
+    1. State=0 / RCV(start) =|> State':=1 / 
+SND(T.Xor(Hash(K).R).Hash(U.T.R)) 
+    2. State=1 / 
+RCV(Xor(Hash(T.K).Tn').Hash(Tn')) =|> State':=2 
+end role 
+role 
+role_S(S:agent,U:agent,T:text,Tn:text,K:text,SND,RCV:cha
+nnel(dy)) 
+played_by S 
+def= 
+  local 
+ 
+  State:nat,R:text,Hash:function,Xor:function 
+  init 
+    State := 0 
+  transition 
+    1. State=0 / 
+RCV(T.Xor(Hash(K).R’).Hash(U.T.R’)) =|> State’:=1 / 
+SND(Xor(Hash(T.K).Tn).Hash(Tn)) 
+end role 
+role session1(R:text,S:agent,U:agent,T:text,Tn:text,K:text) 
+def= 
+  local 
+    SND2,RCV2,SND1,RCV1:channel(dy) 
+  composition 
+    role_S(S,U,T,Tn,K,SND2,RCV2) / 
+role_U(U,K,R,T,SND1,RCV1) 
+end role 
+role environment() 
+def= 
+  const 
+ 
+  hash_0:function,uaer:agent,const_1:text,server:ag
+ent,key:text,auth_1:protocol_id,auth_2:protocol_id 
+  intruder_knowledge = {} 
+  composition 
+ 
+  session1(const_1,server,uaer,const_1,const_1,key) 
+end role 
+
+goal 
+  authentication_on auth_1 
+  authentication_on auth_2 
+end goal 
+ 

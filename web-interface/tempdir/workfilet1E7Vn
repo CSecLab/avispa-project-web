@@ -1,0 +1,197 @@
+%% PROTOCOL: Provably Secure Identity-based Strong Designated Verifier Proxy Signature Scheme from Bilinear Pairings
+%% AUTHORS: SK Hafizul Islam, G. P. Biswas
+%% PURPOSE: To Design a Proxy Signature Scheme.
+%% A: Original Signer (Alice)
+%% B: Proxy Signer (Bob)
+%% C: Designated Verifier (Cindy)
+
+role alice(
+
+A, B, C : agent,
+
+P, Ppub: symmetric_key,
+
+H2, H3 : hash_func,
+
+Ebilinear, Minus, Union, Pred : hash_func,
+
+Snd, Rcv: channel(dy))
+
+played_by A
+
+def=
+
+local State : nat,
+
+Sa, Qa, K, Xr, V, Mw, Sig, Lt : text
+
+const alice_bob_na, bob_alice_nb, bob_cindy_nc, cindy_bob_nd, subs1, subs2 : protocol_id
+
+init State := 0
+
+transition
+
+1. State = 0 /\ Rcv(start) =|>
+State' := 1
+ /\ K':= new()
+/\ secret({K', Sa}, subs1, A)
+/\Xr' := Pred(K', P)
+/\Lt' :=H2(Mw, Xr') 
+/\V' := Union(Pred(K, Ppub),  Pred(Lt', Sa))
+/\ Snd(Mw.Xr'.V')
+/\ witness(A, B, bob_alice_nb, K')
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob(
+
+A, B, C : agent,
+
+P, Ppub : symmetric_key,
+
+H2, H3 : hash_func,
+
+Ebilinear, Minus, Union, Pred : hash_func,
+
+Snd, Rcv: channel(dy))
+
+played_by B
+
+def=
+
+local State : nat,
+
+Sa, Sb, Sc, Sp, Qa, Qb, Qc, Qp, K, Xr, R, V, M, Mw, Sig, Lt : text
+
+const alice_bob_na, bob_alice_nb, bob_cindy_nc, cindy_bob_nd, subs1, subs2 : protocol_id
+
+init State := 0
+
+transition
+
+1. State = 0  
+             /\Rcv(Mw.Pred(K', P).Union(Pred(K, Ppub),  Pred(H2(Mw, Pred(K', P)), Sa)))=|>
+State' := 1
+/\Lt' :=H2(Mw, Xr)
+/\Sp' := Union(V, Pred(Lt', Sb))
+/\Qp':=Union(Xr, Pred(Lt', Union(Qa, Qb)))
+/\M' := new()
+/\R':= new()
+/\ secret({K', Sa}, subs1, A)
+/\ secret({Sp', R'}, subs2, B)
+/\Sig':=H3(M, Mw, Ebilinear(Pred(Sp', R'), Qc))
+/\ Snd(Mw.M'. Xr.R'.Sig')
+/\ witness(B, C, cindy_bob_nd, Sp')
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role cindy(
+
+A, B, C : agent,
+
+P, Ppub : symmetric_key,
+
+H2, H3 : hash_func,
+
+Ebilinear, Minus, Union, Pred : hash_func,
+
+Snd, Rcv : channel(dy))
+
+played_by C
+
+def=
+
+local State : nat,
+
+Sa, Sb, Sp, Sc, Qa, Qb, Qp, Qc, K, Xr, R, V, M, Mw, Sig, Lt : text
+
+const alice_bob_na, bob_alice_nb, bob_cindy_nc, cindy_bob_nd, subs1, subs2 : protocol_id
+
+init State := 0
+
+transition
+
+1. State = 0
+    /\Rcv(Mw.M'.Xr'.R'.Sig')=|>
+State' := 1
+/\ secret({K, Sa}, subs1, A)
+/\secret({Sp, Sb}, subs2, B)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role session(
+
+             A, B, C : agent, 
+
+            P, Ppub : symmetric_key,
+
+            H2, H3 : hash_func,
+
+             Ebilinear, Minus, Union, Pred : hash_func)        
+
+def= 
+ 
+         local  SendA, SendB, SendC, ReceiveA, ReceiveB, ReceiveC: channel (dy), 
+
+        Sa, Sb, Sp, Sc, Qa, Qb, Qp, Qc, K, Xr, R, V, M, Mw, Sig, Lt : text
+
+         const alice_bob_na,  bob_alice_nb, subs1, subs2 : protocol_id 
+            
+  composition 
+           alice  (A, B, C,  P, Ppub, H2, H3, Ebilinear, Minus, Union, Pred, SendA, ReceiveA) 
+           /\bob  (A, B, C,  P, Ppub, H2, H3, Ebilinear, Minus, Union, Pred, SendB, ReceiveB) 
+          /\cindy(A, B, C,  P, Ppub, H2, H3, Ebilinear, Minus, Union, Pred, SendC, ReceiveC) 
+end role 
+
+%%%%%%%%%%%%%%%%%%%153%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role environment() 
+
+def= 
+ 
+         const a, b, c    : agent, 
+
+        p, ppub : symmetric_key,
+ 
+        h2, h3 : hash_func, 
+
+       sa, sb, sp, sc, qa, qb, qp, qc, k, xr, r, v, m, mw, sig, lt : text,
+
+        
+       ebilinear, minus, union, pred : hash_func,
+
+        alice_bob_na,  bob_alice_nb, subs1, subs2 : protocol_id 
+ 
+  intruder_knowledge = {a, b, c, h2, h3, ebilinear, minus, union, pred, p, ppub, qa, qb, qp, qc, m, mw} 
+ 
+  composition 
+    session(a, b, c, p, ppub, h2, h3, ebilinear, minus, union, pred) 
+  /\session(a, b, c, p, ppub, h2, h3, ebilinear, minus, union, pred)
+  /\session(a, b, c, p, ppub, h2, h3, ebilinear, minus, union, pred)
+ 
+end role 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+ 
+goal 
+  
+  secrecy_of subs1 
+
+  secrecy_of subs2 
+
+  authentication_on alice_bob_na 
+
+  authentication_on bob_alice_nb 
+
+  authentication_on bob_cindy_nc 
+
+  authentication_on cindy_bob_nd 
+   
+end goal 
+  
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+environment()
+

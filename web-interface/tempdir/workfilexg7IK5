@@ -1,0 +1,100 @@
+role source(S, D : agent,
+Ks, Kd : public_key,
+KeyRing : (agent.public_key) set,
+Snd, Rcv : channel(dy))
+played_by S def=
+local State : nat,
+H : agent,
+Na : text,
+Kh : public_key,
+RDP, REP : text
+init State := 0
+transition
+rreq. State = 0 /\ Rcv(start)
+=|> State' := 2 /\ Na' := new() /\ RDP' :=
+new() /\ Snd({RDP'.D.S.Ks.Na'}_inv(Ks))
+confirmi. State = 2 /\
+Rcv({{REP'.S.D.Kd.Na}_inv(Kd)}_inv(Kh').H'.Kh')
+/\ in(H'.Kh',KeyRing)
+=|> State' := 3 /\ request(D,S,shd,Na)
+confirmd. State = 2 /\
+Rcv({REP'.S.D.Kd.Na}_inv(Kd))
+=|> State' := 3 /\ request(D,S,shd,Na)
+end role
+
+role node(N : agent,
+Kn : public_key,
+Memory : (text.text.agent) set,
+KeyRing : (agent.public_key) set,
+Snd, Rcv: channel(dy))
+played_by N def=
+local State : nat,
+Ks, Kd, Kh : public_key,
+Na : text,
+S, D, H : agent,
+RDP, REP : text
+init State := 1
+transition
+forward10. State = 1 /\
+Rcv({RDP'.D'.S'.Ks'.Na'}_inv(Ks')) /\
+not(in(RDP'.Na'.D', Memory))
+=|> State' := 1 /\ Memory' :=
+cons(RDP'.Na'.D',Memory) /\
+Snd({{RDP'.D'.S'.Ks'.Na'}_inv(Ks')}_inv(Kn).N.Kn)
+forward11. State = 1 /\
+Rcv({{RDP'.D'.S'.Ks'.Na'}_inv(Ks')}_inv(Kh').H'.Kh'
+) /\ not(in(RDP'.Na'.D', Memory))
+=|> State' := 1 /\ Memory' :=
+cons(RDP'.Na'.D',Memory) /\
+Snd({{RDP'.D'.S'.Ks'.Na'}_inv(Ks')}_inv(Kn).N.Kn)
+end role
+
+role destination(D : agent,
+Kd : public_key,
+Memory : (text.text.agent) set,
+KeyRing : (agent.public_key) set,
+Snd, Rcv : channel(dy))
+played_by D def=
+local State : nat,
+S, H : agent,
+Na : text,
+Ks, Kh : public_key,
+RDP, REP : text
+init State := 4
+transition
+respondd. State = 4 /\
+Rcv({RDP'.D.S'.Ks'.Na'}_inv(Ks')) /\
+in(S'.Ks',KeyRing) /\ not(in(RDP'.Na'.S',Memory))
+=|> State' := 6 /\ Memory' :=
+cons(RDP'.Na'.S',Memory) /\ REP' := new() /\
+Snd({REP'.S'.D.Kd.Na'}_inv(Kd)) /\
+witness(S',D,shd,Na')
+respondi. State = 4 /\
+Rcv({{RDP'.D.S'.Ks'.Na'}_inv(Ks')}_inv(Kh').H'.Kh'
+) /\ in(H'.Kh',KeyRing) /\
+not(in(RDP'.Na'.S',Memory))
+=|> State' := 6 /\ Memory' :=
+cons(RDP'.Na'.S',Memory) /\ REP' := new() /\
+Snd({REP'.S'.D.Kd.Na'}_inv(Kd)) /\
+witness(S',D,shd,Na')
+end role
+
+role session(T, U, V, W : agent,
+Kt, Ku, Kv, Kw : public_key) def=
+local S1, R1,
+S2, R2,
+S3, R3,
+S4, R4 : channel(dy),
+Mem1, Mem2, Mem3 : (text.text.agent) set,
+KS1, KS2, KS3, KS4 : (agent.public_key) set
+init Mem1 := {} /\ Mem2 := {} /\ Mem3 := {} /\
+KS1 := {T.Kt,U.Ku,V.Kv,W.Kw} /\ KS2 :=
+{T.Kt,U.Ku,V.Kv,W.Kw} /\ KS3 :=
+{T.Kt,U.Ku,V.Kv,W.Kw} /\ KS4 :=
+{T.Kt,U.Ku,V.Kv,W.Kw}
+composition
+source(T,W,Kt,Kw,KS1,S1,R1)
+/\node(U,Ku,Mem1,KS2,S2,R2)
+/\node(V,Kv,Mem2,KS3,S3,R3)
+/\destination(W,Kw,Mem3,KS4,S4,R4)
+end role

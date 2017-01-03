@@ -1,0 +1,119 @@
+%% SUBJECT: Utilisation d'un système individuel payant de vidéos à la demande
+%% PROTOCOL: inscription
+%% PURPOSE: inscription de l'utilisateur sur le site
+%% ALICE_SITE:
+%% 1. A ----------- {{A.infos.login.N1.hache}_PKs}_inv(PKa) ----------> S
+%% 2. S ----------- {{S.validation.N2.N1.hache}_Pka}_inv(PKs) -----------> A
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% HLPSL:
+% Role of the initiator:
+role alice (A, S: agent,             
+            PKa, PKs: public_key,  
+            Snd, Rcv: channel(dy),
+            Infos: text,
+	    Login: text,
+	    H : hash_func)
+played_by A def=
+
+  local State : nat,
+        Validation: text,
+	X: message
+
+  init State := 0
+
+  transition
+
+   % Start, Alice (= l'utilisateur) envoie ses informations au site ainsi qu'un haché du message  
+   0.   State  = 0 /\ Rcv(start) =|> 
+	State':= 1 /\ Snd({{A.Infos.Login.H(A.Infos.Login)}_PKs}_inv(PKa)) /\ secret(Infos.Login,information,{A,S}) /\ witness(A,S,serveur_alice_log,Infos.Login)
+
+   % Reception de la réponse du site
+   1.   State  = 1 /\ Rcv({{S.Validation'.X'}_PKa}_inv(PKs)) /\ X' = H(S.Validation') =|> 
+	State':= 2 /\ request(A,S,alice_serveur_log,S)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% role site
+role site  (A, S: agent,             
+            PKa, PKs: public_key,      
+            SND, RCV: channel (dy),
+	    LoginMap: (text) set,
+	    H : hash_func) 
+played_by S def=
+
+  local State : nat, 
+        Infos, Validation, Login: text,
+	X: message
+
+  init State := 0
+
+  transition  
+   
+    0.  State  = 0 /\ RCV({{A.Infos'.Login'.X'}_PKs}_inv(PKa)) /\ X' = H(A.Infos'.Login') /\ not(in(Login', LoginMap)) =|> 
+	State':= 1 /\ Validation' := new() /\ SND({{S.Validation'.H(S.Validation')}_PKa}_inv(PKs)) /\ LoginMap':=cons(Login', LoginMap) /\ request(S,A,serveur_alice_log,Infos'.Login') /\ witness(S,A,alice_serveur_log,S) /\ secret(Validation',verif,{A,S})
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% définition du rôle caractérisant une session
+role session(A, S: agent, 
+	     PKa, PKs: public_key, 
+	     LoginMap: (text) set, 
+	     Infos, Login: text, 
+	     H : hash_func, 
+	     Snd, Rcv: channel(dy)) 
+def=
+
+  local SA, RA, SS, RS: channel (dy)
+
+  composition 
+
+	alice(A,S,PKa,PKs,SA,RA,Infos,Login,H)
+     /\ site (A,S,PKa,PKs,SS,RS,LoginMap,H)
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% définition du rôle caractérisant le scenario à exécuter
+role environment() def=
+
+    local LoginMap: (text) set,
+          Snd, Rcv: channel(dy)
+
+    const a, s                                         			: agent,
+	  pka, pks, pki                                			: public_key,
+          infos1,login1,infos2,login2,infos3,login3    			: text,
+	  h					       			: hash_func,
+ 	  information, serveur_alice_log, alice_serveur_log, verif      : protocol_id
+
+    init LoginMap := {}
+
+    intruder_knowledge = {a, s, pka, pks, pki, inv(pki),login1}
+
+    composition
+
+	session(a,s,pka,pks,LoginMap,infos1,login1,h,Snd,Rcv) 
+    % /\ session(a,i,pka,pki,LoginMap,infos2,login2,h,Snd,Rcv) 
+    % /\ session(i,s,pki,pks,LoginMap,infos3,login3,h,Snd,Rcv)
+    /\ session(a,s,pka,pks,LoginMap,infos1,login1,h,Snd,Rcv)
+
+end role
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% pas de section goal ici (donc pas de propriété à vérifier)
+goal
+  secrecy_of information
+  secrecy_of verif
+  authentication_on serveur_alice_log
+  authentication_on alice_serveur_log
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% lancement du rôle principal
+environment()
+

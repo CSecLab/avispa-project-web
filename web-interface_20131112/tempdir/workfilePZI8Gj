@@ -1,0 +1,135 @@
+	
+%%HLPSL:
+role client(A, S: agent,
+	    PSK: symmetric_key,
+	    PRF,MICA,MICS: hash_func,
+	    SND, RCV: channel (dy))
+played_by A
+def=
+
+  local  State : nat, 
+         T, Ns, Nc,ID : text,
+         AK     : hash(symmetric_key.agent.text.text),
+         EK     : hash(symmetric_key.agent.text.text),
+         AuthS  : hash(hash(symmetric_key.agent.text.text).text)
+
+  const  sec_PSK,sec_AK : protocol_id
+
+  init   State := 0
+
+  transition 
+
+  1. State = 0   /\ RCV(start) 
+     =|>
+     State' := 1 /\ SND(A)
+
+  2. State = 1   /\ RCV(Ns'.T'.S)
+     =|>
+     State' := 2 /\ Nc' := new()
+                 /\ AK' := PRF(PSK.S.T')
+                 /\ EK' := PRF(PSK.A.Ns')
+                 /\ SND({Nc'.MICA(AK'.Ns')}_EK') 
+                 /\ witness(A,S,nc,Nc') 
+                 /\ request(A,S,ns,Ns')
+                 /\ secret(PSK,sec_PSK,{A,S})
+                 /\ secret(AK',sec_AK,{A,S})
+  
+   3. State = 2   /\ RCV({ID'.MICS(AK'.Nc')}_EK')
+      =|>
+      State' := 3 /\ AuthS' := MICS(AK'.Nc')
+                  
+                  
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role server(A,S : agent,
+            PSK: symmetric_key,
+	    PRF,MICA,MICS: hash_func,
+	    SND, RCV: channel (dy))
+played_by S
+def=
+
+  local State : nat,
+        T, Ns, Nc,ID : text,
+        AK    : hash(symmetric_key.agent.text.text),
+        EK     : hash(symmetric_key.agent.text.text),
+        AuthA : hash(hash(symmetric_key.agent.text.text).text)
+  
+  const  sec_PSK,sec_AK : protocol_id
+  init  State := 0
+
+  transition 
+   1. State = 0   /\ RCV(A') 
+      =|>
+      State' := 1 /\ Ns' := new()
+                  /\ T' := new()
+                  /\ AK' := PRF(PSK.S.T')
+                  /\ EK' := PRF(PSK.A.Ns')
+                  /\ SND(Ns'.{T'.S}_EK')
+                  /\ witness(S,A,ns,Ns') 
+                  /\ secret(PSK,sec_PSK,{A,S})
+                  /\ secret(AK',sec_AK,{A,S})
+
+   2. State = 1   /\ RCV({Nc'.MICA(AK'.Ns')}_EK') 
+                                 
+      =|>
+      State' := 2 /\ AuthA' := MICA(AK'.Ns') 
+                  /\ request(S,A,nc,Nc')
+                  /\ ID' := new()
+                  /\ SND({ID'.MICS(AK'.Nc')}_EK')
+                 
+                  
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role session(A, S: agent,
+             PSK : symmetric_key,
+             PRF,MICA,MICS: hash_func)
+def=
+
+  local  SNDA, SNDS, RCVA, RCVS: channel (dy)
+
+  
+
+  composition
+       client(A,S,PSK,PRF,MICA,MICS,SNDA,RCVA)
+    /\ server(A,S,PSK,PRF,MICA,MICS,SNDS,RCVS)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role environment()
+def=
+
+ const a, s ,i: agent,
+       prf, mica, mics : hash_func,
+       psk_ps,psk_pi,psk_is : symmetric_key,
+       nc,ns : protocol_id
+
+ intruder_knowledge = {a,s,i,mica,mics,prf,psk_pi,psk_is}
+
+ composition
+      session(a,s,psk_ps,prf,mica,mics)
+   /\ session(a,i,psk_pi,prf,mica,mics)
+   /\ session(i,s,psk_is,prf,mica,mics)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  %secrecy_of PSK
+  secrecy_of sec_PSK,sec_AK % Addresses G12
+
+  %Server authenticates Client on auth
+ 
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+ 

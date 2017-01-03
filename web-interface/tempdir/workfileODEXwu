@@ -1,0 +1,240 @@
+role source(
+S, R1, R2, D : agent,
+Pks, Pkd, Ks, Kd : public_key,
+H : hash_func,
+Ks1, Ks2, K :symmetric_key,
+S_SD, R_SD, S_SR1, R_SR1 : channel(dy))
+
+played_by S def=
+
+local 
+State : nat,
+T : text,
+SessionIDs, SessionIDd : message,
+Path: (agent) set,
+EncSR1 : {symmetric_key}_public_key,
+SigSR1 : {symmetric_key.public_key.agent}_inv(public_key),
+EncDR1 : {symmetric_key}_public_key,
+SigDR1 : {symmetric_key.public_key.agent}_inv(public_key),
+EncSR2 : {symmetric_key}_public_key,
+SigSR2 : {symmetric_key.public_key.agent}_inv(public_key),
+EncDR2 : {symmetric_key}_public_key,
+SigDR2 : {symmetric_key.public_key.agent}_inv(public_key),
+EncD : {symmetric_key}_public_key,
+SigD : {symmetric_key.public_key.agent}_inv(public_key)
+
+
+init
+Path := {} &
+State := 0
+%knowledge(S) = { inv(Ks), inv(Pks) }
+
+transition
+1. State = 0 & R_SD(start) =|>
+State' := 2 & Path' := cons(S, Path) 
+& Path' := cons(R1, Path) 
+& Path' := cons(R2, Path) 
+& Path' := cons(D, Path)
+& T' := new()
+& SessionIDs' := H(Pks.Path'.T')
+& S_SD(Pks.Path'.T'.{Pks.Path'.T'}_inv(Ks))
+
+2. State = 3 & R_SD(Pkd'.Path'.T'.{Pks.Pkd'.Path'}_inv(Kd).SessionIDd') =|> 
+State' := 5 & S_SR1(Pks, Pkd', Path', T')
+
+3. State = 7 & R_SD(EncSR1'.SigSR1'.EncSR2'.SigSR2'.EncD'.SigD') =|> 
+witness(S,R1,s_r1_ks1,Ks1')
+& witness(S,R2,s_r2_ks2,Ks2')
+& witness(S,D,s_d_k,K')
+                                      
+end role
+
+
+ role router1(
+S, R1, R2, D : agent,
+Ks1, Kd1 : symmetric_key,
+Kr1, Pks, Pkd : public_key,
+S_R1S, R_R1S, S_R1R2, R_R1R2 : channel(dy))
+
+played_by R1 def=
+
+local
+State : nat,
+T : text,
+Path: (agent) set,
+EncSR1, SigSR1, EncDR1, SigDR1 : message
+
+init
+State := 4
+%knowledge(R1) = { inv(Kr1) }
+
+transition
+1. State = 4 & R_R1S(Pks', Pkd', Path', T') & in(R1, Path') =|>
+State' := 6 & Ks1' := new() & Kd1' := new() 
+& EncSR1' := {Ks1'}_Pks'
+& EncDR1' := {Kd1'}_Pkd'
+& SigSR1' := {Ks1'.Pks'.S}_inv(Kr1)
+& SigDR1' := {Kd1'.Pkd'.D}_inv(Kr1)
+& S_R1R2(Pks'.Pkd'.Path'.T'.EncSR1'.SigSR1'.EncDR1'.SigDR1')
+& secret(Ks1',a1,{R1,S})
+& secret(Kd1',a2,{R1,D})
+& request(R1,S,s_r1_ks1,Ks1')
+& request(R1,D,d_r1_kd1,Kd1')
+
+
+                                      
+end role
+
+
+role router2(
+S, R1, R2, D : agent,
+Ks2, Kd2 : symmetric_key,
+Kr2, Pks, Pkd : public_key,
+S_R2R1, R_R2R1, S_R2D, R_R2D : channel(dy))
+
+played_by R2 def=
+
+local
+State : nat,
+T : text,
+Path: (agent) set,
+EncSR2, SigSR2, EncDR2, SigDR2 : message,
+EncSR1 : {symmetric_key}_public_key,
+SigSR1 : {symmetric_key.public_key.agent}_inv(public_key),
+EncDR1 : {symmetric_key}_public_key,
+SigDR1 : {symmetric_key.public_key.agent}_inv(public_key)
+
+
+init
+State := 5
+%knowledge(R2) = { inv(Kr2) }
+
+transition
+1. State = 5 & R_R2R1(Pks'.Pkd'.Path'.T'.EncSR1'.SigSR1'.EncDR1'.SigDR1') & in(R2, Path') =|> 
+State' := 7 & Ks2' := new()
+& Kd2' := new()
+& EncSR2' := {Ks2'}_Pks'
+& EncDR2' := {Kd2'}_Pkd'
+& SigSR2' := {Ks2'.Pks'.S}_inv(Kr2)
+& SigDR2' := {Kd2'.Pkd'.D}_inv(Kr2)
+& S_R2D(Pks'.Pkd'.Path'.T'.EncSR1'.SigSR1'.EncDR1'.SigDR1'.EncSR2'.SigSR2'.EncDR2'.SigDR2')
+& secret(Ks2',a3,{R2,S})
+& secret(Kd2',a4,{R2,D})
+& request(R2,S,s_r2_ks2,Ks2')
+& request(R2,D,d_r2_kd2,Kd2')
+
+
+
+
+                                      
+end role
+
+
+role dest(
+S, R1, R2, D : agent,
+K, Ks1, Ks2, Kd1, Kd2 : symmetric_key,
+Pkd, Pks, Kd, Ks : public_key,
+H : hash_func,
+S_DS, R_DS, S_DR2, R_DR2 : channel(dy))
+
+played_by D def=
+
+local
+State : nat,
+T : text,
+EncD, SigD, SessionIDd : message,
+Path: (agent) set,
+EncSR1 : {symmetric_key}_public_key,
+SigSR1 : {symmetric_key.public_key.agent}_inv(public_key),
+EncDR1 : {symmetric_key}_public_key,
+SigDR1 : {symmetric_key.public_key.agent}_inv(public_key),
+EncSR2 : {symmetric_key}_public_key,
+SigSR2 : {symmetric_key.public_key.agent}_inv(public_key),
+EncDR2 : {symmetric_key}_public_key,
+SigDR2 : {symmetric_key.public_key.agent}_inv(public_key)
+
+
+init
+State := 1
+%knowledge(D) = { inv(Pkd), inv(Kd) }
+
+transition
+1. State = 1 & R_DS(Pks.Path'.T'.{Pks.Path'.T'}_inv(Ks)) =|>
+State' := 3 & SessionIDd' := H(Pkd.Path'.T')
+		& S_DS(Pkd.Path'.T'.{Pks.Pkd.Path'}_inv(Kd).SessionIDd')
+2. State = 6 & R_DR2(Pks'.Pkd'.Path'.T'.EncSR1'.SigSR1'.EncDR1'.SigDR1'.EncSR2'.SigSR2'.EncDR2'.SigDR2') & in(D, Path')=|> 
+State' := 8 & K' := new()
+& EncD' := {K'}_Pks' 
+& SigD' := {K'.Pks'.S}_inv(Kd)
+& S_DS(EncSR1'.SigSR1'.EncSR2'.SigSR2'.EncD'.SigD')
+& secret(K',a5,{D,S})
+& request(D,S,s_d_k,K')
+& witness(D,R1,d_r1_kd1,Kd1)
+& witness(D,R2,d_r2_kd2,Kd2)
+
+
+                                      
+end role
+
+
+
+role session(
+S, R1, R2, D : agent,
+Pks, Pkd, Ks, Kd, Kr1, Kr2 : public_key,
+K, Ks1, Ks2, Kd1, Kd2 : symmetric_key,
+H : hash_func)
+
+def=
+local 
+S_SD, R_SD, 
+S_SR1, R_SR1,
+S_R1S, R_R1S, 
+S_R1R2, R_R1R2,
+S_R2R1, R_R2R1, 
+S_R2D, R_R2D,
+S_DS, R_DS, 
+S_DR2, R_DR2 : channel (dy)
+
+composition
+	source(S, R1, R2, D, Pks, Pkd, Ks, Kd, H, Ks1, Ks2, K, S_SD, R_SD, S_SR1, R_SR1)
+& router1(S, R1, R2, D, Ks1, Kd1, Kr1, Pks, Pkd, S_R1S, R_R1S, S_R1R2, R_R1R2)
+& router2(S, R1, R2, D, Ks2, Kd2, Kr2, Pks, Pkd, S_R2R1, R_R2R1, S_R2D, R_R2D)
+& dest(S, R1, R2, D, K, Ks1, Ks2, Kd1, Kd2, Pkd, Pks, Kd, Ks, H, S_DS, R_DS, S_DR2, R_DR2)
+
+end role
+
+
+role environment()
+def=
+const s, r1, r2, d : agent,
+s_r1_ks1, s_r2_ks2, s_d_k, d_r1_kd1, d_r2_kd2, a1, a2, a3, a4, a5 : protocol_id,
+pks, pkd, ks, kd, kr1, kr2, ki : public_key,
+k, ks1, ks2, kd1, kd2 : symmetric_key,
+h : hash_func
+intruder_knowledge = {s, r1, r2, d, h, ki}
+
+composition
+session(s, r1, r2, d, pks, pkd, ks, kd, kr1, kr2, k, ks1, ks2, kd1, kd2, h)
+%& session(s, i, r2, d, pks, pkd, ks, kd, ki, kr2, k, ks1, ks2, kd1, kd2, h)
+%& session(s, r1, i, d, pks, pkd, ks, kd, kr1, i, k, ks1, ks2, kd1, kd2, h)
+%& session(s, r1, r2, i, pks, pkd, ks, i, kr1, kr2, k, ks1, ks2, kd1, kd2, h)
+      
+
+end role
+
+goal
+secrecy_of a1
+secrecy_of a2
+secrecy_of a3
+secrecy_of a4
+secrecy_of a5
+authentication_on s_r1_ks1
+authentication_on s_r2_ks2
+authentication_on s_d_k
+authentication_on d_r1_kd1
+authentication_on d_r2_kd2 
+
+end goal
+	
+environment()
+

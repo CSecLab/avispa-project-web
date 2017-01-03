@@ -1,0 +1,170 @@
+%EAP-FAST
+%HLPSL: Mutual Auth. & Key (Tunnel) Establishment
+% Server Auth (certificate) is optional
+%Once the clients connect to the network, he can have the 'Kar'. So, option of the PAC is %OR, the client receives a 'Kar' in his token from the MR.
+%Request/Response
+%Start EAP-FAST, Establish TLS
+%Hello (1)
+%Hello (2)
+%Certificate (1) =|> Peer Authentication
+%Certificate (2) : Optional =|> Server Authentication
+%Key exchange (1)
+%Key exchange (2)
+%Change Cipher (1) , (2)
+%Finished
+role auth_server (S, P : agent,
+H, KeyGen, PRF : hash_func,
+% : hash_func,
+Kar, Ks : public_key,
+SND_P, RCV_P : channel (dy))
+played_by S def=
+local Ns, Csus, PMS : text,
+SessID : text,
+% Ph,
+Np, VerNo, Csu, Pcertreq : text,
+% Sc, Cke, Cv,
+Pkeyexchange, Phellodone, Cciphspec : text,
+State : nat,
+Finished : hash(hash(text.text.text).agent.agent.text.text.text),
+ClientK, ServerK : hash(agent.text.text.hash(text.text.text)),
+Kp : public_key,
+% Nps : text.text
+const sec_clientK, sec_serverK,nps1, nps2 : protocol_id,
+sid0 : text, % session id = 0
+request_id : text,
+respond_id : text,
+start_eap_fast : text
+init State := 0
+transition
+0. State = 0 /\ RCV_P(request_id) =|>
+State':= 2 /\ SND_P(respond_id.S)
+2. State = 2 /\ RCV_P(start_eap_fast) =|>
+State':= 4 /\ Ns' := new()
+/\ Csiphspec' := new()
+/\ VerNo' := new()
+/\ SND_P( VerNo'.sid0.Ns'.Cciphspec' ) % server hello (SeID=0)
+% including option of the server auth
+4. State = 4 /\ RCV_P(
+VerNo.SessID'.Np'.Csu'. % peer hello
+{P.Kp'}_inv(Kar). % peer certificate
+Pkeyexchange'. % peer key exchange
+Pcertreq'. % peer certificate request
+%Drop, if Ser Auth is not chosen
+Phellodone') % peer hello done
+=|>
+State':= 6
+/\ PMS' := new()
+/\ Cciphspec' := new()
+/\ Finished' := H(PRF(PMS'.Ns.Np').S.P.Ns.Csu'.SessID')
+/\ ServerK' := KeyGen(S.Ns.Np'.PRF(PMS'.Ns.Np'))
+/\ ClientK' := KeyGen(P_.Ns.Np'.PRF(PMS'.Ns.Np'))
+/\ SND_P({S.Ks}_inv(Kar). % server certificate
+%Drop, if Ser Auth is not chosen
+{PMS'}_Kp'. % server key exchange
+{H(Ns.Np'.P.PMS')}_inv(Ks). % server certificate verify
+Cciphspec'. % change cipher spec
+{Finished'}_ServerK') % finished
+/\ witness(S,P,nps2,Ns.Np')
+6. State = 6 /\ RCV_P(Ccs.{Finished}_ClientK) =|>
+State':= 8 /\ secret(ServerK,sec_serverK,{S,P})
+/\ secret(ClientK,sec_clientK,{S,P})
+/\ request(S,P,nps1,Ns.Np)
+end role
+________________________________________
+role peer (S, P : agent,
+H, KeyGen, PRF : hash_func,
+% : hash_func,
+Kp, Kar : public_key,
+SND_S, RCV_S : channel (dy))
+played_by P def=
+local Np, SessID : text,
+PMS : text,
+Ns, Csus, VerNo, Csu, Pke : text,
+% Sc, Cke, Cv, Sh,:text,
+Ccs, Pcertreq, Phellodone : text,
+State : nat,
+Finished : hash(hash(text.text.text).agent.agent.text.text.text),
+ClientK, ServerK : hash(agent.text.text.hash(text.text.text)),
+Ks : public_key
+const nps1, nps2 : protocol_id,
+sid0 : text, % session id = 0
+request_id : text,
+respond_id : text,
+start_eap_fast : text
+init State := 1
+transition
+1. State = 1 /\ RCV_S(start) =|>
+State':= 3 /\ SND_S(request_id)
+3. State = 3 /\ RCV_S(respond_id.S) =|>
+State':= 5 /\ SND_S(start_eap_fast)
+% including option of the server authentication
+5. State = 5 /\ RCV_S(VerNo'.sid0.Ns'.Csus') % server hello
+=|>
+State':= 7
+/\ Np' := new()
+/\ SessID' := new()
+/\ Phellodone' := new()
+/\ Pcertreq' := new()
+/\ Pke' := new()
+/\ Csu' := new()
+/\ SND_S(VerNo'.SessID'.Np'.Csu'. % peer hello
+{P.Kp}_inv(Kar). % peer certificate
+Pke'. % peer key exchange
+Pcertreq'. % peer certificate request;
+%Drop. If Server Auth is not chosen
+Phellodone') % server hello done
+/\ witness(P,S,nps1,Ns'.Np')
+% with the option of server auth
+7. State = 7
+/\ RCV_S({S.Ks'}_inv(Kar). % server certificate;
+%Drop, if Server Auth is not chosen
+{PMS'}_Kp. % server key exchange
+{H(Ns.Np.P.PMS')}_inv(Ks'). % server certificate verify
+Ccs'. % change cipher spec
+{Finished'}_ServerK' % finished
+)
+/\ Finished' = H(PRF(PMS'.Ns.Np).S.P.Ns.Csu.SessID)
+/\ ServerK' = KeyGen(S.Ns.Np.PRF(PMS'.Ns.Np))
+=|>
+State' := 9
+/\ ClientK' := KeyGen(P.Ns.Np.PRF(PMS'.Ns.Np))
+/\ SND_S(Ccs'.{Finished'}_ClientK')
+/\ request(P,S,nps2,Ns.Np)
+end role
+________________________________________
+role session(P, S : agent,
+Kp, Ks, Kar : public_key,
+H, KeyGen : hash_func,
+PRF : hash_func)
+def=
+local SP, SS, RP, RS : channel (dy)
+composition
+peer(P,S,H,KeyGen,PRF,Kp,Kar,SP,RP)
+/\ auth_server(P,S,H,KeyGen,PRF,Ks,Kar,SS,RS)
+end role
+________________________________________
+role environment()
+def=
+const p,s : agent,
+kp, ks, ki, kar : public_key,
+h, keygen : hash_func,
+prf : hash_func
+intruder_knowledge = {p,s, h,keygen,prf, kp,ks,kar,ki,inv(ki),
+{i.ki}_inv(kar)
+}
+composition
+session(p,s,kp,ks,kar,h,keygen,prf)
+% /\ session(p,i,kp,ki,kar,h,keygen,prf)
+/\ session(i,s,ki,ks,kar,h,keygen,prf)
+end role
+________________________________________
+goal
+%secrecy_of ClientK, ServerK
+secrecy_of sec_clientK, sec_serverK
+%Peer authenticates Server on nps1
+authentication_on nps1
+%Server authenticates Peer on nps2
+authentication_on nps2
+end goal
+________________________________________
+environment()

@@ -1,0 +1,138 @@
+
+
+
+role server (U, S : agent,
+SKus : symmetric_key,
+Hash: HashasHash_func,
+Snd, Rcv: cHashannel(dy))
+
+
+
+
+played_by S
+def=
+local 
+State : nat,
+PWi, Ni, Y,X,Na,CID,Bi,Ci,Nb,HashPWi,Ack: text
+const subs1,subs2,user_server_na,server_user_nb : protocol_id
+init State := 1
+transition
+1. State = 1 /\Rcv({PWi'}_SKus) =|>
+State':=3
+/\X':=new()
+/\secret(X',subs1,{S})
+/\Y':=new()
+/\secret(Y',subs2,{U,S})
+/\Ni':=xor(PWi',X')
+/\Snd({PWi'.Hash.Ni'.Y'}_SKus)
+2.State=3/\Rcv(CID'.Ni'.Ci'.Na')=|>
+State':=5
+/\Nb':=new()
+
+
+
+
+/\request(S,U,user_server_na,Na') 
+end role
+
+
+
+
+role session(U, S : agent)
+def=
+local 
+SKus : symmetric_key,
+Hash : HashasHash_func,
+SU,SS,RU,RS:cHashannel(dy),
+PWi, X,Y,Ni: text
+const subs1,subs2 : protocol_id
+composition
+user(U,S,SKus,Hash,SU,RU)
+/\server(U,S,SKus,Hash,SS,RS)
+end role
+
+
+
+
+role environment ()
+def=
+const u,s : agent,
+Hash: HashasHash_func,
+subs1,subs2,user_server_na,server_user_nb : protocol_id
+
+
+intruder_knowledge={u,s,Hash}
+composition
+session(u,s)
+end role
+
+
+
+
+
+
+
+
+role user (U, S : agent,
+SKus : symmetric_key,
+Hash : HashasHash_func,
+Snd, Rcv: cHashannel(dy))
+
+
+
+played_by U
+def=
+local State : nat,
+PWi, Ni, Y,Na,CID,Bi,Ci,Nb,Ack,Ni_new,PWi_new: text
+const subs1,subs2,user_server_na,server_user_nb : protocol_id
+init 
+State := 0
+
+
+
+transition
+1. State = 0 /\Rcv(start) =|>
+State' := 2 /\PWi' := new()
+/\Snd({PWi'}_SKus)
+/\secret({PWi'}, subs1, {U,S})
+/\secret({SKus}, subs2, {U,S})
+
+
+
+2.State = 2 /\Rcv({PWi.Hash.Ni'.Y'}_SKus)
+=|>State':= 4
+
+
+
+3.State=4 /\Rcv({PWi'.Hash.Ni'.Y'}_SKus)=|>
+State':=6
+/\Na':=new()
+/\witness(U,S,user_server_na,Na')  
+/\CID':=xor(Hash(PWi'),Hash(xor(Ni',xor(Y',Na'))))
+/\Bi':=Hash(xor(CID',Hash(PWi)))
+/\Ci':=Hash(xor(Na',xor(Ni',xor(Bi',Y'))))
+/\Snd(CID'.Ni'.Ci'.Na')
+
+
+
+4.State=6=|>
+State':=8
+/\PWi_new':=new()
+/\Ni_new':=xor(Ni',xor(Hash(PWi),Hash(PWi_new')))
+/\Ni':=Ni_new'
+end role
+
+
+
+
+
+
+
+goal
+	secrecy_of subs1
+	secrecy_of subs2
+	autHashentication_on user_server_na
+	autHashentication_on server_user_nb
+end goal
+
+environment()

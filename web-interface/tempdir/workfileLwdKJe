@@ -1,0 +1,83 @@
+%% HLPSL Specification program for the Group Handshake
+role authenticator(A,S  : agent,
+Hash    : hash_func, 
+Succ    :  hash_func,
+SND,RCV        : channel(dy)
+)
+
+played_by A def=
+local
+State       : nat,
+KEK          :message,
+Gtk,MIC,Pmk,Group,SN, KeyID : message
+init
+State := 0
+
+transition
+
+1. State =  0 /\ RCV(start) =|>
+   State':= 2 /\ Gtk' := Succ(Pmk)
+                   /\ MIC' := Hash(Group.SN.KeyID.Gtk')
+                   /\ SND({Group.SN.Gtk'.KeyID.MIC'}_KEK)
+ 
+2. State =  2 /\ RCV({Group.SN.MIC'}_KEK) =|>
+   State':= 4 
+                 
+end role
+Basic Role (supplicant) Section
+
+The HLPSL section specification is as follows:
+
+role supplicant( A,S : agent,
+Hash, Succ     : hash_func,
+SND,RCV        : channel(dy)
+)
+
+played_by S   def=
+
+local
+State                                     : nat,
+KEK                                     : message,
+Gtk,MIC,Pmk,Group,SN     : message,
+KeyID : message
+
+const   authenticator_supplicant_sn : protocol_id
+
+init
+   State := 1
+
+transition
+     1. State  = 1 /\ RCV({Group.SN.Gtk'.KeyID.MIC'}_KEK) =|>
+        State':= 3 
+                   /\ MIC':= Hash(Group.SN)
+                   /\ SND({Group.SN.MIC'}_KEK)
+                   /\ witness(S,A,authenticator_supplicant_sn, SN')                 
+                       
+end  role
+role session(
+    A,S : agent,
+Hash, Succ: hash_func
+     )
+
+def=
+   local SA,RA,SS, RS  : channel (dy)
+   composition
+   authenticator(A,S,Hash, Succ,SA,RA) /\ supplicant(A,S,Hash,Succ,SS,RS)
+
+end role
+role environment()
+  def=
+     const 
+       authenticator_supplicant_sn : protocol_id,
+        a,s          :  agent,
+        succ, h : hash_func
+        intruder_knowledge = {a,s}    
+  composition
+        session(a,s,succ,h) /\ session(a,i,succ,h) /\ session(i,s,succ,h)
+end role
+goal
+authentication_on authenticator_supplicant_sn 
+end goal
+environment()
+
+

@@ -1,0 +1,155 @@
+%% ---------------------------------------------------
+%protocol 
+ 
+ 
+ % A → S :  A, Na
+ % S → A : {Na,Kab, {Kab,A} Kbs }Kas
+ % B → S :  B, Na
+ % S → B : {Na,B,Kab, {Kab,A} Kbs }Kas
+ % A → B : {Kab,A}Kbs
+ % B → A : {Nb}Kab
+ % A → B : {Nb − 1}Kab
+ 
+ 
+% pt ex 2.2
+% serverul s trebuie sa aiba nonce-urile si de la a si de la b ori comunica a cu s si apoi s cu b si apoi cu a si tot asa ori acu b si apoi cu s
+% in ex2.2 greseala vine din faptul ca b nu a trimis la server nonce-ul lui
+%i acolo e autentificare numai dintr-o parte
+%si autentificarile nu sunt din ambele parti
+
+
+%%it is desired that a different shared key is established for
+%%each communication session Æ session key
+%%– to ensure independence across sessions
+%%– to avoid long-term storage of a large number of shared keys
+%%– to limit the number of cipher-texts available for cryptanalysis
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%HLPSL:
+
+role alice (A,S : agent,             
+            Ka: simmetric_key, 
+            SND_SA, RCV_SA : channel (dy)) 
+			
+played_by A def=
+
+  local State : nat, 
+        Na, Ns: text,
+		K : symmetric_key
+
+  init State := 0
+
+  transition
+
+1.    State = 0 /\ RCV_SA(start) =|>
+      State’:= 2 /\ Na’ := new()
+               /\ SND_SA({Na’.A}_Ka)
+2.    State = 2 /\ RCV_SA({K’.Na.Ns’}_Ka) =|>
+	  
+	  
+	  
+%   State = 4 /\ RCV_BA(A.B.{Ns.Na}_K) =|>
+%      State’:= 6 /\ request(A,B,alice_bob_na,Na)
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role server (A, S, B : agent,
+             Ka, Kb : symmetric_key,
+             SND_AS, RCV_AS, SND_SB, RCV_BS: channel(dy))
+played_by S
+def=
+
+   local State : nat,
+                 Ns,Nb : text,
+                 K : symmetric_key
+				 
+    init State := 1
+    transition
+
+    1. State = 1 /\ RCV_AS(A.B.{Na’}_Ka) =|>
+    State’:= 3 /\ Ns’ := new() /\ K’ := new()
+             /\ SND_AS(A.B.{K’.Na’.Ns’}_Ka.{K’.Na’.Ns’}_Kb)
+             /\ secret(K’,k,{A,B,S})
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role bob( S, B: agent,      
+          Kb: public_key,      
+          SND_BS, RCV_SB: channel (dy)) 
+		  
+played_by B def=
+
+    local State : nat, 
+	      Nb, Ns: text
+
+  init State := 1
+
+  transition 
+
+    1.  State  = 1 /\ RCV({Na'.A}_Kb) =|> 
+	State':= 3 /\ Nb' := new() /\ SND({Na'.Nb'}_Ka)
+		   /\ secret(Nb',nb,{A,B}) 
+		   /\ witness(B,A,alice_bob_nb,Nb')
+
+    3.  State  = 3 /\ RCV({Nb}_Kb) =|> 
+	State':= 5 /\ request(B,A,bob_alice_na,Na)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(A, S, B: agent, Ka, Kb: simmetric_key) 
+def=
+
+  local 
+  SSA, RAS,
+  SSB, RBS: channel (dy)
+
+  composition 
+
+	    alice   (A,S,Ka,SA,RA)
+     /\ bob     (B,S,Kb,SB,RB)
+	 /\ server  (S,A,B,Ka,Kb,SSA,RAS,SSB,RBS)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() 
+def=
+
+      const a, b, s  : agent,
+	  ka, kb, ki   : simmetric_key,
+	  na, nb,
+%??	  alice_bob_na ,k ,
+%??	  bob_alice_nb ,k : protocol_id
+
+    intruder_knowledge = {a, b, s, ki)}
+
+    composition
+
+	   session(a,s,b,ka,kb)
+	/\ session(a,s,i,ka,ki)
+	/\ session (i,s,b,ki,kb)
+	
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of k
+  authentication_on alice_bob_na
+  authentication_on bob_alice_nb
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

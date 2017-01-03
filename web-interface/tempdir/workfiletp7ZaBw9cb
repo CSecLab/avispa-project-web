@@ -1,0 +1,240 @@
+role orig(O, R, T    : agent,
+          Text       : text,
+          Vo, Vr, Vt : public_key) played_by O def=
+
+ local S      : nat,
+       No, Nr : text,
+       SND, RCV   : channel (dy)
+
+ init S := 0
+
+ transition
+
+ % Exchange subprotocol
+ 1. S = 0 /\ RCV(start) 
+    =|>
+    S' := 1 /\ No' := new()
+    /\ SND({Vo.Vr.T.Text.h(No')}_inv(Vo))
+    /\ witness(O,R,no,No'.Text)
+
+ 2. S = 1 /\ RCV({{Vo.Vr.T.Text.h(No)}_inv(Vo).h(Nr')}_inv(Vr)) 
+    =|>
+    S' := 2 /\ SND(No)
+
+3. S = 2 /\ RCV(Nr) 
+    =|>
+    S' := 3 /\ request(O,R,nr,Nr.Text)
+
+ % Abort subprotocol
+ 4. S = 1 /\ RCV(timeout)
+    =|>
+    S' := 5 
+    /\ SND({aborted.{Vo.Vr.T.Text.h(No)}_inv(Vo)}_inv(Vo))
+    /\ secret(No,no_secret,{O})
+
+ 5. S = 5 
+    /\ RCV({ aborted.
+            {aborted.{Vo.Vr.T.Text.h(No)}_inv(Vo)}_inv(Vo)}_inv(Vt))
+    =|>
+    S' := 6 
+
+ 6. S = 5 
+    /\ RCV({ {Vo.Vr.T.Text.h(No)}_inv(Vo).
+            {{Vo.Vr.T.Text.h(No)}_inv(Vo).h(Nr')}_inv(Vr)}_inv(Vt))
+    =|> 
+    S' := 7
+
+ % Resolve subprotocol
+ 7. S = 2 /\ RCV(resolve) 
+    =|>
+S' := 8 
+    /\ SND( {Vo.Vr.T.Text.h(No)}_inv(Vo).
+           {{Vo.Vr.T.Text.h(No)}_inv(Vo).h(Nr)}_inv(Vr))
+
+
+
+
+ 8. S = 8 /\ RCV({ aborted.
+                  {aborted.{Vo.Vr.T.Text.h(No)}_inv(Vo)}_inv(Vo)}_inv(Vt))
+    =|> 
+    S' := 9
+
+ 9. S = 8 /\ RCV({ {Vo.Vr.T.Text.h(No)}_inv(Vo).
+                  {{Vo.Vr.T.Text.h(No)}_inv(Vo).h(Nr)}_inv(Vr)}_inv(Vt))
+    =|>
+    S' := 10 /\ request(O,R,nr,Nr.Text)
+
+end role
+-----------------------------------------------------------------------------------
+role resp(O, R, T    : agent,
+          Text       : text,
+          Vo, Vr, Vt : public_key) played_by R def=
+
+ local S      : nat,
+       No, Nr : text,
+       SND, RCV   : channel (dy)
+
+ init S := 0
+
+ transition
+
+ % Exchange subprotocol
+ 1. S = 0 /\ RCV({Vo.Vr.T.Text.h(No')}_inv(Vo)) 
+    =|>
+    S' := 1 /\ Nr' := new() 
+    /\ SND({{Vo.Vr.T.Text.h(No')}_inv(Vo).h(Nr')}_inv(Vr))
+    /\ witness(R,O,nr,Nr'.Text)
+
+ 2. S = 1 /\ RCV(No) 
+    =|>
+    S' := 2 /\ SND(Nr)
+    /\ request(R,O,no,No.Text)
+
+ % Resolve subprotocol
+ 3. S = 1 /\ RCV(resolve) 
+    =|>
+    S' := 3 
+    /\ SND( {Vo.Vr.T.Text.h(No)}_inv(Vo).
+           {{Vo.Vr.T.Text.h(No)}_inv(Vo).h(Nr)}_inv(Vr))
+
+ 8. S = 3 /\ RCV({ aborted.
+                  {aborted.{Vo.Vr.T.Text.h(No)}_inv(Vo)}_inv(Vo)}_inv(Vt))
+    =|> 
+    S' := 4
+
+ 9. S = 3 /\ RCV({ {Vo.Vr.T.Text.h(No)}_inv(Vo).
+                  {{Vo.Vr.T.Text.h(No)}_inv(Vo).h(Nr)}_inv(Vr)}_inv(Vt))
+    =|>
+    S' := 5
+    /\ request(R,O,no,No.Text)
+
+end role
+---------------------------------------------------------------------------------------
+role server(T        : agent,
+            Vt       : public_key,
+            AList    : (message.message) set,
+            RList    : (message.message) set) played_by T def=
+
+ local S        : nat, 
+       Vo, Vr   : public_key, 
+       Text     : text,
+       No, Nr   : text,
+       Count, X : message,
+       SND, RCV : channel (dy)
+
+ init S := 0 
+      %% The Count variable specifies how many requests
+      %% the trusted server can answer.  One request is 
+      %% possible per application of "succ"
+      /\ Count := succ(t)
+
+ transition
+
+ % Respond to an abort request
+ 1. S = 0 /\ RCV({aborted.{Vo'.Vr'.T.Text'.h(No')}_inv(Vo')}_inv(Vo')) 
+    /\ in(( {Vo'.Vr'.T.Text'.h(No')}_inv(Vo'). 
+           {{Vo'.Vr'.T.Text'.h(No')}_inv(Vo').h(Nr')}_inv(Vr')), RList) 
+    /\ Count = succ(X')
+    =|>
+ S' := 0 
+    /\ SND({ {Vo'.Vr'.T.Text'.h(No')}_inv(Vo').
+            {{Vo'.Vr'.T.Text'.h(No')}_inv(Vo').h(Nr')}_inv(Vr')}_inv(Vt)) 
+    /\ Count' := X'
+
+ 2. S = 0 
+    /\ RCV({aborted.{Vo'.Vr'.T.Text'.h(No')}_inv(Vo')}_inv(Vo')) 
+    /\ not(in(( {Vo'.Vr'.T.Text'.h(No')}_inv(Vo').
+               {{Vo'.Vr'.T.Text'.h(No')}_inv(Vo').h(Nr')}_inv(Vr')), RList)) 
+    /\ Count = succ(X')
+    =|>
+    S' := 0 
+    /\ SND({ aborted.
+            {aborted.{Vo'.Vr'.T.Text'.h(No')}_inv(Vo')}_inv(Vo')}_inv(Vt))
+    /\ AList' := cons(( {Vo'.Vr'.T.Text'.h(No')}_inv(Vo').
+                       {aborted.
+                        {Vo'.Vr'.T.Text'.h(No')}_inv(Vo')}_inv(Vo')), AList) 
+    /\ Count' := X'
+
+ % Respond to a resolve request
+ 3. S = 0 /\ RCV({Vo'.Vr'.T.Text'.h(No')}_inv(Vo').
+                {{Vo'.Vr'.T.Text'.h(No')}_inv(Vo').h(Nr')}_inv(Vr')) 
+    /\ in(( {Vo'.Vr'.T.Text'.h(No')}_inv(Vo').
+ {aborted.
+            {Vo'.Vr'.T.Text'.h(No')}_inv(Vo')}_inv(Vo')), AList) 
+    /\ Count = succ(X')
+    =|>
+    S' := 0 
+    /\ SND({ aborted.
+            {aborted.{Vo'.Vr'.T.Text'.h(No')}_inv(Vo')}_inv(Vo')}_inv(Vt)) 
+    /\ Count' := X'
+        
+ 4. S = 0 /\ RCV( {Vo'.Vr'.T.Text'.h(No')}_inv(Vo').
+                 {{Vo'.Vr'.T.Text'.h(No')}_inv(Vo').h(Nr')}_inv(Vr')) 
+    /\ not(in(( {Vo'.Vr'.T.Text'.h(No')}_inv(Vo').
+               {aborted.
+                {Vo'.Vr'.T.Text'.h(No')}_inv(Vo')}_inv(Vo')), AList)) 
+    /\ Count = succ(X')
+    =|>
+    S' := 0 
+    /\ SND({ {Vo'.Vr'.T.Text'.h(No')}_inv(Vo').
+ {{Vo'.Vr'.T.Text'.h(No')}_inv(Vo').h(Nr')}_inv(Vr')}_inv(Vt))
+    /\ RList' := cons(( {Vo'.Vr'.T.Text'.h(No')}_inv(Vo').
+                       {{Vo'.Vr'.T.Text'.h(No')}_inv(Vo').h(Nr')}_inv(Vr')), RList) 
+    /\ Count' := X'
+
+end role 
+------------------------------------------------------------------------------------------
+role session(O, R, T    : agent,
+             Vo, Vr, Vt : public_key,
+             Text       : text) def=
+
+
+
+ composition
+  orig(O,R,T,Text,Vo,Vr,Vt) /\
+  resp(O,R,T,Text,Vo,Vr,Vt)
+end role
+
+-----------------------------------------------------------------------------------------
+role environment() def=
+ 
+  local AList, RList   : (message.message) set
+
+  const succ                             : hash_func, 
+        no, nr, no_secret                : protocol_id,
+        o, r, t, ref                     : agent,
+        vo, vr, vt, ki                   : public_key,
+        aborted, timeout, resolve, text1 : text,
+        h                                : hash_func
+
+  init AList := {}
+    /\ RList := {}
+
+ intruder_knowledge = {aborted, timeout, resolve, text1,
+                       o, r, t, vo, vr, vt, ki, inv(ki), h }
+
+ composition
+  session(o,r,t,vo,vr,vt,text1)  /\
+%  session(i,r,t,ki,vr,vt,text1)  /\
+%  session(i,r,t,ki,vr,vt,text1) /\
+  server(t,vt,AList,RList)
+end role
+------------------------------------------------------------------------------------------
+goal
+
+  % Entity authentication (G1)
+  % Message authentication (G2)
+  % Replay protection (G3)
+  % Accountability (G17)
+  % Proof of origin (G18)
+  % Proof of delivery (G19)
+  authentication_on no
+  authentication_on nr
+
+  % Expressing fair exchange via observer (not described in D6.1)
+  secrecy_of no_secret % R has no advantage over O
+
+end goal
+
+environment()
+

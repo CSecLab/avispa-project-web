@@ -1,0 +1,151 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%								USER ROLE								%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role user(
+	U,S	:agent,
+	P,Ppub	:public_key,
+	H	:function,
+	SKus	:symmetric_key,
+	SND, RCV: channel(dy))
+played_by U
+def=
+	local State				:nat,
+	PW			:symmetric_key,
+	Username,Realm				:message,
+	Ra,Rb,Rc,Rr,V,Y,W,K,SK,Authu,Auths,R,X			:text
+const sec_x,sec_ra,sec_rb,sec_SK1,subs2,subs3, sec_Authu1, sec_Auths1, sec_pw1:protocol_id
+init State:=0
+transition
+
+%%Registration phase
+1.State=0 /\ RCV(start)=|>
+  State':=1
+  /\ Ra':=new()
+  /\ SND({H(PW.Ra').Username}_SKus)
+  /\ witness(U,S,nu,Rb')
+  /\ secret({PW.Ra'},subs2,U)
+  /\ secret({Username},subs3,{U,S})
+2.State=1
+ %%% /\ RCV({{H(H(PW.Ra').Username).exp(inv(Ppub, -1))}_P.{H(Username.inv(Ppub))}_P}_SKus)=|>
+  /\ RCV({R'.X'}_SKus)=|>
+  State':=2 
+%%Login phase
+1.State=0 /\ RCV(start)=|>
+  State':=1
+  /\ Rb':=new() 
+  /\ V':={{Rb'}_R'}.X'
+  %%/\ Y':= Rb'.{H(H(PW.Ra').Username)}
+  /\ W':={Rb'.{H(H(PW.Ra').Username)}}_Ppub
+  /\ SND(Username.V'.W')
+  /\ witness(U,S,nu,Rb')
+  
+  /\ secret(Rb',sec_rb,U)
+  /\ secret(PW,sec_pw1,U)
+  /\ secret(Ra',sec_ra,U)
+  /\ secret(X',sec_x,U)
+
+3.State=2
+  /\ RCV(Realm.Auths'.{Rc'}_P.Rr')=|>
+  State':=2  
+  /\ K':= {Y'.Rc'}_P
+  /\ SK':=H(K'.Rr'.Username.X')
+  /\ Authu':=H(K'.W'.Rr'.SK'.X')
+  /\ SND(Realm.Authu')
+  /\ secret(PW,sec_pw1,U)
+  /\ secret(X',sec_x,U)
+  /\ secret(SK',sec_SK1,{U,S})
+  /\ request(U,S,ns,Ra')
+  /\ request(U,S,ns,PW)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%								SERVER ROLE								%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role server(
+	S,U	:agent,
+	SND,RCV	:channel(dy),
+	H	:function,
+	P,Ppub	:public_key ,
+	SKus	:symmetric_key)
+played_by S
+def=
+	local State	:nat,
+	PW	:symmetric_key,
+	Ra,Rb,Rc,Rr,V,Y,W,K,SK,Authu,Auths,X,R				:text,
+	Username,Realm	:message
+const subs2,subs3,sec_rc,sec_rr,sec_SK2, sec_Authu2, sec_Auths2, sec_pw2:protocol_id
+transition
+1. 	State=0 /\ RCV({H(PW.Ra').Username}_SKus)=|>
+	State':=1
+	/\ request(U,S,nu,Ra')
+	/\ secret({PW.Ra'},subs2,U)
+    /\ secret({Username},subs3,{U,S})
+	/\ R':={H(H(PW.Ra').Username).inv(Ppub)}_P
+	/\ X':={H(Username.inv(Ppub))}_P
+	/\ SND({R'.X'}_SKus)
+	
+2. 	State=1 /\ RCV(Username.V'.W')=|>
+	State':=2
+	/\ Rc':=new()
+	/\ Rr':=new()
+	/\ X':={H(Username.inv(Ppub))}_P
+	/\ K':=1 %%{Rc'.inv(Ppub)}_{V'-X'}%%%pas terminer chercher comment utiliser operateur - (moin) dans AVISPA (HLPSL)
+	/\ SK':=H(K'.Rr'.Username.X')
+	/\ Auths':=H(K'.W'.Rr'.SK'.X')
+	/\ SND(Realm.Auths'.{Rc'}_P.Rr')
+	/\ witness(S,U,ns,Rc')
+	/\ secret(Rc',sec_rc,S)
+	/\ secret(Rr',sec_rr,S)
+	/\ secret(PW,sec_pw2,S)
+	
+3.	State=2 /\ RCV(Realm.Authu')=|>
+	State':=3
+	/\ Authu':=H(K'.W'.Rr'.SK'.X')
+	/\ secret(SK',sec_SK2,{U,S})
+	/\ request(S,U,nu,Rc)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%									SESSION ROLE									%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(
+	U,S	:agent,
+	H	:function,
+	P,Ppub	:public_key)
+def=
+local SU,RU,SS,RS	:channel(dy),
+Sk_us	:symmetric_key
+composition
+user(U,S,P,Ppub,H,Sk_us,SU,RU)
+/\ server(S,U,SS,RS,H,P,Ppub,Sk_us)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%									ENVIRONMENT ROLE								%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+const
+nu,ns	:protocol_id,
+u,s,i	:agent,
+h	:function,
+p,ppub,qi	:public_key
+intruder_knowledge={u,s,h,p,ppub,qi}
+composition
+session(u,s,h,p,ppub)
+/\session(u,i,h,p,qi)
+/\session(i,s,h,ppub,qi)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%									 	GOAL										%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+secrecy_of
+	sec_pw1
+authentication_on nu
+authentication_on ns
+end goal
+%____________________________________________________________________________________%
+%...........................................Enveronment..............................%
+%ииииииииииииииииииииииииииииииииииииииииииииииииииииииииииииииииииииииииииииииииииии%
+
+environment()

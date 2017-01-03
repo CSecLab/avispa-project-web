@@ -1,0 +1,205 @@
+role reader (
+A, S, B				: agent,
+H				: hash_func,
+SND_BA,SND_SA,RCV_BA,RCV_SA	: channel(dy)
+)
+
+
+
+
+
+played_by A
+
+def=
+
+	local State				: nat,
+	Rr					: text,
+	A,C,E					: message
+
+init State := 0
+
+transition
+
+	1. State = 0 /\ RCV_BA(start) =|>
+		   State' := 2 /\ Rr' := new() /\ SND_BA(Rr')
+
+
+	2. State = 2 /\ RCV_BA(C'.A') =|> 
+		   State' := 4 /\ SND_SA(C'.A'.Rr) 	       
+		       
+	3. State = 4 /\ RCV_SA(E') =|>
+		   State' := 6 /\ SND_BA(E')
+		       
+
+end role
+
+
+
+
+
+
+
+role server (
+A, S, B			: agent,
+H			: hash_func,
+Sj			: symmetric_key,
+ID			: text,
+SND_AS,RCV_AS		: channel(dy)
+)
+
+
+
+  
+played_by S 
+
+def=
+
+	local State				: nat,
+	Rr,Rt,Sj1				: text,
+	A,B,C,E,Alpha,Sjl,Sjr,IDl,IDr,L,M,N 	: message
+
+init State := 1
+
+transition
+
+
+	1. State = 1 /\ RCV_AS(C'.A'.Rr') =|>
+		   State' := 3 /\ Sj' := Sjl'.Sjr'
+			       /\ ID' := IDl'.IDr'
+				/\ Alpha' := Sjl'.IDr'
+				/\ Rt' := xor(Alpha',A')
+				/\ B' := xor(A',h(ID'.Rr'.Rt'))
+				/\ C' := h(B')
+				/\ request(S,B,c,C')
+				 /\ L' := h(xor(B',A'))
+				/\ Sj1' := new()		   						
+				/\ M' := xor(Rt',Sj1')
+				/\ N' := h(xor(Sj',Sj1'))
+				/\ E' := L'.M'.N'
+				/\ SND_AS(E')
+				/\ witness(S,B,l,L')
+				/\ witness(S,B,n,N')
+		       	       	/\ secret(Sj1',Sj1,{S,B})
+end role
+
+
+
+
+
+
+role tag(
+	A, S, B				: agent,
+	H				: hash_func,
+	Sj				: symmetric_key,
+	ID				: text,
+	SND_AB,RCV_AB			: channel(dy)
+	)
+	
+
+
+played_by B
+
+def=
+
+	local State						: nat,
+	Rr,Rt,Sj1		 	     			: text,
+	A,B,C,E,Alpha,Sjl,Sjr,IDl,IDr,L,M,N 			: message			      
+	      
+init State := 8
+	
+transition
+	 
+	1. State = 8 /\ RCV_AB(Rr') =|>  
+	   	State' := 10 /\ Rt' := new()
+				/\ Sj' := Sjl'.Sjr'
+			       	/\ ID' := IDl'.IDr'
+				/\ Alpha' := Sjl'.IDr'
+				/\ A' := xor(Alpha',Rt')
+				/\ B' := xor(A',h(ID'.Rr'.Rt'))
+				/\ C' := h(B')
+				/\ SND_AB(C'.A')
+				/\ witness(B,S,c,C')
+
+
+	2. State = 10 /\ RCV_AB(E') =|>
+		State' := 12 /\ E' := L'.M'.N'
+			     /\ L' := h(h(ID.Rr.Rt))
+			     /\ request(B,S,l,L')
+			     /\ Sj1' := xor(M',Rt')
+			     /\ N' := h(xor(Sj,Sj1'))
+			     /\ request(B,S,n,N')
+			     /\ Sj' := Sj1'
+		             /\ secret(Sj1',Sj1,{B,S})
+
+
+end role
+
+ 
+			
+
+
+
+role session(
+
+	A, S, B		: agent,
+	Sj		: symmetric_key,
+	H		: hash_func,
+	ID		: text
+	)
+	
+def=
+
+	local SSA,SBA,SAS,SAB,RAS,RSA,RBA,RAB : channel(dy)
+
+	
+composition
+		reader(A,S,B,H,SBA,SSA,RBA,RSA)
+		/\ tag(A,S,B,H,Sj,ID,SAB,RAB)
+		/\ server(A,S,B,H,Sj,ID,SAS,RAS)
+
+
+end role
+
+
+
+
+
+
+role environment()
+
+
+def=
+
+	const	a,s,b,i						: agent,
+		c,l,n,sj1					: protocol_id,
+		sj,si						: symmetric_key,
+		h						: hash_func,
+		id,idi						: text
+		
+	intruder_knowledge = {a,s,b,h,si,idi}
+	
+composition
+
+		session(a,s,b,sj,h,id)
+		/\ session(a,s,b,sj,h,id)
+		/\ session(a,s,i,si,h,idi)
+		/\ session(i,s,b,si,h,idi)
+		
+end role
+
+
+
+
+
+goal
+	secrecy_of sj1
+	authentication_on c
+	authentication_on l
+	authentication_on n
+
+end goal
+
+
+
+environment()
+  

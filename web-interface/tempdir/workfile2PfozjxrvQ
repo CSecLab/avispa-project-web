@@ -1,0 +1,96 @@
+role role_A(A:agent,B:agent,C:agent,Kcs: public_key,F: function,SND,RCV:channel(dy))
+played_by A
+def=
+    local
+        State:nat,Seq:text,SN:text,Si:text,Level:text
+    init
+        State := 0
+    transition
+        1. State =0 
+	/\ RCV(start) =|> State':=1 
+	/\ Seq':=new() 
+	/\ SN':=new() 
+	/\ Si':=new()
+	/\ SND(A. Si'.F(SN').{Seq'}_Kcs)
+       6. State=1
+	/\ RCV(C.{Si'.Level'}_Kcs) =|> State':=2
+end role
+
+role role_B(B:agent,A:agent,F:function,Kcs:public_key,SND,RCV:channel(dy))
+played_by B
+def=
+    local
+        State:nat,Seq:text,SN:text,Si:text
+    init
+        State := 0
+    transition
+        2. State=0
+	/\ RCV(A. Si'.SN'.Seq'.{Seq'}_Kcs) =|> State':=1 
+	/\ SND(B.Si.SN.Seq.{Seq}_Kcs)
+end role
+role role_C(A:agent,B:agent,C:agent,D:agent,S:agent,F:function,Kcs:public_key,SND,RCV:channel(dy))
+played_by C
+def=
+    local
+        State:nat,Seq:text,SN:text,Si:text,Level:text
+    init
+        State := 0
+    transition
+        3. State=0 
+	/\ RCV(B.Si.SN.Seq.{Seq}_Kcs) =|> State':=1
+	/\ Level':=new() 
+	/\ SND(C.{Si.Level'}_Kcs)
+        4. State=1 
+	/\ RCV(S.{Si.Level'}_Kcs) =|> State':=2 
+	/\ SND(C.{Si.Level'}_Kcs)
+end role
+
+role role_D(C:agent,D:agent,S:agent,F:function,Kcs:public_key,SND,RCV:channel(dy))
+played_by D
+def=
+    local
+        State:nat,Si:text,Level:text
+    init
+        State := 0
+    transition
+        5. State=0 
+	/\ RCV(C.{Si.Level}_Kcs) =|> State':=1 
+	/\ SND(D. {Si.Level}_Kcs)
+end role
+
+role role_S(S:agent,D:agent,C:agent,F:function,Kcs:public_key,SND,RCV:channel(dy))
+played_by S
+def=
+    local
+        State:nat,Si:text,Level:text
+    init
+        State := 0
+
+    transition
+        6. State=0 
+	/\ RCV(D. {Si.Level}_Kcs) =|> State':=1 
+	/\ SND(S.{Si.Level}_Kcs)
+end role
+
+role session(D:agent,S:agent,Kcs:public_key,A:agent,B:agent,C:agent,F:function)
+def=
+    local
+        SND5,RCV5,SND1,RCV1,SND2,RCV2,SND3,RCV3,SND4,RCV4:channel(dy)
+    composition
+        role_A(A,B,C,Kcs,F,SND5,RCV5) /\ role_B(B,A,F,Kcs,SND4,RCV4) /\ role_C(A,B,C,D,S,F,Kcs,SND3,RCV3) /\ role_D(C,D,S,F,Kcs,SND2,RCV2) /\ role_S(S,D,C,F,Kcs,SND1,RCV1)
+end role
+
+role environment()
+def=
+    const
+     rsu:agent,key1:public_key,ac:agent,aaaserver:agent,vehicle:agent,dbmsi:agent, f:function,auth_1:protocol_id
+    intruder_knowledge = {}
+    composition
+        session(ac,aaaserver,key1,vehicle,rsu,dbmsi,f)
+end role
+
+goal
+    authentication_on auth_1
+end goal
+
+environment()

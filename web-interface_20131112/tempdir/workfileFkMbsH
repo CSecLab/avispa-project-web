@@ -1,0 +1,90 @@
+role reader(
+R,T:agent,
+S,Tid:text,
+H:hash_func,
+SND,RCV:channel(dy))
+played_by R def=
+
+local
+State:nat,
+Nr,Nt:text
+
+
+init
+State:=0
+
+transition
+1.State=0/\RCV(start)=|>
+  State':=2/\Nr':=new()/\SND(Nr')
+
+2.State=2/\RCV(H(Tid.S).H(S.Nr').Nt')=|>
+  State':=4/\SND(H(S.Nt'))
+	/\secret(S,ss,{R,T})
+	/\secret(Tid,stid,{R,T})
+	/\request(R,T,rt,S)
+	/\witness(R,T,tr,S)
+end role
+
+role tag(
+R,T:agent,
+S,Tid:text,
+H:hash_func,
+SND,RCV:channel(dy))
+played_by T def=
+
+local
+State:nat,
+Nr,Nt:text
+
+
+init
+State:=1
+
+transition
+1.State=1/\RCV(Nr')=|>
+  State':=3/\Nt':=new()
+	/\SND(H(Tid.S).H(S.Nr').Nt')
+	/\witness(T,R,rt,S)
+
+2.State=3/\RCV(H(S.Nt))=|>
+  State':=5/\request(T,R,tr,S)
+
+end role
+
+role session(
+R,T:agent,
+Tid:text,
+H:hash_func)
+def=
+
+local SNDRT,RCVRT,SNDTR,RCVTR:channel(dy),
+S:text
+
+composition
+reader(R,T,S,Tid,H,SNDRT,RCVRT)/\tag(R,T,S,Tid,H,SNDTR,RCVTR)
+
+role environment()
+def=
+
+const ss,stid,tr,tr:protocol_id,
+r,t:agent,
+tid:text,
+h:hash_func
+
+intruder_knowledge={h,r,t}
+
+composition
+session(r,t,tid,h)/\session(r,t,tid,h)
+
+end role
+
+goal
+secrecy_of ss
+secrecy_of stid
+authentication_on rt
+authentication_on tr
+
+end goal
+
+environment()
+

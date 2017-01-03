@@ -1,0 +1,85 @@
+role alice(
+A,B : agent,
+Kb  : public_key,
+SND,RCV : channel (dy))
+played_by A def=
+local 
+State : nat,
+PhNum : text,
+Kab   : symmetric_key,
+UDID  : text,
+Time  : text
+const sec_k1 : protocol_id
+init 
+State := 0
+transition
+1. State = 0 
+/\ RCV(start) =|>
+State' := 2 
+/\ Kab' :=new()
+/\ SND ({Kab'}_Kb.{PhNum.UDID.Time}_Kab')
+2. State = 2 
+/\ RCV (Pin') =|>
+State' := 4 
+/\ SND ({PhNum.Pin'}_Kab')
+%3. State = 4 
+%/\ RCV ({PhNum.UDID.Response}_Kab')
+%State':=6 /\ request(A,B,alice_bob_pin,Pin)
+end role
+role bob(
+A,B : agent,
+Kb  : public_key,
+SND,RCV : channel (dy))
+played_by B def=
+local
+State : nat,
+Pin   : text,
+Response: text
+init
+State :=1
+transition
+1. State  = 1 /\ RCV ({Kab'}_Kb.{PhNum.UDID.Time}_Kab') =|>
+State' := 3   /\ Pin' := new()
+/\ SND (Pin')
+%2. State  = 3 /\ RCV ({PhNum.Pin'}_Kab') =|>
+%/\ SND ({PhNum.UDID.Response}_Kab')
+%State' := 5 /\ secret(Kab',sec_k1,{A,B})
+end role
+role session(
+A,B : agent,
+Kb   : public_key)
+def=
+local SA, SB, RA, RB : channel (dy)
+composition
+alice(A,B,Kb,SA,RA)
+/\ bob(A,B,Kb,SB,RB)
+end role
+role environment()
+def=
+const 
+alice_bob_kab, 
+a,b : agent,
+%Kb : public_key
+sec_k1 : protocol_Id
+%na, nb : protocol_id
+intruder_knowledge = {a,b}
+composition
+session(a,b,Kb)
+/\ session(b,a,Kb)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+%Confidentiality (G12)
+secrecy_of sec_k1
+%secrecy_of sec_k1, sec_k2
+% Message authentication (G2)
+% EKE_Init authenticates EKE_Resp on nb
+% authentication_on nb
+% Message authentication (G2)
+% EKE_Resp authenticates EKE_Init on na
+%authentication_on na
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()
+
+                                                                          

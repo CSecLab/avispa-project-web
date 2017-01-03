@@ -1,0 +1,110 @@
+%% PKI-based SDVS Scheme without Bilinear pairing
+%% A : Oriiginal Signer
+%% B : Designated Verifier
+%% Designed by SK Hafizul Islam, ISM Dhanbad
+
+role alice (
+
+A, B: agent, 
+            Pa, Pb : public_key,
+            Xa, Xb : symmetric_key,            
+            R, P : text,
+            U, Sigma, M : message,
+            H, Conc, Union, Pred: hash_func, 
+  SND, RCV : channel (dy)) 
+
+
+played_by A 
+
+def=
+local State : nat
+const      aliceid, bobid, tid : protocol_id
+
+init State := 0
+
+transition
+         1.State   = 0/\RCV(start) =|>
+           State'  := 1/\R' :=  new()
+                           /\secret(R, tid, A)    
+                           /\U' :=Pred(R, Pa)
+                           /\Sigma' := Pred(Pred(Xa, Union(R, H(Conc(M, U)) ), Pb))
+                           /\SND(M.U.Sigma)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob(
+             
+B, A : agent, 
+            Pa, Pb : public_key,
+            Xa, Xb : symmetric_key,            
+            R, P : text,
+            U, Sigma, M : message,
+            H, Conc, Union, Pred : hash_func,
+            SND, RCV : channel (dy))
+
+played_by B 
+
+def=
+local State : nat
+const      aliceid, bobid, tid : protocol_id
+
+init State := 1
+
+transition
+        1.State   =1/\ RCV(M.U.Sigma) =|>
+           State' :=2/\secret (R, tid, A) 
+                         /\Sigma' := Pred(Xb, Union(Union, Pred(H(Conc(M, U), Pa))))
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(
+
+A, B: agent, 
+                 Pa, Pb : public_key,
+                 Xa, Xb : symmetric_key,            
+                 R, P : text,
+                 U, Sigma, M : message,
+                 H, Conc, Union, Pred: hash_func) 
+
+def=
+local SA, RA, SB, RB : channel (dy)
+
+composition
+         alice(A, B, Pa, Pb, Xa, Xb, R, P,  U, Sigma, M, H, Conc, Union, Pred, SA, RA)
+         /\bob(A, B, Pa, Pb, Xa, Xb, R, P,  U, Sigma, M, H, Conc, Union, Pred, SB, RB)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() 
+
+def=
+const  a, b: agent, 
+          pa, pb : public_key,
+          xa, xb : symmetric_key,            
+          r, p : text,
+          u, sigma, m : message,
+          h, conc, union, pred: hash_func, 
+          aliceid, bobid, tid : protocol_id
+
+intruder_knowledge = {a, b, pa, pb, p}
+
+composition
+         session(a, b, pa, pb, xa, xb, r, p, u, sigma, m, h, conc, union, pred)/\
+         session(a, b, pa, pb, xa, xb, r, p, u, sigma, m, h, conc, union, pred)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+   secrecy_of tid
+   authentication_on aliceid
+   authentication_on bobid 
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+

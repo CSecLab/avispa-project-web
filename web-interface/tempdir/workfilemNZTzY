@@ -1,0 +1,38 @@
+%% HLPSL Specification program for the four way Handshake
+
+role authenticator(A,S : agent,
+	Hash :hash_func,
+	Succ : hash_func,
+	SND,RCV :channel(dy)
+)
+played_by A def=
+
+local
+
+State : nat,
+Na,Ns :text,
+ptk :message,
+Gtk,MIC,Pmk :message,
+AA,SPA,SIE,SN,Msg1,Msg2,Msg4,AIE,Msg3 :message
+
+init
+State :=0
+
+transition
+
+1. State = 0 / RCV(start)=|>
+ State':= 2 / Na' :=new() / SND(Na'.SN.AA.Msg1.Pmk)
+
+2. State = 2 / RCV(Ns'.SPA.SIE.Msg3.MIC')=|>
+ State' := 4 / Gtk' :=new() 
+		/ Ptk' :=Succ(Pmk)
+		/ MIC' := Hash(Na'.Ns'.Gtk'.AA.AIE.Msg3)
+		/ SND(Gtk'.AA.AIE.Msg3.MIC')
+
+3. State = 4 / RCV(SPA.Msg4.MIC')=|>
+ State' := 6 
+		%% / request (A,S,authenticator_aupplicant_ns,Ns') / secret(Gtk',gtk, {A.S})
+
+end role
+
+ 

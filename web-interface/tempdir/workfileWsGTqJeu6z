@@ -1,0 +1,88 @@
+role alice (A, B : agent,
+Kab : symmetric_key,
+Succ : hash_func,
+SND, RCV : channel(dy))
+played_by A
+def=
+local State : nat,
+Na,Nb : text,
+
+K1ab : symmetric_key,
+N1b : text
+const alice_bob_k1ab, alice_bob_na, bob_alice_nb: protocol_id
+init State := 0
+transition
+0. State = 0 /\ RCV(start) =|>
+State':= 2 /\ Na' := new()
+/\ SND(A.{Na'}_Kab)
+2. State = 2 /\ RCV({Succ(Na).Nb'}_Kab) =|>
+State':= 4 /\ SND({Succ(Nb')}_Kab)
+/\ witness(A,B,bob_alice_nb,Nb')
+4. State = 4 /\ RCV({K1ab'.N1b'}_Kab) =|>
+State':= 6
+/\ request(A,B,alice_bob_k1ab,K1ab')
+/\ request(A,B,alice_bob_na,Na)
+end role
+
+role bob (A, B : agent,
+Kab : symmetric_key,
+Succ : hash_func,
+SND, RCV : channel(dy))
+played_by B
+def=
+local State : nat,
+Nb,Na,N1b : text,
+K1ab : symmetric_key
+init State := 1
+transition
+
+1. State = 1 /\ RCV(A.{Na'}_Kab) =|>
+State':= 3 /\ Nb' := new()
+/\ SND({Succ(Na').Nb'}_Kab)
+/\ witness(B,A,alice_bob_na,Na')
+3. State = 3 /\ RCV({Succ(Nb)}_Kab) =|>
+State':= 5 /\ N1b' := new()
+/\ K1ab' := new()
+/\ SND({K1ab'.N1b'}_Kab)
+/\ witness(B,A,alice_bob_k1ab,K1ab')
+/\ request(B,A,bob_alice_nb,Nb)
+/\ secret(K1ab',k1ab,{A,B})
+/\ secret(N1b',n1b,{A,B})
+end role
+
+role session(A, B : agent,
+Kab : symmetric_key,
+Succ : hash_func)
+def=
+local SAB, RAB,
+SBA, RBA : channel (dy)
+composition
+alice(A, B, Kab, Succ, SAB, RAB)
+/\ bob (A, B, Kab, Succ, SBA, RBA)
+end role
+
+role environment()
+def=
+const alice_bob_k1ab, alice_bob_na, bob_alice_nb,
+n1b, k1ab : protocol_id,
+a, b : agent,
+AVISPA HLPSL Tutorial
+2.3 Example 3 - security goals 28
+kab, kai, kib : symmetric_key,
+succ : hash_func
+intruder_knowledge = {a, b, kai, kib, succ}
+composition
+session(a,b,kab,succ)
+/\ session(a,b,kab,succ)
+/\ session(a,i,kai,succ)
+/\ session(i,b,kib,succ)
+end role
+
+goal
+secrecy_of n1b, k1ab
+authentication_on bob_alice_nb
+authentication_on alice_bob_na
+authentication_on alice_bob_k1ab
+end goal
+
+environment()

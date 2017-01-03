@@ -1,0 +1,81 @@
+%%Initial phase
+role userp1(ui, cs: agent,      
+		 Hash : hash_func,
+         Snd, Rcv: channel(dy))
+played_by Ui def=
+
+local State : nat, 
+	Idi , Pi , Ai,Bi : text
+const be , Ci ,Di, Pid: text
+	
+	
+	init State=0 /\	Ai= 0	/\ Ci=0 /\ Bi=0 /\ Di=0
+	
+transition
+	1. State =0 /\ rcv(start) =|> 
+		State'=1 /\ Idi'=new() /\ Pi'=new() /\ be'=new() /\ Ai'=Hash(be'.Pi) /\ snd(Idi, Ai',be')
+		/\ secret(be,{ui,cs})
+	
+	2. State = 2 /\ rcv(Bi') =|> 
+		State'=3 /\ Ci'= Hash(Idi.Ai') /\  Pid'=Hash(Idi'.be') /\ Di' = xor(Bi, Hash(xor(Pid'.Ai')))
+	 
+	
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%
+role controlserver(ui, cs: agent,
+					be,Idi,Ai :text
+					Hash : hash_func,
+					Snd, Rcv: channel(dy))
+played_by csp1 def=
+	local State : nat
+		
+		
+	const Bi , x : text
+						%x : secret number
+	init State=1 
+	1. State =1 /\ rcv(Idi, Ai',be') =|> 
+	State'=2 /\ =x'=new() /\ Pid'=Hash(Idi'.be') /\ Bi'= Hash(Pid'.x) /\ snd(Bi')
+	
+
+end role
+
+%%%%%%%%%
+role session (ui, csp1: agent, Hash : hash_func)
+def=
+	local Su, Ru , SCS, RCS : channel (dy)
+	composition 
+	controlserver(csp1 , userp1 , Hash , Su , Ru ) /\ userp1(ui, cs,Hash, SCS, RCS)
+end role
+%%%%%%
+goal
+
+  secrecy_of be
+  
+
+end goal
+%%%%%%%%%
+
+
+role environment()
+def=
+	const ui,userp1:agent,
+	Hash:hash_func,
+	be : protocol_id
+	
+	intruder_knowledge = {ui,userp1,Hash}
+	
+	composition
+		session(ui, csp1, Hash)
+
+end role
+
+
+environment()
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%Login Phase
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%Authentication Phase

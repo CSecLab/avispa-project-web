@@ -1,0 +1,321 @@
+%ALICE_BOB:
+%
+%	0. U ------{U.S.D}------------>S          			User (U) request to source site (S)
+%    	1. U S: U, Nu, Sid, Pu
+%1. S->U: Ns, Sid, Ps
+%2. S->U: {S, Ks}inv(Kc)
+%3. U->S: {PMS}Ks
+%4. U->S: {Finished}Keygen(U, Nu, Ns, M)
+%	M= PRF(PMS, Nu, Ns)
+%	Finished = H(M,messages) for all messages 0 - 3
+%5. S->U: {Finished}Keygen(S, Nu, Ns, M)
+%6. U->S: {D}Keygen(U, Nu, Ns, M)
+%7. S->U: {D, Artifact}Keygen(S, Nu, Ns, M)
+
+%	2. U ------{U.S.D.Artifact}------------------------------>D        Redirect User to destination (D) site with artifact
+
+%8.  U->D: U, N2u, S2id, P2u
+%9.  D->U: Nd, S2id, Pd
+%10. D->U: {D, Kd}inv(Kc)
+%11. U->D: {PMS}Kd
+%12. U->D: {Finished}Keygen(U, N2u, Nd, M)
+%	M= PRF(PMS, N2u, Nd)
+%	Finished = H(M,messages) for all messages 8->12
+%13. D->U: {Finished}Keygen(D, N2u, Nd, M)
+%14. U->D: {S}Keygen(U, N2u, Nd, M)
+
+%	3. 			    SD 	Answer to request with public key of User
+
+%15. D->S: D, N2d, S3id, Pd
+%16. S->D: N2s, S3id, Ps
+%17. S->D: {S, Ks}inv(Kc)
+%18. D->S: {PMS}Ks
+%19. D->S: {Finished}Keygen(D, N2d, N2s, M)
+%	M= PRF(PMS, N2d, N2s)
+%	Finished = H(M,messages) for all messages 15->18
+%20. S->D: {Finished}Keygen(S, N2d, N2s, M)
+%21. D->S: {Artifact}Keygen(D, N2d, N2s, M)
+%22. S->D: {U.Ku}Keygen(S, N2d, N2s, M)
+%	
+%	5. UU: {{Mess}_Ku}_Keygen(D, N2u, Nd, M)
+
+%     0. U ------{U.S.D}------------>S          				User (U) request to source site (S)
+%     1. U D        Redirect User to destination (D) site with artifact
+%     3. 			    SD 	Answer to request with public key of User
+%     5. U
+           State' := 2
+           /\ Na' := new()
+           /\ Pa' := new()
+           /\ Sid' := new()
+           /\ SND(A.Na'.Sid'.Pa')
+
+       %pa l'algorithme de cryptographie
+
+       2.  State = 2
+           /\ RCV(Nb'.Sid.Pa.{B.Kb'}_(inv(Ks)))
+           =|>
+           State' := 3
+           /\ PMS' := new()
+           /\ M' := PRF(PMS'.Na.Nb')
+           /\ Finished' := H(PRF(PMS'.Na.Nb').A.B.Na.Pa.Sid)
+           /\ ClientK' := KeyGen(A.Na.Nb'.PRF(PMS'.Na.Nb'))
+           /\ ServerK' := KeyGen(B.Na.Nb'.PRF(PMS'.Na.Nb'))
+           /\ SND({PMS'}_Kb'.
+                  {Finished'}_ClientK')
+           /\ witness(A,B,na_nb2,Na.Nb')
+
+       4.  State = 3
+           /\ RCV({Finished}_ServerK)
+           =|>
+           State' := 5
+	   /\ SND({D}_ClientK)
+           /\ request(A,B,na_nb1,Na.Nb)
+           /\ secret(ClientK,sec_clientk,{A,B})
+           /\ secret(ServerK,sec_serverk,{A,B})
+
+       5. State = 5
+     	   /\ RCV({Artifact'}_ServerK)
+           =|>
+           State' := 6
+           /\ Na' := new() %communicate with destination
+           /\ Pa' := new()
+           /\ Sid' := new()
+           /\ SND(A.Na'.Sid'.Pa')
+
+       %pa l'algorithme de cryptographie
+
+       6.  State = 6
+           /\ RCV(Nd'.Sid.Pa.{D.Kd'}_(inv(Ks)))
+           =|>
+           State' := 7
+           /\ PMS' := new()
+           /\ M' := PRF(PMS'.Na.Nd')
+           /\ Finished' := H(PRF(PMS'.Na.Nd').A.D.Na.Pa.Sid)
+           /\ ClientK' := KeyGen(A.Na.Nd'.PRF(PMS'.Na.Nd'))
+           /\ DestinationK' := KeyGen(D.Na.Nd'.PRF(PMS'.Na.Nd'))
+           /\ SND({PMS'}_Kd'.
+                  {Finished'}_ClientK')
+           /\ witness(A,D,na_nd2,Na.Nd')
+
+       7.  State = 7
+           /\ RCV({Finished}_DestinationK)
+           =|>
+           State' := 8
+        
+	   /\ SND({Artifact}_ClientK)
+           /\ request(A,D,na_nd1,Na.Nd)
+%           /\ secret(ClientK,sec_clientk,{A,B})
+           /\ secret(DestinationK,sec_destinationk,{A,D})
+	
+    end role
+
+%definition de source------------------------------------------------
+
+    role source(A, B, D : agent,
+             H, PRF, KeyGen: hash_func,
+             Ku, Kb, Ks: public_key,
+             SND, RCV: channel (dy))
+    played_by B
+    def=
+
+       local Na, Nb, Nd, Pd, Sid, Pa, PMS, Artifact: text,
+             State: nat
+
+       init  State := 1
+
+       transition
+
+       1.  State = 1
+           /\ RCV(A.Na'.Sid'.Pa')
+           =|>
+           State' := 3
+           /\ Nb' := new()
+           /\ SND(Nb'.Sid'.Pa'.{B.Kb}_(inv(Ks)))
+           /\ witness(B,A,na_nb1,Na'.Nb')
+
+       2.  State = 3
+           /\ RCV({PMS'}_Kb.
+                  {H(PRF(PMS'.Na.Nb).
+                   A.B.Na.Pa.Sid)
+                  }_KeyGen(A.Na.Nb.PRF(PMS'.Na.Nb)))
+           =|>
+           State' := 4
+           /\ SND({H(PRF(PMS'.Na.Nb).
+                   A.B.Na.Pa.Sid)
+                  }_KeyGen(B.Na.Nb.PRF(PMS'.Na.Nb)))
+           /\ request(B,A,na_nb2,Na.Nb)
+
+       3. State = 4
+	    /\ RCV({D}_KeyGen(A.Na.Nb.PRF(PMS'.Na.Nb)))
+           =|>
+           State' := 5
+           /\ Artifact' := new()
+          /\ SND({Artifact'}_KeyGen(B.Na.Nb.PRF(PMS'.Na.Nb)))		   
+  
+       4.  State = 5
+           /\ RCV(D.Nd'.Sid'.Pd')
+           =|>
+           State' := 7
+           /\ Nb' := new()
+           /\ SND(Nb'.Sid'.Pd'.{B.Kb}_(inv(Ks)))
+           /\ witness(B,D,nd_nb1,Nd'.Nb')
+
+       6.  State = 7
+           /\ RCV({PMS'}_Kb.
+                  {H(PRF(PMS'.Nd.Nb).
+                   D.B.Nd.Pd.Sid)
+                  }_KeyGen(D.Nd.Nb.PRF(PMS'.Nd.Nb)))
+           =|>
+           State' := 9
+           /\ SND({H(PRF(PMS'.Nd.Nb).
+                   D.B.Nd.Pd.Sid)
+                  }_KeyGen(B.Nd.Nb.PRF(PMS'.Nd.Nb)))
+           /\ request(B,D,nd_nb2,Nd.Nb)
+
+        8. State = 9
+	   /\ RCV({Artifact}_KeyGen(D.Nd.Nb.PRF(PMS.Nd.Nb)))	
+	    =|>
+           State' := 11
+           /\ SND({Ku}_KeyGen(B.Nd.Nb.PRF(PMS.Nd.Nb)))
+
+    end role
+
+%role destination------------------------------
+    
+    role destination(A, B, D : agent,
+             H, PRF, KeyGen: hash_func,
+             Kd, Ks: public_key,
+             SND, RCV: channel (dy))
+	
+    played_by D
+    def=
+
+       local Na, Nb, Nd, Sid, Pa, PMS1, PMS, Pd, Artifact, Mess: text,
+	     Ku, Kb : public_key,
+	     Finished: hash(hash(text.text.text).agent.agent.text.text.text),
+	     ClientK, ServerK, DestinationK: hash(agent.text.text.hash(text.text.text)),		
+	     M: hash(text.text.text),	
+             State: nat
+       
+	const mess : protocol_id
+       init  State := 1
+
+       transition
+
+       1.  State = 1
+           /\ RCV(A.Na'.Sid'.Pa')
+           =|>
+           State' := 3
+           /\ Nd' := new()
+           /\ SND(Nd'.Sid'.Pa'.{D.Kd}_(inv(Ks)))
+           /\ witness(D,A,na_nd1,Na'.Nd')
+
+       2.  State = 3
+           /\ RCV({PMS1'}_Kd.
+                  {H(PRF(PMS1'.Na.Nd).
+                   A.D.Na.Pa.Sid)
+                  }_KeyGen(A.Na.Nd.PRF(PMS1'.Na.Nd)))
+           =|>
+           State' := 5
+           /\ SND({H(PRF(PMS1'.Na.Nd).
+                   A.D.Na.Pa.Sid)
+                  }_KeyGen(D.Na.Nd.PRF(PMS1'.Na.Nd)))
+           /\ request(D,A,na_nd2,Na.Nd)
+
+       3. State = 5
+          /\ RCV({Artifact'}_KeyGen(A.Na.Nd.PRF(PMS1'.Na.Nd)))
+           =|>
+           State' := 7
+           /\ Nd' := new()   %Communicate with source site
+           /\ Pd' := new()
+           /\ Sid' := new()
+           /\ SND(D.Nd'.Sid'.Pd')
+
+       %pd l'algorithme de cryptographie
+
+       4.  State = 7
+           /\ RCV(Nb'.Sid.Pd.{B.Kb'}_(inv(Ks)))
+           =|>
+           State' := 9
+           /\ PMS' := new()
+           /\ M' := PRF(PMS'.Nd.Nb')
+           /\ Finished' := H(PRF(PMS'.Nd.Nb').D.B.Nd.Pd.Sid)
+           /\ ClientK' := KeyGen(D.Nd.Nb'.PRF(PMS'.Nd.Nb'))
+           /\ ServerK' := KeyGen(B.Nd.Nb'.PRF(PMS'.Nd.Nb'))
+           /\ SND({PMS'}_Kb'.
+                  {Finished'}_ClientK')
+           /\ witness(D,B,nd_nb2,Nd.Nb')
+
+       5.  State = 9
+           /\ RCV({Finished}_ServerK)
+           =|>
+           State' := 11
+	   /\ SND ({Artifact}_KeyGen(D.Nd.Nb.PRF(PMS.Nd.Nb)))	
+           /\ request(D,B,nd_nb1,Nd.Nb)
+
+     7.  State = 11
+           /\ RCV({Ku}_KeyGen(B.Nd.Nb.PRF(PMS.Nd.Nb)))
+           =|>
+           State' := 13
+	   /\ secret(Mess,mess,{A,D})
+    end role
+
+    role session(A,B,D: agent,
+                Ku, Kb, Kd, Ks: public_key,
+                 H, PRF, KeyGen: hash_func)
+    def=
+
+       local  SA, SB, RA, RB, SD, RD: channel (dy)
+
+       composition
+                    user(A,B,D,H,PRF,KeyGen,Ku, Ks,SA,RA)
+               /\   source(A,B,D,H,PRF,KeyGen,Ku, Kb,Ks,SB,RB)
+	       /\   destination(A,B,D,H,PRF,KeyGen,Kd,Ks,SD,RD)	
+
+    end role
+
+
+
+    role environment()
+    def=
+
+       const na_nb1, na_nb2, na_nd1, na_nd2, nd_nb1, nd_nb2 : protocol_id,
+             h, prf, keygen : hash_func,
+             a, b, d           : agent,
+             ku, kb, ki, kd, ks : public_key
+
+       intruder_knowledge = { a, b, d, ku, kd, kb, ks, ki, inv(ki),
+                              {i.ki}_(inv(ks)) }  
+
+       composition
+            session(a,b,d,ku,kb,kd,ks,h,prf,keygen)
+        %/\  session(a,i,d,ki,kd,ks,h,prf,keygen)
+        %/\  session(i,b,d,ki,kb,kd,ks,h,prf,keygen)
+	%/\  session(a,b,i,kb,ki,ks,h,prf,keygen)
+
+    end role
+
+
+
+    goal
+
+      secrecy_of mess,sec_clientk,sec_serverk,sec_destinationk
+      %User authenticates Source on na_nb1
+      authentication_on na_nb1  
+      %Source authenticates User on na_nb2
+      authentication_on na_nb2 
+      %User authenticates Destination on na_nd1	 
+      authentication_on na_nd1
+      %Destination authenticates User on na_nd2
+      authentication_on na_nd2
+      %Destination authenticates Source on nd_nb1	 				
+      authentication_on nd_nb1
+      %Source authenticates Destination on nd_nb2
+      authentication_on nd_nb2
+      
+			
+    end goal
+
+
+
+    environment()

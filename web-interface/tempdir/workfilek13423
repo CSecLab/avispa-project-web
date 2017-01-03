@@ -1,0 +1,142 @@
+role obu (OBU, AR:agent,
+           HEK: symmetric_key,
+           PRF: hash_func,
+           Snd,Rcv: channel(dy))
+
+played_by OBU def=
+
+  local 
+        State   : nat,
+        IDobu,IDar: text,
+        Nobu,Nar : text,
+        Success : text,
+        HAK : hash(text.text)
+        
+  const sec_hak_obu : protocol_id,
+            success : text
+
+  init  State := 0
+
+  transition
+
+   1. State = 0
+      /\ Rcv(start)
+      =|> 
+      State' := 1
+      /\ Nobu' := new()
+      /\ Snd({IDobu.IDar.Nobu'}_HEK) 
+
+   2. State = 1
+      /\ Rcv({IDobu.IDar.Nar'}_HEK)
+      =|> 
+      State' := 2
+      /\ HAK' := PRF(Nobu.Nar')
+      /\ Snd({HAK'}_HEK) 
+   %   /\ witness(OBU,AR,hak2,PRF(Nobu.Nar'))
+
+   3. State = 2
+      /\ Rcv(success) 
+      =|> 
+      State' := 3
+      /\ secret(HAK,sec_hak_obu,{OBU,AR})
+ %     /\ request(AR,OBU,hak1,HAK)
+  
+
+end role
+
+%--------------------------------------------------------------------------------
+
+role ar (AR, OBU: agent,
+           HEK: symmetric_key,
+           PRF: hash_func,
+           Snd,Rcv: channel(dy))
+
+played_by AR def=
+
+  local 
+        State   : nat,
+        IDobu,IDar: text,
+        Nobu,Nar : text,
+        Success : text,
+        HAK : hash(text.text)
+
+  const sec_hak_ar : protocol_id,
+            success : text
+            
+  init  State := 0
+
+  transition
+
+   1. State = 0 /\ Rcv({IDobu.IDar.Nobu'}_HEK)
+
+      =|> 
+      State' := 1
+      /\ Nar' := new()
+      /\ Snd({IDobu.IDar.Nar'}_HEK) 
+      /\ HAK' := PRF(Nar'.Nobu)
+ %     /\ witness(AR,OBU,hak1,PRF(Nar'.Nobu))
+
+
+   2. State = 1 /\ Rcv({HAK'}_HEK)
+      =|> 
+      State' := 2
+      /\ Snd(success)
+      /\ secret(HAK',sec_hak_ar,{AR,OBU})
+%      /\ request(AR,OBU,hak2,HAK)
+
+end role
+
+%--------------------------------------------------------------------------------
+
+role session(OBU,AR: agent,
+            HEK: symmetric_key,
+            PRF: hash_func)
+def=
+  local SND, RCV : channel (dy)
+
+  composition
+     obu(OBU,AR,HEK,PRF,SND,RCV)
+  /\ ar(AR,OBU,HEK,PRF,SND,RCV)
+
+end role
+
+%--------------------------------------------------------------------------------
+
+
+role environment()
+def=
+
+  const obu, ar   : agent,
+        hek    : symmetric_key,
+        prf : hash_func,
+        hak1, hak2 : protocol_id       
+
+  intruder_knowledge={obu,ar,prf,i}
+
+  composition
+      session(obu,ar,hek,prf)
+   /\ session(obu,ar,hek,prf)
+   /\ session(i,ar,hek,prf)
+   /\ session(obu,i,hek,prf)
+ 
+end role
+
+%--------------------------------------------------------------------------------
+
+goal
+
+ % Confidentiality 
+ secrecy_of sec_hak_obu, sec_hak_ar
+
+ % Message authentication 
+ authentication_on hak1
+
+ % Message authentication 
+ authentication_on hak2
+
+end goal
+
+%--------------------------------------------------------------------------------
+
+environment()
+

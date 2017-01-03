@@ -1,0 +1,161 @@
+
+
+role twoway_G (G, U, S : agent,
+                 Snd, Rcv: channel (dy),
+                 K_G : text,
+		 H   : hash_func,
+		 SK_UG,SK_SG : symmetric_key
+		  )
+played_by G
+def=
+
+  local St : nat,
+	Xa ,A , M,Y,DID,C,T,Ts,L,Pwd: text
+
+
+  const kgid,pid,xaid,id_s_g: protocol_id
+      
+
+  init  St := 3
+
+  transition
+
+   1. St = 3  /\ Rcv({U.Pwd}_SK_UG) =|> 
+      St':= 4 /\ M' := xor(H(U.Pwd),(H(K_G)))
+	      /\ Y' :=	H(Pwd)
+	      /\ Xa' := new()
+              /\ secret({Pwd},pid,{U,G})	
+              /\ secret({Xa'},xaid,{G, S})
+	      /\ Snd({H.U.M'.Y'.Xa'}_SK_UG)
+	      /\ witness(G,U,id_u_g,Xa')
+   	      /\ Snd({Xa'}_SK_SG)
+              /\ witness(G,S,id_s_g,Xa')
+
+ 
+   2. St = 5  /\ Rcv(xor(H(U.Pwd),H(Xa'.T')).H(xor(H(U.Pwd),H(K_G)).Xa'.T').T')=|> 
+      St':= 6 /\ request(U,G,id_u_g,T')     
+      	      /\ Ts' :=new()
+	      /\L' := xor(xor(H(U.Pwd),H(Xa'.T')),H(Xa'.T'))
+	      /\ C' := H(xor(L',H(K_G)).Xa'.T')
+	      /\ A' := H(xor(H(U.Pwd),H(Xa'.T')).S.Xa'.Ts')
+              /\ Snd(xor(H(U.Pwd),H(Xa'.T')).A'.Ts')
+	      /\ witness(G,S,id_s_g,Ts')
+
+
+
+end role
+
+
+
+
+role twoway_U (U, G, S : agent,
+                 Snd, Rcv   : channel (dy),
+		 H : hash_func,
+		 SK_UG : symmetric_key )
+played_by U
+def=
+
+      local St : nat,
+      Pwd,T,C,DID,Xa,M,Y,K_G  : text
+  
+  const pid,id_u_g: protocol_id
+  
+  init  St := 0
+
+  transition
+
+
+   1. St = 0  /\ Rcv(start) =|>
+      St':= 1 /\ Snd({U.Pwd}_SK_UG)
+	      /\ secret({Pwd},pid,{U,G})
+	     
+
+
+   2.  St = 1  /\ Rcv({H.U.xor(H(U.Pwd),H(K_G)).H(Pwd).Xa'}_SK_UG) =|>
+       St':= 2 /\ request(G,U,id_u_g,Xa') 
+	       /\ T' := new()
+               /\ DID' := xor(H(U.Pwd),H(Xa'.T'))
+	       /\ C' := H(xor(H(U.Pwd),H(K_G)).Xa'.T')
+               /\ Snd(DID'.C'.T')
+	       /\ witness(U,G,id_u_g,T')
+end role
+
+
+role twoway_S (U, G, S : agent,
+                 Snd, Rcv   : channel (dy) ,
+		 H            : hash_func,
+		 SK_SG : symmetric_key)
+played_by S
+def=
+	 local St : nat, 
+	 Ts,T,Xa,A,Pwd,K_G : text  
+
+	 const id_s_g: protocol_id
+init  St := 7
+
+  transition
+
+    1. St = 7  /\ Rcv({Xa'}_SK_SG) =|>
+       St' := 8 /\ request(G,S,id_s_g,Xa') 
+
+    2. St = 8  /\ Rcv(xor(H(U.Pwd),H(Xa'.T')).H(xor(H(U.Pwd),H(Xa'.T')).S.Xa'.Ts').Ts') =|>
+	St':= 9 /\ request(G,S,id_s_g,Ts') 
+        
+end role
+
+
+role session(U,G,S          : agent,
+             SK_UG,SK_SG            : symmetric_key
+	     
+            )
+def=
+
+local   H: hash_func,
+              Snd, Rcv   : channel (dy) ,
+		 Kg            : text
+
+composition
+twoway_G (G, U, S, Snd, Rcv,Kg,H,SK_UG,SK_SG)
+/\twoway_U (U, G, S,Snd, Rcv,H,SK_UG )
+/\twoway_S (U, G, S,Snd, Rcv,H,SK_SG)
+
+
+
+end role
+ 
+
+
+role environment() def=
+
+    local DID,C,T,Xa :text,
+	  Snd, Rcv: channel(dy)
+
+  const u, g, s, i: agent,
+	id_u_g,id_s_g : protocol_id,
+         kg_ug,kg_sg : symmetric_key
+	
+
+   intruder_knowledge = {Xa,DID,C,T}
+        
+
+  composition
+        session(u,g,s,kg_ug,kg_sg)
+ /\     session(u,g,i,kg_ug,kg_sg)
+ 
+
+
+end role
+
+
+
+goal
+
+secrecy_of pid,  
+	xaid 
+  authentication_on id_u_g 
+  authentication_on id_s_g
+
+end goal
+
+
+environment()

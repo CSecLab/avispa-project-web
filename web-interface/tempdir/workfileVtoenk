@@ -1,0 +1,116 @@
+
+%% NSSK in Alice & Bob notation:
+%%   1.  A -> B : A
+%%   2.  B -> A : { A,Nb'}_Kbs
+%%   3.  A -> S : A, B, Na, { A,Nb'}_Kbs
+%%   4.  S -> A : {Na, Kab, B, {Kab, A, Nb'}_Kbs}_Kas
+%%   5.  A -> B : { Kab,A,Nb'}_Kbs
+%%   6.  B -> A : {Nb}_Kab
+%%   7.  A -> B : {Nb-1}_Kab
+
+%%   1.  A -> S : A.B.Na
+%%   2.  S -> A : { Kab.B.Na.{ Kab.A}_Kbs}_Kas
+%%   3.  A -> B : { Kab.A }_Kbs
+%%   4.  B -> A : { Nb }_Kab
+%%   5.  A -> B : { Nb-1 }_Kab
+
+role alice(
+  A,S,B  : agent,
+  Kas,Kbs : symmetric_key,
+  Succ  : hash_func,
+  SND_SA,RCV_SA,SND_BA,RCV_BA : channel(dy))
+ played_by A def=
+  local
+    State : nat,
+    Na, Nb, Nbb : text,
+    Kab   : symmetric_key,
+    X     : {symmetric_key.agent}_symmetric_key
+  init  State:=0
+  transition
+   1. State  =0 /\ RCV_BA(start)=|>
+       State':=2 /\SND_BA(A)
+	  
+   3. State  =2 /\ RCV_BA({A.Nb'}_Kbs)=|>
+       State':=4 /\ Na':=new()/\SND_SA(A.B.Na'.{A.Nb'}_Kbs)
+	  
+   5. State  =4 /\RCV_SA({Na.Kab'.B.{Kab'.A.Nb'}_Kbs}_Kas)=|>
+       State':=6/\SND_BA({Kab'.A.Nb'}_Kbs)
+	  
+   7. State  =6/\RCV_BA({Nbb'}_Kab)=|>
+       State':=8/\SND_BA({Succ(Nbb')}_Kab)/\witness(A,B,bob_alice_nb,Nbb')
+
+end role
+
+role server(
+  A,S,B : agent,
+  Kas,Kbs : symmetric_key,
+  SND_AS,RCV_AS : channel(dy))
+played_by S def=
+  local
+    State : nat,
+    Na, Nb    : text,
+    Kab   : symmetric_key
+
+  init  State:=3
+
+  transition
+   4. State  =3 /\ RCV_AS(A.B.Na'.{A.Nb'}_Kbs)=|>
+      State':=5 /\ Kab':=new()/\SND_AS({Na'.Kab'.B.{Kab'.A.Nb'}_Kbs}_Kas)/\secret(Kab',kab,{A,S,B})
+	  
+ end role
+
+role bob(
+  A,B : agent,
+  Kbs : symmetric_key,
+  Succ : hash_func,
+  SND_AB,RCV_AB : channel(dy))
+played_by B def=
+  local
+   State : nat,
+   Nb, Nbb, Na    : text,
+   Kab   : symmetric_key
+  init State:=1
+  transition
+   2. State  =1 /\ RCV_AB(A)=|>
+      State':=3 /\ Nb':=new()/\SND_AB({A.Nb'}_Kbs)
+	  
+   6. State  =3/\ RCV_AB({Kab'.A.Nb'}_Kbs)=|>
+      State':=7 /\ Nbb':=new()/\SND_AB({Nbb'}_Kab')
+	  
+   8. State  =7 /\ RCV_AB({Succ(Nbb)}_Kab)=|>
+      State':=9 /\ request(B,A,bob_alice_nb,Nbb)
+end role
+
+role session(
+   A,S,B : agent,
+   Kas,Kbs : symmetric_key,
+   Succ  : hash_func)
+def=
+  local SSA,RSA,SAS,RAS,SBA,RBA,SAB,RAB : channel(dy)
+composition
+  alice(A,S,B,Kas,Kbs,Succ,SSA,RSA,SBA,RBA)
+/\server(A,S,B,Kas,Kbs,SAS,RAS)
+/\bob(A,B,Kbs,Succ,SAB,RAB)
+end role
+
+role environment()
+def=
+  const 
+   a,s,b : agent,
+   kas,kbs,kis : symmetric_key,
+   succ : hash_func,
+   bob_alice_nb,kab : protocol_id
+ intruder_knowledge={a,s,b,kis}
+ composition
+   session(a,s,b,kas,kbs,succ)
+/\ session(a,s,b,kas,kbs,succ)
+/\ session(a,s,i,kas,kis,succ)
+/\ session(i,s,b,kis,kbs,succ)
+end role
+
+goal
+  secrecy_of kab
+  authentication_on bob_alice_nb
+end goal
+
+environment()

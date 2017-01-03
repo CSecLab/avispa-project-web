@@ -1,0 +1,396 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%%  SIP
+%%  simplyfied
+%%	Http auth.
+%%	In-call	(with put on hold) and out-call simulation
+%%  caller_out<-auth->proxy  ...	<--->	...	callee_out
+%%  caller_in	...	 <--->	...	proxy<auth>callee_in
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role caller(A,B,P : agent,
+				Apasswd	: text,
+			SND, RCV : channel (dy))
+
+	played_by	A def=
+		local	State: nat,
+				Algorithm	: hash,
+				Realm, Nonce : text,
+				CallID	: text,
+				Cnonce	: text,
+				MdC		: message,  %% hash(hash(agent.text.text).text.text.hash(protocol_id.agent)), 		% message digest client 	TODO: change type!
+				MdP		: message 		% message digest proxy		TODO: change type!
+
+		init	State := 0
+		
+		transition
+
+		invite1.	
+				State = 0 /\
+				RCV(start) 
+			=|> 
+				State':=10 /\
+				CallID' := new() /\
+				SND(A.invite.B.CallID')       %% Alice wants to talk to Bob, fix CallID
+
+		%% ========== case of auth. challenge =======
+
+		getAuth. %% Alice gets an authentication challenge from Proxy
+				State = 10 /\
+				RCV(B.CallID.auth.Algorithm'.Realm'.Nonce') 
+			=|>
+				State':= 20 /\
+				SND(A.B.CallID.ack)
+
+		sndResponce.
+				State = 20 /\
+				RCV(start)
+			=|>
+				State' := 30 /\
+				Cnonce':= new() /\
+				MdC':=Algorithm( Algorithm(A.Realm.Apasswd).Nonce.Cnonce'.Algorithm(invite.B)) /\  %% 2check 
+				SND(A.invite.B.CallID.Algorithm.Realm.Nonce.MdC'.Cnonce') /\
+				witness(A,P, client_md,MdC')
+
+		getProxyAuthInfo.
+				State = 30 /\
+				RCV (B.CallID.MdP'.ok) /\
+				MdP' = Algorithm( Algorithm(A.Realm.Apasswd).Nonce.Cnonce.Algorithm(B))
+			=|>
+				State' := 40 /\
+				SND (A.B.CallID.ack) /\
+				request(A,P, proxy_md, MdP')
+
+		%% ========= end case of auth challenge ======		
+		%% ========= case of no auth challenge  ======
+		ok2ack.
+				State = 10 /\
+				RCV (B.CallID.ok) 
+			=|>
+				State' := 20 /\
+				SND (A.B.CallID.ack) 
+
+			%%===========in case B puts me on hold===========
+
+		invite2ok.
+				State = 20 /\
+				RCV (B.invite.A.CallID) 
+			=|>
+				State' := 30 /\
+				SND (A.CallID.ok) 
+
+		%% ======= end case of no auth	======
+
+end role
+
+
+%% proxy
+
+role proxy(P : agent,
+			Keyring : (agent.text) set,
+			Realm : text,
+			SND, RCV : channel (dy))
+
+	played_by	P def=
+		local	State: nat,
+				Nonce: text,
+				Cnonce: text,
+				CallID : text,
+				MdC		: message, 		% message digest client 	TODO: change type!
+				MdP		: message, 		% message digest proxy		TODO: change type!
+				X,Y	: agent,
+				PasswdX : text,
+				PasswdY : text
+
+		const	md5	: hash
+
+		init	State := 11
+		
+		transition
+
+		getInviteSndAuth.	%% for out-call	
+				State = 11 /\ 
+				RCV(X'.invite.Y'.CallID') /\    %% X wants to talk to Y
+				in(X'.PasswdX', Keyring)			%% if we have user X registered here (username, passwd)
+			=|> 
+				State':=21 /\
+				Nonce' := new() /\
+				SND(Y'.CallID'.auth.md5.Realm.Nonce') 
+
+		getInCall.		%% for in-call	
+				State = 11 /\ 
+				RCV(X'.invite.Y'.CallID') /\    %% X wants to talk to Y
+				not(in(X'.PasswdX', Keyring)) /\			%% if we have no user X registered here 
+				in(Y'.PasswdY', Keyring) 		%% but we have registered Y
+			=|> 
+				State':=101 /\
+				SND(X'.invite.Y'.CallID') 	 %% sending to Y:  X wants to talk to Y
+
+		getAck.
+				State = 21 /\
+				RCV(X.Y.CallID.ack)
+			=|>
+				State' := 31 
+
+		checkAuth.  		%% if auth ok  => send invite to user
+				State = 31 /\
+				RCV(X.invite.Y.CallID.md5.Realm.Nonce.MdC'.Cnonce') /\
+				MdC' = md5( md5(X.Realm.PasswdX).Nonce.Cnonce'.md5(invite.Y))   %% 2check 
+			=|>
+				State' := 41 /\
+				SND(X.invite.Y.CallID) /\      %% sending to Y:  X wants to talk to Y
+				request(P, X, client_md,MdC')
+		
+		sndProxyAuthInfo.
+				State = 41 /\
+				RCV(Y.CallID.ok)
+			=|>
+				State' := 51 /\
+				MdP':=md5( md5(X.Realm.PasswdX).Nonce.Cnonce.md5(Y)) /\  %% 2check 
+				SND (Y.CallID.MdP'.ok) /\
+				witness(P, X, proxy_md,MdP')  
+
+		resendAckout.
+				State = 51 /\
+				RCV(X.Y.CallID.ack) /\
+				not(in(Y'.PasswdY', Keyring)) 		%% callee (Y) is not registered => finish
+			=|>
+				State':= 61 /\
+				SND(X.Y.CallID.ack)
+
+		resendAckWithAbilityHOLD.
+				State = 51 /\
+				RCV(X.Y.CallID.ack) /\
+				in(Y'.PasswdY', Keyring) 		%% callee (Y) is registered 
+			=|>
+				State':= 121 /\
+				SND(X.Y.CallID.ack)
+
+
+		%%===== for in-call
+
+		resendOk.
+				State = 101 /\
+				RCV(Y.CallID.ok)
+			=|>
+				State' := 111 /\
+				SND(Y.CallID.ok)
+
+		resendAckin.
+				State = 111 /\
+				RCV(X.Y.CallID.ack)
+			=|>
+				State' := 121 /\
+				SND (X.Y.CallID.ack) 
+
+
+	%%%=========in case of put on hold============
+
+
+		getInviteSndAuth.	
+				State = 121 /\ 
+				RCV(Y.invite.X.CallID) %/\    %% Y wants to put on hold Y
+				%% here we have user Y registered (username, passwd)
+			=|> 
+				State':=131 /\
+				Nonce' := new() /\
+				SND(X.CallID.auth.md5.Realm.Nonce') 
+
+		getAck.
+				State = 131 /\
+				RCV(Y.X.CallID.ack)
+			=|>
+				State' := 141 
+
+		checkAuth.  		%% if auth ok  => send invite to user
+				State = 141 /\
+				RCV(Y.invite.X.CallID.md5.Realm.Nonce.MdC'.Cnonce') /\
+				MdC' = md5( md5(Y.Realm.PasswdY).Nonce.Cnonce'.md5(invite.X))   %% 2check 
+			=|>
+				State' := 151 /\
+				SND(Y.invite.X.CallID) /\      %% sending to X:  Y wants to put you on hold
+				request(P, Y, in_client_md,MdC')
+		
+		sndProxyAuthInfo.
+				State = 151 /\
+				RCV(X.CallID.ok)
+			=|>
+				State' := 161 /\
+				MdP':=md5( md5(Y.Realm.PasswdY).Nonce.Cnonce.md5(X)) /\  %% 2check 
+				SND (X.CallID.MdP'.ok) /\
+				witness(P, Y, in_proxy_md,MdP')  
+end role
+
+
+
+
+role callee(B,P : agent,
+			Bpasswd 	: text,
+			SND, RCV : channel (dy))
+
+	played_by	B def=
+		local	State: nat,
+				CallID	: text,
+				Algorithm	: hash,
+				Realm, Nonce : text,
+				Cnonce	: text,
+				MdC		: message,		%% hash(hash(agent.text.text).text.text.hash(protocol_id.agent)), 		% message digest client 	TODO: change type!
+				MdP		: message, 		% message digest proxy		TODO: change type!
+				X		: agent
+		init	State := 12
+		
+		transition
+
+		getinvite.
+				State = 12 /\ 
+				RCV(X'.invite.B.CallID') 
+			=|>
+				State':=22 /\ 
+				SND(B.CallID'.ok)
+
+		getAck.
+				State = 22 /\
+				RCV (X.B.CallID.ack)
+			=|>
+				State':= 32
+
+%%
+%% ==============  Putting on hold
+%%
+
+		ifHold.
+				State = 32 /\
+				RCV(start)			%%change 2 hold
+			=|>
+				State':=42 /\
+				SND(B.invite.X.CallID)
+
+		getAuth. %% Bob gets an authentication challenge from Proxy
+				State = 42 /\
+				RCV(X.CallID.auth.Algorithm'.Realm'.Nonce') 
+			=|>
+				State':= 52 /\
+				SND(B.X.CallID.ack)
+
+		sndResponce.
+				State = 52 /\
+				RCV(start)
+			=|>
+				State' := 62 /\
+				Cnonce':= new() /\
+				MdC':=Algorithm( Algorithm(B.Realm.Bpasswd).Nonce.Cnonce'.Algorithm(invite.X)) /\  %% 2check 
+				SND(B.invite.X.CallID.Algorithm.Realm.Nonce.MdC'.Cnonce') /\
+				witness(B,P, in_client_md,MdC')
+
+		getProxyAuthInfo.
+				State = 62 /\
+				RCV (X.CallID.MdP'.ok) /\
+				MdP' = Algorithm( Algorithm(B.Realm.Bpasswd).Nonce.Cnonce.Algorithm(X))
+			=|>
+				State' := 72 /\
+				request(B,P, in_proxy_md, MdP')
+				
+
+end role
+
+role in_session(A, B, P : agent, Keyring: (agent.text) set, Bpasswd : text) def=
+
+  local 
+  		SA, RA, 
+  		SB, RB,  
+		SP, RP	: channel (dy)
+
+    composition 
+
+		caller(A,B,P, null, SA,RA)
+					/\ 
+		callee(B,P, Bpasswd, SB,RB)	
+					/\ 
+		proxy( P, Keyring, realm,  SP,RP)
+
+end role
+
+role out_session(A, B, P : agent, Keyring: (agent.text) set, Apasswd : text) def=
+
+  local 
+  		SA, RA, 
+  		SB, RB,  
+		SP, RP	: channel (dy)
+
+    composition 
+
+		caller(A,B, P, Apasswd,  SA,RA)
+					/\ 
+		callee(B,P, null, SB,RB)
+					/\ 
+		proxy( P, Keyring, realm,  SP,RP)
+
+end role
+
+role environment() def=
+
+	local
+		Keyring	: (agent.text) set,
+		
+		SP, RP	: channel (dy),
+		SB, RB	: channel (dy)
+
+    const
+		% agents
+		a, b, p, c  : agent,
+		
+		% passwords
+		caller_passwd,
+		i_passwd,
+		null			: text,
+
+		% realm
+		realm	: text,
+		
+		% security goal constants
+		in_client_md,
+		in_proxy_md	:protocol_id,		
+		
+		client_md,
+		proxy_md	:protocol_id,		
+	
+		% message constants
+		invite, try, ringing, ok, ack, auth	:protocol_id,
+		%hold : protocol_id,      					%put on hold
+
+		% temp
+		secr : protocol_id
+	
+	init Keyring := {a.caller_passwd}
+
+      intruder_knowledge = {a, b, p, c, invite, try, ringing, ok, ack, auth}%, hold}
+
+      composition
+
+		proxy(p, Keyring, realm,  SP,RP)
+/\		callee(a,p, caller_passwd, SB,RB)	
+%		/\ in_session(i,a,p,Keyring, caller_passwd)
+
+%		out_session(a,c,p,Keyring,caller_passwd)
+%		/\ in_session(b,a,p,Keyring, caller_passwd)
+
+
+
+%		/\ session(i,b,p,Keyring)
+%		/\ session(i,b)
+%		/\ session(a,i)
+
+end role
+
+
+goal
+	authentication_on proxy_md
+	authentication_on client_md
+	authentication_on in_proxy_md
+	authentication_on in_client_md
+%	authentication_on callee_proxy_mediadata
+%	secrecy_of test_secret
+end goal
+
+environment()

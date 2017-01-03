@@ -1,0 +1,157 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilebMQHnb
+
+section signature:
+
+state_client: agent * agent * public_key * public_key * symmetric_key * message * nat * nat * agent * text * public_key * nat * nat -> fact
+state_root: agent * public_key * symmetric_key * set(pair(agent,nat)) * nat * agent * agent * text * text * public_key * nat * message * nat -> fact
+state_operator: agent * agent * agent * public_key * public_key * symmetric_key * symmetric_key * message * nat * nat * message * text * text * public_key * nat -> fact
+
+
+section types:
+
+authenticate_user, op_user_authentication: protocol_id
+kroo, koc, kiro, koi, kic, kri, Kroo, Kcr, Kco: symmetric_key
+URIMap, set_141, set_138, set_135, set_114: set(pair(agent,nat))
+Z, Certificate, start, Dummy_Y, Y, dummy_msg, MGoal: message
+redirectionURI, 15, 13, 11, RedirectionURI, State, 5, X, 17, 12, 9, 8, SID, Dummy_RedirectionURI, 6, 3, 4, 2, 1, 0, Dummy_X, Dummy_State, dummy_nat, SID2, SID1: nat
+Nb, Na, Dummy_Nb, Dummy_Na, dummy_nonce, fakeNa: text
+o, r, c, O, U, R, C, Dummy_U, Dummy_O, dummy_agent, A2Goal, A1Goal, i: agent
+Kcert, Kca, Kc, Dummy_Kcert, dummy_pk, Ko, kca, ko, kc, ki_o, ki_c, kca_fake: public_key
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(o).
+ iknows(r).
+ iknows(c).
+ iknows(kca).
+ iknows(ko).
+ iknows(kc).
+ iknows(ki_o).
+ iknows(ki_c).
+ iknows(redirectionURI).
+ iknows(fakeNa).
+ iknows(i).
+ state_operator(o,c,r,ko,kca,kroo,koc,crypt(inv(kca),pair(o,ko)),0,dummy_nat,dummy_msg,dummy_nonce,dummy_nonce,dummy_pk,3).
+ state_root(r,kca,kroo,set_114,11,dummy_agent,dummy_agent,dummy_nonce,dummy_nonce,dummy_pk,dummy_nat,dummy_msg,4).
+ state_client(c,r,kc,kca,koc,crypt(inv(kca),pair(c,kc)),redirectionURI,1,dummy_agent,dummy_nonce,dummy_pk,dummy_nat,5).
+ state_root(r,kca,kroo,set_135,11,dummy_agent,dummy_agent,dummy_nonce,dummy_nonce,dummy_pk,dummy_nat,dummy_msg,8).
+ state_client(c,r,kc,kca,kic,crypt(inv(kca),pair(c,kc)),redirectionURI,1,dummy_agent,dummy_nonce,dummy_pk,dummy_nat,9).
+ state_operator(o,i,r,ko,kca,kroo,koi,crypt(inv(kca),pair(o,ko)),0,dummy_nat,dummy_msg,dummy_nonce,dummy_nonce,dummy_pk,11).
+ state_root(r,kca,kroo,set_138,11,dummy_agent,dummy_agent,dummy_nonce,dummy_nonce,dummy_pk,dummy_nat,dummy_msg,12).
+ state_operator(o,c,i,ko,kca_fake,kri,koc,crypt(inv(kca),pair(o,ko)),0,dummy_nat,dummy_msg,dummy_nonce,dummy_nonce,dummy_pk,15).
+ state_client(c,i,kc,kca,koc,crypt(inv(kca),pair(c,kc)),redirectionURI,1,dummy_agent,dummy_nonce,dummy_pk,dummy_nat,17).
+ contains(pair(c,redirectionURI),set_114).
+ contains(pair(c,redirectionURI),set_135).
+ contains(pair(i,redirectionURI),set_138)
+
+
+section rules:
+
+step step_0 (O,C,R,Ko,Kca,Kroo,Kco,Certificate,X,Y,Na,Nb,Kcert,SID) :=
+ state_operator(O,C,R,Ko,Kca,Kroo,Kco,Certificate,0,X,Y,Na,Nb,Kcert,SID).
+ iknows(start)
+ =>
+ state_operator(O,C,R,Ko,Kca,Kroo,Kco,Certificate,2,X,Y,Na,Nb,Kcert,SID).
+ iknows(scrypt(Kco,pair(O,X)))
+
+step step_1 (O,C,R,Ko,Kca,Kroo,Kco,Certificate,Dummy_X,Y,Dummy_Na,Nb,Kcert,SID,X,Na) :=
+ state_operator(O,C,R,Ko,Kca,Kroo,Kco,Certificate,2,Dummy_X,Y,Dummy_Na,Nb,Kcert,SID).
+ iknows(scrypt(Kco,pair(O,pair(C,pair(R,pair(X,Na))))))
+ =>
+ state_operator(O,C,R,Ko,Kca,Kroo,Kco,Certificate,4,X,Y,Na,Nb,Kcert,SID).
+ iknows(scrypt(Kroo,pair(R,pair(O,pair(C,pair(Na,pair(X,Certificate)))))))
+
+step step_2 (O,C,R,Ko,Kca,Kroo,Kco,Certificate,X,Y,Na,Dummy_Nb,Kcert,SID,Nb) :=
+ state_operator(O,C,R,Ko,Kca,Kroo,Kco,Certificate,4,X,Y,Na,Dummy_Nb,Kcert,SID).
+ iknows(scrypt(Kroo,crypt(Ko,Nb)))
+ =>
+ state_operator(O,C,R,Ko,Kca,Kroo,Kco,Certificate,6,X,Y,Na,Nb,Kcert,SID).
+ iknows(scrypt(Kroo,Nb)).
+ witness(O,R,op_user_authentication,Nb)
+
+step step_3 (O,C,R,Ko,Kca,Kroo,Kco,Certificate,X,Dummy_Y,Dummy_Na,Nb,Kcert,SID,Y,Na) :=
+ state_operator(O,C,R,Ko,Kca,Kroo,Kco,Certificate,6,X,Dummy_Y,Dummy_Na,Nb,Kcert,SID).
+ iknows(scrypt(Kroo,pair(O,pair(R,pair(C,pair(Na,Y))))))
+ =>
+ state_operator(O,C,R,Ko,Kca,Kroo,Kco,Certificate,8,X,Y,Na,Nb,Kcert,SID).
+ iknows(scrypt(Kco,pair(O,pair(R,pair(C,pair(Na,Y)))))).
+ witness(O,C,authenticate_user,scrypt(Kco,pair(O,pair(R,pair(C,Dummy_Na)))))
+
+step step_4 (R,Kca,Kroo,URIMap,Dummy_O,Dummy_U,Dummy_Na,Dummy_Nb,Dummy_Kcert,Dummy_RedirectionURI,Z,SID,O,U,Na,Nb,Kcert,RedirectionURI) :=
+ state_root(R,Kca,Kroo,URIMap,11,Dummy_O,Dummy_U,Dummy_Na,Dummy_Nb,Dummy_Kcert,Dummy_RedirectionURI,Z,SID).
+ iknows(scrypt(Kroo,pair(R,pair(U,pair(O,pair(Na,pair(RedirectionURI,crypt(inv(Kca),pair(U,Kcert))))))))).
+ contains(pair(O,RedirectionURI),URIMap)
+=[exists Nb]=>
+ state_root(R,Kca,Kroo,URIMap,13,O,U,Na,Nb,Kcert,RedirectionURI,Z,SID).
+ iknows(scrypt(Kroo,crypt(Kcert,Nb))).
+ contains(pair(O,RedirectionURI),URIMap)
+
+step step_5 (R,Kca,Kroo,URIMap,O,U,Na,Nb,Kcert,RedirectionURI,Z,SID) :=
+ state_root(R,Kca,Kroo,URIMap,13,O,U,Na,Nb,Kcert,RedirectionURI,Z,SID).
+ iknows(scrypt(Kroo,Nb))
+ =>
+ state_root(R,Kca,Kroo,URIMap,15,O,U,Na,Nb,Kcert,RedirectionURI,Z,SID).
+ iknows(scrypt(Kroo,pair(U,pair(R,pair(O,pair(Na,crypt(inv(Kca),pair(U,pair(R,pair(O,Na)))))))))).
+ request(R,U,op_user_authentication,Nb,SID)
+
+step step_6 (C,R,Kc,Kca,Kcr,Certificate,RedirectionURI,Dummy_U,Na,Kcert,X,SID,U) :=
+ state_client(C,R,Kc,Kca,Kcr,Certificate,RedirectionURI,1,Dummy_U,Na,Kcert,X,SID).
+ iknows(scrypt(Kcr,pair(U,X)))
+ =>
+ state_client(C,R,Kc,Kca,Kcr,Certificate,RedirectionURI,3,U,Na,Kcert,X,SID).
+ iknows(scrypt(Kcr,pair(U,pair(C,pair(R,pair(RedirectionURI,Na))))))
+
+step step_7 (C,R,Kc,Kca,Kcr,Certificate,RedirectionURI,U,Na,Kcert,X,SID) :=
+ state_client(C,R,Kc,Kca,Kcr,Certificate,RedirectionURI,3,U,Na,Kcert,X,SID).
+ iknows(scrypt(Kcr,pair(U,pair(R,pair(C,pair(Na,crypt(inv(Kca),pair(U,pair(R,pair(C,Na))))))))))
+ =>
+ state_client(C,R,Kc,Kca,Kcr,Certificate,RedirectionURI,5,U,Na,Kcert,X,SID).
+ request(C,U,authenticate_user,scrypt(Kcr,pair(U,pair(R,pair(C,Na)))),SID)
+
+
+section properties:
+
+property authentication_on_authenticate_user (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,authenticate_user,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,authenticate_user,MGoal))
+     /\ ((request(A1Goal,A2Goal,authenticate_user,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,authenticate_user,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_op_user_authentication (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,op_user_authentication,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,op_user_authentication,MGoal))
+     /\ ((request(A1Goal,A2Goal,op_user_authentication,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,op_user_authentication,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state authentication_on_authenticate_user (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,authenticate_user,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,authenticate_user,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_authenticate_user (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,authenticate_user,MGoal,SID1).
+ request(A1Goal,A2Goal,authenticate_user,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_op_user_authentication (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,op_user_authentication,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,op_user_authentication,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_op_user_authentication (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,op_user_authentication,MGoal,SID1).
+ request(A1Goal,A2Goal,op_user_authentication,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

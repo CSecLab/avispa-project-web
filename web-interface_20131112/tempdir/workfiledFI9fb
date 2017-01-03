@@ -1,0 +1,181 @@
+role client(
+A,G,S				:agent,
+SND,RCV 			:channel(dy),
+H1,H2				:hash_func,
+Minus,Union,Pred			:hash_func,
+P				:symmetric_key)
+
+
+played_by A 
+def=
+local State 			:nat,
+PW				:symmetric_key,
+Pi,DIDi,SIDj,PKSi,PKSj,Gi,IDi,TEi,TS4,TS6: text,
+Ra,Rb,Kas,Pgwn	:text
+const sec_kas1,sec_a,sec_pw	:protocol_id
+
+init State:=0
+transition
+1.State=0/\RCV(start)=|>
+State':=1
+ /\Ra':=new()
+ /\Pi':=H2(IDi.TEi.TS4.Pred(Ra',P))
+ /\DIDi':=Union(Minus(Gi,H2(H1(PW))),H2(IDi),H2(TS4))
+ /\PKSi':=Union(Minus(Union(Pred(Ra',P),Gi),H2(H1(PW))),H2(IDi,TS4))
+ /\SND(Pi',DIDi',PKSi',TS4,TEi)
+% /\witness(A,G,na,Ra')
+ /\secret(Ra',sec_a,A)
+
+2.State=1 /\RCV(PKSj.TS6.H1(SIDj).H2(H1(SIDj).TS6.Pred(Ra,P).Minus(PKSj,Pred(Ra,P),H2(TS6))))=|>
+State':=2
+ /\Kas':=H2(Pred(Ra,P).Minus(PKSj,Pred(Ra,P),H2(TS6)).Pgwn)
+ /\secret(PW,sec_pw,A)
+ /\secret(Kas',sec_kas1,{A,G,S})
+ /\request(A,G,ng,Ra)
+ /\request(A,G,ng,PW)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role gwn(
+S,G,A				:agent,
+SND,RCV 			:channel(dy),
+H1,H2				:hash_func,
+Minus,Union,Pred			:hash_func,
+P				:symmetric_key)
+
+
+played_by G
+
+def=
+local State 			:nat,
+Rs				:symmetric_key,
+Pj,DIDi,DIDj,SIDj,PKSi,PKSj,PKSg,
+IDi,TEi,TS4,TS6,TS5,RaP,Cj,Kgs,Pgwn	:text,
+Constant				:message
+const sec_kgs2,sec_s	:protocol_id
+
+init State:=0
+
+transition
+1.State=0/\RCV(DIDi.PKSi.TEi.H2(IDi.TEi.TS4.Minus(PKSi,Union(Pred(Rs,H2(Rs.TEi)).H2(IDi.TS4)))).TS4)=|>
+State':=1
+/\RaP':=Minus(PKSi,Union(Pred(Rs,H2(Rs.TEi)).H2(IDi.TS4)))
+/\Pj':=H2(SIDj.TS5.RaP')
+ /\DIDj':=Union(Pred(s,H2(Rs.TEi)),H2(IDi),H2(TS5))
+ /\PKSg':=Union(RaP',Pred(S,H2(Rs.TEi)),H2(SIDj.TS5.Constant))
+ /\SND(PKSg'.TS5.DIDj'.Pj')
+% /\witness(G,A,ns,IDi)
+ /\secret(Rs,sec_s,G)
+/\request(G,A,na,Rs)
+% /\secret(SKs',sec_sks,S)
+% /\secret(PW,sec_pw1,S)
+% /\secret(Ks',sec_ks,S)
+2.State=2 /\RCV(PKSj.H2(H1(SIDj).TS6.RaP'.Minus(PKSj,Union(RaP',H1(TS6)))))=|>
+State':=3
+/\Cj':=H2(H1(SIDj).TS6.RaP'.Minus(PKSj,Union(RaP',H1(TS6))))
+ /\Kgs':=H2(RaP'.Minus(PKSj,Union(RaP',H1(TS6))).Pgwn)
+ /\SND(PKSj.Cj'.TS6.H1(SIDj))
+ /\secret(Kgs',sec_kgs2,{A,G,S})
+ %/\request(S,A,na,Ks)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role sensor(
+S,G,A				:agent,
+SND,RCV 			:channel(dy),
+H1,H2				:hash_func,
+Minus,Union,Pred		:hash_func,
+P			:symmetric_key)
+
+
+played_by S
+
+def=
+local State 			:nat,
+Rs				:symmetric_key,
+Pj,DIDi,DIDj,SIDj,PKSi,PKSj,PKSg,
+IDi,TEi,TS4,TS6,TS5,RaPs,Cjs,Ksa,Rb,Pgwn	:text,
+Constant				:message
+const sec_ksa2,sec_b	:protocol_id
+
+init State:=0
+
+transition
+1.State=0/\RCV(PKSg.TS5.DIDj.H2(SIDj.TS5.Minus(PKSg,Union(Pred(Rs,H2(Rs.SIDj)).H2(SIDj.TS5.Constant)))))=|>
+State':=1
+/\RaPs':=Minus(PKSg,Union(Pred(Rs,H2(Rs.SIDj)).H2(SIDj.TS5.Constant)))
+ /\Rb':=new()
+ /\PKSj':=Union(RaPs',Pred(Rb',P),H2(TS6))
+/\Cjs':=H2(H1(SIDj).TS6.RaPs'.Pred(Rb',P))
+ /\SND(PKSj'.Cjs'.TS6.H1(SIDj))
+% /\witness(G,A,ns,IDi)
+ /\secret(Rb',sec_b,S)
+/\request(S,G,ng,Rb')
+% /\secret(SKs',sec_sks,S)
+% /\secret(PW,sec_pw1,S)
+% /\secret(Ks',sec_ks,S)
+ /\Ksa':=H2(RaPs'.Pred(Rb',P).Pgwn)
+ %/\SND(PKSj.Cj'.TS6.H1(SIDj))
+ /\secret(Ksa',sec_ksa2,{A,G,S})
+ %/\request(S,A,nb,Ks)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(
+A,G,S			:agent,
+H1,H2,Minus,Union,Pred	:hash_func,
+P			:symmetric_key)
+
+
+def=
+local 
+SendA,RecieveA :channel(dy),
+SendG,RecieveG :channel(dy),
+SendS,RecieveS :channel(dy)
+
+
+composition
+
+client(A,G,S,SendA,RecieveA,H1,H2,Minus,Union,Pred,P)
+/\gwn(G,S,A,SendG,RecieveG,H1,H2,Minus,Union,Pred,P)
+/\sensor(S,G,A,SendS,RecieveS,H1,H2,Minus,Union,Pred,P)
+%/\gwn(G,A,SG,RG,H1,H2,Minus,Union,Pred,P)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+const 
+na,ns,ng: protocol_id,
+a,s,g,i: agent,
+h1,h2: hash_func,
+minus,union,pred: hash_func,
+%pi,didi,sidj,pksi,pksj,gi,idi,tei,ts4,ts6,ra,rb,kas	:text,
+%idi : text
+p:symmetric_key
+%pgwn: public_key
+
+
+
+
+intruder_knowledge={a,g,s,h1,h2,minus,union,pred,p}
+
+composition
+
+session(a,g,i,h1,h2,minus,union,pred,p)
+/\session(g,a,i,h1,h2,minus,union,pred,p)
+/\session(g,s,i,h1,h2,minus,union,pred,p)
+/\session(s,g,i,h1,h2,minus,union,pred,p)
+%/\session(g,s,h1,h2,minus,union,pred,p)
+%/\session(g,i,h1,h2,minus,union,pred,p,pgwn,pi)
+%/\session(s,g,h1,h2,minus,union,pred,p)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+secrecy_of  sec_kas1,sec_kgs2,sec_a,sec_s,sec_pw,sec_b,sec_ksa2
+authentication_on na
+authentication_on ng
+authentication_on ns
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

@@ -1,0 +1,109 @@
+
+role reader(
+
+R, T     : agent,
+H        : hash_func,
+SND, RCV : channel (dy))
+
+played_by R def=
+
+local State: nat,
+Nr, Nt   : text,
+ID,K     : text,
+Auth1   : message
+
+init State := 0
+
+transition
+1. State   = 0  /\ RCV(start) =|>
+   State' := 2  /\ Nr' := new()
+                     /\ SND(Nr')
+2. State   = 2  /\ RCV((H(ID).Nr'),xor(ID,Nt'),H(ID.K.Nr'.Nt')) =|>
+   State'  := 4  /\ K':=new() 
+                     /\ ID':=new()
+                     /\ SND(H(K'.Nr.Nt)) 
+                     /\ request(R,T,rtid,ID)
+                     /\ request(R,T,rtk,K)
+                     /\ witness(R,T,trk,K')
+                     /\ secret(K',sk,{R,T})
+                    
+
+end role
+
+
+role tag(
+T, R     : agent,
+ID, K    : text,
+H         : hash_func,
+SND, RCV : channel(dy))
+
+played_by T def=
+
+local State : nat,
+Nr, Nt : text,
+Auth   : message
+
+init State := 1
+
+transition
+1. State   = 1 /\ RCV(Nr') =|>
+   State' := 3  /\ Nt':=new() 
+               /\ SND((H(ID).Nr'),xor(ID,Nt'),H(ID.K.Nr'.Nt'))
+               /\ witness(T,R,rtid,ID)
+               /\ witness(T,R,rtk,K)
+               /\ secret(Nt',id2,{R,T})
+               /\ secret(ID,id,{R,T})
+2. State  = 3  /\ RCV(H(K'.Nr.Nt)) =|>  
+   State' := 5  /\ ID':=new()   
+                     /\ K':=new()
+                     /\ secret(K',sk,{R,T})
+                     /\ request(T,R,trk,K')
+                     
+
+end role
+
+
+
+role session(
+R, T        : agent,
+ID, K       : text,
+hash        : hash_func)
+
+def=
+
+local
+
+SNDR,RCVR,SNDT,RCVT :channel (dy)
+
+composition
+
+reader(R,T,hash,SNDR,RCVR) /\ 
+tag(T,R,ID,K,hash,SNDT,RCVT)
+
+end role
+
+role environment()
+def=
+const id,id2,sk,rtid,trk,rtk : protocol_id,
+reader ,tag : agent,
+k,tid,idti,idri,kti,kri           : text,
+h               : hash_func
+
+intruder_knowledge = {tag,reader,idti,idri,h,kti,kri}
+
+composition
+  session(tag,reader,tid,k,h)
+/\session(tag,i,idti,kti,h)
+/\session(i,reader,idri,kri,h)
+
+
+end role
+
+goal
+%secrecy_of id, id2
+authentication_on rtid
+authentication_on rtk
+authentication_on trk
+
+end goal
+environment()

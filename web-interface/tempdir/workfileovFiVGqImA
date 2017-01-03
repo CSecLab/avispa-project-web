@@ -1,0 +1,208 @@
+role server (RC, U, S : agent
+             xs       : text
+             Xu       : public_key
+             Ij       : text %identity value
+             ID,SID   : text %identifier
+             h()      : hash_func
+             SND_SRC, RCV_SRC, SND_US, RCV_US: channel(dy))
+played_by S
+def=
+
+  local State : nat,
+        S     : integer, 
+        Ri,Rj : message, %requesting message
+        Vi,Vj : message, %verification massage
+        Ns,Nu : text,
+        Kj    : symmetric_key, %master key
+        SKij  : symmetric_key, %session key
+        Pi    : text %particular value
+
+  init State := 0
+  transition
+  1.State  = 0 /\ RCV_SRC(start)  =|>
+    State  = 2 /\ SND_SRC(SID)
+
+  2.State  = 2 /\ RCV_SRC(h(),Ij,Xu,xs) =|>
+    State':= 4 /\ Pi := exp(h(ID.Xu),h(exp(xs,Xu)))
+               /\ Kj := exp(Ij,Pi)
+               /\ Nu := xor(h(Kj),Ri) 
+               /\ S' := new() 
+               /\ Ns := exp(S,Kj)
+               /\ Rj := xor(h(Kj),Ns)
+               /\ Vj := h(Kj.Ns)
+               /\ SKij := h(exp(S,Nu)
+               /\ SND_US(SID,Rj,Vj)
+
+end role 
+
+
+role registration center (RC,U,S   : agent
+                          x,xs,xu  : text
+                          X,Xs,Xu  : public_key
+                          ID,SID   : text %identifier
+                          h()      : hash_func
+                          PWu      : text
+                          SND_SRC, RCV_SRC, SND_URC, RCV_URC: channel(dy))
+played_by RC
+def=
+
+  local State : nat,
+        Ii,Ij : text %identity value
+        Ti    : text %test value
+
+  init State := 1
+  transition
+  1.State  = 1 /\ RCV_SRC(SID)  =|>
+    State':= 3 /\ Ij := exp(h(SID.Xs),X)
+               /\ secret(Ij,Xu,xs,{RC,S})
+               /\ secret(x,X,{RC})
+               /\ SND_SRC(h(),Ij,Xu,xs)
+  2.State  = 3 /\ RCV_URC(ID,PWu)  =|>
+    State':= 5 /\ Ii := exp(h(ID.Xu),X)
+               /\ Ti := xor(h(ID.xu.PWu),Ii)
+               /\ secret (Ii,Xs,xu,{RC,U})
+               /\ SND_URC(h(),Ti,Xs,xu)
+
+end role
+
+
+role user (RC,U,S : agent
+           xu     : text
+           Xs     : public_key
+           Ii     : text %identity value
+           Ti     : text %test value
+           ID,SID : text %identifier
+           h()    : hash_func
+           PW     : text
+           SND_URC, RCV_URC, SND_US, RCV_US: channel(dy))
+played_by U
+def=
+
+  local State : nat,
+        u     : integer,
+        a     : text,
+        Ri,Rj : message, %requesting message
+        Vi,Vj : message, %verification massage
+        Ns,Nu : text,
+        Ki    : symmetric_key, %master key
+        SKij  : symmetric_key, %session key
+        Pj    : text, %particular value
+        PWu   : text
+       
+  init State := 5
+  transition
+  1.State':= 5 /\ a' := new() /\ u' := new() 
+               /\ PWu := h(PW.a)
+               /\ SND_URC(ID,PWu)  =|>
+    State  = 7 /\ RCV_URC(h(),Ti,Xs,xu)
+  2.State':= 7 /\ Ii := xor(h(ID.xu.PWu),Ti)
+               /\ Pj := exp(h(SID.Xs),h(exp(xu,Xs)))
+               /\ Ki := exp(Ii,Pj)
+               /\ Nu := exp(Ki,u')
+               /\ Ri := xor(h(Ki),Nu)
+               /\ Vi := h(Ki.Nu)
+               /\ SND_US(ID,Ri,Vi)  =|>
+    State  = 9 /\ RCV_US(SID,Rj,Vj)
+               /\ Ns := xor(h(Ki),Rj)
+               /\ SKij := h(exp(u,Ns))
+
+end role
+
+
+role session(RC,U,S : agent
+             Ki,Kj  : symmetric_key, %master key
+             SKij  : symmetric_key, %session key)
+def=
+  local
+   SSRC, RSRC,
+   SURC, RURC,
+   SRCS, RRCS,
+   SRCU, RRCU,
+   SSU, RSU,
+   SUS, RUS  : channel (dy))
+
+  composition
+
+      registration center(RC, U, S, X, x, Xs, xs, Xu, xu, SRCS, RRCS, SRCU, RRCU, SSRC, RSRC, SURC, RURC)
+  /\  server             (RC, U, S, xs, Xu, SSRC, RSRC, SRCS, RRCS, SSU, RSU, SUS, RUS)
+  /\  user               (RC, U, S, xu, Xs, SURC, RURC, SRCU, RRCU, SSU, RSU, SUS, RUS)
+
+
+end role
+
+
+role environment()
+def=
+  const rc, u, s                 : agent
+        Ki, Kj, SKij             : symmetric_key
+        server_user_SKij ,Ki ,Kj : protocol
+        X, Xu, Xs                : public_key
+
+  intruder_knowledge = {rc, s, u, X, Xs, Xu, xi, Xi,h()}
+
+  composition
+
+     session(rc,s,X,Xu)
+  /\ session(rc,u,X,Xs)
+  /\ session(u,s,Ki,Kj,SKij)
+  /\ session(u,s,i,xi,Xi)
+
+end role
+
+goal 
+  secrscy_of Ii,Ij,x,xs,xu,Ki,Kj,Skij
+  authentication_on user_server_Ki,Kj
+end goal
+
+environment()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

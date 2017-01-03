@@ -1,0 +1,134 @@
+role reader 
+        (R,T,BS: agent,
+         Hash,PRNG : hash_func,
+         K: symmetric_key,
+         SND_RT,RCV_RT: channel (dy),
+         SND_RS,RCV_RS: channel(ota))
+played_by R
+def=
+local
+    State : nat,
+    Nr,Nt,Id,S : text,
+    V,M,N,Hv : message
+init
+State := 0
+transition
+1. State = 0   /\ RCV_RT(start) =|>
+   State':= 1  /\ Nr':= new()
+               /\ SND_RT(Nr')
+2. State = 1   /\ RCV_RT(V'.Hv'.Nt')  =|>
+   State':= 4  /\ SND_RS(V'.Hv'.Nt'.Nr)
+3. State = 4  /\ RCV_RS({S}_K) =|>
+   State':=7  /\ M':= PRNG(S.Nr)
+               /\ N':= PRNG(M')             
+               /\ SND_RT(N')
+               /\ SND_RS(M')
+		/\ secret(K,sym_key,{BS,R})
+               /\ witness(R,T,interm,N')
+end role
+%.....................................
+
+role tag (R,T,BS: agent,
+          Hash,PRNG: hash_func, 
+          SN,RC: channel(dy))
+
+played_by T
+def=
+local
+    State : nat,
+    Nr,Nt,Id,S : text,
+    M,N,V,U,Hv : message
+init
+State := 2
+transition
+1. State = 2   /\ RC(Nr') =|>
+   State':= 3  /\ Nt' := new() 
+               /\ V':= PRNG(S.Nr'.Nt')
+               /\ Hv':= Hash(Id)
+               /\ SN(V'.Hv'.Nt')
+               /\ secret(Id,tag_identity,{T,BS}) 
+               %/\ witness(T,BS,iden_info,Hv')
+               %/\ witness (T,BS,pseudo_number,V') 
+               
+2. State = 3   /\ RC(N')  =|>
+   State':=8   /\ M':= PRNG(S.Nr)
+               /\ N':= PRNG(M')  
+               /\ request(T,R,interm,N')
+               /\ U':=PRNG(S.M')
+               /\ S':=xor(S,U')
+end role
+
+
+% Role of the server.....................
+
+role server( R,T,BS : agent,
+             Hash,PRNG :hash_func,
+             K: symmetric_key,
+             SND,RCV: channel(ota))
+played_by BS
+def=
+local
+     State : nat,
+     Nr,Nt,Id,S : text,
+     M,N,V,U,Hv : message
+init
+State := 5
+transition
+1. State = 5  /\ RCV(V'.Hv'.Nt'.Nr') =|>
+   State':= 6 /\ Hv':= Hash(Id)
+              /\ V':= PRNG(S.Nr'.Nt')
+              /\ request(BS,T,iden_info,Hv')
+              /\ request(BS,T,pseudo_number,V')
+              /\ SND({S}_K)
+              /\ secret(K,sym_key,{BS,R})
+2. State = 6  /\ RCV(M') =|>
+   State':= 9 /\ U':=PRNG(S.M')
+              /\ S':=xor(S,U')
+                                
+ end role        
+
+role session(
+R,T,BS : agent,
+Hash,PRNG : hash_func ,
+K: symmetric_key)
+def=
+local 
+      SRS,RRS,SSR,RSR : channel(ota),
+      SRT,RRT,STR,RTR : channel(dy)
+composition
+
+reader (R,T,BS,Hash,PRNG,K,SRT,RRT,SRS,RRS)
+/\ tag(R,T,BS,Hash,PRNG,STR,RTR)
+/\ server(R,T,BS,Hash,PRNG,K,SSR,RSR)
+end role
+
+
+role environment()
+def=
+const
+pseudo_number,tag_identity,iden_info,interm,sym_key: protocol_id,
+r,t,b : agent,
+h,p : hash_func,
+k: symmetric_key
+intruder_knowledge = {r,t,b,h,p}
+composition
+  session(r,t,b,h,p,k)
+/\session(i,r,b,h,p,k)
+/\ session(r,i,b,h,p,k)
+
+end role
+
+goal
+secrecy_of tag_identity
+secrecy_of sym_key
+authentication_on interm
+authentication_on pseudo_number
+authentication_on iden_info
+end goal
+
+environment()
+
+
+
+
+

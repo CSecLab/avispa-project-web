@@ -1,0 +1,85 @@
+role owner(
+               A,B,C,D:agent,
+               DEK:symmetric_key,
+                H:hash_func,
+               SND,RCV:channel(dy))
+         played_by C def=
+             local
+                 State:nat,
+                 
+                 M:message
+           
+            init
+                 State:=0
+                 transition 
+                          1.State= 0 /\RCV(start)=|>
+                             
+                                 State':=1/\PK:=(H(G.inv(y)),H(G.t1),H(G.t2),H(G.t3))
+                          
+                          2.State=1/\RCV(PK)=|>
+         
+                                 State':=2/\E:=(I,M.H(H(G.inv(y)).inv(s)),(H(G.t1).inv(s)),(H(G.t2).inv(s)),(H(G.t3).inv(s))
+                                        
+                                          /\SND({E}_I)
+    end role
+role user(
+               A,B,C,D:agent,
+               DEK:symmetric_key,
+                H:hash_func,
+               SND,RCV:channel(dy))
+         played_by A def=
+             local
+                 State:nat,
+                 M:message
+           
+            init
+                 State:=0
+                 transition 
+                          1.State= 0 /\RCV(start)=|>
+                              State':= 1 /\Uid:=new()
+                                       /\SND(Uid))     
+                   end role
+role cloudserver(
+               A,B,C,D:agent,
+               DEK:symmetric_key,
+                H:hash_func,
+               SND,RCV:channel(dy))
+         played_by D def=
+             local
+                 State:nat,
+                 
+                 M:message
+           
+            init
+                 State:=0
+                 transition 
+                          1.State= 0 /\RCV(T,C,delta(T,C)=|>
+                                     /\verify delta(T,C)
+                                     /\UL:=T
+                                     /\SND(C)
+          end role
+role session(
+                A,B,C,D:agent,
+                DEK:symmetric_key,
+                  H:hash_func)
+              def=
+                   local SA,RA,SB,RB,SC,RC,SD,RD:channel(dy)
+                   composition
+                         user(A,B,C,D,DEK,H,SA,RA)
+                       /\thirdparty(A,B,C,D,DEK,H,SB,RB)
+                       /\owner(A,B,C,D,DEK,H,SC,RC)
+                       /\cloudserver(A,B,C,D,DEK,H,SD,RD)
+      end role
+
+role environment() def=
+                      DEK     : symmetric_key,
+                      a,b,c,d : agent,
+                      h       : hash_func
+ intruder_knowledge = {a,b,c,d,h}
+                   
+               composition
+                             session(a,b,c,d,DEK,h)
+                          /\ session(a,b,c,d,DEK,h)
+                          /\ session(a,b,c,d,DEK,h)
+
+ end role

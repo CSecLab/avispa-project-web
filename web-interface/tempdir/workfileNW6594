@@ -1,0 +1,73 @@
+role base (B,M: agent,
+	   PKb: public_key,
+	   SCm: text,
+	   Snd,Rcv: channel(dy))
+
+played_by B def=
+
+	local State: nat,
+	      X: symmetric_key
+	
+	init State:=0
+
+	transition
+
+	1. State = 0 /\ Rcv (start) =|> State' := 1 /\ Snd(b.PKb)
+
+	2. State = 1 /\ Rcv ({X'}_PKb.{M.SCm}_X') =|> State' := 2 /\ wrequest(B,M,x,X')
+end role
+
+role mobile (B,M: agent,
+	     SCm: text,
+	     Snd,Rcv: channel(dy))
+played_by M def=
+
+	local State: nat,
+	      PKb: public_key,
+	      X: symmetric_key
+
+	const secx: protocol_id
+
+	init State := 0
+
+	transition 
+
+	1. State = 0 /\ Rcv(B.PKb') =|> State' := 1 /\ X' := new() /\ Snd({X'}_PKb'.{M.SCm}_X')
+						    /\ witness(M,B,x,X') /\ secret(X',secx,{B,M})
+end role 
+
+role session ( B,M: agent,
+	       PKb: public_key,
+	       SCm:text)
+def=
+	local SA, RA, SB, RB: channel (dy)
+	
+	const x : protocol_id
+
+	composition 
+		base(B,M,PKb,SCm,SA,RA)
+		/\ mobile(B,M,SCm,SB,RB)
+end role
+
+role environment() def=
+
+const 	b,m:agent,
+	kb,ki: public_key,
+	scm1,scm2,scm3: text
+
+	intruder_knowledge = {b,m,scm2,scm3,i,ki,inv(ki)}
+
+	composition 
+		session(b,m,kb,scm1)
+	      /\session(b,i,kb,scm2)
+	      /\session(i,m,ki,scm3)
+end role 
+
+goal 
+	secrecy_of secx
+
+	weak_authentication_on x
+
+end goal
+
+environment()

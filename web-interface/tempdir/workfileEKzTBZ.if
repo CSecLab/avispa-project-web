@@ -1,0 +1,104 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileEKzTBZ
+
+section signature:
+
+state_user_equipement: agent * agent * nat * nat * text * text * text * message * message * set(agent) * set(agent) * nat -> fact
+state_p_cscf: agent * agent * nat * nat * text * text * text * message * message * set(agent) * nat -> fact
+
+
+section types:
+
+sec_Kue, sec_kue, sec_kproxy, sec_id: protocol_id
+p, Kue, Id, Kproxy, Dummy_Kproxy, Dummy_Kue, dummy_nonce: text
+State, P, 3, 2, 1, 4, SID, Dummy_P, Dummy_State, dummy_nat: nat
+set_65, set_64, set_52: set
+ue, proxy, Ue, Proxy, i: agent
+Set_39, Set_38, Set_22, Dummy_Set_39, Dummy_Set_38, Dummy_Set_22, ASGoal: set(agent)
+start, X, Y, Dummy_X, Dummy_Y, dummy_msg, MGoal: message
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(ue).
+ iknows(proxy).
+ iknows(p).
+ iknows(i).
+ state_p_cscf(proxy,ue,1,dummy_nat,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,set_52,3).
+ state_user_equipement(ue,proxy,1,dummy_nat,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,set_64,set_65,4)
+
+
+section rules:
+
+step step_0 (Proxy,Ue,Dummy_P,Dummy_Kue,Dummy_Kproxy,Id,X,Dummy_Y,Dummy_Set_22,SID,P,Kue,Kproxy) :=
+ state_p_cscf(Proxy,Ue,1,Dummy_P,Dummy_Kue,Dummy_Kproxy,Id,X,Dummy_Y,Dummy_Set_22,SID).
+ iknows(pair(scrypt(P,exp(Id,Kue)),P))
+=[exists Kproxy]=>
+ state_p_cscf(Proxy,Ue,2,P,Kue,Kproxy,Id,X,scrypt(Dummy_P,exp(scrypt(Dummy_P,exp(Id,Dummy_Kue)),Kproxy)),Dummy_Set_22,SID).
+ iknows(scrypt(Dummy_P,exp(scrypt(Dummy_P,exp(Id,Dummy_Kue)),Kproxy))).
+ secret(Kproxy,sec_kproxy,Proxy).
+ secret(Id,sec_id,Dummy_Set_22).
+ contains(Proxy,Dummy_Set_22).
+ contains(Ue,Dummy_Set_22)
+
+step step_1 (Proxy,Ue,P,Kue,Kproxy,Id,X,Y,Set_22,SID) :=
+ state_p_cscf(Proxy,Ue,2,P,Kue,Kproxy,Id,X,Y,Set_22,SID).
+ iknows(scrypt(P,exp(Id,Kproxy)))
+ =>
+ state_p_cscf(Proxy,Ue,3,P,Kue,Kproxy,Id,X,Y,Set_22,SID)
+
+step step_2 (Ue,Proxy,Dummy_P,Dummy_Kue,Id,Kproxy,Dummy_X,Y,Dummy_Set_38,Set_39,SID,P,Kue) :=
+ state_user_equipement(Ue,Proxy,1,Dummy_P,Dummy_Kue,Id,Kproxy,Dummy_X,Y,Dummy_Set_38,Set_39,SID).
+ iknows(start)
+=[exists P,Kue]=>
+ state_user_equipement(Ue,Proxy,2,P,Kue,Id,Kproxy,scrypt(P,exp(Id,Kue)),Y,Dummy_Set_38,Set_39,SID).
+ iknows(pair(scrypt(P,exp(Id,Kue)),P)).
+ secret(Id,sec_id,Dummy_Set_38).
+ secret(Kue,sec_kue,Ue).
+ contains(Ue,Dummy_Set_38).
+ contains(Proxy,Dummy_Set_38)
+
+step step_3 (Ue,Proxy,P,Kue,Id,Dummy_Kproxy,X,Y,Set_38,Dummy_Set_39,SID,Kproxy) :=
+ state_user_equipement(Ue,Proxy,2,P,Kue,Id,Dummy_Kproxy,X,Y,Set_38,Dummy_Set_39,SID).
+ iknows(scrypt(P,exp(scrypt(P,exp(Id,Kue)),Kproxy)))
+ =>
+ state_user_equipement(Ue,Proxy,3,P,Kue,Id,Kproxy,X,Y,Set_38,Dummy_Set_39,SID).
+ iknows(scrypt(P,exp(Id,Dummy_Kproxy))).
+ secret(Id,sec_id,Dummy_Set_39).
+ contains(Ue,Dummy_Set_39).
+ contains(Proxy,Dummy_Set_39)
+
+
+section properties:
+
+property secrecy_of_sec_kproxy (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_kproxy,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_sec_id (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_id,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_sec_kue (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_kue,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_sec_kproxy (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_kproxy,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_sec_id (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_id,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_sec_kue (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_kue,ASGoal) &
+ not(contains(i,ASGoal))
+

@@ -1,0 +1,123 @@
+%% PROTOCOLE: IMS-AKA+
+%% BUT: 
+%% Authentication and Key Agreement
+%% Terminal_Serveur:
+%% S est le serveur (S-CSCF), M est le terminal (UE), ils partagent une clé secète Sk.
+%% S publie une équation de courbe elliptique , un  point de base P sur la courbe , deux fonctions de hachage H et H1
+%% M ---> S : V=x*P 
+%%            M génère aléatoirement sa clé privée x et calcule clé publique V=x*P
+%%
+%% UE ---> M : W= c*P , Auths= H1 (W | c*h(Sk)*V)
+%%            A la réception de V, S génère sa clé privée c et calcule une clé AICK= c*h(Sk)*V
+%%            ensuite, il calcule son jeton d'authentification Auths
+%% 
+%% UE ---> S : Authu= H1( V| a*h(Sk)*W
+%%            A la réception de Auths, M calcule une clé AICK= x*h(Sk)*W
+%%            et vérifie Auths, si ok , il envoie Authu
+%% S ---> UE : 200OK
+%%      S vérifie si Authu est correcte 
+%%      Si oui, S envoie 200OK au terminal
+%%
+%% Le but est qu'à la fin, les deux (serveur et terminal) s'authentifient mutuellement et partagent 
+%% un point AICK
+%%
+%% HLPSL
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role server ( 
+              S,UE: agent,  
+              Sk: symmetric_key, %% clé secrète partagée entre serveur et terminal
+              P: public_key, %% clé publique
+              H,H1: hash_func, %% foncions de hachage
+              SND,RCV: channel(dy) 
+
+            ) played_by S def=
+local 
+     State: nat,
+     X,C: text %X: clé privée du terminal et C clé privée du serveur
+const
+     sec_C, sec_aick : protocol_id
+
+init State := 1
+transition
+
+0. State = 1   /\ RCV (sipregister.{X'}_P) =|>
+   State':= 2  /\  C':=new()
+  
+   /\  SND (sip401.{C'}_P.H1({C'}_P.{C'.H(Sk).X}_P)) 
+   /\  witness (S, UE, nc, H1({C'}_P.{C'.H(Sk).X}_P)) 
+   /\  secret (C', sec_C, S) 
+   /\  secret ({C'.H(Sk).X}_P, sec_aick, {S,UE}) 
+   
+1. State = 2 /\ RCV (sipregister.H1({X}_P.{X.H(Sk).C}_P)) =|>  
+   State' := 3
+    /\ SND(sip200)
+    /\ request (S ,UE, nx , H1({X}_P.{X.H(Sk).C}_P))
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role user_equipement ( 
+              UE,S: agent,
+              Sk: symmetric_key,  %% clé secrète partagée entre le terminal et serveur
+              P: public_key,
+              H,H1: hash_func,  %% fonctions de hachage
+              SND,RCV: channel(dy)
+                     ) played_by UE def=
+local 
+     State: nat,
+     X,C: text %% X clé privée du terminal et C clé privée du serveur
+const
+     sec_X, sec_aick: protocol_id
+init State:=1
+%% Définition des échanges
+transition
+1. State = 1 /\ RCV(start) =|>
+   State':=2 /\ X':= new() %% instantiation de la clé privée du terminal
+             /\ SND(sipregister.{X'}_P) %% 
+             /\ secret(X', sec_X ,UE)
+
+2. State=2 /\ RCV (sip401.{C'}_P.H1({C'}_P.{C'.H(Sk).X}_P)) =|>
+   State':= 3
+    /\ SND(sipregister.H1({X}_P.{X.H(Sk).C}_P))
+    /\ witness (UE,S,nx, H1({X}_P.{X.H(Sk).C}_P))%% 
+    /\ request (UE,S,nc, H1({C}_P.{C.H(Sk).X}_P))%% 
+    /\ secret ({X.H(Sk).C}_P,sec_aick,{UE,S})
+
+3. State = 3 /\ RCV(sip200) =|> State':= 4
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session        ( UE, S  : agent , 
+                      Sk: symmetric_key,
+                      P: public_key ,
+                      H,H1  : hash_func 
+                    ) 
+def= 
+local SND, RCV : channel(dy)
+composition
+      
+   user_equipement (UE, S,Sk,P,H,H1, SND, RCV)
+   /\ server (S, UE,Sk, P, H,H1,SND, RCV)  
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment ( ) 
+def= 
+const  
+ue,s   : agent , 
+nx, nc  : protocol_id ,
+sip401,sip200,sipregister: protocol_id,        
+sk: symmetric_key,
+p  : public_key,
+h, h1  : hash_func  
+ 
+intruder_knowledge={ue, s, h, h1, p,sip401,sip200,sipregister,i} 
+
+composition 
+    session (ue, s, sk,p, h, h1) 
+   %% /\   session (ue, s, sk,p, h, h1) %% pour le rejeu
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal 
+secrecy_of  sec_C,   sec_X ,sec_aick 
+authentication_on nx 
+authentication_on nc 
+end goal 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment ()

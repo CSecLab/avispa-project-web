@@ -1,0 +1,129 @@
+role role_MR(MR:agent,MAP:agent,CAAA:agent,HA:agent,AR2:agent,LK:symmetric_key,H:function,Ki:symmetric_key,NSK:symmetric_key,BitI:text,BitR:text,SIDD:text,SND,RCV:channel(dy))
+played_by MR
+def=
+	
+local
+		State:nat,N1:text,NLCoA:text,ACK2:text,N2:text,N3:text
+const
+		irtsolpr  : text,
+		iprtadv  : text,
+		fna      : text,
+		lbu : text,
+		flback:text,
+		nid:text,
+		sec_n1 : protocol_id,
+		sec_n2 : protocol_id
+		
+		
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ N1':=new() /\ N2':=new() /\ SND(irtsolpr (SIDD.BitI.{SIDD.N2'.N1'}_LK.H(BitI.BitR.SIDD.LK).H(SIDD.MR.N1'.Ki).H(SIDD.MR.N1'.LK))) /\ witness (MR, CAAA, auth_1, N2') /\ secret(N1',sec_n1, {MR,CAAA}) /\ secret(N2',sec_n2,{MR,CAAA,AR2})
+		4. State=1 /\ RCV(iprtadv(SIDD.N3'.NLCoA'.H(SIDD.NLCoA'.H(MR.MAP.SIDD.N3'.LK)))) /\ request(MR,MAP, auth_2,H(MR.MAP.SIDD.N3'.LK))=|> State':=2 
+		9. State=2 /\ RCV(flback(SIDD.{SIDD.N2.AR2}_NSK.H(H(MR.MAP.SIDD.N3.LK).ACK2'))) =|> State':=3 %NID':=new() 
+ /\ SND(lbu(SIDD.H(SIDD.H(MR.MAP.SIDD.N3.LK)))) /\ SND(fna(SIDD.nid.{SIDD.N2.AR2.MR}_NSK))
+end role
+
+role role_MAP(MAP:agent,CAAA:agent,MR:agent,AR2:agent,KAAAMAP:symmetric_key,H:function,NLCoA:text,SND,RCV:channel(dy))
+played_by MAP
+def=
+	local
+		State:nat,Ki:symmetric_key,N1:text,BitI:text,BitR:text,ACK:text,N4:text,NID:text,ACK2:text,N2:text,NSK:symmetric_key,LK:symmetric_key,SIDD:text,N3:text
+const		
+		irtsolpr  : text,
+		aaa_auth_req,
+		aaa_auth_rep,
+		iprtadv  : text,
+		fna      : text,
+		lbu : text,
+		hi : text,
+		hack : text,
+		flback:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(irtsolpr(SIDD'.BitI'.{SIDD'.N2'.N1'}_LK'.H(BitI'.BitR'.SIDD'.LK').H(SIDD'.MR.N1'.Ki').H(SIDD'.MR.N1'.LK'))) =|> State':=1 /\ SND(aaa_auth_req(SIDD'.N1'.BitI'.{SIDD'.N2'.N1'}_LK'.H(BitI'.BitR'.SIDD'.LK').H(SIDD'.MR.N1'.LK')))
+		3. State=1 /\ RCV(aaa_auth_rep(SIDD.N3'.{H(MR.MAP.SIDD.N3'.LK).N4'.SIDD}_KAAAMAP)) =|> State':=2 /\ SND(iprtadv(SIDD.N3'.NLCoA.H(SIDD.NLCoA.H(MR.MAP.SIDD.N3'.LK)))) /\ witness(MAP,MR, auth_2,H(MR.MAP.SIDD.N3'.LK)) /\ SND(hi(SIDD.NLCoA.H(NLCoA.KAAAMAP).{SIDD.N4'}_KAAAMAP))
+		8. State=2 /\ RCV(hack(NID'.{SIDD.N2.AR2}_NSK'.H(SIDD.N4.ACK'))) =|> State':=3 /\ ACK2':=new() /\ SND(flback(SIDD.{SIDD.N2.AR2}_NSK'.H(H(MR.MAP.SIDD.N3.LK).ACK2')))
+		11. State=3 /\ RCV(lbu(SIDD.H(SIDD.H(MR.MAP.SIDD.N3.LK)))) =|> State':=4
+end role
+
+role role_CAAA(CAAA:agent,LK:symmetric_key,MAP:agent,MR:agent,AR2:agent,HA:agent,KAAAMAP:symmetric_key,H:function,KARAAA:symmetric_key,KAA:symmetric_key,NSK:symmetric_key,SND,RCV:channel(dy))
+played_by CAAA
+def=
+	local
+		State:nat,N1:text,BitI:text,BitR:text,N3:text,NLCoA:text,N2:text,SIDD:text,N4:text
+	const
+		aaa_auth_req :text,
+		aaa_auth_rep :text, 
+		auth1:protocol_id,
+		sec_nsk : protocol_id,
+		sec_n4 : protocol_id
+		
+	init
+		State := 0
+	transition
+		2. State=0 /\ RCV(aaa_auth_req(SIDD'.N1'.BitI'.{SIDD'.N2'.N1'}_LK.H(BitI'.BitR'.SIDD'.LK).H(SIDD'.MR.N1'.LK))) /\ request(CAAA,MR,auth1,N1') =|> State':=1   /\ N4':=new() /\ N3':=new() /\ SND(aaa_auth_rep(SIDD'.N3'.{H(MR.MAP.SIDD'.N3'.LK).N4'.SIDD'}_KAAAMAP)) /\ secret(N4,sec_n4,{CAAA,MAP})
+		6. State=1 /\ RCV(aaa_auth_req(SIDD.NLCoA'.H(NLCoA'.SIDD.KAAAMAP).{SIDD.N4}_KAAAMAP)) =|> State':=2 /\ SND(aaa_auth_rep(SIDD.{SIDD.NSK.N2.N4}_KARAAA)) /\ secret(NSK,sec_nsk,{CAAA,AR2,MR})
+end role
+
+role role_HA(HA:agent,CAAA:agent,MR:agent,MAP:agent,Ki:symmetric_key,H:function,KAA:symmetric_key,SND,RCV:channel(dy))
+played_by HA
+def=
+	local
+		State:nat
+	init
+		State := 0
+	transition
+end role
+
+role role_AR2(AR2:agent,MAP:agent,MR:agent,CAAA:agent,KARAAA:symmetric_key,H:function,SND,RCV:channel(dy))
+played_by AR2
+def=
+	local
+		State:nat,KAAAMAP:symmetric_key,NLCoA:text,ACK:text,N4:text,NSK:symmetric_key,SIDD:text,N2:text,NID:text
+	const		
+		irtsolpr  : text,
+		aaa_auth_req,
+		aaa_auth_rep,
+		iprtadv  : text,
+		fna      : text,
+		lbu : text,
+		hi : text,
+		hack : text,
+		flback : text
+	init
+		State := 0
+	transition
+		5. State=0 /\ RCV(hi(SIDD'.NLCoA'.H(NLCoA'.KAAAMAP').{SIDD'.N4'}_KAAAMAP')) =|> State':=1 /\ SND(aaa_auth_req(SIDD'.NLCoA'.H(NLCoA'.SIDD'.KAAAMAP').{SIDD'.N4'}_KAAAMAP'))
+		7. State=1 /\ RCV(aaa_auth_rep(SIDD.{SIDD.NSK'.N2'.N4}_KARAAA)) =|> State':=2 /\ ACK':=new() /\ NID':=new() /\ SND(hack(NID'.{SIDD.N2'.AR2}_NSK'.H(SIDD.N4.ACK')))
+		10. State=2 /\ RCV(fna(SIDD.nid.{SIDD.N2.AR2.MR}_NSK)) =|> State':=3
+end role
+
+role session1(KAA:symmetric_key,Ki:symmetric_key,HA:agent,NLCoA:text,BitI:text,BitR:text,SIDD:text,LK:symmetric_key,KAAAMAP:symmetric_key,NSK:symmetric_key,AR2:agent,MAP:agent,MR:agent,CAAA:agent,KARAAA:symmetric_key,H:function)
+def=
+	local
+		SND5,RCV5,SND4,RCV4,SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_AR2(AR2,MAP,MR,CAAA,KARAAA,H,SND5,RCV5) /\ role_HA(HA,CAAA,MR,MAP,Ki,H,KAA,SND4,RCV4) /\ role_CAAA(CAAA,LK,MAP,MR,AR2,HA,KAAAMAP,H,KARAAA,KAA,NSK,SND3,RCV3) /\ role_MAP(MAP,CAAA,MR,AR2,KAAAMAP,H,NLCoA,SND2,RCV2) /\ role_MR(MR,MAP,CAAA,HA,AR2,LK,H,Ki,NSK,BitI,BitR,SIDD,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		hash_0:function,kArAaa:symmetric_key,mr:agent,ar2:agent,kAaaMap:symmetric_key,sidd:text,bitI:text,ha:agent,kaa:symmetric_key,ki:symmetric_key,nlcoa:text,bitR:text,lk:symmetric_key,nsk:symmetric_key,map:agent,caaa:agent,h:function,auth_1:protocol_id,auth_2:protocol_id,sec_n1:protocol_id,sec_n2:protocol_id,sec_n4:protocol_id,sec_nsk:protocol_id
+	intruder_knowledge = {map,caaa,ha,mr,ar2}
+	composition
+		session1(kaa,ki,ha,nlcoa,bitI,bitR,sidd,lk,kAaaMap,nsk,ar2,map,mr,caaa,kArAaa,h)
+end role
+
+goal
+	authentication_on auth_1
+	authentication_on auth_2
+	secrecy_of sec_n1,sec_n2,sec_n4,sec_nsk
+	
+	
+	
+end goal
+
+environment()

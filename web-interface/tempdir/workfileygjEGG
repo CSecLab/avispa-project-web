@@ -1,0 +1,250 @@
+%% PROTOCOL: Privacy-Aware Handover
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role server(S,M : agent,
+	    Snd, Rec: channel(dy),
+            K_M: symmetric_key,							% Main secret key of the Mobile (UE)
+            Seq : text,								% Sequence #
+            F1,F2,F5,F_add,F_asme,F_kenb,F_guti: hash_func,			% F1, F2 and F5 are from UMTS functions. F_add is increase the sequence#. F_asme, F_kenb, F_guti are our proposal functions
+	    Km,Ks: public_key)							% Km is public of mobile, Ks is public of server
+played_by S									% Server (AuSrv, or MME)
+def=
+
+  local State 				: nat,
+	Kasme, Kenb1, Kenb2		: symmetric_key,			% Kenb1 is first Kenb, before handover. Kenb2 is Kenb after handover
+	R, Guti1, Guti2, Sign1, Sign2  	: text					% Guti1 is first GUTI, before handover. Guti2 is GUTI after handover. Sing1 and Sign2 are signatures of server for the first and second sets of GUTI and Kenb
+
+  const
+	 seq_1_s, k_asme_s, guti_1_s		: protocol_id,
+	 kenb_1_s, sign_1_s, sign_2_s 		: protocol_id
+
+
+  init  State := 0 
+
+  transition
+
+    1.  State = 0 /\ Rec(S.M) =|> 						% Receives the request from UE to start
+        State':=2 /\ R' := new()						% Generate a RAND
+                  /\ Snd(M.S.R'.{Seq}_F5(K_M.R').F1(K_M.Seq.R')) 		% Sends AV (RAND, MAC and Seq) to UE 
+	 	  /\ secret(Seq,seq_1_s,{S,M})					% Check the secrecy of Seq with UE
+		  /\ witness(S,M,r1,R')						% Respons to check the secrecy of RAND with UE
+
+    2.  State = 2 /\ Rec(S.M.F2(K_M.R))  =|> 					% Receiving acknowledge from UE
+        State':=4 /\ Seq' := F_add(Seq.1) 					% Increase the Seq# for next time
+		  /\ Kasme' := F_asme(K_M.R)					% Calculates Kasme
+		  /\ Guti1' := F_guti(M,K_M,Seq)				% Calculates first GUTI
+		  /\ wrequest(S,M,r2,R)						% Weak_Authentication request
+		  /\ secret(Kasme',k_asme_s,{S,M})				% Checks the secrecy of Kasme with UE
+		  /\ secret(Guti1',guti_1_s,{M,S})				% Checks the secrecy of GUTI with UE
+		  /\ Snd(M.S.1)							% Goes to next step
+
+
+    3. State = 4  /\ Rec(S.M.2) =|>						% Starts the next step
+       State':=6  /\ Kenb1' := F_kenb(Kasme,Guti1)				% Calculates teh first Kenb 
+		  /\ secret(Kenb1',kenb_1_s,{M,S})				% Checks teh secrecy of Kenb with UE
+%		  /\ Snd(M.{F_kenb}_Kasme)					% Goes to next step
+		  /\ Snd(M.3)							% Goes to next step
+
+    4. State = 6  /\ Rec(S.M.4) =|>						% Next step
+       State':=8  /\ Sign1' := {Guti1.Kenb1}_inv(Ks)				% Calculates signature on first GUTI and Kenb
+		  /\ Snd(M.{Sign1'}_Kasme)					% Sends the signature to UE, encrypts it with Kasme
+		  /\ secret(Sign1',sign_1_s,{M,S})				% Checks the secrecy of the sent signature with UE
+
+    5. State = 8  /\ Rec(S.M.5) =|>						% Next step (handover preparation)
+       State':=10 /\ Seq' := F_add(Seq.1) 					% Calculates the next Seq#
+		  /\ Guti2' := F_guti(Guti1,K_M,Seq)				% Calculates the second GUTI
+  		  /\ Kenb2' := F_kenb(Kenb1,Guti2')				% Calculates the second Kenb
+		  /\ Sign2' := {Guti2'.Kenb2'}_inv(Ks)				% Calculates the signature on the new GUTI and Kenb
+		  /\ Snd(M.{Sign2'}_Kasme)					% Sends the signature to UE, encrypted with Kasme
+		  /\ secret(Sign2',sign_2_s,{M,S})				% Checks secrecy of the signature with UE
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role mobile(M,S,A:agent,
+            SndS, RecS, SndA, RecA	: channel(dy),
+            K_M				: symmetric_key,
+            Seq				: text,
+            F1,F2,F5,F_add,F_asme	: hash_func,
+	    Km,Ks,Ka			: public_key)				% Kc is public of BS or AP
+played_by M									% Mobile (UE)
+def=
+
+  local State :nat, 
+	Kasme, Kenb1, Kenb2		: symmetric_key,
+	F_kenb, F_guti			: hash_func,
+	R, Guti1, Guti2, Sign1, Sign2	: text
+
+  const
+        seq_2_s, k_asme_m, guti_1_m, kenb_1_m		: protocol_id,
+        kenb_1_ma, guti_1_ma, sign_1_m			: protocol_id,
+        kenb_2_ma, guti_2_ma, sign_2_m			: protocol_id
+
+  init  State := 1
+
+  transition
+
+    1.  State = 1  /\ RecS(start) =|> 						% Starts
+        State':= 3 /\ SndS(S.M)  						% Sends request to server (MME)
+
+    2.  State = 3  /\ RecS(M.S.R'.{Seq}_F5(K_M.R').F1(K_M.Seq.R')) =|>  	% Receives AV (RAND and Seq and MAC) from server
+        State':= 5 /\ Kasme' := F_asme(K_M.R')					% Calculates Kasme
+		   /\ secret(Seq,seq_2_s,{M,S})					% Checks the secrecy of Seq# with server
+		   /\ secret(Kasme',k_asme_m,{M,S})				% Checks the secrecy of calculated Kasme with server
+		   /\ SndS(S.M.F2(K_M.R'))					% Sends acknowledge using F2 to server 
+		   /\ wrequest(M,S,r1,R') 					% Weak_Authenticate request from server
+		   /\ witness(M,S,r2,R')					% Weak_Authenticate response to server
+
+    3.  State = 5  /\ RecS(M.S.1) =|>				% Starts the new step
+	State':= 7 /\ Seq' := F_add(Seq.1)					% Calculates the next Seq#
+		   /\ SndS(S.M.2)						% Goes to next step
+
+    4.  State = 7  /\ RecS(M.3) =|>				% Next step
+	State':= 9 /\ Guti1' := F_guti(M,K_M,Seq)				% Calculates first GUTI
+		   /\ secret(Guti1',guti_1_m,{M,S})				% Checks secrecy of GUTI with server
+		   /\ SndS(S.M.4)						% Next step
+
+     5. State = 9  /\ RecS(M.{Sign1'}_Kasme) =|>				% Receives the signature from server, and decryps it with Kasme
+	State':=11 /\ Kenb1' := F_kenb(Kasme,Guti1)				% Calculates first Kenb
+		   /\ secret(Kenb1', kenb_1_m, {M,S})				% Checks secrecy of Kenb with server
+		   /\ secret(Sign1', sign_1_m, {S,M})				% Checks secrecy of received signature from server with server
+		   /\ SndS(S.M.5)						% goes to next step with server (getting ready for handover)
+		   /\ SndA(A.{Seq.Guti1.Kenb1'.Sign1'}_Ka)			% Intruducing to AP, sends GUTI and key all encrypted with public key of AP
+		   /\ secret(Guti1, guti_1_ma, {M,A})				% Checks secrecy of GUTI with AP
+		   /\ secret(Kenb1', kenb_1_ma, {M,A})				% Checks secrecy of Kenb with AP
+		   /\ witness(M,A,r3,Guti1)					% Weak_Authentication response to AP
+
+     6. State = 11 /\ RecS(M.{Sign2'}_Kasme) =|>				% Receives the new signature for next handover values
+	State':=13 /\ Seq' := F_add(Seq.1)					% Calculates the next Seq#
+		   /\ Guti2' := F_guti(Guti1, K_M, Seq)				% Calculates the next GUTI
+		   /\ Kenb2' := F_kenb(Kenb1, Guti2')				% Calculates the next Kenb
+		   /\ secret(Sign2', sign_2_m, {S,M})				% Checks secrecy of the received signature from server with server
+
+     7. State = 13 /\ RecA(M.A.{Guti1}_Kenb1) =|>				% Receives acknowldge from AP, from now can go to handover
+	State':=15 /\ SndA(A.{Seq.Guti2.Kenb2.Sign2}_Ka)			% Send the new sets for a handover
+		   /\ witness(M,A,r3,Guti1)					% Weak_Authentication response to AP
+
+     8. State = 15 /\ RecA(M.A.{Guti2}_Kenb2) =|>				% Receives acknowledge from AP				
+	State':=17 /\ secret(Guti2, guti_2_ma, {M,A})				% Check secrecy of the second GUTI with AP
+		   /\ secret(Kenb2, kenb_2_ma, {M,A})				% Check secrecy of the second Kenb with AP
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role ap(A,M,S:agent,
+            Snd, Rec: channel(dy),
+	    Ka,Ks: public_key)
+played_by A									% Base Station or Access Point (BS or AP)
+def=
+
+  local State :nat, 
+	Kenb1,Kenb2		: symmetric_key,
+	Guti1, Seq1, Sign1  : text,
+	Guti2, Seq2, Sign2  : text
+
+  const
+        seq_1_a, guti_1_a, kenb_1_a : protocol_id,
+        seq_2_a, guti_2_a, kenb_2_a : protocol_id
+
+  init  State := 20
+
+  transition
+
+    1.  State = 20 /\ Rec(A.{Seq1'.Guti1'.Kenb1'.Sign1'}_Ka)			% Receive Seq, GUTI an dKenb from mobile
+		   /\ Sign1' = {Seq1'.Guti1'.Kenb1'}_inv(Ks)			% Verifies the signature of server
+	 =|> 
+        State':=21 /\ secret(Seq1',seq_1_a,{A,M})				% Checks secrecy of received Seq# with mobile
+		   /\ secret(Guti1',guti_1_a,{A,M})				% Checks secrecy of received GUTI with mobile
+		   /\ secret(Kenb1',kenb_1_a,{A,M})				% Checks secrecy of received Kenb with mobile
+		   /\ Snd(M.A.{Guti1'}_Kenb1')					% Acknowledges mobile
+		   /\ wrequest(A,M,r3,Guti1') 					% Weak_Authentication request to mobile
+
+    2.  State = 21 /\ Rec(A.{Seq2'.Guti2'.Kenb2'.Sign2'}_Ka)			% Receives the new set, asuming a handover
+		   /\ Sign2' = {Seq2'.Guti2'.Kenb2'}_inv(Ks)			% Verifies the signature of server on the second set
+	 =|> 									
+        State':=22 /\ secret(Seq2',seq_1_a,{A,M})				% Checks secrecy of new received Seq# with mobile
+		   /\ secret(Guti2',guti_1_a,{A,M})				% Checks secrecy of new received GUTI with mobile
+		   /\ secret(Kenb2',kenb_1_a,{A,M})				% Checks secrecy of new received Kenb with mobile
+		   /\ Snd(M.A.{Guti2'}_Kenb2')					% Sends acknowledge to mobile
+		   /\ wrequest(A,M,r4,Guti2') 					% Weak_Authentication request to mobile
+
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(M,S,A: agent,
+	     K_M: symmetric_key,
+	     Seq: text,
+             F1,F2,F5,F_add,F_asme,F_kenb,F_guti: hash_func,
+             SMs,RMs,SMa,RMa,SS,RS,SA,RA: channel(dy),
+	     Km,Ks,Ka: public_key) def=
+
+   composition
+
+	 mobile(M,S,A,SMs,RMs,SMa,RMa,K_M,Seq,F1,F2,F5,F_add,F_asme,Km,Ks,Ka)	% Calls mobile role
+      /\ server(S,M,SS,RS,K_M,Seq,F1,F2,F5,F_add,F_asme,F_kenb,F_guti,Km,Ks)	% Calls server role
+	/\ ap(A,M,S,SA,RA,Ka,Ks)						% Calls AP role
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+ local Sms,Rms,Sma,Rma,Smi,Rmi,Sis,Ris,Sia,Ria,Ss,Rs,Si,Ri,Sa,Ra : channel (dy)
+
+ const 	r1, r2, r3, r4	       		: protocol_id,
+       	m, i, s, a               	: agent,
+       	k_ms, k_is, k_mi        	: symmetric_key,
+       	f1, f2, f5, f_add             	: hash_func,
+       	f_asme, f_kenb,f_guti           : hash_func,
+	ks, kap1, kap2, ki, km, ka	: public_key,	
+       	seq_ms, seq_is, seq_mi 		: text
+
+ intruder_knowledge={a,m,s,i,f1,f2,f5,f_add,f_asme,f_kenb,f_guti,ki, inv(ki)}
+
+ composition
+ 
+	% Runs regular rols
+	session(m,s,a,k_ms,seq_ms,f1,f2,f5,f_add,f_asme,f_kenb,f_guti,Sms,Rms,Sma,Rma,Ss,Rs,Sa,Ra,km,ks,ka)	
+ 	% Runs when intruder is a mobile
+   /\	session(i,s,a,k_is,seq_is,f1,f2,f5,f_add,f_asme,f_kenb,f_guti,Sis,Ris,Sia,Ria,Ss,Rs,Sa,Ra,ki,ks,ka)
+	% Runs when intruder is a server
+   /\	session(m,i,a,k_mi,seq_mi,f1,f2,f5,f_add,f_asme,f_kenb,f_guti,Smi,Rmi,Sma,Rma,Si,Ri,Sa,Ra,km,ki,ka)
+	% Runs when intruder is an AP
+   /\	session(m,s,i,k_ms,seq_ms,f1,f2,f5,f_add,f_asme,f_kenb,f_guti,Sms,Rms,Smi,Rmi,Ss,Rs,Si,Ri,km,ks,ki)
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  % Confidentiality
+  secrecy_of seq_1_s, seq_2_s
+  secrecy_of k_asme_m, k_asme_s
+  secrecy_of guti_1_m, guti_1_s
+  secrecy_of kenb_1_m, kenb_1_s
+  secrecy_of guti_1_ma, guti_1_a
+  secrecy_of kenb_1_ma, kenb_1_a
+  secrecy_of sign_1_m, sign_1_s
+  secrecy_of seq_1_a, seq_2_a
+  secrecy_of sign_2_m, sign_2_s
+  secrecy_of guti_2_ma, kenb_2_ma
+
+  % Authentication
+  weak_authentication_on r1
+  weak_authentication_on r2
+  weak_authentication_on r3
+  weak_authentication_on r4
+
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

@@ -1,0 +1,172 @@
+role peer(P,S      : agent,
+          G        : text,
+          PRF      : hash_func,
+          Kp, Ks   : public_key,
+          SND, RCV : channel (dy))
+played_by P def=
+     
+  local
+    Ni, SAi1 : text,
+    KEi      : message,
+    Nr, DHr  : text,
+    SK       : hash(text.text.message),
+    State    : nat
+
+  const
+    request_id : text,
+    respond_id : text,
+    success    : text,
+    sec_sk1,
+    ni, nr     : protocol_id
+
+  init
+    State := 0
+
+  transition
+
+  0. State   = 0
+       / RCV(request_id)
+     =|>
+     State' := 2
+       / SND(respond_id.P)
+
+  2. State   = 2
+       / RCV(SAi1'.KEi'.Ni')
+     =|>
+     State' := 4
+       / DHr' := new()
+       / Nr'  := new()
+       / SND(SAi1'.exp(G,DHr').Nr')
+       / SK' := PRF(Ni'.Nr'.exp(KEi',DHr'))
+       / secret(SK',sec_sk1,{S,P})
+       / witness(P,S,nr,Nr')
+
+  % As opposed to IKEv2, in EAP-IKEv2 there is no negotiation of a 
+  % CHILD_SA => no second SA payload and no traffic selector payload
+  4. State   = 4
+       / RCV({S.{SAi1.KEi.Ni.Nr}_inv(Ks)}_SK)
+     =|>
+     State' := 6
+       / SND({P.{SAi1.exp(G,DHr).Nr.Ni}_inv(Kp)}_SK)
+       / request(P,S,ni,Ni)
+ 
+end role
+ 
+
+
+role server(
+          P,S      : agent,
+          G        : text,
+          PRF      : hash_func,
+          Kp, Ks   : public_key,
+          SND, RCV : channel (dy))
+played_by S def=
+
+  local
+    Nr            : text,
+    SAi1, DHi, Ni : text,
+    KEr           : message,
+    SK            : hash(text.text.message),
+    State         : nat
+
+  const
+    request_id : text,
+    respond_id : text,
+    success    : text,
+    sec_sk2,
+    ni, nr     : protocol_id
+
+  init
+    State := 0
+
+  transition
+
+  0. State   = 0
+       / RCV(start)
+     =|>
+     State' := 1
+       / SND(request_id)
+
+  1. State   = 1
+       / RCV(respond_id.P)
+     =|>
+     State' := 2
+       / SAi1' := new()
+       / DHi'  := new()
+       / Ni'   := new()
+       / SND(SAi1'.exp(G,DHi').Ni')
+       / witness(S,P,ni,Ni')
+
+  % As opposed to IKEv2, in EAP-IKEv2 there is no negotiation of a 
+  % CHILD_SA => no second SA payload and no traffic selector payload
+  2. State   = 2
+       / RCV(SAi1.KEr'.Nr')
+     =|>
+     State' := 3
+       / SK' := PRF(Ni.Nr'.exp(KEr', DHi))
+       / SND({S.{SAi1.exp(G,DHi).Ni.Nr'}_inv(Ks)}_SK')
+       / secret(SK',sec_sk2,{S,P})
+
+  3. State   = 3
+       / RCV({P.{SAi1.KEr'.Nr.Ni}_inv(Kp)}_SK)
+     =|>
+     State' := 4 
+       / SND(success)
+       / request(S,P,nr,Nr)
+
+end role 
+
+
+
+role session(
+       P, S   : agent,
+       G      : text,
+       PRF    : hash_func,
+       Kp, Ks : public_key)
+def=
+       
+  local 
+    S1,R1,S2,R2 : channel (dy)
+
+  composition
+       peer(  P,S, G, PRF, Kp, Ks, S1, R1)
+    / server(P,S, G, PRF, Kp, Ks, S2, R2)
+
+end role
+
+
+
+role environment() def=
+
+  const
+    p, s        : agent,
+    g           : text,
+    f           : hash_func,
+    kp, ks      : public_key
+
+  intruder_knowledge = {p,s,f}
+
+  composition
+     session(p,s,g,f,kp,ks)
+  / session(p,s,g,f,kp,ks)
+
+end role
+
+
+
+goal
+
+   %secrecy_of SK
+   secrecy_of sec_sk1, sec_sk2
+
+   %Server authenticates Peer on nr
+   authentication_on nr
+   %Peer authenticates Server on ni
+   authentication_on ni
+
+end goal
+
+
+
+environment()
+ 

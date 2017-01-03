@@ -1,0 +1,228 @@
+role source_device (SD, SG, MSP, TG, TD: agent,
+		Pksg : public_key,
+		Sksd : symmetric_key,
+		SNDsg, RCVsg : channel (dy)) 
+	played_by SD 
+	def=
+
+ 	local
+		State : nat,
+		R1, Secsd, Secdd, P_sksdg, P_skdd, Sksdg, Skdd, TEM_IDsd : message,
+		Nsd, Nsdtd, Nsg, Ntdsd : text
+
+	init State := 0
+	transition
+		1. State = 0 /\ RCVsg(start) =|>
+			State':= 5 /\ R1' := new() /\ Secsd' := new() /\ TEM_IDsd' := xor({SD}_Sksd, R1') 
+			/\ Nsd' := new() 
+			/\ SNDsg(TEM_IDsd'.SG.{SD.TD.Nsd'}_Sksd.{Secsd'.R1'}_Pksg)
+			/\ witness(SD,SG,sg_sd_nsd,Nsd')
+			/\ secret(SD,idsd,{SD,MSP,TD})
+			/\ secret(TD,idtd,{SD,MSP,TD})
+			/\ secret(Secsd',secsd,{SD,SG})
+		2. State = 5 /\ RCVsg(SG.TEM_IDsd.{P_sksdg'.P_skdd'}_Sksd.{Nsd.Nsg'}_xor(P_sksdg',Secsd)) =|>
+			State':= 10 /\ Sksdg' := xor(P_sksdg',Secsd) /\ Secdd' := new() 
+			/\ Skdd' := xor(P_skdd',Secdd') /\ Nsdtd' := new()
+			/\ SNDsg(TEM_IDsd.SG.{Nsg'.Secdd'.{Nsdtd'}_Skdd'}_Sksdg')
+			/\ witness(SD,TD,td_sd_nsdtd,Nsdtd')
+			/\ secret(Secdd',secdd,{SD,SG,TG,TD})
+			/\ secret(Skdd',skdd,{SD,TD})
+		3. State = 10 /\ RCVsg(SG.TEM_IDsd.{Nsd.{Nsdtd.Ntdsd'}_Skdd}_Sksdg) =|>
+			State' := 15 /\ SNDsg(TEM_IDsd.SG.{Nsg.{Ntdsd'}_Skdd}_Sksdg)
+			/\ request(SD, SG, sd_sg_nsg, Nsg)
+			/\ request(SD, TD, sd_td_ntdsd, Ntdsd')
+end role
+
+role source_gateway ( SD, SG, MSP, TG: agent,
+		Pksg, Pkmsp, Pktg: public_key,
+		SNDsd, RCVsd, SNDmsp, RCVmsp, SNDtg, RCVtg : channel (dy))
+	played_by SG 
+	def=
+
+	local
+		State : nat,
+		R1, Secsd, Secdd, P_sksdg, Sksdg, TEM_IDsd : message,
+		Skgg : symmetric_key,
+		Nsd, Nsg, Nsgtg, Ntgsg : text,
+		X1 : {agent.agent.text}_symmetric_key,
+		X2 : {message.message}_symmetric_key,
+		X3 : {text}_symmetric_key,
+		X4 : {text.text}_symmetric_key
+
+	init State := 1
+	transition
+		1. State = 1 /\ RCVsd(TEM_IDsd'.SG.X1'.{Secsd'.R1'}_Pksg) =|>
+			State':= 6 /\ SNDmsp(SG.MSP.{R1'.TEM_IDsd'.X1'}_Pkmsp.{{R1'.TEM_IDsd'.X1'}_Pkmsp}_inv(Pksg))
+		2. State = 6 /\ 
+			RCVmsp(MSP.SG.{TEM_IDsd.P_sksdg'.Nsd'.TG.X2'}_Pksg.{{TEM_IDsd.P_sksdg'.Nsd'.TG.X2'}_Pksg}_inv(Pkmsp)) 
+			=|>
+			State':= 11 /\ Sksdg':= xor(P_sksdg',Secsd) /\ Nsg':= new()
+			/\ SNDsd(SG.TEM_IDsd.X2'.{Nsd'.Nsg'}_Sksdg')
+			/\ secret(Sksdg',sksdg,{SD,SG})
+			/\ witness(SG,SD,sd_sg_nsg,Nsg')
+		3. State = 11 /\ RCVsd(TEM_IDsd.SG.{Nsg.Secdd'.X3'}_Sksdg) =|>
+			State' := 16 /\ Skgg' := new() /\ Nsgtg' := new()
+			/\ SNDtg(SG.TG.{Skgg'.Nsgtg'.Secdd'.X3'}_Pktg.{{Skgg'.Nsgtg'.Secdd'.X3'}_Pktg}_inv(Pksg))
+			/\ secret(Skgg',skgg,{SG,TG})
+			/\ witness(SG,TG,tg_sg_nsgtg,Nsgtg')
+		4. State = 16 /\ RCVtg(TG.SG.{Nsgtg.Ntgsg'.X4'}_Skgg) =|>
+			State' := 21 /\ SNDsd(SG.TEM_IDsd.{Nsd.X4'}_Sksdg)
+		5. State = 21 /\ RCVsd(TEM_IDsd.SG.{Nsg.X3'}_Sksdg) =|>
+			State' := 26 /\ SNDtg(SG.TG.{Ntgsg.X3'}_Skgg)
+			/\ request(SG, SD, sg_sd_nsd, Nsd)
+			/\ request(SG, TG, sg_tg_ntgsg, Ntgsg)
+end role
+
+role m2m_service_provider (SD, SG, MSP, TG, TD: agent,
+		Pksg, Pkmsp, Pktg: public_key,
+		Sksd, Sktd : symmetric_key,
+		SNDsg, RCVsg, SNDtg, RCVtg : channel (dy))
+	played_by MSP 
+	def=
+
+	local
+		State : nat,
+		R1, R2, P_sksdg, P_skdd, P_sktdg, TEM_IDsd, TEM_IDtd : message,
+		Nsd : text
+
+	init State := 2
+	transition
+		1. State = 2 /\ RCVsg(SG.MSP.{R1'.xor({SD}_Sksd, R1').{SD.TD.Nsd'}_Sksd}_Pkmsp.{{R1'.xor({SD}_Sksd, R1').{SD.TD.Nsd'}_Sksd}_Pkmsp}_inv(Pksg)) =|>
+			State':= 7 /\ TEM_IDsd' := xor({SD}_Sksd, R1') /\ P_sksdg' := new() /\ P_skdd' := new()
+			/\ SNDsg(MSP.SG.{TEM_IDsd'.P_sksdg'.Nsd'.TG.{P_sksdg'.P_skdd'}_Sksd}_Pksg.{{TEM_IDsd'.P_sksdg'.Nsd'.TG.{P_sksdg'.P_skdd'}_Sksd}_Pksg}_inv(Pkmsp))
+			/\ R2' := new() /\ TEM_IDtd' := xor({TD.R2'}_Sktd, R2') /\ P_sktdg' := new()
+			/\ SNDtg(MSP.TG.{SG.P_sktdg'.R2'.TEM_IDtd'.{SD.P_sktdg'.P_skdd'}_Sktd}_Pktg.{{SG.P_sktdg'.TEM_IDsd'.R2'.TEM_IDtd'.{SD.P_sktdg'.P_skdd'}_Sktd}_Pktg}_inv(Pkmsp))
+end role
+
+role target_gateway ( SG, MSP, TG, TD : agent,
+		Pksg, Pkmsp, Pktg: public_key,
+		SNDtd, RCVtd, SNDmsp, RCVmsp, SNDsg, RCVsg : channel (dy))
+	played_by TG 
+	def=
+
+	local
+		State : nat,
+		R2, Sectd, Secdd, P_sktdg, Sktdg, TEM_IDtd : message,
+		Skgg : symmetric_key,
+		Ntd, Ntg, Nsgtg, Ntgsg : text,
+		X5 : {agent.message.message}_symmetric_key,
+		X6 : {text}_symmetric_key,
+		X7 : {text.text}_symmetric_key
+
+	init State := 3
+	transition
+		1. State = 3 /\ RCVmsp(MSP.TG.{SG.P_sktdg'.R2'.TEM_IDtd'.X5'}_Pktg.{{SG.P_sktdg'.R2'.TEM_IDtd'.X5'}_Pktg}_inv(Pkmsp)) =|>
+			State':= 8 /\ SNDtd(TG.R2'.TEM_IDtd'.X5')
+		2. State = 8 /\ 
+			RCVtd(TEM_IDtd.TG.{Sectd'}_Pktg.{TEM_IDtd.Ntd'}_xor(P_sktdg, Sectd')) =|>	
+			State':= 13 /\ Sktdg':= xor(P_sktdg, Sectd') /\ Ntg':= new()
+			/\ SNDtd(TG.TEM_IDtd.{Ntd'.Ntg'}_Sktdg')
+			/\ witness(TG,TD,td_tg_ntg,Ntg')
+		3. State = 13 /\ RCVtd(TEM_IDtd.TG.{Ntg}_Sktdg) =|>
+			State' := 18
+		4. State = 18 /\ RCVsg(SG.TG.{Skgg'.Nsgtg'.Secdd'.X6'}_Pktg.{{Skgg'.Nsgtg'.Secdd'.X6'}_Pktg}_inv(Pksg)) =|>
+			State' := 23 /\ SNDtd(TG.TEM_IDtd.{Ntd.Secdd'.X6'}_Sktdg)
+		5. State = 23 /\ RCVtd(TEM_IDtd.TG.{Ntg.X7'}_Sktdg) =|>
+			State' := 28 /\ Ntgsg' := new() 
+			/\ SNDsg(TG.SG.{Nsgtg.Ntgsg'.X7'}_Skgg)
+			/\ witness(TG,SG,sg_tg_ntgsg,Ntgsg')
+		6. State = 28 /\ RCVsg(SG.TG.{Ntgsg.X6'}_Skgg) =|>
+			State' := 33 /\ SNDtd(TG.TEM_IDtd.{Ntd.X6'}_Sktdg)
+			/\ request(TG, TD, tg_td_ntd, Ntd)
+			/\ request(TG, SG, tg_sg_nsgtg, Nsgtg)
+end role
+
+role target_device (SD, MSP, TG, TD: agent,
+		Pktg : public_key,
+		Sktd : symmetric_key,
+		SNDtg, RCVtg : channel (dy)) 
+	played_by TD 
+	def=
+
+ 	local
+		State : nat,
+		R2, Sectd, Secdd, P_sktdg, P_skdd, Sktdg, Skdd, TEM_IDtd : message,
+		Ntd, Nsdtd, Ntg, Ntdsd : text
+
+	init State := 4
+	transition
+		1. State = 4 /\ RCVtg(TG.R2'.xor({TD.R2'}_Sktd, R2').{SD.P_sktdg'.P_skdd'}_Sktd) =|>
+			State':= 9 /\ Sectd' := new() /\ Sktdg' := xor(P_sktdg', Sectd')
+			/\ TEM_IDtd' := xor({TD.R2'}_Sktd, R2') /\ Ntd' := new() 
+			/\ SNDtg(TEM_IDtd'.TG.{Sectd'}_Pktg.{TEM_IDtd'.Ntd'}_Sktdg')
+			/\ witness(TD,TG,tg_td_ntd,Ntd')
+			/\ secret(Sectd',sectd,{TD,TG})
+			/\ secret(Sktdg',sktdg,{TD,TG})
+		2. State = 9 /\ RCVtg(TG.TEM_IDtd.{Ntd.Ntg'}_Sktdg) =|>
+			State':= 14 /\ SNDtg(TEM_IDtd.TG.{Ntg'}_Sktdg)
+		3. State = 14 /\ RCVtg(TG.TEM_IDtd.{Ntd.Secdd'.{Nsdtd'}_xor(P_skdd, Secdd')}_Sktdg) =|>
+			State' := 19 /\ Skdd' := xor(P_skdd, Secdd') /\ Ntdsd' := new()
+			/\ SNDtg(TEM_IDtd.TG.{Ntg.{Nsdtd'.Ntdsd'}_Skdd'}_Sktdg)
+			/\ witness(TD,SD,sd_td_ntdsd,Ntdsd')
+		4. State = 19 /\ RCVtg(TG.TEM_IDtd.{Ntd.{Ntdsd}_Skdd}_Sktdg) =|>
+			State' := 24
+			/\request(TD, TG, td_tg_ntg, Ntg)
+			/\request(TD, SD, td_sd_nsdtd, Nsdtd)
+end role
+
+role session (SD, SG, MSP, TG, TD: agent,
+		Pksg, Pkmsp, Pktg: public_key,
+		Sksd, Sktd : symmetric_key) 
+
+	def=
+	local SNDsg, RCVsg, SNDsd, RCVsd, SNDmsp, RCVmsp, SNDtg, RCVtg, SNDtd, RCVtd: channel (dy)
+	composition
+		source_device(SD,SG,MSP,TG, TD,Pksg,Sksd,SNDsg,RCVsg)
+		/\ source_gateway(SD,SG,MSP,TG,Pksg,Pkmsp,Pktg,SNDsd,RCVsd,SNDmsp, RCVmsp, SNDtg, RCVtg)
+		/\ m2m_service_provider(SD, SG, MSP, TG, TD, Pksg, Pkmsp, Pktg, Sksd, Sktd, SNDsg, RCVsg, SNDtg, RCVtg)
+		/\ target_gateway(SG, MSP, TG, TD, Pksg, Pkmsp, Pktg, SNDtd, RCVtd, SNDmsp, RCVmsp, SNDsg, RCVsg)
+		/\ target_device(SD, MSP, TG, TD, Pktg, Sktd, SNDtg, RCVtg)
+end role
+
+role environment() def=
+	const
+		sd, sg, msp, tg, td, i : agent,
+		pksg, pkmsp, pktg, pki : public_key,
+		sksd, sktd, ski : symmetric_key,
+		sg_sd_nsd,
+		td_sd_nsdtd,
+		sd_sg_nsg,
+		tg_sg_nsgtg,
+		td_tg_ntg,
+		sg_tg_ntgsg,
+		tg_td_ntd,
+		sd_td_ntdsd,
+		idsd,
+		idtd,
+		secsd,
+		secdd,
+		skdd,
+		sksdg,
+		skgg,
+		sectd,
+		sktdg : protocol_id
+
+	intruder_knowledge = {sg,tg,msp,i, pksg, pkmsp, pktg, pki, inv(pki), ski}
+	composition
+		session(sd,sg,msp,tg,td,pksg,pkmsp,pktg,sksd,sktd)
+		/\ session(sd,sg,msp,tg,td,pksg,pkmsp,pktg,sksd,sktd)
+		/\ session(i,sg,msp,tg,td,pksg,pkmsp,pktg,ski,sktd)
+		/\ session(sd,i,msp,tg,td,pki,pkmsp,pktg,sksd,sktd)
+		
+		/\ session(sd,sg,msp,i,td,pksg,pkmsp,pki,sksd,sktd)
+		/\ session(sd,sg,msp,tg,i,pksg,pkmsp,pktg,sksd,ski)
+end role
+
+goal
+	secrecy_of idsd, idtd, secsd, secdd, skdd, sksdg, skgg, sectd, sktdg
+	authentication_on sg_sd_nsd
+	authentication_on td_sd_nsdtd
+	authentication_on sd_sg_nsg
+	authentication_on tg_sg_nsgtg
+	authentication_on td_tg_ntg
+	authentication_on sg_tg_ntgsg
+	authentication_on tg_td_ntd
+	authentication_on sd_td_ntdsd
+end goal
+
+environment()

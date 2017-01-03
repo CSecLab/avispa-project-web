@@ -1,0 +1,182 @@
+role client(C,A,S              : agent,
+            Kcs                : symmetric_key,
+            Md5                : hash_func,
+            EAPOL_Success,
+            EAPOL_Start,
+            EAPOL_Req_Identity : text,
+            Success            : text,
+            SND, RCV           : channel(dy))
+played_by C def=
+
+            local  State             : nat,
+                   NAS_ID , NAS_Port : text,
+                   Chall_Message     : text
+
+            const  kcs       : protocol_id,
+                   sec_c_Kcs : protocol_id
+                   
+            init State := 0
+            
+            transition
+
+            1. State  = 0 /\ RCV(start) =|>
+               State':= 1 /\ SND(EAPOL_Start)
+               
+            2. State  = 1 /\ RCV(EAPOL_Req_Identity) =|>
+               State':= 2 /\ NAS_ID':=new() /\ NAS_Port':=new()
+                          /\ SND(NAS_ID'.NAS_Port'.Md5(Kcs))
+                          /\ secret(Kcs,sec_c_Kcs,{C,S})         
+                         
+            3. State  = 2 /\ RCV(NAS_ID.Chall_Message') =|>
+               State':= 3 /\ SND(NAS_ID.{Chall_Message'}_Kcs)
+                          /\ witness(C,S,kcs,Kcs)
+
+            4. State  = 3 /\ RCV(NAS_ID.EAPOL_Success) =|>
+               State':= 4 /\ SND(NAS_ID.Success)
+end role
+
+role auth(  C,A,S              : agent,
+            Kcs                : symmetric_key,
+            Md5                : hash_func,
+            EAPOL_Success,
+            EAPOL_Start,
+            EAPOL_Req_Identity : text,
+            Success            : text,
+            Access_accept      : text,
+            SND, RCV           : channel(dy))
+played_by A def=
+            
+            local  State              : nat,
+                   NAS_ID , NAS_Port  : text,
+                   Chall_message      : text,
+                   Client_chall_reply : {text}_symmetric_key
+
+            const kcs       : protocol_id
+                   
+            init State := 11
+
+            transition
+            
+            1. State  = 11 /\ RCV(EAPOL_Start) =|>
+               State':= 12 /\ SND(EAPOL_Req_Identity)
+
+            2. State  = 12 /\ RCV(NAS_ID'.NAS_Port'.Md5(Kcs)) =|>
+               State':= 13 /\ SND(NAS_ID'.NAS_Port'.Md5(Kcs)) 
+                         
+
+            3. State  = 13 /\ RCV(NAS_ID.Chall_message') =|>
+               State':= 14 /\ SND(NAS_ID.Chall_message')
+
+            4. State  = 14 /\ RCV(NAS_ID.Client_chall_reply') =|>
+               State':= 15 /\ SND(NAS_ID.Client_chall_reply')
+                        
+            5. State  = 15 /\ RCV(NAS_ID.Access_accept) =|>
+               State':= 16 /\ SND(EAPOL_Success)
+               
+            6. State  = 16 /\ RCV(NAS_ID.Success) =|>
+               State':= 17
+
+end role
+
+role server(C,A,S                       : agent,
+            Kcs                         : symmetric_key,
+            Md5                         : hash_func,
+            Success, Failure            : text,
+            Access_accept,Access_reject : text,
+            SND, RCV                    : channel(dy))
+played_by S def=
+
+            local  State             : nat,
+                   NAS_ID , NAS_Port : text,
+                   Chall_Message     : text
+
+            const  kcs       : protocol_id,
+                   sec_s_Kcs : protocol_id
+                   
+            init State := 21
+        
+    transition
+
+     s5.    State  = 21 /\ RCV(NAS_ID'.NAS_Port'.Md5(Kcs)) =|> 
+            State':= 26 /\ Chall_Message':=new()
+                        /\ SND(NAS_ID'.Chall_Message')
+                        /\ secret(Kcs,sec_s_Kcs,{C,S})
+     s6.    State  = 26 /\ RCV(NAS_ID.{Chall_Message}_Kcs) =|>
+            State':= 27 /\ SND(NAS_ID.Access_accept)
+                        /\ request(S,C,kcs,Kcs)
+
+     s7.    State  = 27 /\ RCV(NAS_ID.Success) =|>
+            State':= 28 
+
+end role
+
+role session(C,A,S              : agent,
+             Kcs                : symmetric_key,
+             Md5                : hash_func,
+             Success,
+             Failure            : text,
+             Access_accept,
+             Access_reject      : text,
+             EAPOL_Success,
+             EAPOL_Start,
+             EAPOL_Req_Identity : text)
+def=
+
+     local
+        S1, S2, S3 : channel (dy),
+        R1, R2, R3 : channel (dy)
+       
+
+            composition
+
+            client(C,A,S,Kcs,Md5,
+                   EAPOL_Success,EAPOL_Start,EAPOL_Req_Identity,
+                   Success,S1,R1)
+        /\    auth(C,A,S,Kcs,Md5,
+                   EAPOL_Success,EAPOL_Start,EAPOL_Req_Identity,
+                   Success,Access_accept,S2,R2)
+        /\  server(C,A,S,Kcs,Md5,
+                   Success,Failure,Access_accept,Access_reject,
+                   S3,R3)
+
+end role
+
+role environment() def= 
+
+     const
+       c1,a1,s1          : agent,
+       kcsk , kisk, kcik : symmetric_key,
+       md5               : hash_func,
+       succs, fails      : text,
+       acc_acp, acc_rej  : text,
+       eap_succ,
+       eap_start,
+       eap_req_id        : text
+
+     intruder_knowledge = {c1,a1,s1, md5, kisk,kcik,
+                           succs, fails,
+                           acc_acp, acc_rej,
+                           eap_succ, eap_start,
+                           eap_req_id
+                          }
+           
+     composition
+     session(c1,a1,s1,kcsk,md5,succs,fails,acc_acp,acc_rej, eap_succ,
+             eap_start,eap_req_id)
+     %/\ session(i,a1,s1,kisk,md5,succs,fails,acc_acp,acc_rej,
+     %           eap_succ, eap_start,eap_req_id)
+
+
+end role
+
+goal
+
+  %secrecy_of Kcs
+  secrecy_of sec_c_Kcs, sec_s_Kcs
+
+  %Server authenticates Client on kcs
+  authentication_on kcs
+
+end goal
+
+environment()

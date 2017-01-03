@@ -1,0 +1,71 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileLunbgw
+
+section signature:
+
+state_esi: agent * symmetric_key * symmetric_key * protocol_id * nat * agent * set(agent) * nat -> fact
+state_sed: agent * agent * symmetric_key * protocol_id * nat * symmetric_key * nat -> fact
+
+
+section types:
+
+MGoal, start: message
+ASGoal, Set_29, Dummy_Set_29: set(agent)
+join_req, network_key, JoinReq: protocol_id
+set_54: set
+dummy_sk, ktcl, kn, Knwk, Ktcl, Dummy_Knwk: symmetric_key
+s, e, S, E, Dummy_S, dummy_agent, i: agent
+3, State, 4, 2, 1, 0, SID, Dummy_State: nat
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(s).
+ iknows(e).
+ iknows(join_req).
+ iknows(i).
+ state_sed(s,e,ktcl,join_req,0,dummy_sk,3).
+ state_esi(e,kn,ktcl,join_req,1,dummy_agent,set_54,4)
+
+
+section rules:
+
+step step_0 (S,E,Ktcl,JoinReq,Knwk,SID) :=
+ state_sed(S,E,Ktcl,JoinReq,0,Knwk,SID).
+ iknows(start)
+ =>
+ state_sed(S,E,Ktcl,JoinReq,2,Knwk,SID).
+ iknows(scrypt(Ktcl,pair(S,JoinReq)))
+
+step step_1 (S,E,Ktcl,JoinReq,Dummy_Knwk,SID,Knwk) :=
+ state_sed(S,E,Ktcl,JoinReq,2,Dummy_Knwk,SID).
+ iknows(scrypt(Ktcl,Knwk))
+ =>
+ state_sed(S,E,Ktcl,JoinReq,4,Knwk,SID)
+
+step step_2 (E,Knwk,Ktcl,JoinReq,Dummy_S,Dummy_Set_29,SID,S) :=
+ state_esi(E,Knwk,Ktcl,JoinReq,1,Dummy_S,Dummy_Set_29,SID).
+ iknows(scrypt(Ktcl,pair(S,JoinReq)))
+ =>
+ state_esi(E,Knwk,Ktcl,JoinReq,3,S,Dummy_Set_29,SID).
+ iknows(scrypt(Ktcl,Knwk)).
+ secret(Knwk,network_key,Dummy_Set_29).
+ contains(Dummy_S,Dummy_Set_29).
+ contains(E,Dummy_Set_29)
+
+
+section properties:
+
+property secrecy_of_network_key (MGoal,ASGoal) :=
+ [] ((secret(MGoal,network_key,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_network_key (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,network_key,ASGoal) &
+ not(contains(i,ASGoal))
+

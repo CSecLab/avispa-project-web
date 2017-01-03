@@ -1,0 +1,174 @@
+%% LC changes: 
+%% - added macros for X and Y. This requires also:
+%%   (i)  to write the value (and not the name) of the macro 
+%%        inside the first transition in which the role uses it;
+%%   (ii) to add the type declarations for Na and Nb in SPEKE_Resp
+%%        and SPEKE_Init respectively.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% 1-8-speke
+
+%% A-B Notation:
+
+%% 1. A --> B : exp(S(A,B), Na)     |    key exchange part
+%% 2. B --> A : exp(S(A,B), Nb)     |
+%%               both A and B compute
+%%               K = exp(exp(S(A,B),Na), Nb) = exp(exp(S(A,B),Nb), Na)
+%% 3. A --> B : {Ca}_K           |
+%% 4. B --> A : {Cb,Ca}_K        |    challenge/response
+%% 5. A --> B : {Cb}_K           |    authentication part
+
+%% S(A,B): password (shared key)
+
+%%--------------------------Nhlpsl-spec ---------------------
+
+role SPEKE_Init (       A,B: agent,
+                        Kab: symmetric_key,
+                    Snd,Rcv: channel(dy)  ) played_by A def=
+                 
+  exists  State: nat,
+          Na,Ca: text(fresh),
+          Cb   : text,
+          Nb   : text,
+          X,K  : message
+
+  owns  Snd
+
+  init  State = 0
+
+  knowledge(A) = {A,B,Kab}
+
+  transition
+
+   1. State=0 /\ Rcv(start) =|> Snd(exp(Kab, Na')) /\ State'=1
+
+   2. State=1 /\ Rcv(exp(Kab, Nb')) =|>  
+                              X'=exp(Kab, Nb')
+                           /\ K'=exp(exp(Kab, Nb'),Na)
+                           /\ Snd({Ca'}exp(exp(Kab, Nb'),Na))
+                           /\ State'=2
+			   /\ secret(Ca',A)
+			   /\ secret(Ca',B)
+			   /\ witness(A,B,ca,Ca')
+
+   3. State=2 /\ Rcv({Cb'.Ca}K ) =|> Snd({Cb'}K)
+                                /\ State'=3
+				/\ secret(Cb',A)
+				/\ secret(Cb',B)
+				/\ request(A,B,cb,Cb')
+
+end role
+
+%% (*------------------------------------------------------*)
+
+role SPEKE_Resp (      A,B: agent,
+                       Kab: symmetric_key,
+                   Snd,Rcv: channel(dy)    ) played_by B def=
+           
+
+  exists State: nat, 
+         Nb,Cb: text(fresh),
+         Ca   : text,
+         Na   : text,
+         Y,K  : message
+
+  owns    Snd
+
+  init  State = 0
+
+  knowledge(B) = {A,B,Kab}
+
+  transition
+
+   1. State=0 /\ Rcv(exp(Kab, Na')) =|> Snd(exp(Kab, Nb'))
+			  /\ Y' = exp(Kab, Na')
+                          /\ K' = exp(exp(Kab, Na'), Nb')
+                          /\ State'=1
+			  
+
+   2. State=1 /\ Rcv({Ca'}K) =|>  Snd({Cb'.Ca'}K)
+                              /\ State'=2
+			      /\ secret(Ca',B)
+			      /\ secret(Cb',B)
+			      /\ secret(Ca',A)
+			      /\ secret(Cb',A)
+			      /\ witness(B,A,cb,Cb')
+			      /\ request(B,A,ca,Ca')	
+
+   3. State=2  /\ Rcv({Cb}K) =|> State'=3 
+
+end role
+
+ %% (*------------------------------------------------------*)
+
+role Session (A,B: agent,
+		Kab: symmetric_key,
+              SA,RA,SB,RB: channel (dy)) def=
+
+   composition
+
+           SPEKE_Init(A,B,Kab,SA,RA)
+        /\ SPEKE_Resp(A,B,Kab,SB,RB)
+
+end role
+
+
+ %% (*------------------------------------------------------*)
+
+role Environment() def=
+
+  const ca,cb: protocol_id
+
+  knowledge(i) = {a, b, kai, kbi}
+
+  composition
+
+
+	Session(a,b,kab,sa1,ra1,sb1,rb1)
+    /\  Session(a,i,kai,sa2,ra2,si2,ri2)
+    /\  Session(i,b,kbi,si3,ri3,sb3,rb3)
+
+
+%%    SPEKE([(a,s_a),(b,s_b),(i,s_i)],           %% S-channels
+
+%%          [(a,r_a),(b,r_b),(i,r_i)],          %% R-channels
+
+%%          [(a,b,kab),             %% instances
+%%           (a,i,kai),
+%%           (i,b,kbi)])
+
+
+end role
+
+
+
+%% (*-----------------------------------------------------*)
+
+goal
+
+%% Secrecy of nonces Ca and Cb
+
+   secrecy_of Ca
+   secrecy_of Cb 
+                       
+%% Init. authenticates Resp. on nonces Ca and Cb
+
+    SPEKE_Init authenticates SPEKE_Resp on Cb 			%% J:was Ca,Cb
+
+%% Resp. authenticates Init. on nonces Ca and Cb
+
+    SPEKE_Resp authenticates SPEKE_Init on Ca 			%% J:was Ca,Cb
+
+end goal  
+  
+%%
+
+ Environment()
+
+
+
+
+
+
+

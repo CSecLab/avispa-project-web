@@ -1,0 +1,150 @@
+role peer (
+    P,S              : agent,
+    F1,F2,F3,F4,F5   : hash_func,
+    PRF_SHA1         : hash_func,
+    HMAC             : hash_func,
+    SK               : symmetric_key, 
+    SQN              : text,
+    SND,RCV          : channel (dy))
+played_by P def=
+
+  local
+    AT_RAND          : text,
+    NAI              : text,
+    AT_MAC1 : hash(hash(text.hash(symmetric_key.text).hash(symmetric_key.text)).text.message),
+    AT_MAC2 : hash(hash(text.hash(symmetric_key.text).hash(symmetric_key.text)).hash(symmetric_key.text)),
+    AT_AUTN : message,
+    AT_RES, IK, CK   : hash(symmetric_key.text),
+    State            : nat 
+
+  const
+    request_id,
+    respond_id,
+    success     : text,
+    sec_ck1, sec_ik1,
+    at_rand,
+    at_rand2    : protocol_id
+ 
+  init 
+    State := 0 
+  
+  transition
+
+  1. State   = 0
+       /\ RCV(request_id)
+     =|>
+     State' := 2
+       /\ NAI' := new()
+       /\ SND(respond_id.NAI')
+
+  2. State   = 2
+       /\ RCV(AT_RAND'.AT_AUTN'.AT_MAC1')
+       /\ AT_AUTN'  = {SQN}_F5(SK.AT_RAND').F1(SK.SQN.AT_RAND')
+       /\ CK'       = F3(SK.AT_RAND')
+       /\ IK'       = F4(SK.AT_RAND')
+       /\ AT_MAC1'  = HMAC(PRF_SHA1(NAI.IK'.CK').AT_RAND'.AT_AUTN')
+     =|>
+     State' := 4
+       /\ AT_RES'  := F2(SK.AT_RAND')
+       /\ AT_MAC2' := HMAC(PRF_SHA1(NAI.IK'.CK').AT_RES')
+       /\ SND(AT_RES'.AT_MAC2')
+       /\ request(P,S,at_rand,AT_RAND')
+       /\ witness(P,S,at_rand2,AT_RAND')
+       /\ secret(CK',sec_ck1,{S,P})
+       /\ secret(IK',sec_ik1,{S,P})
+
+  3. State   = 4 /\ RCV(success) =|>
+     State' := 6 
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role server (
+    P,S              : agent,
+    F1,F2,F3,F4,F5   : hash_func,
+    PRF_SHA1         : hash_func,
+    HMAC             : hash_func,
+    SK               : symmetric_key, 
+    SQN              : text,
+    SND,RCV          : channel (dy))
+played_by S def=
+
+  local
+    AT_RAND          : text,
+    NAI              : text, 
+    AT_MAC1 : hash(hash(text.hash(symmetric_key.text).hash(symmetric_key.text)).text.message),
+    AT_MAC2 : hash(hash(text.hash(symmetric_key.text).hash(symmetric_key.text)).hash(symmetric_key.text)),
+    AT_AUTN : message,
+    AT_RES, IK, CK   : hash(symmetric_key.text),
+    State            : nat
+
+  const
+    request_id,
+    respond_id,
+    success     : text,
+    sec_ck2, sec_ik2,
+    at_rand,
+    at_rand2    : protocol_id
+ 
+
+  init 
+    State := 1 
+
+  transition
+
+  1. State   = 1
+       /\ RCV(start)
+     =|>
+     State' := 3
+       /\ SND(request_id)
+
+  2. State   = 3
+       /\ RCV(respond_id.NAI')
+     =|>
+     State' := 5
+       /\ AT_RAND' := new()
+       /\ AT_AUTN' := {SQN}_F5(SK.AT_RAND').F1(SK.SQN.AT_RAND')
+       /\ CK'      := F3(SK.AT_RAND')
+       /\ IK'      := F4(SK.AT_RAND')
+       /\ AT_MAC1' := HMAC(PRF_SHA1(NAI'.IK'.CK').AT_RAND'.AT_AUTN')
+       /\ SND(AT_RAND'.AT_AUTN'.AT_MAC1')
+       /\ witness(S,P,at_rand,AT_RAND')
+       /\ secret(CK',sec_ck2,{S,P})
+       /\ secret(IK',sec_ik2,{S,P})
+
+  3. State   = 5
+       /\ RCV(AT_RES'.AT_MAC2')
+       /\ AT_RES'  = F2(SK.AT_RAND)
+       /\ AT_MAC2' = HMAC(PRF_SHA1(NAI.IK.CK).AT_RES')
+     =|>
+     State' := 7
+       /\ SND(success)
+       /\ request(S,P,at_rand2,AT_RAND)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(
+    P,S              : agent,
+    F1,F2,F3,F4,F5   : hash_func,
+    PRF_SHA1         : hash_func,
+    HMAC             : hash_func,
+    SK               : symmetric_key,
+    SQN              : text)
+def=
+
+local
+    SNDP, RCVP, SNDS, RCVS : channel (dy)
+
+const 
+    at_rand,at_rand2       : protocol_id
+
+  composition
+     peer(  P,S,F1,F2,F3,F4,F5,PRF_SHA1,HMAC,SK,SQN,SNDP,RCVP)
+  /\ server(P,S,F1,F2,F3,F4,F5,PRF_SHA1,HMAC,SK,SQN,SNDS,RCVS)
+
+end role
+
+

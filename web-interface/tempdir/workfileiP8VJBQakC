@@ -1,0 +1,108 @@
+role client(C,B:agent,
+            Kc:symmetric_key,
+			H:hash_func,
+			Pubx,Mpk:public_key,
+			Snd,Rcv:channel(dy))
+played_by C
+def=
+local State:nat,
+      IMEI,Dx,TDx,X,Msk,G,SKc,K1:text
+	  
+	  const client_bank_x,bank_client_msk,subs1,subs2:protocol_id
+init State := 0
+transition
+1.State =0 /\Rcv(start)=|>
+  State':=1/\X':=new()
+           /\Msk':=new()
+           /\Dx':=H(X.IMEI)
+           /\Pubx':=exp(G,X)
+           /\K1':=H(IMEI.Pubx)
+           /\Snd({IMEI.Dx.Pubx.K1}_Kc)
+           /\secret({X},subs1,C)
+           
+           /\secret({msk},subs2,{C,B})	
+/\witness(C,B,client_bank_x,X')
+		
+2.State =1/\ Rcv({B.TDx.Mpk}_Kc)=|>
+  State':=2/\request(B,C,bank_client_msk,Msk')
+end role
+
+
+role bank(C,B:agent,
+            Kc:symmetric_key,
+			H:hash_func,
+			Pubx,Mpk:public_key,
+			Snd,Rcv:channel(dy))  
+played_by B
+def=
+local State:nat,
+      IMEI,Dx,TDx,X,Msk,G,SKc,SKm,K1:text
+	  
+	  const client_bank_x,bank_client,msk,subs1,subs2:protocol_id
+init State := 0
+transition
+1.State =0/\Rcv({IMEI.Dx.Pubx.K1}_Kc)=|>
+  State':=1/\Msk':=new()
+           /\Mpk':=exp(G,Msk)
+		   /\TDx':=H(Dx.Msk)
+
+
+		   /\SKc':=exp(Pubx,Msk)
+		   /\Kc':=H(SKc.Dx.K1)
+		   /\Snd({B.TDx}_Kc.Mpk)
+		   /\secret({X},subs1,C)
+           
+           /\secret({msk},subs2,{C,B})	
+           /\witness(B,C,bank_client_msk,Msk')
+
+  
+  end role
+  
+  role session(C,B:agent,
+            Kc:symmetric_key,
+			H:hash_func,
+			Pubx,Mpk:public_key)
+			
+def=
+local SA,SB,RA,RB:channel(dy)	
+composition
+client(C,B,Kc,H,Pubx,Mpk,SA,RA)
+/\bank(C,B,Kc,H,Pubx,Mpk,SA,RA)
+end role
+
+
+
+
+
+role environment()
+def=
+const c,b,i:agent,
+      kc:symmetric_key,
+	  h:hash_func,
+	  pubx,mpk:public_key,
+	  dx,tdx,x,g,skc,k1:text,
+client_bank_x,bank_client_msk,subs1,subs2:protocol_id
+
+
+intruder_knowledge={c,b,h,mpk,pubx}
+
+composition
+   session(c,b,kc,h,mpk,pubx)
+ /\session(c,b,kc,h,mpk,pubx)  
+ 
+ 
+ end role
+ 
+ goal
+ secrecy_of subs1
+ secrecy_of subs2
+ authentication_on client_bank_x
+ authentication_on bank_client_msk
+ end goal
+ 
+ environment()
+ 
+		   
+		   
+
+			

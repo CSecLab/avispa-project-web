@@ -1,0 +1,156 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileSOsyT3
+
+section signature:
+
+state_bob: agent * agent * symmetric_key * hash_func * hash_func * hash_func * nat * text * text * text * text * text * text * text * text * text * text * message * message * message * message * nat -> fact
+state_alice: agent * agent * symmetric_key * hash_func * hash_func * hash_func * nat * text * text * text * text * text * text * text * text * text * text * message * message * message * message * set(agent) * nat -> fact
+
+
+section types:
+
+alice_bob_mic3, alice_bob_mic1, bob_alice_mic2, gtk1: protocol_id
+set_95, set_113, set_111: set
+succ, mic_hash, ptk_prf, Succ, MIC_Hash, PTK_PRF: hash_func
+Dummy_State, 3, SID, SID2, SID1, 5, State, 6, 4, 2, 1, 0, 10: nat
+pmk_a_b, pmk_a_i, pmk_i_b, PMK: symmetric_key
+ASGoal, Set_34, Dummy_Set_34: set(agent)
+dummy_msg, MGoal, MIC3, MIC2, MIC1, PTK, start, Dummy_MIC3, Dummy_MIC2, Dummy_MIC1, Dummy_PTK: message
+A2Goal, A1Goal, a, b, A, B, i: agent
+dummy_nonce, Msg3, Msg4, Msg1, Msg2, B_rsnie, A_rsnie, GTK, Sqn, Snonce, Anonce, Dummy_GTK, Dummy_Snonce, Dummy_Anonce: text
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(ptk_prf).
+ iknows(mic_hash).
+ iknows(succ).
+ iknows(pmk_a_i).
+ iknows(pmk_i_b).
+ iknows(i).
+ state_alice(a,b,pmk_a_b,ptk_prf,mic_hash,succ,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,dummy_msg,set_95,3).
+ state_bob(b,a,pmk_a_b,ptk_prf,mic_hash,succ,1,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,dummy_msg,4).
+ state_alice(a,i,pmk_a_i,ptk_prf,mic_hash,succ,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,dummy_msg,set_111,6).
+ state_bob(b,i,pmk_i_b,ptk_prf,mic_hash,succ,1,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,dummy_msg,10)
+
+
+section rules:
+
+step step_0 (A,B,PMK,PTK_PRF,MIC_Hash,Succ,Dummy_Anonce,Snonce,Sqn,GTK,A_rsnie,B_rsnie,Msg1,Msg2,Msg3,Msg4,PTK,MIC1,MIC2,MIC3,Set_34,SID,Anonce) :=
+ state_alice(A,B,PMK,PTK_PRF,MIC_Hash,Succ,0,Dummy_Anonce,Snonce,Sqn,GTK,A_rsnie,B_rsnie,Msg1,Msg2,Msg3,Msg4,PTK,MIC1,MIC2,MIC3,Set_34,SID).
+ iknows(start)
+=[exists Anonce]=>
+ state_alice(A,B,PMK,PTK_PRF,MIC_Hash,Succ,2,Anonce,Snonce,Sqn,GTK,A_rsnie,B_rsnie,Msg1,Msg2,Msg3,Msg4,PTK,MIC1,MIC2,MIC3,Set_34,SID).
+ iknows(pair(Anonce,pair(Sqn,Msg1)))
+
+step step_1 (A,B,PMK,PTK_PRF,MIC_Hash,Succ,Anonce,Dummy_Snonce,Sqn,Dummy_GTK,A_rsnie,B_rsnie,Msg1,Msg2,Msg3,Msg4,Dummy_PTK,Dummy_MIC1,Dummy_MIC2,MIC3,Dummy_Set_34,SID,Snonce,GTK) :=
+ state_alice(A,B,PMK,PTK_PRF,MIC_Hash,Succ,2,Anonce,Dummy_Snonce,Sqn,Dummy_GTK,A_rsnie,B_rsnie,Msg1,Msg2,Msg3,Msg4,Dummy_PTK,Dummy_MIC1,Dummy_MIC2,MIC3,Dummy_Set_34,SID).
+ iknows(pair(Snonce,pair(B_rsnie,pair(Sqn,pair(Msg2,apply(MIC_Hash,pair(PMK,pair(Snonce,pair(Sqn,Msg2)))))))))
+=[exists GTK]=>
+ state_alice(A,B,PMK,PTK_PRF,MIC_Hash,Succ,4,Anonce,Snonce,Sqn,GTK,A_rsnie,B_rsnie,Msg1,Msg2,Msg3,Msg4,apply(PTK_PRF,pair(PMK,pair(Anonce,pair(Snonce,pair(A,B))))),apply(MIC_Hash,pair(PMK,pair(Snonce,pair(Sqn,Msg2)))),apply(MIC_Hash,pair(PMK,pair(Anonce,pair(apply(Succ,Sqn),Msg3)))),MIC3,Dummy_Set_34,SID).
+ iknows(pair(Anonce,pair(A_rsnie,pair(scrypt(apply(PTK_PRF,pair(PMK,pair(Anonce,pair(Snonce,pair(A,B))))),GTK),pair(apply(Succ,Sqn),pair(Msg3,apply(MIC_Hash,pair(PMK,pair(Anonce,pair(apply(Succ,Sqn),Msg3)))))))))).
+ secret(GTK,gtk1,Dummy_Set_34).
+ witness(A,B,bob_alice_mic2,apply(MIC_Hash,pair(PMK,pair(Anonce,pair(apply(Succ,Sqn),Msg3))))).
+ request(A,B,alice_bob_mic1,apply(MIC_Hash,pair(PMK,pair(Snonce,pair(Sqn,Msg2)))),SID).
+ contains(A,Dummy_Set_34).
+ contains(B,Dummy_Set_34)
+
+step step_2 (A,B,PMK,PTK_PRF,MIC_Hash,Succ,Anonce,Snonce,Sqn,GTK,A_rsnie,B_rsnie,Msg1,Msg2,Msg3,Msg4,PTK,MIC1,MIC2,Dummy_MIC3,Set_34,SID) :=
+ state_alice(A,B,PMK,PTK_PRF,MIC_Hash,Succ,4,Anonce,Snonce,Sqn,GTK,A_rsnie,B_rsnie,Msg1,Msg2,Msg3,Msg4,PTK,MIC1,MIC2,Dummy_MIC3,Set_34,SID).
+ iknows(pair(apply(Succ,Sqn),pair(Msg4,apply(MIC_Hash,pair(PMK,pair(apply(Succ,Sqn),Msg4))))))
+ =>
+ state_alice(A,B,PMK,PTK_PRF,MIC_Hash,Succ,6,Anonce,Snonce,Sqn,GTK,A_rsnie,B_rsnie,Msg1,Msg2,Msg3,Msg4,PTK,MIC1,MIC2,apply(MIC_Hash,pair(PMK,pair(apply(Succ,Sqn),Msg4))),Set_34,SID).
+ request(A,B,alice_bob_mic3,apply(MIC_Hash,pair(PMK,pair(apply(Succ,Sqn),Msg4))),SID)
+
+step step_3 (B,A,PMK,PTK_PRF,MIC_Hash,Succ,Dummy_Anonce,Dummy_Snonce,Sqn,GTK,A_rsnie,B_rsnie,Msg1,Msg2,Msg3,Msg4,Dummy_PTK,Dummy_MIC1,MIC2,MIC3,SID,Anonce,Snonce) :=
+ state_bob(B,A,PMK,PTK_PRF,MIC_Hash,Succ,1,Dummy_Anonce,Dummy_Snonce,Sqn,GTK,A_rsnie,B_rsnie,Msg1,Msg2,Msg3,Msg4,Dummy_PTK,Dummy_MIC1,MIC2,MIC3,SID).
+ iknows(pair(Anonce,pair(Sqn,Msg1)))
+=[exists Snonce]=>
+ state_bob(B,A,PMK,PTK_PRF,MIC_Hash,Succ,3,Anonce,Snonce,Sqn,GTK,A_rsnie,B_rsnie,Msg1,Msg2,Msg3,Msg4,apply(PTK_PRF,pair(PMK,pair(Anonce,pair(Snonce,pair(A,B))))),apply(MIC_Hash,pair(PMK,pair(Snonce,pair(Sqn,Msg2)))),MIC2,MIC3,SID).
+ iknows(pair(Snonce,pair(B_rsnie,pair(Sqn,pair(Msg2,apply(MIC_Hash,pair(PMK,pair(Snonce,pair(Sqn,Msg2))))))))).
+ witness(B,A,alice_bob_mic1,apply(MIC_Hash,pair(PMK,pair(Snonce,pair(Sqn,Msg2)))))
+
+step step_4 (B,A,PMK,PTK_PRF,MIC_Hash,Succ,Anonce,Snonce,Sqn,Dummy_GTK,A_rsnie,B_rsnie,Msg1,Msg2,Msg3,Msg4,Dummy_PTK,MIC1,Dummy_MIC2,Dummy_MIC3,SID,GTK,PTK) :=
+ state_bob(B,A,PMK,PTK_PRF,MIC_Hash,Succ,3,Anonce,Snonce,Sqn,Dummy_GTK,A_rsnie,B_rsnie,Msg1,Msg2,Msg3,Msg4,Dummy_PTK,MIC1,Dummy_MIC2,Dummy_MIC3,SID).
+ iknows(pair(Anonce,pair(A_rsnie,pair(scrypt(PTK,GTK),pair(apply(Succ,Sqn),pair(Msg3,apply(MIC_Hash,pair(PMK,pair(Anonce,pair(apply(Succ,Sqn),Msg3))))))))))
+ =>
+ state_bob(B,A,PMK,PTK_PRF,MIC_Hash,Succ,5,Anonce,Snonce,Sqn,GTK,A_rsnie,B_rsnie,Msg1,Msg2,Msg3,Msg4,PTK,MIC1,apply(MIC_Hash,pair(PMK,pair(Anonce,pair(apply(Succ,Sqn),Msg3)))),apply(MIC_Hash,pair(PMK,pair(apply(Succ,Sqn),Msg4))),SID).
+ iknows(pair(apply(Succ,Sqn),pair(Msg4,apply(MIC_Hash,pair(PMK,pair(apply(Succ,Sqn),Msg4)))))).
+ witness(B,A,alice_bob_mic3,apply(MIC_Hash,pair(PMK,pair(apply(Succ,Sqn),Msg4)))).
+ request(B,A,bob_alice_mic2,apply(MIC_Hash,pair(PMK,pair(Anonce,pair(apply(Succ,Sqn),Msg3)))),SID)
+
+
+section properties:
+
+property secrecy_of_gtk1 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,gtk1,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_alice_bob_mic1 (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,alice_bob_mic1,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,alice_bob_mic1,MGoal))
+     /\ ((request(A1Goal,A2Goal,alice_bob_mic1,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,alice_bob_mic1,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_bob_alice_mic2 (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,bob_alice_mic2,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,bob_alice_mic2,MGoal))
+     /\ ((request(A1Goal,A2Goal,bob_alice_mic2,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,bob_alice_mic2,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_alice_bob_mic3 (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,alice_bob_mic3,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,alice_bob_mic3,MGoal))
+     /\ ((request(A1Goal,A2Goal,alice_bob_mic3,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,alice_bob_mic3,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_gtk1 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,gtk1,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_alice_bob_mic1 (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,alice_bob_mic1,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,alice_bob_mic1,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_alice_bob_mic1 (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,alice_bob_mic1,MGoal,SID1).
+ request(A1Goal,A2Goal,alice_bob_mic1,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_bob_alice_mic2 (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,bob_alice_mic2,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,bob_alice_mic2,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_bob_alice_mic2 (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,bob_alice_mic2,MGoal,SID1).
+ request(A1Goal,A2Goal,bob_alice_mic2,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_alice_bob_mic3 (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,alice_bob_mic3,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,alice_bob_mic3,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_alice_bob_mic3 (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,alice_bob_mic3,MGoal,SID1).
+ request(A1Goal,A2Goal,alice_bob_mic3,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

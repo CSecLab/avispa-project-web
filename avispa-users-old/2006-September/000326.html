@@ -1,0 +1,251 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Avispa-users] cl-atse ends and ofmc not
+   </TITLE>
+   <LINK REL="Index" HREF="index.html" >
+   <LINK REL="made" HREF="mailto:avispa-users%40avispa-project.org?Subject=%5BAvispa-users%5D%20cl-atse%20ends%20and%20ofmc%20not&In-Reply-To=">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000329.html">
+   <LINK REL="Next"  HREF="000328.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Avispa-users] cl-atse ends and ofmc not</H1>
+    <B>Juan Carlos L&#243;pez Pimentel</B> 
+    <A HREF="mailto:avispa-users%40avispa-project.org?Subject=%5BAvispa-users%5D%20cl-atse%20ends%20and%20ofmc%20not&In-Reply-To="
+       TITLE="[Avispa-users] cl-atse ends and ofmc not">A00472021 at itesm.mx
+       </A><BR>
+    <I>Thu Sep 14 01:06:27 CEST 2006</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000329.html">[Avispa-users] other kinds of channels than DY?
+</A></li>
+        <LI>Next message: <A HREF="000328.html">[Avispa-users] cl-atse ends and ofmc not
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#326">[ date ]</a>
+              <a href="thread.html#326">[ thread ]</a>
+              <a href="subject.html#326">[ subject ]</a>
+              <a href="author.html#326">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hello List,
+
+I was verifying a version of the Andrew Secure RPC protocol (an extended
+version). However,  I am not sure if my new version is secure, because
+while cl-atse backend takes out that the protocol is secure, ofmc
+backend does not end (it seems to be in a cycle).
+
+I would like to know, why while cl-atse backend clearly takes out a
+result, ofmc does not do the same?
+
+Attachment you can find the security protocol.
+
+Thanks you for your trouble.
+
+Best regards,
+
+Juan Carlos L&#243;pez P.
+
+
+
+-------------- next part --------------
+%% HLPSL definition on Andrew Secure RPC protocol.
+%% This patched version is that proposed by principle 10 proposed by Juan Carlos Lopez P.
+%% By Juan Carlos Lopez Pimentel
+
+%1 A --&gt; B : A, {Na}_|Kab|
+%2 B --&gt; A : {Succ(Na), Nb}_|Kab|
+%3 A --&gt; B : {Succ(Nb)}_|Kab|
+%4 B --&gt; A : {Kpab,Nbp}_|Kab|
+%Add the following steps
+%5 A --&gt; B : {Nap}_|Kpab|
+%6 B --&gt; A : {Succ(Nap)}_|Kpab|
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role alice(A,B:agent,
+	   Kab: symmetric_key,
+	   Succ: hash_func,
+	   Snd, Rcv: channel (dy))
+played_by A
+def=
+
+  local State: nat,
+	Na, Nb, Nap, Nbp: text, 
+	Kpab: symmetric_key
+
+  const nap, na, nb, alice_bob_kpab, alice_bob_na, bob_alice_nb: protocol_id
+
+  init  State := 0
+
+  transition
+
+%% Start of the protocol
+  step1. 	State = 0  /\ Rcv(start)  =|&gt;	
+%1 A --&gt; B : A, {Na}_|Kab|
+		State':= 2 /\ Na':= new() 
+			/\ Snd(A.{Na'}_Kab)
+
+  %% Receving the first response of B
+%2 B --&gt; A : {Succ(Na), Nb}_|Kab|
+  step2and3. 	State = 2  /\ Rcv({Succ(Na).Nb'}_Kab) =|&gt;	
+%3 A --&gt; B : {Succ(Nb)}_|Kab|
+		State':= 4 /\ Snd({Succ(Nb')}_Kab)
+			/\ witness(A,B,bob_alice_nb,Nb')
+
+  %% Receving the second response of B
+%4 B --&gt; A : {Kpab,Nbp}_|Kab|
+  step4and5. 	State = 4  /\ Rcv({Kpab'.Nbp'}_Kab) =|&gt;	
+%5 A --&gt; B : {Nap}_|Kpab|
+		State':= 6 /\ Nap':=new() /\ Snd({Nap'}_Kpab')
+			 /\ secret(Nap',nap,{A,B})
+			 /\ witness(A,B,alice_bob_kpab,Kpab')			 
+
+%6 B --&gt; A : {Succ(Nap)}_|Kpab|
+  step6.        State = 6  /\ Rcv({Succ(Nap)}_Kpab) =|&gt;			 
+		State':=8
+%			 /\ request(A,B,alice_bob_kpab,Kpab)
+			 /\ request(A,B,alice_bob_na,Na)
+
+%6 B --&gt; A : {Succ(Nap)}_|Kpab|
+			 
+			 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+%1 A --&gt; B : A, {Na}_|Kab|
+%2 B --&gt; A : {Succ(Na), Nb}_|Kab|
+%3 A --&gt; B : {Succ(Nb)}_|Kab|
+%4 B --&gt; A : {Kpab,Nbp}_|Kab|
+%5 A --&gt; B : {Nap}_|Kpab|
+%6 B --&gt; A : {Succ(Nap)}_|Kpab|
+
+role   bob(A,B:agent,
+	   Kab: symmetric_key,
+	   Succ: hash_func,
+	   Snd, Rcv: channel (dy))
+played_by B
+def=
+
+  local State: nat,
+	Na, Nb, Nap, Nbp: text, 
+	Kpab: symmetric_key
+
+  const kpab,nbp,alice_bob_kpab,alice_bob_na,bob_alice_nb: protocol_id
+
+  init  State := 1
+
+  transition
+
+%1 A --&gt; B : A, {Na}_|Kab|
+  step1and2. 	State = 1  /\ Rcv(A.{Na'}_Kab) =|&gt;	
+%2 B --&gt; A : {Succ(Na), Nb}_|Kab|
+		State':= 3 /\ Nb':= new() 
+			/\ Snd({Succ(Na').Nb'}_Kab)
+			/\ witness(B,A,alice_bob_na,Na')
+
+%3 A --&gt; B : {Succ(Nb)}_|Kab|
+  step3and4. 	State = 3  /\ Rcv({Succ(Nb)}_Kab) =|&gt;	
+%4 B --&gt; A : {Kpab,Nbp}_|Kab|
+		State':= 5 /\ Kpab':= new()
+			/\ Nbp':= new() 
+			/\ Snd({Kpab'.Nbp'}_Kab)
+%			/\ witness(B,A,alice_bob_kpab,Kpab')
+			/\ secret(Kpab',kpab,{A,B})
+			/\ secret(Nbp',nbp,{A,B})
+			
+%5 A --&gt; B : {Nap}_|Kpab|
+  step5and6.    State = 5 /\ Rcv({Nap'}_Kpab) =|&gt;
+%6 B --&gt; A : {Succ(Nap)}_|Kpab|  
+		State' := 7 /\ Snd({Succ(Nap')}_Kpab)
+			/\ request(B,A,bob_alice_nb,Nb)
+			/\ request(B,A,alice_bob_kpab,Kpab)
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+%% The role representing a partial session between alice and bob
+role  andrewSRPC(A,B: agent,
+		 Kab: symmetric_key,
+		 Succ:hash_func)
+		
+def=
+
+  local SAB, RAB, SBA, RBA: channel (dy)
+
+  composition
+	    alice (A,B,Kab,Succ,SAB,RAB) 
+	/\  bob   (A,B,Kab,Succ,SBA,RBA)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+%% The main role
+role environment()
+def=
+ 
+  const a, b : agent,
+        kab,kai,kib : symmetric_key,
+	succ : hash_func
+
+  intruder_knowledge = {a, b, kai, kib, succ}
+
+  composition
+     	   andrewSRPC(a,b,kab,succ)
+	/\ andrewSRPC(a,b,kab,succ)
+	/\ andrewSRPC(a,i,kai,succ)
+	/\ andrewSRPC(i,b,kib,succ)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+%% Properties to verify
+goal
+
+%  	secrecy_of nbp,kpab,nap
+%	authentication_on bob_alice_nb
+  	authentication_on alice_bob_na
+%	authentication_on alice_bob_kpab
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+%% Call of the main role
+environment()
+
+
+</PRE>
+
+
+
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000329.html">[Avispa-users] other kinds of channels than DY?
+</A></li>
+	<LI>Next message: <A HREF="000328.html">[Avispa-users] cl-atse ends and ofmc not
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#326">[ date ]</a>
+              <a href="thread.html#326">[ thread ]</a>
+              <a href="subject.html#326">[ subject ]</a>
+              <a href="author.html#326">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="http://www.avispa-project.org/mailman/listinfo/avispa-users">More information about the Avispa-users
+mailing list</a><br>
+</body></html>

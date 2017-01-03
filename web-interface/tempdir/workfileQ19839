@@ -1,0 +1,218 @@
+%% PROTOCOL: IEEE 802.1X RADIUS: Remote Authentication Dial In User Service 
+%% PURPOSE:  Provides effective authentication regardless of whether one implements 802.11 WEP/TKIP/WPA2 encryption or not.     
+%% ORIGINAL MODELER: Vishal Sankhla, University of Southern California, August 2004 
+%% MODIFIED AND ADAPTED FOR PHD RESEARCH BY: Idris Ahmed 
+%% DATE: 13th July 2008
+%% 
+%% Notation: Alice -> Bob Notation
+%% Mkey: Master Key
+%% PMkey: Pairwise Master Key
+%% PTkey: Pairwise Temporal Key
+%% GTkey: Group Temporal Key
+%% C: Client
+%% A: Authenticator (Access Point)
+%% S: Authentication Server
+%% Agents: Client, Authenticator, Authentication Server 
+%%
+%% Protocol Specification:
+%%
+%% Client -> Authenticator : EAPOL_Start
+%% Authenticator -> Client : EAPOL_Request_Identity
+%% Client -> Authenticator : EAPOL_Response_Identity: (NAS_D NAS_PORT, {Mkey}_MD5)
+%% Authenticator -> Server :  EAPOL_Response_Identity: (NAS_ID, NAS_PORT, {Mkey}_MD5)
+%% Server -> Authenticator : Nonce_Challenge : (NAS_ID.{Access_Challenge}
+%% Authenticator -> Client : Nonce_Challenge : (NAS_ID.{Access_Challenge}  
+%% Client -> Authenticator : Nonce_Challenge_Response : (NAS_ID.{Access_Challenge}_Mkey)
+%% Authenticator -> Server : Nonce_Challenge_Response  (NAS_ID.{Access_Challenge}_Mkey)
+%% Server -> Authenticator : Access_Accept
+%% Authenticator -> Client : EAPOL_Success
+%%
+%%
+%% PROBLEMS: secrecy of sec_c_Mkey, sec_s_Mkey, strong authentication on Mkey
+%%
+%% KNOWN ATTACKS: None
+%%
+%% SIMULATION LANGUAGE: HLPSL (High Level Protocol Specification Language)
+
+
+role client(C, A, S        : agent,
+            Mkey                : symmetric_key,
+            Md5               : hash_func,
+            EAPOL_Success,
+            EAPOL_Start,
+            EAPOL_Request_Identity,
+            Success            : text,
+            SND, RCV       : channel(dy))
+played_by C 
+def=
+
+            local  State             	      : nat,
+                   NAS_ID , NAS_Port,
+                   Access_Challenge   : text
+
+            const  mkey,  sec_c_Mkey : protocol_id
+                   
+            init State := 0
+            
+            transition
+
+            1. State  = 0 /\ RCV(start) =|>
+                State':= 1 /\ SND(EAPOL_Start)
+               
+            2. State  = 1 /\ RCV( EAPOL_Request_Identity) =|>
+                State':= 2 /\ SND(NAS_ID'.NAS_Port'.Md5(Mkey))
+                                 /\ secret(Mkey, sec_c_Mkey,{ C, S})         
+                         
+            3. State  = 2 /\ RCV(NAS_ID.Access_Challenge') =|>
+                State':= 3 /\ SND(NAS_ID.{Access_Challenge}_Mkey)
+                                 /\ witness(C, S, mkey, Mkey)
+
+            4. State  = 3 /\ RCV(NAS_ID.EAPOL_Success) =|>
+                State':= 4 /\ SND(NAS_ID.Success)
+end role
+
+
+role authenticator(C, A, S          : agent,
+            Mkey                : symmetric_key,
+            Md5               : hash_func,
+            EAPOL_Success,
+            EAPOL_Start,
+            EAPOL_Request_Identity,
+            Success,
+            Access_Accept    : text,
+            SND, RCV           : channel(dy))
+played_by A 
+def=
+            
+            local  State              : nat,
+                   NAS_ID , NAS_Port,
+                   Access_Challenge   : text,
+                   Access_Challenge_Reply : {text}_symmetric_key
+
+            const mkey   : protocol_id
+                   
+            init State := 1
+
+            transition
+            
+            1. State  = 1 /\ RCV(EAPOL_Start) =|>
+                State':= 2 /\ SND(EAPOL_Request_Identity)
+
+            2. State  = 2 /\ RCV(NAS_ID'.NAS_Port'.Md5(Mkey)) =|>
+                State':= 3 /\ SND(NAS_ID'.NAS_Port'.Md5(Mkey)) 
+                     
+            3. State  = 3 /\ RCV(NAS_ID.Access_Challenge') =|>
+                State':= 4 /\ SND(NAS_ID.Access_Challenge')
+
+            4. State  = 4 /\ RCV(NAS_ID.Access_Challenge_Reply') =|>
+                State':= 5 /\ SND(NAS_ID.Access_Challenge_Reply')
+                        
+            5. State  = 5 /\ RCV(NAS_ID.Access_Accept) =|>
+                State':= 6 /\ SND(EAPOL_Success)
+               
+            6. State  = 6 /\ RCV(NAS_ID.Success) =|>
+                State':= 7
+
+end role
+
+
+role server(C, A, S        : agent,
+            Mkey          : symmetric_key,
+            Md5                 : hash_func,
+            Success, Failure,
+            Access_Accept, Access_Reject : text,
+            SND, RCV                    : channel(dy))
+played_by S 
+def=
+
+            local  State             : nat,
+                   NAS_ID , NAS_Port ,
+                   Access_Challenge   : text
+
+            const  mkey, sec_s_Mkey : protocol_id
+                   
+            init State := 3
+        
+    transition
+
+      1.    State  =  3 /\ RCV(NAS_ID'.NAS_Port'.Md5(Mkey)) =|> 
+              State':= 4 /\ SND(NAS_ID'.Access_Challenge')
+                               /\ secret(Mkey, sec_s_Mkey, {C,S})
+
+      2.    State  =  4 /\ RCV(NAS_ID.{Access_Challenge}_Mkey) =|>
+              State':= 5 /\ SND(NAS_ID.Access_Accept)
+                               /\ request(S, C, mkey, Mkey)
+
+      3.    State  = 5 /\ RCV(NAS_ID.Success) =|>
+              State':= 6 
+
+end role
+
+
+role session(C, A, S   : agent,
+             Mkey               : symmetric_key,
+             Md5                : hash_func,
+             Success,
+             Failure,
+             Access_Accept,
+             Access_Reject,
+             EAPOL_Success,
+             EAPOL_Start,
+             EAPOL_Request_Identity : text)
+def=
+
+     local
+        S1, S2, S3 : channel (dy),
+        R1, R2, R3 : channel (dy)
+       
+
+       composition
+
+            client(C, A, S, Mkey, Md5, EAPOL_Success, EAPOL_Start, EAPOL_Request_Identity, Success,S1, R1)
+        /\  authenticator(C, A, S, Mkey, Md5, EAPOL_Success, EAPOL_Start, EAPOL_Request_Identity, Success, Access_Accept, S2, R2)
+        /\  server(C, A, S, Mkey, Md5, Success, Failure, Access_Accept, Access_Reject, S3, R3)
+
+end role
+
+
+role environment() 
+def= 
+
+     const
+       c1, a1, s1        : agent,
+       kcsk , kisk, kcik : symmetric_key,
+       md5               : hash_func,
+       succs, fails      : text,
+       acc_acp, acc_rej  : text,
+       eap_succ,
+       eap_start,
+       eap_request_id        : text
+
+     intruder_knowledge = {c1, a1, s1, md5, kisk, kcik,
+                           succs, fails,
+                           acc_acp, acc_rej,
+                           eap_succ, eap_start,
+                           eap_request_id
+                          }
+           
+     composition
+
+     session(c1, a1, s1, kcsk, md5, succs, fails, acc_acp, acc_rej, eap_succ,  eap_start, eap_request_id)
+
+
+end role
+
+
+goal
+
+secrecy_of 
+sec_c_Mkey, 
+sec_s_Mkey	%secrecy of master key
+
+authentication_on mkey
+
+end goal
+
+
+environment()
+

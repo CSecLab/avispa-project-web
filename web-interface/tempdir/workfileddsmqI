@@ -1,0 +1,71 @@
+role role_Mn(Mn:agent,Ro:agent,Cn:agent,K:public_key,SND,RCV:channel(dy))
+played_by Mn
+def=
+	local
+		State:nat,Lifetime:text,Mac:text,BU:text,Tmp:text,Back:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ Lifetime':=new() /\ Tmp':=new() /\ Mac':=new() /\ BU':=new() /\ SND(BU'.{Mac'}_inv(K).Tmp'.Lifetime')
+		2. State=1 /\ RCV(Back') =|> State':=2 /\ SND(BU.{Mac}_inv(K).Tmp.Lifetime)
+		4. State=2 /\ RCV(Back) =|> State':=3
+end role
+
+role role_Ro(Ro:agent,Mn:agent,N:agent,NS:text,NA:text,SND,RCV:channel(dy))
+played_by Ro
+def=
+	local
+		State:nat,Lifetime:text,K:public_key,Mac:text,BU:text,Tmp:text,Back:text
+	init
+		State := 0
+	transition
+		3. State=0 /\ RCV(BU'.{Mac'}_inv(K').Tmp'.Lifetime') =|> State':=1 /\ Back':=new() /\ SND(Back')
+		5. State=1 /\ RCV(NS) =|> State':=2 /\ SND(NA)
+end role
+
+role role_Cn(Cn:agent,Mn:agent,K:public_key,SND,RCV:channel(dy))
+played_by Cn
+def=
+	local
+		State:nat,Lifetime:text,Mac:text,BU:text,Tmp:text,Back:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(BU'.{Mac'}_inv(K).Tmp'.Lifetime') =|> State':=1 /\ witness(Cn,Mn,auth_2,Mac') /\ Back':=new() /\ SND(Back')
+end role
+
+role role_N(N:agent,Ro:agent,NS:text,NA:text,SND,RCV:channel(dy))
+played_by N
+def=
+	local
+		State:nat
+	init
+		State := 0
+	transition
+		5. State=0 /\ RCV(start) =|> State':=1 /\ SND(NS)
+		6. State=1 /\ RCV(NA) =|> State':=2
+end role
+
+role session1(Mn:agent,Cn:agent,K:public_key,N:agent,Ro:agent,NS:text,NA:text)
+def=
+	local
+		SND4,RCV4,SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_N(N,Ro,NS,NA,SND4,RCV4) /\ role_Ro(Ro,Mn,N,NS,NA,SND3,RCV3) /\ role_Cn(Cn,Mn,K,SND2,RCV2) /\ role_Mn(Mn,Ro,Cn,K,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		hash_0:function,node:agent,correnode:agent,mobilenode:agent,key:public_key,router:agent,const_1:text,const_1:text,auth_1:protocol_id,auth_2:protocol_id
+	intruder_knowledge = {mobilenode,correnode,router,node}
+	composition
+		session1(mobilenode,correnode,key,node,router,const_1,const_1)
+end role
+
+goal
+	authentication_on auth_1
+	authentication_on auth_2
+end goal
+
+environment()

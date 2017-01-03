@@ -1,0 +1,74 @@
+section types:
+A,B,a,b,i: agent
+KA,KB,ka,kb,ki: public_key
+0,1,2: nat
+SID: nat
+NA,NB,na,nb,ni: nonces
+
+section inits:
+initial_state init1:=
+iknows(start).
+iknows(a).
+iknows(b).
+iknows(ka).
+iknows(kb).
+iknows(i).
+iknows(ki).
+iknows(inv(ki)).
+%session 1: A=a, B=b, KA=ka, KB=kb
+state_Alice(a,b,0,ka,kb,ni,ni,1).
+state_Bob(b,a,0,kb,ka,ni,ni,1).
+%session 2: A=a, B=i, KA=ka, KB=ki
+state_Alice(a,i,0,ka,ki,ni,ni,2)
+
+section rules:
+step step0 (SID):=
+state_Alice(A,B,0,KA,KB,ni,ni,SID)
+=[exists NA]=>
+state_Alice(A,B,1,KA,KB,NA,ni,SID).
+iknows(crypt(KB,pair(NA,A))).
+secret(NA,B).
+witness(A,B,na,NA)
+step step1 (SID):=
+state_Alice(A,B,1,KA,KB,NA,ni,SID).
+iknows(crypt(KA,pair(NA,NB))).
+=>
+state_Alice(A,B,2,KA,KB,NA,NB,SID).
+iknows(crypt(KB,NB)).
+request(A,B,nb,NB,SID)
+step step2 (SID):=
+state_Bob(B,A,0,KB,KA,ni,ni,SID).
+iknows(crypt(KB,pair(NA,A)))
+=[exists NB]=>
+state_Bob(B,A,1,KB,KA,NA,NB,SID).
+iknows(crypt(KA,pair(NA,NB))).
+secret(NB,A).
+witness(B,A,nb,NB)
+step step3 (SID):=
+state_Bob(B,A,1,KB,KA,NA,NB,SID).
+iknows(crypt(KB,NB))
+=>
+state_Bob(B,A,2,KB,KA,NA,NB,SID).
+request(B,A,na,NA,SID)
+section attack_states:
+%terms defined to be a secret shared by the honest agents
+attack_state secrecy_of_NX(M,B):=
+iknows(M).
+secret(M,B) &
+not(equal(i,B))
+%weak authentication
+attack_state authenticate_Alice_on_na (A,B,Na,NA,SID) :=
+request(B,A,Na,NA,SID) &
+not(witness(A,B,Na,NA)) &
+not(equal(A,i))
+%weak authentication
+attack_state authenticate_Bob_on_nb (B,A,Nb,NB,SID) :=
+request(A,B,Nb,NB,SID) &
+not(witness(B,A,Nb,NB)) &
+not(equal(B,i))
+%replay protection
+attack_state replay_protection_on (A,B,M,SID1,SID2) :=
+request(B,A,Nb,M,SID1).
+request(B,A,Nb,M,SID2) &
+not(equal(SID1,SID2)) &
+not(equal(A,i))

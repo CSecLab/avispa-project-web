@@ -1,0 +1,108 @@
+role pkmv2_Init( MS, BS     : agent,	
+                Pka, Pks : public_key,
+                Snd, Rcv : channel(dy))
+played_by MS
+def=
+
+  local  State		   : nat,
+         Na		   : text,
+         Nb, Prepak, Certbs  : text,
+         Pkb		   : public_key
+
+  init State := 0 
+
+  transition
+
+   1. State = 0
+      /\ Rcv(start)
+      =|> 
+      State' := 1
+      /\ Na' := new()
+      /\ Snd(Pka.MS.{Pka.MS}_inv(Pks).Na'.BS.cmancert.{Na'.BS.ccertms}_inv(Pka)) 
+      /\ witness(MS,BS,na,Na')
+
+   2. State = 1 
+      /\ Rcv(Pkb'.BS.{Pkb'.BS}_inv(Pks).Nb'.MS.Certbs'.{Nb'.MS.Prepak'}_inv(Pkb'))
+      =|> 
+      State' := 2
+      /\ wrequest(MS,BS,nb,Nb')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role pkmv2_Resp (BS, MS     : agent, 					
+                Pkb, Pks : public_key,
+                Snd, Rcv : channel(dy))
+played_by BS
+def=
+
+   local  State          : nat,
+          Nb             : text,
+          Na,Certms, Mancert : text,
+          Pka            : public_key
+
+   init State := 0
+
+   transition
+
+   1. State = 0 
+      /\ Rcv(Pka'.MS.{Pka'.MS}_inv(Pks).Na'.BS.Mancert'.{Na'.BS.Certms'}_inv(Pka'))
+      =|> 
+      State' := 1
+      /\ Nb' := new()
+      /\ Snd(Pkb.BS.{Pkb.BS}_inv(Pks).Nb'.MS.ccertbs.{Nb'.MS.cprepak}_inv(Pkb)) 
+      /\ witness(BS,MS,nb,Nb')
+      /\ wrequest(BS,MS,na,Na')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role session (MS, BS     : agent,
+	      Pka, Pkb : public_key,
+              Pks      : public_key) def=
+
+  local SMS, RMS, SBS, RBS: channel (dy)
+
+  composition
+
+          pkmv2_Init(MS,BS,Pka,Pks,SMS,RMS)
+       /\ pkmv2_Resp(BS,MS,Pkb,Pks,SBS,RBS)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role environment() def=
+
+  const ccertms, cmancert, cprepak, ccertbs : text,
+	na, nb                         : protocol_id,
+        ms, bs                           : agent,
+        pka, pkb, pks, pki             : public_key
+
+  intruder_knowledge={ms,bs,pks,pki,inv(pki)}
+
+  composition
+
+	session(ms,bs,pka,pkb,pks)
+     /\	session(ms,bs,pka,pkb,pks)
+     /\	session(bs,ms,pkb,pka,pks)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+goal
+
+   %pkmv2_Init weakly authenticates pkmv2_Resp on nb
+   weak_authentication_on nb
+
+   %pkmv2_Resp weakly authenticates pkmv2_Init on na
+   weak_authentication_on na
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+environment()

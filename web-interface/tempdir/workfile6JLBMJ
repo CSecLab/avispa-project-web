@@ -1,0 +1,49 @@
+role orig(O, R : agent,
+Ka : public_key) played_by O def=
+local
+S : nat,
+M : text,
+SND, RCV : channel (dy)
+init S := 0
+transition
+1. S = 0 /\ RCV(start)
+=|>
+S' := 1 /\ M' := new()
+/\ SND({M'}_Ka)
+/\ secret(M', msg, {O,R})
+end role
+
+role resp(O, R : agent,
+Ka : public_key) played_by R def=
+local
+S : nat,
+M :text,
+SND, RCV : channel (dy)
+init S := 0
+transition
+1. S = 0 /\ RCV({M'}_Ka)
+=|>
+S' := 0
+end role
+
+role session(O, R : agent, Ka :public_key) def=
+composition
+orig(O,R,Ka) /\
+resp(O,R,Ka)
+end role
+
+role environment()
+def=
+const o,r : agent,
+ki,ka : public_key,
+msg : protocol_id
+intruder_knowledge = {o, r, ki}
+composition
+session(o,r,ka) /\ session(o,i,ka) /\ session(i,r,ka)
+end role
+
+goal
+%secrecy_of msg
+end goal
+
+environment()

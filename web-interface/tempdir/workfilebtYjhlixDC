@@ -1,0 +1,75 @@
+role alice(A,B : agent, 
+           K : symmetric_key, 
+           Hash : hash_func, 
+           SND,RCV : channel(dy))
+played_by A 
+def= % use "." below for concatenation
+  local State : nat, 
+        Na,Nb : text, 
+        K1 : message
+  init State := 0
+  transition
+   1. State = 0 /\ RCV(start) =|> 
+      State':= 2 /\ Na' := new() /\ SND({Na'}_K)
+   2. State = 2 /\ RCV({Nb'}_K) =|> 
+      State':= 4 /\ K1' := Hash(Na.Nb') /\ SND({Nb'}_K1')
+                 /\ witness(A,B,bob_alice_nb,Nb')
+end role
+
+role bob(A,B : agent, 
+         K : symmetric_key, 
+         Hash : hash_func,
+         SND,RCV : channel(dy)) % same input as for alice
+played_by B 
+def=          % but B plays responder role
+  local State : nat, 
+        Nb,Na : text, 
+        K1 : message % same as alice
+  init State := 1       % values local to role, but avoiding reuse
+                        % of 0 means attack traces easier to read
+  transition
+   1. State = 1 /\ RCV({Na'}_K) =|> 
+      State':= 3 /\ Nb' := new() /\ SND({Nb'}_K) 
+       /\ K1':= Hash(Na'.Nb') /\ secret(K1',k1,{A,B})
+   2. State = 3 /\ RCV({Nb}_K1) =|>
+      State':= 5 /\ request(B,A,bob_alice_nb,Nb)
+end role
+
+
+role session(A,B : agent, 
+             K : symmetric_key, 
+             Hash : hash_func) % input for entire session
+def=
+% four channels, two for each agent, local to session
+  local SA, SB, RA, RB : channel (dy)
+% A, B, K, and Hash shared across roles
+% communication channels private to each role
+  composition % /\ means parallel composition here
+    alice(A,B,K,Hash,SA,RA) /\ bob (A,B,K,Hash,SB,RB)
+end role
+
+
+role environment() % declares session scenario
+def=
+  const
+   bob_alice_nb, k1 : protocol_id,   % names for analyses
+   kab,kai,kib : symmetric_key,      % concrete keys
+   a,b : agent,                      % concrete agents
+   h : hash_func                     % concrete hash function
+% specify what the attacker (aka. intruder) knows initially
+  intruder_knowledge = {a,b,h,kai,kib}
+% specify protocol scenario: how many sessions run in parallel
+% and in which instantiations
+  composition
+   session(a,b,kab,h)       % normal session
+    /\ session(a,i,kai,h)     % intruder i impersonates b
+    /\ session(i,b,kib,h)     % intruder i impersonates a
+end role
+
+
+goal
+  secrecy_of k1
+  authentication_on bob_alice_nb
+end goal
+environment()                                % run the model against all goals
+

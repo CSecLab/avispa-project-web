@@ -1,0 +1,115 @@
+role user(U, V : agent,
+          H1, H2, H3 : hash_func,
+          F : hash_func,
+          G : text,               % Generator g
+          Ku : public_key,        % dummy for signature
+          Kca : public_key,       % Certificate authority public key
+          Kpriv_v : text,
+          Cert_u : {message}_inv(public_key),
+          Snd, Rcv : channel(dy))
+played_by U def= 
+          
+local State: nat, 
+      Random_u : text,   % randomly generated number
+      Timestamp : text,
+      Random_r : text, 
+      Cert_v : {message}_inv(public_key),
+      Random_u_exp : message,
+      Session_key : message,
+      Kv, Hash2 : message
+      
+init State := 0
+transition
+
+0.     State   = 0 /\ Rcv(start)
+   =|> State' := 2 /\ 
+       Random_u' := new() /\ 
+       Kv' := exp(G,Kpriv_v) /\
+       Random_u_exp' := exp(G,Random_u') /\ 
+       Snd(Random_u_exp')
+       
+2.     State   = 2 /\ 
+       Rcv(Random_r'.H2(H1(exp(Kv,Random_u).Random_r').Random_r'.V).Timestamp')  
+
+   =|> State' := 4 
+       /\ Session_key' := H1(exp(Kv,Random_u).Random_r')
+       /\ secret(Session_key',session_key,{U,V})
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role vasp(U, V : agent,
+          H1, H2, H3 : hash_func,
+          Ku : public_key,
+          Kca : public_key,       % certificate authority public key
+          Kpriv_v : text,
+          Cert_v : {message}_inv(public_key),
+          Snd, Rcv : channel(dy))
+played_by V def=%
+
+local State: nat,
+      Random_u_exp : message, 
+      Random_r : text, 
+      Timestamp : text, 
+      Session_key : message
+      
+const session_key : protocol_id
+      
+init State := 1
+transition
+1.     State   = 1 /\ Rcv(Random_u_exp')
+   =|> State' := 3 /\ 
+       Timestamp' := new() /\ 
+       Random_r' := new() /\
+       Session_key' := H1(exp(Random_u_exp',Kpriv_v).Random_r') /\
+       Snd(Random_r'.H2(Session_key'.Random_r'.V).Timestamp'.Cert_v) 
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(U, V : agent, 
+             H1, H2, H3, F : hash_func,
+             G, T : text,
+             Kpriv_v : text,       % V's private key
+             Ku, Kca : public_key, 
+             Cert_u, Cert_v : {message}_inv(public_key))
+def= 
+            
+  local Su, Ru, Sv, Rv : channel(dy)
+
+  composition
+      user(U, V, H1, H2, H3, F, G, Ku, Kca, Kpriv_v, Cert_u, Su, Ru) 
+   /\ vasp(U, V, H1, H2, H3, Ku, Kca, Kpriv_v, Cert_v, Sv, Rv)
+   
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+  const u, v, a, i : agent,
+        h1, h2, h3, f : hash_func,
+        g, t, kv, ki : text,
+        ku, ka, kca, kpi : public_key
+        
+  intruder_knowledge = {u,v,a,i,h1,h2,h3,f,g,t} %,exp(g,kv),{v.exp(g,kv)}_inv(kca),{u.ku}_inv(kca),kca,ku,ki,exp(g,ki),kpi,ka}
+
+  composition 
+        session(u,v,h1,h2,h3,f,g,t,kv,ku,kca,{u.ku}_inv(kca),{v.kv}_inv(kca)) %    {v.exp(g,kv)}_inv(kca))
+    
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+  
+  secrecy_of session_key
+  
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+

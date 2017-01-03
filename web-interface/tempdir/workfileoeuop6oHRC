@@ -1,0 +1,113 @@
+role alice(A,B: agent,
+        G: text,
+        Ka,Kb:public_key,
+        H: hash_func,
+        Snd,Rcv:channel (dy))
+       
+played_by A def=
+local
+   
+     State:nat,
+      X : text,
+      Na,Nb:text,
+      GY: message,
+      SK:hash(text.public_key),
+      GXY: message
+
+const sec_a_SK :protocol_id
+
+  init State :=0
+  
+  transition
+ 1. State =0 /\ Rcv(start) =|>
+    State' :=2/\ X' := new()
+              /\ Na' :=new()
+              /\Snd(A.exp(G,X').Na')
+              
+ 2. State =2 /\Rcv(B.GY'.Nb') =|>
+    State':=4 /\GXY':=exp(GY',X')
+              /\SK':=H(Nb'.Ka)
+             /\Snd({B.GXY'}_SK')
+             /\witness(A,B,sk2,H(Nb'.Ka))
+
+
+3. State =4/\Rcv({A.GXY'}_SK) =|>
+   State':=6/\secret(SK,sec_a_SK,{A,B})
+          /\ request(A,B,sk1,SK)
+             
+  end role
+  
+role bob(A,B: agent,
+        G: text,
+        Kb,Ka:public_key,
+        H: hash_func,
+        Snd,Rcv:channel (dy))
+       
+played_by B def=
+local
+   
+     State:nat,
+      Y : text,
+      Na,Nb:text,
+      GX: message,
+      SK:hash(text.public_key),
+      GXY: message
+
+const sec_b_SK :protocol_id
+
+init State :=1
+
+  transition
+  1. State =1 /\Rcv(A.GX'.Na') =|>
+     State':=3 /\Y' :=new()
+              /\Nb' :=new()
+              /\Snd(B.exp(G,Y').Nb') 
+              /\GXY':=exp(GX',Y')
+              /\SK':=H(Na'.Kb)
+              /\witness(B,A,sk1,H(Na'.Kb))
+  
+
+2. State =3 /\Rcv({B.GXY'}_SK) =|>
+   State':=5/\Snd({A.GXY'}_SK)
+          /\secret(SK,sec_b_SK,{A,B})
+          /\ request(B,A,sk2,SK)
+            
+            
+  end role
+  
+role session(A,B: agent,
+       Ka,Kb: public_key,
+       H:hash_func,
+        G: text)
+       
+ def=
+local SA, RA, SB, RB:channel (dy)
+
+composition
+   alice(A,B,G,H,Ka,Kb,SA,RA)
+  /\bob(B,A,G,H,Kb,Ka,SB,RB)
+  end role
+  
+  role environment()
+  def=
+  const sk1,sk2 :protocol_id,
+  a, b , i: agent,
+  ka,kb,ki:public_key,
+  g:text,
+  h:hash_func
+
+  
+  intruder_knowledge={g,h,a,b,i,ka,kb}
+
+  composition
+       session(a,b,ka,kb,g,h)
+     /\session(a,i,ka,ki,g,h)
+     /\session(i,b,ki,kb,g,h)
+     end role
+ goal
+ secrecy_of sec_a_SK, sec_b_SK
+ authentication_on sk1
+ authentication_on sk2
+ end goal
+ 
+ environment()

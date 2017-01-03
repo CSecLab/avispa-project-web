@@ -1,0 +1,136 @@
+role alice (Ui, Sj : agent, 
+                  SKuisj : symmetric_key,
+                  % H is hash function
+                  H : hash_func,
+                  Snd, Rcv: channel(dy))
+
+played_by Ui def=
+
+local State : nat,
+
+Pval,RPWi, PWi, R, K, H1, IDi, R1, R2: text, N, V, C1, C2, S2, A, B : text
+
+const alice_bob_r1, bob_alice_r2, subs1, subs2 : protocol_id
+
+init State := 0
+
+transition
+
+%%% Registration phase 
+1. State = 0 /\ Rcv(start) =|>
+
+State' := 1 /\ RPWi' := H(R.PWi)
+
+                    /\ Snd({IDi.RPWi'}_SKuisj)
+                    /\ secret({K, Pval}, subs1, Sj)
+
+                    /\ secret({PWi, xor(H(IDi.PWi),R), Pval}, subs2, Ui)
+
+2. State = 1 /\ Rcv({H(IDi.K).xor(xor(H(IDi.K),H(R,PWi)),exp(H(IDi.H(xor(PWi,R))),H(IDi.K))).H }_SKuisj) =|>
+%%%% Login phase
+
+State' := 2 /\ N1' := new()
+	/\ N3' := new()
+	/\ Ci=(exp(H(IDi.PWi),H(IDi.K)) mod Pval)
+	/\ Di'=(exp(xor(xor(xor(xor(H(IDi.K),H(R,PWi)),exp(H(IDi.H(xor(PWi,R))),H(IDi.K))),xor(H(IDi.K)),H(xor(PWi,R))),N1) mod Pval)
+	/\ ri'=xor(N3',H(IDi.K))
+                     /\ Si' := xor(H(R.PWi),H(ri)
+  	/\ Wi'=H(IDi.Ci.Di')
+/\ Snd(IDi.ri'.Si'.Ci.Wi)
+
+/\ witness(Ui, Sj, alice_bob_r1)
+
+%%%%% Verification phase
+
+3. State = 2 /\ Rcv(Ei,Ver1) =|>
+
+/\ Snd(IDi)
+
+/\ request(Sj, Ui, bob_alice_r2, R2')
+
+end role 
+
+%%%%%%
+
+role bob (Ui, Sj : agent, SKuisj : symmetric_key, % H is hash function
+H : hash_func,
+
+Snd, Rcv: channel(dy) )
+
+played_by Sj def=
+
+local State : nat,
+
+RPWi, PWi, Xu, K, H1, IDi, R1, R2: text, N, V, C1, C2, S2, A, B : text
+
+const alice_bob_r1, bob_alice_r2, subs1, subs2 : protocol_id
+
+init State := 0
+
+transition
+
+%%%	Registration phase 
+1.	State = 0 /\ Rcv({IDi.H(R.PWi)}_SKuisj) =|> State' := 1 /\ secret({K, H1,Pval}, subs1, Sj) 
+
+/\ secret({PWi, Xu,Pval}, subs2, Ui) 
+
+/\ Snd({H(IDi.K).xor(xor(H(IDi.K),H(R,PWi)),exp(H(IDi.H(xor(PWi,R))),H(IDi.K))).H }_SKuisj)
+%%%% Login phase
+Snd(IDi.ri'.Si'.Ci.Wi)
+2. State = 1 /\ Rcv(IDi.ri'.Si'.Ci.Wi) =|>
+
+%%%%% Verification phase 
+
+State' := 2 /\ N2' := new()
+	/\ N3=xor(ri',H(IDi.K))
+	/\ Si'=xor(H(R.PWi),H(ri)
+	/\ pi'=xor(Si,H(xor(H(IDi.K),N3)))
+	/\ Di'=exp(Ci,H(IDi.K)) mod Pval
+	/\ Ei'=(exp(H(IDi.pi'),N2')) mod Pval
+                     /\ Ver1'=H(IDi,Ci.Di'.Ei)
+
+/\ Snd(Ei.Ver1')
+
+/\ witness(Sj, Ui, bob_alice_r2, R2')
+
+3. State = 2 /\ Rcv(IDi) =|>
+
+State' := 3 /\ request(Ui, Sj, alice_bob_r1, R1)
+ end role
+
+%%%
+
+role session(Ui, Sj: agent, SKuisj : symmetric_key, H : hash_func)
+def=
+
+local SI, SJ, RI, RJ: channel (dy)
+
+composition
+
+alice(Ui, Sj, SKuisj, H, SI, RI) /\ bob(Ui, Sj, SKuisj, H, SJ, RJ)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+const ui, sj: agent,
+
+skuisj : symmetric_key, h : hash_func,
+
+pwi, xu, k, h1, idi, r1, r2: text, alice_bob_r1, bob_alice_r2, subs1, subs2 : protocol_id
+
+
+intruder_knowledge = {ui, sj, h}
+
+composition session(ui, sj, skuisj, h)
+
+/\ session(ui, sj, skuisj, h) end role
+
+goal
+
+secrecy_of subs1 secrecy_of subs2
+
+authentication_on alice_bob_r1 authentication_on bob_alice_r2 end goal
+
+environment()

@@ -1,0 +1,112 @@
+
+role reader (
+
+R, T     : agent,
+H        : hash_func,
+SND, RCV : channel (dy))
+
+played_by R def=
+
+local State: nat,
+Nr, Nt   : text,
+ID,K     : text,
+Auth1   : message
+
+init State := 0
+
+transition
+1. State   = 0  /\ RCV(start) =|>
+   State' := 2  /\ Nr' := new()
+                     /\ SND(Nr')
+2. State   = 2  /\ RCV((H(ID).Nr'),xor(ID,Nt'),H(ID.K.Nr'.Nt')) =|>
+   State'  := 4  /\ K':=new() 
+                     /\ ID':=new()
+                     /\ SND(H(K'.Nr.Nt)) 
+                     /\ request(R,T,rtid,ID)
+                     /\ request(R,T,rtk,K)
+                     /\ witness(R,T,trk,K')
+                     /\ secret(K',sk,{R,T})
+                    
+3. State   = 4  
+   State'  := 6  
+                     /\ ID':= new()
+                     /\ K' := new()
+  
+end role
+
+
+role tag (
+R, T     : agent,
+K, ID    : text,
+H         : hash_func,
+SND, RCV : channel(dy))
+
+played_by T def=
+
+local State : nat,
+Nr, Nt : text,
+Auth   : message
+
+init State := 1
+
+transition
+1. State   = 1 /\ RCV(Nr’) =|>
+   State' := 3  /\ Nt':=new() =|>
+               /\ SND((H(ID).Nr'),xor(ID,Nt'),H(ID.K.Nr'.Nt'))
+               /\ witness(T,R,rtid,ID)
+               /\ witness(T,R,rtk,K)
+               /\ secret(Nt',id2,{R,T})
+               /\ secret(ID,id,{R,T})
+2. State  := 3  /\ RCV(H(K'.Nr.Nt)) =|>  
+    State'  = 5  /\ ID':=new()   
+                     /\ K':=new()
+                     /\ secret(K',sk,{R,T})
+                     /\ request(T,R,trk,K')
+                     
+
+end role
+
+
+
+role session(
+R, T         : agent,
+K,ID             : text,
+Hash        : hash_func)
+
+def=
+
+local
+SNDR2T,RCVR2T,SNDT2R,RCVT2R :channel(dy)
+
+composition
+
+reader(R,T,K,ID,Hash,SNDR2T,RCVR2T)/\
+tag(T,R,K,ID,Hash,SNDT2R,RCVT2R)
+
+end role
+
+role environment()
+def=
+const id,id2,sk,rtid,trk,rtk : protocol_id,
+reader ,tag : agent,
+k,id,idti,idri,kti,kri           : text,
+h               : hash_func
+
+intruder_knowledge = {tag,reader,idti,idri,h,kti,kri,id}
+
+composition
+  session(tag,reader,id,k,h)
+/\session(tag,i,idti,kti,h)
+/\session(reader,i,idri,kri,h)
+
+
+end role
+
+goal
+%secrecy_of id, id2
+authentication_on rtid
+authentication_on rtk
+authentication_on trk
+
+end goal
+environment()

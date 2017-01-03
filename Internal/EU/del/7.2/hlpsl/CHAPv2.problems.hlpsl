@@ -1,0 +1,116 @@
+%% 1-4-Chapv2
+
+%% A-B Notation:
+
+%%  1. A --> B : A
+%%  2. B --> A : Nb
+%%  3. A --> B : Na,H(k(A,B),(Na,Nb,A))
+%%  4. B --> A : H(k(A,B),Na)
+
+%%    H : hash function
+%%    k(A,B): password (shared key)
+%%    A: user identifier (used for login)
+
+%%--------------------------Nhlpsl-spec ---------------------
+
+role CHAP_Init (A,B   : agent,
+           	Kab   : symmetric_key,
+	   	H     : function,
+           	Snd,Rcv: channel(dy)) played_by A def=
+           
+  exists State :nat,
+         Na: text (fresh),
+         Nb: text
+  owns  Snd
+  init   State = 0
+  knowledge(A) = {A,B,Kab,Na}
+
+  transition
+   1. State=0 /\ Rcv(start) =|> Snd(A) /\ State'=1  
+
+   2. State=1 /\ Rcv(Nb') =|> 
+	Snd(Na'.H(Kab.Na'.Nb'.A)) /\ 
+	State'=2 /\
+	witness(A,B,na,Na') /\
+        %% zeb: that secrecy fact was specified for the wrong agnet 
+	secret(Kab,B) 
+	%% zeb: moved request fact to next transition (was too early)
+
+   3. State=2 /\ Rcv(H(Kab.Na)) =|> 
+	State'=3 /\
+	request(A,B,nb,Nb) 
+
+
+
+end role
+
+%% (*------------------------------------------------------*)
+role CHAP_Resp (     B,A : agent,
+                     Kab : symmetric_key,
+		     H: function,
+                     Snd,Rcv: channel(dy)) played_by B def=
+           
+  exists State : nat,
+         Nb: text(fresh),
+         Na: text
+  owns   Snd
+  init  State = 0
+  knowledge(B) = {A,B,Kab,Nb}
+
+  transition
+   1. State=0 /\ Rcv(A') =|>  
+	Snd(Nb') /\
+	State'=1 /\
+	witness(B,A,nb,Nb')
+
+   2. State=1 /\ Rcv(Na'.H(Kab.Na'.Nb.A)) =|>
+	Snd(H(Kab.Na')) /\
+	State'=2 /\
+        %% zeb: secret for other agent
+	secret(Kab,A) /\
+	request(B,A,na,Na') 
+
+end role
+
+%%  (*------------------------------------------------------*)
+role Session(A,B: agent,
+	     Kab: symmetric_key,
+	     H: function,
+	     SA, SB, RA, RB: channel (dy)) def=
+
+  composition
+           CHAP_Init(A, B, Kab, H, SA, RA)
+       /\  CHAP_Resp(B, A, Kab, H, SB, RB)
+end role
+
+%% (*------------------------------------------------------*)
+role Environment() def=
+
+  const na, nb: protocol_id
+  knowledge(i) = {a, b, h, kai, kbi }
+
+  composition
+	Session(a,b,kab,h,sa1,sb1,ra1,sb1) /\
+	Session(a,i,kai,h,sa2,sb2,ra2,sb2) /\
+        Session(b,i,kbi,h,sa3,sb3,ra3,sb3)
+
+end role
+
+
+%% (*---------------------------------------------------------*)
+
+goal
+
+%% secrecy of the shared key
+
+  secrecy_of Kab
+                         
+  CHAP_Init authenticates CHAP_Resp on Nb
+  CHAP_Resp authenticates CHAP_Init on Na	%% J: was on Nb
+  
+end goal
+  
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Environment()

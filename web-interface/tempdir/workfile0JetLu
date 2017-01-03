@@ -1,0 +1,91 @@
+role client (C, S: agent,             
+            Kc, Ks: public_key,      
+            SND, RCV: channel (dy)) 
+played_by C def=
+
+  local State : nat, 
+        ClientHello, ServerHello: text
+
+  init State := 0
+
+  transition  
+   
+    0.  State  = 0 /\ RCV(start) =|> 
+	State':= 2 /\ ClientHello' := new() /\ SND({ClientHello'.C}_Ks)
+		   /\ secret(ClientHello',clientHello,{C,S}) 
+		   /\ witness(C,S,server_client_clientHello,ClientHello')
+
+    2.  State  = 2 /\ RCV({Nc.Ns'}_Kc) =|> 
+	State':= 4 /\ SND({Ns'}_Ks) 
+		   /\ request(C,S,client_server_clientServer,ClientServer')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role server(C, S: agent,      
+         Kc, Ks: public_key,      
+         SND, RCV: channel (dy)) 
+played_by S def=
+
+  local State : nat, 
+	ClientHello, ServerHello: text
+
+  init State := 1
+
+  transition 
+
+    1.  State  = 1 /\ RCV({ClientHello'.C}_Ks) =|> 
+	State':= 3 /\ ClientHello' := new() /\ SND({ClientHello'.ServerHello'}_Kc)
+		   /\ secret(ServerHello',serverHello,{C,S}) 
+		   /\ witness(S,C,client_server_serverHello,ServerHello')
+
+    3.  State  = 3 /\ RCV({Ns}_Ks) =|> 
+	State':= 5 /\ request(S,C,server_client_clientHello,ClientHello)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% à enlever
+
+role session(C, S: agent, Kc, Ks: public_key) def=
+
+  local Sc, Rc, Ss, Rs: channel (dy)
+
+  composition 
+
+	client(C,S,Kc,Ks,SC,RC)
+     /\ server  (C,S,Kc,Ks,SS,RS)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+    const c, s         : agent,
+	  kc, ks, ki   : public_key,
+	  clientHello, serverHello,
+	  client_server_serverHello,
+	  server_client_clientHello : protocol_id
+
+    intruder_knowledge = {c, s, kc, ks, ki, inv(ki)}
+
+    composition
+
+	session(c,s,kc,ks)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of clientHello, serverHello
+  authentication_on client_server_serverHello
+  authentication_on server_client_clientHello
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

@@ -1,0 +1,201 @@
+%ED transition 
+role host(E ,R,C,I : agent,
+                  SndE,RcvE: channel(dy),
+    K_EC: symmetric_Key)
+played_by  E  def=
+local     St         :nat,
+             K_ER ,K            : symmetric_Key,
+             NED, NHI ,NRI : text,
+             MAC  : text,
+             Kj:text
+const       k_eer : protocol_id,
+               sec_ED_K_ER : protocol_id,
+               eD_R_mac : protocol_id,
+                kk : protocol_id,
+                nhi: protocol_id,
+               mac: protocol_id,
+               nri: protocol_id,
+                 sec_k : protocol_id
+init           St := 0
+
+transition
+
+1. St = 0 /\ RcvE(start) =|> 
+   St' := 1 /\ NED' := new()
+                  /\ SndE(I.NED')
+              
+                   
+2. St = 1 /\ RcvE(E.NHI') =|> 
+    St':= 2  /\ NED' := new()
+                  /\ SndE(R.NED')
+                 /\ NED' := new()
+                  
+                    
+3. St = 2 /\ RcvE(E.NRI') =|>
+   St' := 3  /\ SndE(C.{ E.NED'}_K_EC)
+                
+4. St = 3 /\ RcvE(E.K_ER'.NED)  =|>         
+   St' := 4 /\ MAC' := new()
+                      /\ SndE(R.{I.NED'.NHI'}_K_ER'.MAC')
+                      /\ secret(MAC',eD_R_mac,{E,R})
+                       /\ request(E,C,k_eer,K_ER)
+                       /\ secret(K_ER',sec_ED_K_ER,{C,E,R})
+                       /\witness(E,R,mac,MAC')
+
+5. St =  4  /\  RcvE(E.{R.NRI'}_K_ER')  =|>
+   St' := 5 /\ Kj':= new()
+                /\ SndE({R.Kj}_K_ER.MAC')     
+               /\    RcvE({NHI'}_K')
+             /\ request(E,I,kk,K)
+             /\ secret(K',sec_k,{E,I})
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% % LRI transition
+
+role lRI(E,R,C,I:agent ,
+                SndR,RcvR : channel(dy),
+                 K_RC:symmetric_Key )
+  played_by  R
+def=
+ local St  : nat,
+K_ER,K : symmetric_Key,
+K_HI_pub : public_Key,
+NHI,NRI,NED :text,
+  MAC,CertR,Certrequest,CertHI: text ,
+Kj:text,
+SIGNRI: text
+const   
+k_eer : protocol_id,
+sec_R_K_ER :protocol_id,
+  r_ED_mac: protocol_id,
+s_mac : protocol_id,
+r_I_sign : protocol_id,
+mac: protocol_id,
+ nri: protocol_id,
+s_signRI : protocol_id
+init  St := 0
+transition
+1.St = 0 /\ RcvR(R.NED') =|>
+   St' := 1/\  NRI' := new()
+              /\  SndR(E.NRI')
+             
+2.St =1 /\ RcvR(R.{E.R.K_ER'.CertR'.NED'}_K_RC.{E.NED'}_K_ER') =|>
+   St' :=2 /\ SndR(E.{R.NRI}_K_ER')
+               /\ request(E,R,k_eer,K_ER')
+3. St =2  /\ RcvR(R.{I.NED'.NHI'}_K_ER'.MAC')=|>
+   St' := 3 /\ Certrequest' := new()
+                /\ SndR(I.Certrequest'.NRI'.NHI')
+                /\ secret(MAC',eD_R_mac,{E,R})
+                /\request(E,R,mac,MAC)
+               
+4. St =3 /\ RcvR(R.CertHI'.NHI') =|>
+    St' := 4 /\ RcvR(R.{Kj'}_K_ER.MAC')
+                 /\ SIGNRI' :=new()
+                   /\ SndR(I.{Kj'.NED'.NHI'.SIGNRI'}_K_HI_pub)  
+                  /\ request(R,I,r_I_sign,SIGNRI)
+                  /\ secret(SIGNRI',s_signRI,{I,R})
+ 
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%Server transition
+role server(E,R,C:agent,
+                SndC,RcvC : channel(dy),
+                 K_RC:symmetric_Key,
+                K_EC:symmetric_Key)
+played_by  C
+def=
+local St  : nat,
+K_ER : symmetric_Key,
+NHI,NRI,NED :text,
+ CertR : text 
+const   
+sec_R_K_ER :protocol_id,
+k_eer :protocol_id
+init  St :=0
+transition
+1. St =0 /\ RcvC(R.{ E.NED'}_K_EC) =|>
+   St' :=1 /\ K_ER' := new()
+              /\ CertR' := new()
+              /\SndC(E.{E.K_ER'.NED}_K_EC)
+2.St =1 /\ SndC(R.{E.R.K_ER'.CertR'.NED'}_K_RC.{E.NED'}_K_ER') =|>
+    St':=2  /\ witness(C,E,k_eer,K_ER')
+                  /\ witness(C,R, k_eer,K_ER')
+                   /\ secret(K_ER', sec_ED_K_ER,{C,E,R})
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%Host internet transition
+role hostinternet(E,R,I:agent, 
+                SndI,RcvI : channel(dy))
+played_by  I
+def=
+local St  : nat,
+K_HI_pub : public_Key,
+K:symmetric_Key,
+NHI,NRI,NED:text,
+  Certrequest,CertHI,CertR: text ,
+Kj: text,
+SIGNRI : text 
+const   
+ned: protocol_id,
+nhi: protocol_id,
+sec_HI_K:protocol_id,
+k_EHI :protocol_id,
+r_I_sign : protocol_id,
+s_signRI : protocol_id
+init  St := 0
+transition
+1.St =0 /\  RcvI(I.NED') =|> 
+   St':= 1/\ NHI' := new() 
+           /\ SndI(E.NHI')
+           
+2.St=1 /\ RcvI(I.Certrequest'.NRI'.NHI') =|>
+   St' :=2 /\ SndI(R.CertHI'.NHI')
+
+3.St = 2 /\ RcvI(I.{Kj'.NED'.NHI'.SIGNRI'}_K_HI_pub) =|>   
+   St' := 3   /\  K':= new()
+                   /\  NHI':= new()
+                /\ SndI(E.{NHI'}_K')
+               /\ witness(I,E,kk,K')
+               /\ secret(K',sec_k,{E,I})
+               /\ witness(I,R,r_I_sign,SIGNRI')
+               /\ secret(SIGNRI',s_signRI,{I,R}) 
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(E,R,C,I   :agent,
+                          K_ER,K_EC    : symmetric_Key)
+def=
+local  SE,RE,SR,RR,SC,RC,SI,RI : channel (dy)
+composition
+host(E,R,C,I,SE,RE,K_EC)
+/\ lRI(R,E,C,I,SR,RR,K_ER)
+ /\ server(C,E,R,SC,RC,K_EC,K_ER)
+/\ hostinternet(I,E,R,SI,RI)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment ()    def=
+const   e,r,c,i : agent,
+             k_er, k_ec,k_ir: symmetric_Key
+intruder_knowledge={e,r,c,i,k_ir}
+composition
+ session(e,r,c,i,k_er,k_ec)
+/\ session(i,r,c,i,k_ir,k_ec)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal 
+secrecy_of
+sec_ED_K_ER,
+sec_k,
+eD_R_mac,
+s_signRI
+authentication_on  k_eer
+authentication_on kk
+authentication_on  r_I_sign
+
+authentication_on  mac
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment ()
+    
+			

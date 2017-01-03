@@ -1,0 +1,182 @@
+ role payer(A ,B ,C ,D : agent,
+          PA,PB,PC,PD : public_key,
+          Kac               : symmetric_key,
+	H : hash_func,
+	IDc : text,
+           SND_ac,RCV_ac,SND_ab,RCV_ab :channel(dy))
+
+played_by A def=
+
+local
+	QA:  public_key,
+         State       :nat,
+     R, J,P,T,IDb,IDa  :text,
+      M : {text.text.text}_inv(public_key),
+       V : {text.text}_inv(public_key),
+      CHECK :{text.text.text.text}_inv(public_key)
+const id: protocol_id
+init State:=0
+
+transition
+
+         1. State=0
+                                    /\ RCV_ab(start) =|>
+
+            State':=2         
+                                    /\ SND_ab (A.B.PA.IDc)
+
+         2. State=2                 /\ RCV_ab(A.B.PB.{R'}_PC)  =|>
+
+            State':=4                /\ M' :={{R'}_PC.IDb.J}_inv(QA)
+                                        /\ SND_ac(A.B.{M'.PA.H(M',Kac)}_PC)
+                                        /\ witness(A,C,id,H(M',Kac))
+
+         3.State=4     
+                                      /\  RCV_ac(A.B.V')     =|>
+
+            State':=6            /\  CHECK':={P.T.J.H(Kac,IDa)}_inv(QA)
+                                     /\  SND_ab(A.B.{V'.CHECK'}_PB)
+end role
+
+role payee (A,B,C,D:agent,
+          PA,PB,PC,PD: public_key,
+          Kbd : symmetric_key,
+          H : hash_func,
+	IDc:text,
+          SND_ab,RCV_ab,SND_bd :channel(dy))
+
+played_by B def=
+
+local
+	QB:public_key, 
+                State  :   nat,
+            R , J: text,
+V : {text.text}_inv(public_key),
+ CHECK :{text.text.text.text}_inv(public_key)
+const id1,id2,id3:protocol_id
+init
+            State:=1
+
+transition
+
+              1. State=1
+                             /\ RCV_ab(A.B.PA.IDc) =|>
+
+                 State':=3
+                             /\ R':=new()
+                             /\ SND_ab(A.B.{R'}_PC)
+                             /\secret(R',id3,{B,C})
+              
+            2. State=3
+                            /\ RCV_ab(A.B.{V'.CHECK'}_PB) =|>
+                State':=9
+                  	/\request(B,C,id1,H({R'}_PC,J))
+		/\ SND_bd(B.D.{CHECK'.H(CHECK',Kbd)}_PD)
+		/\ witness(B,D,id2,H(CHECK',Kbd))
+
+end role
+
+role issuer(A,B,C,D : agent,
+	PA,PB,PC,PD : public_key,
+	Kac : symmetric_key,
+	H : hash_func,
+	IDc:text,
+	SND_ac,RCV_ac:channel(dy))
+
+played_by C  def=
+
+local
+	QC: public_key,
+	State :   nat,
+	R,J,P,T :text,
+ 	M : {text.text.text}_inv(public_key),	
+ 	V : {text.text}_inv(public_key),
+	CHECK :{text.text.text.text}_inv(public_key)
+	const id0,id1:protocol_id
+init     State:= 5
+transition
+
+	1.State=5
+		/\ RCV_ac(A.B.{M'.PA.H(M'.Kac)}_PC)
+		/\ request (C,A,id,H(M',Kac))   =|>
+	State' :=7
+		/\ V':={H(R'.J).PA}_inv(QC)
+		/\SND_ac(A.B.V')
+		/\secret(V',id0,{B,C})
+		/\witness(C,B,id1,H({R'}_PC,J))
+	
+end role	
+
+role acq(A,B,C,D : agent,
+	PA,PB,PC,PD :public_key,
+	Kbd : symmetric_key,
+	H:hash_func,
+	IDc:text,
+	SND_bd,RCV_bd: channel(dy))
+played_by  D
+def=
+	local 
+	QD:public_key,
+	  State:nat,
+	IDb:text,
+	CHECK :{text.text.text.text}_inv(public_key)
+	const id2:protocol_id
+init  State:=10
+transition
+
+	1.State=10
+		/\ RCV_bd(A.B.{CHECK'.H(CHECK',Kbd)}_PD)     =|>
+	      State' :=12 
+		/\  request(D,B,id2,H(CHECK',Kbd))
+
+		/\  SND_bd(A.B.{CHECK'.IDb}_inv(QD))
+end role
+
+role session (A,B,C,D:agent,
+	PA,PB,PC,PD : public_key,
+	Kac , Kbd : symmetric_key,
+	H : hash_func,
+          IDc:text)
+             def=
+
+local
+Sac,Rac,
+Sab,Rab,
+Sbd,Sba,Rba,Sca,Rca,Rcd,
+Sdc,Rdb : channel(dy)
+
+composition
+
+               payer(A,B,C,D,PA,PB,PC,PD,Kac,H,IDc,Sac,Rac,Sab,Rab)
+               /\ payee(A,B,C,D,PA,PB,PC,PD,Kbd,H,IDc,Sba,Rba,Sbd)
+	/\ issuer(A,B,C,D,PA,PB,PC,PD,Kac,H,IDc, Sca,Rca)
+	/\ acq(A,B,C,D,PA,PB,PC,PD,Kbd,H,IDc,Rdb,Sdc)
+end role
+
+role environment() def=
+              const  a,b,c,d :agent,
+	pa,pb,pc,pd,qa,qb,qc,qd,pi,qi : public_key,
+                 kac,kbd,kic,kid,kai,kbi : symmetric_key,
+	   h: hash_func,
+	idc:text,
+	 id1,id,id2,id3 : protocol_id
+
+
+ intruder_knowledge = {a,b,c,d,pa,pb,pc,pd,pi.inv(pi),kai,kbi,kic,kid,h}
+
+composition
+              session(a,b,c,d,pa,pb,pc,pd,kac,kbd,h,idc)
+              /\  session(i,b,c,d,pi,pb,pc,pd,kic,kbd,h,idc)
+              /\  session (a,i,c,d,pa,pi,pc,pd,kac,kid,h,idc)
+	/\  session(a,b,i,d,pa,pb,pi,pd,kai,kbd,h,idc)
+	/\  session(a,b,c,i,pa,pb,pc,pi,kac, kbi,h,idc)
+end role
+
+goal
+
+  secrecy_of id3,id0
+
+
+
+end goal
+environment()

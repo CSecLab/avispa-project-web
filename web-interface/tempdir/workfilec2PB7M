@@ -1,0 +1,81 @@
+role p_cscf  ( Proxy,Ue: agent, SND,RCV: channel(dy)) played_by Proxy def=
+local
+      State,P  : nat,
+      Kue, Kproxy, Id : text,
+      X,Y  : message
+const
+      sec_kproxy, sec_id: protocol_id
+init State:=1
+transition
+0. State= 1  /\  RCV ({exp(Id,Kue')}_P'.P') =|>
+   State':= 2 /\  Kproxy':= new()
+             /\  Y':= {exp({exp(Id,Kue)}_P,Kproxy')}_P
+             /\  SND (Y')
+             /\  secret (Kproxy', sec_kproxy, Proxy)
+             /\  secret (Id, sec_id, {Proxy,Ue})
+
+1. State= 2   /\ RCV ({exp(Id,Kproxy)}_P) =|>
+   State':=3 
+
+end role 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role user_equipement ( Ue, Proxy: agent,
+                       SND,RCV: channel(dy) 
+                     ) played_by Ue
+
+def=
+
+local
+         State,P  : nat,
+         Kue, Id ,Kproxy : text,
+         X,Y  : message
+const 
+         sec_id, sec_kue: protocol_id
+init State:=1
+
+transition
+
+         2.  State=1    /\ RCV(start) =|>
+             State':=2  /\ Kue':=new() /\ P':= new ()  
+                        /\ X':= {exp(Id,Kue')}_P'
+                        /\ SND (X'.P')
+                        /\ secret (Id, sec_id, {Ue, Proxy})
+                        /\ secret (Kue', sec_kue, Ue)
+
+        3.  State= 2    /\  RCV ({exp({exp(Id,Kue)}_P,Kproxy')}_P) =|>
+            State':= 3  /\  SND ({exp(Id,Kproxy)}_P)
+                        /\ secret (Id, sec_id, {Ue, Proxy})
+                        
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session (Ue, Proxy: agent)
+def= local SND, RCV : channel(dy)
+composition
+      
+    user_equipement (Ue, Proxy,SND, RCV)
+   /\  p_cscf (Proxy, Ue,SND, RCV)  
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment ()
+def= 
+const  
+ue,proxy   : agent ,
+sec_id, sec_kproxy,sec_Kue: protocol_id,
+p: text
+intruder_knowledge={ue, proxy, p,i} 
+
+composition 
+    session (ue, proxy)  
+
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal 
+secrecy_of  sec_kproxy,   sec_id, sec_kue
+
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ 
+environment ()

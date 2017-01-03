@@ -1,0 +1,97 @@
+role gateway(
+G, R : agent,
+SND,RCV : channel(dy))
+played_by G def=
+local
+State : nat,
+Ng : text, % Nonce created by Gateway
+MAC : hash(text.agent.symmetric_key) % Message Authentication Code
+% (A crytographic hash created
+% by the relay using the IP of
+% the Gateway,source port,
+% Nonce, and a local secret
+% known only to the Relay
+init
+State := 0
+transition
+1. State = 0 / RCV(start) =|>
+State':= 2 / Ng' := new()
+/ SND(G.Ng') % Send AMT Relay Discovery
+2. State = 2 / RCV(R.Ng) =|> % Receive AMT Relay
+% Advertisement Message
+% Unicast IP of Relay
+% is now known to Gateway
+State' := 4 / Ng' := new()
+/ SND(G.Ng') % Send AMT Request Message
+3. State = 4 / RCV(R.Ng.MAC') =|> % Receive AMT Query Message
+% includes Gateway
+% Nonce and MAC
+State' := 6 / SND(G.MAC'.Ng) % Send AMT Membership
+%Update Message
+/ request(G,R,gateway_relay_mac,MAC') % Security
+% Goal: Gateway
+% Authenticates
+% Relay on
+% MAC
+end role
+role relay(
+G, R : agent,
+Hash : hash_func,
+SND,RCV : channel(dy))
+played_by R def=
+local
+State : nat,
+Ng : text, % Nonce created by Gateway
+MAC : message, % Message Authentication Code
+% (A crytographic hash created by
+% the relay using the IP of the Gateway,
+% source port, Nonce, and a
+% local secret known only to the Relay
+LS : text % A local secret known only to the Relay
+init
+State := 1
+transition
+1. State = 1 / RCV(G.Ng') =|> % Receive AMT Relay Discovery
+% Message
+State' := 3 / SND(R.Ng') % Send AMT Relay Advertisement
+% Message
+2. State = 3 / RCV(G.Ng') =|> % Receive AMT Request Message
+State' := 5 / LS' := new() % Create Local Secret
+/ MAC' := Hash(Ng'.G.LS') % Create MAC
+/ SND(R.Ng'.MAC') % Send AMT Query Messasge
+/ secret(LS',s_ls,{R}) % Security Goal: Local secret
+% should only be
+% known to Relay
+/ witness(R,G,gateway_relay_mac,MAC') % Security
+% Goal: Gateway
+% Authenticates
+% Relay on
+% MAC
+/ secret(MAC',s_mac,{R,G}) % Security Goal: MAC
+% should only be
+% known to Relay & Gateway
+3. State = 5 / RCV(G.MAC.Ng) =|> % Receive AMT Membership Update
+State' := 7
+end role
+role session(
+G,R : agent,
+Hash : hash_func)
+def=
+local SND, RCV : channel (dy)
+composition
+gateway (G,R,SND,RCV)
+/ relay (G,R,Hash,SND,RCV)
+end role
+role environment()
+def=
+const
+g,r : agent,
+relay_gateway_mac,
+relay_gateway_ls : protocol_id,
+h : hash_func
+intruder_knowledge = {g,r,h}
+composition
+session(g,r,h)
+/ session(g,i,h)
+/ session(i,r,h)
+end role 

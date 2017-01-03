@@ -1,0 +1,96 @@
+ role user(A, S : agent,
+           SKey : symmetric_key,
+           H : hash_func,
+           SND_SA, RCV_SA : channel(dy))
+           played_by A def=
+           local
+                
+                State : nat,
+                HashPasswd,HPasswd,C1,C2,C3,N,P: message
+                init
+                    State := 0 /\ N := 1
+                    transition
+                              0. State = 0 /\ RCV_SA(start) =|>
+                                 State' := 2 /\ N' := new() /\ HashPasswd' := H(H(xor(N', SKey))) /\ SND_SA( A.HashPasswd'.N') 
+                                          /\ secret(N',na, {A, S}) /\ witness(A,S,bob_alice_na,N')
+                                        
+                              
+                              2. State = 2 /\ RCV_SA(HPasswd'.P') =|> State' := 4 
+                                        /\ N':= new() /\ C1':=xor(HPasswd',HashPasswd) /\ C2' :=xor(C1',H(xor(P', SKey))) /\ C3':=xor(H(C1'),H(H(xor(N', SKey)))) /\ HPasswd':=xor(C1',H(xor(N', SKey))) /\ SND_SA(A.C2',C3')
+                                        /\ wrequest (A,S,alice_bob_nb,N')
+                           
+ end role
+
+
+ role server( S,A: agent,
+              SKey : symmetric_key,
+              H : hash_func,
+              SND_AS, RCV_AS : channel(dy))
+              played_by S def=
+              local
+                   State : nat,
+                   HPasswd, HashPasswd,C2,C3,P2,P3,N : message
+              init
+                       State := 1
+                       transition
+                                  1. State = 1 /\ RCV_AS( A.HashPasswd'.N') =|> State' := 3
+                                             /\ HPasswd' := xor( HashPasswd', H( SKey.A)) 
+                                             /\SND_AS(HPasswd'.N')
+                                             /\   witness(S,A,alice_bob_nb,N')
+                                              /\ secret(N',nb,{S,A})
+
+                                  3. State = 3 /\ RCV_AS(A.P2'.P3') =|> State' := 5 
+                                             /\C2':=xor(P2',H(SKey.A)) /\ HashPasswd':=xor(C3,H(H( SKey.A))) /\ wrequest(S,A,bob_alice_na,N)
+                                             
+
+                                
+
+ end role
+
+
+
+ role session( A, S : agent,
+               H : hash_func,
+               SKey : symmetric_key)
+              def=
+              local
+                   SND_AS, RCV_AS, SND_SA, RCV_SA : channel(dy)
+                   composition
+                              user(A, S, SKey,H, SND_SA, RCV_SA)
+                              /\ server(S,A,SKey,H, SND_AS, RCV_AS)
+
+ end role
+
+
+
+ role environment()
+                 def=
+                     const
+
+                         a,s,i : agent,
+                         bob_alice_na,
+                         alice_bob_nb,
+                         h: hash_func,
+                         na,nb: protocol_id,
+                         skey : symmetric_key
+                         intruder_knowledge = { a,s,i,skey,h}
+                composition
+                         session(a, s, h, skey)
+                         /\ session(i, s, h, skey)
+
+
+
+ end role
+
+
+
+ goal
+     weak_authentication_on alice_bob_nb
+     weak_authentication_on bob_alice_na
+     secrecy_of na,nb
+
+ end goal
+
+
+
+ environment()

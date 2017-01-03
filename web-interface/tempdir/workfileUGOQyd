@@ -1,0 +1,118 @@
+role alice(
+                     A,B,C : agent,
+                           K1: symmetric_key,
+                            H: hash_func,
+                SND,RCV : channel(dy))
+            played_by A def=
+               local
+                                                   State : nat,
+                                Na,Nb,Nc,T1,T2,T3 : text,
+                                                     SK1 : message
+                const bob_alice_nb,subs,tabs : protocol_id
+              init
+              State := 0
+              transition
+               1. State = 0 /\RCV(start) =|>
+                   State':= 1 /\Na' := new()
+                                  /\SND({Na'}_K1) 
+                2. State = 1 /\RCV({Nb'.Nc'.K2}_K1) =|>
+                    State':= 2 /\SK1' := H(Na'.Nb'.Nc')
+                                   /\SND({Nb'}_SK1')
+                                   /\SND({T1}_SK1')
+                3. State = 2 /\RCV({T3}_SK1') =|>
+                    State':=3 /\witness(A,B,bob_alice_nb,Nb')
+                                  /\witness(A,C,bob_alice_nb,T3)
+                                  /\secret(K1,subs,A)  
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role bob(
+                   A,B,C : agent,
+                   K1,K2 : symmetric_key,
+                          H : hash_func,
+              SND,RCV : channel(dy))
+                played_by B def=
+                     local
+                                              State : nat,
+                           Nb,Na,Nc,T1,T2,T3 : text,
+                                                SK1 : message
+           const bob_alice_nb,subs,tabs : protocol_id
+                         init
+                            State := 1
+                              transition
+                                    1.  State =1 /\ RCV({Na'}_K1) =|>
+                                        State':=2 /\ Nb' := new()
+                                                      /\SND({Nb'.Na'.K1}_K2)
+                                    2. State = 2 /\ RCV({Nc'}_K2) =|>
+                                        State':=3 /\SND({Nb'.Nc'.K2}_K1)
+                                                      /\SK1':= H(Na'.Nb'.Nc')
+                                                      /\SND({Nc'}_SK1')
+                                   3.State=3 /\RCV({T1}_SK1') =|>
+                                     State':=4 /\ secret(SK1',SK1,{A,B,C})
+                                                   /\ witness(B,C,bob_alice_nb,Nc')
+                                                   /\SND({T2}_SK1')
+                                                   /\request(B,A,bob_alice_nb,Nb')
+                                                   /\secret({T1,T2},tabs,B)       
+end role 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role commic(
+                                 A,B,C : agent,
+                                     K2:symmetric_key,
+                                        H: hash_func,
+                           SND,RCV : channel(dy))
+                           played_by C def=
+                                     local
+                                                  State:nat,
+                              Na,Nb,Nc,T1,T2,T3:text,
+                                                  SK1 : message
+                             const bob_alice_nb : protocol_id
+                                     init 
+                                         State := 1 
+                                              transition
+                                                   1. State=1 /\ RCV({Nb'.Na'.K1}_K2) =|>
+                                                      State':=2 /\ Nc' :=new()
+                                                                    /\ SND({Nc'}_K2)
+                                                                    /\ SK1':=H(Nb'.Nc'.Na')
+                                                                    /\ SND({T3}_SK1')
+                                                   2. State=2    /\RCV({Nc'}_SK1') =|>
+                                                      State':=3   /\secret(SK1',K1,K2,{A,B,C})
+                                                   3.State=4     /\RCV({T2}_SK1')=|>                   
+                                                      State':=5  /\request(C,A,bob_alice_nb,Nc')
+                   
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        role session(
+                           A,B,C : agent,
+                           K1,K2 : symmetric_key,
+                                  H:hash_func)
+                          def=
+                             local SA,RA,SB,RB,SC ,RC : channel (dy)
+                                composition
+                                          alice(A,B,K1,SK1,H,SA,RA)
+                                       /\ bob (A,B,{K1,K2},H,SB,RB)
+                                       /\ commic(B,C,K2,H,SC,RC)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        role environment()
+                             def=
+                               const
+                   bob_alice_nb,subs,tabs : protocol_id,
+                                             k1,k2 : symmetric_key,
+                                               a,b,c : agent,
+                                             t1,t2,t3:text,
+                                                  sk1:message,
+                                                     h : hash_func
+                            intruder_knowledge = {a,b,h}
+                                                    composition
+                                                                session(a,b,k1,h)
+                                                             /\ session(a,b,{k1,k2},h)
+                                                             /\ session(b,c,k2,h)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                            goal
+                            secrecy_of sk1,t1,t2,t3
+                            secrecy_of subs
+                            secrecy_of tabs
+                            authentication_on bob_alice_nb
+end goal
+environment()

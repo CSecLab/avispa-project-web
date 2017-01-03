@@ -1,0 +1,45 @@
+role role_A(A,B: agent, Kab:symmetric_key, SND, RCV: channel(dy)) played_by A
+def=
+  local State:nat,
+        Na: text
+  init State:= 0
+  transition
+	1. State = 0 /\ RCV(start)  =|> State' := 2 /\ Na':= new()/\ SND({Na'}_Kab) /\ secret(Na',sec1,{A,B})
+end role
+
+role role_B(A,B: agent, Kab:symmetric_key, SND, RCV: channel(dy)) played_by B
+def=
+  local State:nat,
+        Na: text
+   init State:= 1
+   transition
+	1. State = 1 /\ RCV({Na'}_Kab) =|> State':=3 /\ SND(Na')
+end role
+
+role session (A,B: agent,Kab:symmetric_key)
+def=
+  local SA, SB, RA, RB: channel (dy)
+  composition
+	role_A(A,B,Kab,SA,RA) /\ role_B(A,B,Kab,SB,RB)
+end role
+
+role environment()
+def=
+  const a,b: agent,
+        kab:symmetric_key,
+        sec1: protocol_id
+
+  intruder_knowledge = {a,b}
+  composition
+	session(a,b,kab) 
+	
+end role
+
+goal
+  secrecy_of sec1
+end goal
+
+environment()
+
+
+

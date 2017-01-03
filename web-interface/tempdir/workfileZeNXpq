@@ -1,0 +1,60 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Role of the payer
+role payer(	Pr,B		:agent,
+		Skb 		:symmetric_key,
+		H1,H2		:hash_func,
+		Snd,Rcv		:channle(dy))
+played_by Pr def=
+	local State : nat,
+	NPr,NB	     : text,
+	KB,KPr	     : public_key,
+	Id,Bi	     : message
+init State := 0
+transition
+	State  = 0 	/\ Rcv(start) =|>
+	State':= 2 	/\ Id' := new()
+		   	/\ Bi' := new()
+		   	/\ Tspr':=new()
+		   	/\ NPr' :=new()
+		   	/\ Snd({Id.Bi.Tspr.NPr}_KB)
+		  	/\ secret(Tspr',NPr', {payer,bank})
+		   	/\ witness(Pr,B,payer_bank_NPr)
+
+2.	State  = 2	/\ Rcv({SkB,TsB,NB}_KPr) =|>
+	State  = 4 	/\ Amount':new()
+		   	/\ Payee_id:new()
+		   	/\ Tspr'=new()
+		   	/\ NPr'=new()
+		   	/\ Alpha'=H1(Skb.Amount.Payee_id.Tspr'.NPr')
+		   	/\ Snd({Amount,Payee_id,Tspr',NPr',Alpha}_Skb)
+		   	/\ secret(Tspr',NPr',SkB,{payer,bank})
+		   	/\ witness(Pr,B,payer_bank_NPr,payer_bank_Skb)
+
+3.	State	= 4	/\ Snd({Amount,Payee_id,Tspr',NPr',Alpha}_Skb) =|>
+	State	= 6	/\ Rcv({Payment_success,Amount,Payee_id,Tspr',NPr',Beta}_Skb)
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Role of the Bank
+role bank(	Pr,B		:agent,
+		Skb 		:symmetric_key,
+		H1,H2		:hash_func,
+		Snd,Rcv		:channle(dy))
+played_by Pr def=
+	local State : nat,
+	NPr,NB	     : text,
+	KB,KPr	     : public_key,
+	Id,Bi	     : message
+init State := 1
+transition
+1. 	State	 = 1	/\ Rcv(start) =|>
+			
+	State'	:= 3	/\ Tsb'=new()
+		   	/\ NB'=new()
+		   	/\Snd({SkB,Tsb',NB'}_KPr)
+		   	/\secret(Tsb',NB', {payer,bank})
+		   	/\witness(Pr,B,bank_payer_NB)
+
+2.	State	= 3	/\	
+

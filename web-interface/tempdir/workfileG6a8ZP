@@ -1,0 +1,113 @@
+role server(S, T: agent, 
+            
+            K: symmetric_key,
+H:hash_func,
+            SND, RCV: channel(dy))
+played_by S def=
+
+  local State: nat,
+        R1,R2, ID:text,
+        Auth1:hash(symmetric_key.text.text)
+        
+        
+
+init State := 0
+
+transition
+
+0.  State = 0
+      /\ RCV(start)
+      =|> 
+      State' := 1
+      /\ R1' := new()
+      /\ SND(R1')
+
+1. State = 2       /\ RCV(h(K.R1'.R2').xor(R2',ID))
+=|> State' := 3    /\ Auth1' := h(K.R1.R2') 
+                   /\ request(S,T,id3,Auth1')
+                   
+2. State=3         /\ SND(h(ID.R1.R2))
+=|> State':= 3     /\ witness(S, T, trid, ID)
+        
+                   /\ ID':=new()
+                   /\ K' := new()
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role tag( T,S: agent,
+          K: symmetric_key,
+H: hash_func,
+         SND,RCV: channel(dy))
+played_by T def=
+
+        local State   : nat,
+        R1,R2 , ID: text,
+        Auth : hash(text. text.text)
+       
+  init  State := 0
+
+  transition
+
+   0. State = 0
+      /\ RCV(R1')
+      =|> 
+      State' := 1
+      /\ R2' := new()
+      /\ SND(h(K.R1'.R2').xor(R2',ID)) 
+      /\ witness( T, S, trid,ID)
+      /\ witness( T, S, trk, K)
+      /\ secret (R2', id2, {T, S})
+      /\ secret(ID,id, {T, S})
+
+   1. State = 1       /\ RCV(h(ID.R1'.R2'))
+
+      =|> State' := 2 /\ Auth' := h(ID.R1'.R2') 
+                      /\ request(S,T,trid,Auth')
+      
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session( T,S : agent,
+               K: symmetric_key,
+              Hash : hash_func)
+def=
+
+local SND, RCV: channel (dy)
+
+composition
+
+   tag(T,S,K,Hash, SND, RCV)
+/\ server (S,T,K,Hash, SND, RCV)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment( ) def=
+const
+id, id2, id3, id4, id5,trid, trk: protocol_id,
+h : hash_func,
+k,kti,ksi: symmetric_key,
+tag, server: agent
+
+intruder_Knowledge = {tag,server,h,i,kti,ksi}
+composition
+
+   session(tag,server,k,h)
+/\ session(tag,i,kti,h)
+/\ session(i,server,ksi,h)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+
+secrecy_of id, id2
+
+authentication_on trid
+
+authentication_on id3
+authentication_on trk
+
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

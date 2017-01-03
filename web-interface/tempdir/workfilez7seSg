@@ -1,0 +1,112 @@
+role ifd(A,B : agent,
+         G:text,
+         SND,RCV:channel(dy),
+	 ID_A,ID_B,CA_A,CA_B: message,
+	 Ka:public_key,
+         Kb:public_key,
+	 F1:hash_func)
+
+played_by A def=
+
+local
+         State       :nat,
+         Nf,N_P,N_RA  :text,
+         X,K,Y: message
+
+init State:=0
+
+transition
+
+         1. State=0
+                                    /\ RCV(start) =|>
+
+            State':=2               /\ Nf':=new()
+                                    /\N_P':=new()
+                                    /\ X' := exp(G,Nf')
+                                    /\ SND (ID_A.X'.CA_A.N_P')
+
+         2. State=2                 /\ RCV({Y'.N_RA'}_Ka.{F1(ID_A.ID_B.N_P'.N_RA')}_K'.CA_B) =|>
+
+            State':=4               /\ K':=exp(Y',Nf)
+                                 
+                                    /\ SND({N_RA'}_K')
+                                    /\
+secret(Nsecret',sec_ifd_dhvalue,{A,B})
+end role
+
+role icc (B,A:agent,
+          G:text,
+          SND,RCV:channel(dy),
+          ID_A,ID_B,CA_A,CA_B: message,
+	  Kb:public_key,
+	  Ka:public_key,
+          F1:hash_func)
+
+played_by B def=
+
+local
+                State  :   nat,
+                X,Y,K    :   message,
+                Ni,N_P,N_RA : text
+init
+            State:=1
+
+transition
+
+              1. State=1
+                             /\ RCV(ID_A.X'.CA_A.N_P') =|>
+
+                 State':=3
+                             /\ Ni':=new()
+			     /\ N_RA'=new()
+                             /\ Y':=exp(G,Ni')
+                             /\ K' := exp(X',Ni')
+                             /\ SND({Y'.N_RA'}_Ka.{F1(ID_A.ID_B.N_P'.N_RA')}_K'.CA_B)
+
+             3. State=3
+                            /\ RCV({N_RA'}_K') =|>
+                State':=5
+
+end role
+
+
+role session (A,B:agent,
+             G:text,
+	     ID_A,ID_B,CA_A,CA_B: message,
+	     Kb:public_key,
+	     Ka:public_key,
+	     F1:hash_func)
+             def=
+
+local SND_A,RCV_A,SND_B,RCV_B:channel(dy)
+
+composition
+
+                ifd(A,B,G,SND_A,RCV_A,ID_A,ID_B,CA_A,CA_B,Ka,Kb,F1)
+               /\ icc(B,A,G,SND_B,RCV_B,ID_A,ID_B,CA_A,CA_B,K_AB,Kb,Ka,F1)
+end role
+
+role environment() def=
+                const a,b,i:agent,
+                    g:text,
+                    sec_ifd_dhvalue  : protocol_id,
+		    id_A,id_B,ca_A,ca_B: message,
+	            ka:public_key,
+	            kb:public_key,
+		    f1:hash_func
+
+ intruder_knowledge = {a,b,i,g,f1}
+
+composition
+              session(a,b,g,id_A,id_B,ka,kb,f1)
+          %  /\ session(a,i,g)
+           % /\ session (i,b,g)
+end role
+
+goal
+
+  secrecy_of sec_ifd_dhvalue
+
+
+end goal
+environment()

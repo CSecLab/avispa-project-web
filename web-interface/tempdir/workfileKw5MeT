@@ -1,0 +1,234 @@
+role user (
+		U  : agent,
+		GW : agent,             
+		SN : agent,             
+		H  : hash_func,
+		UID: text, 
+		SID: text,
+		Password: text, 
+		Biometric: text,
+		MK:symmetric_key,
+		SND_UG, RCV_UG,SND_US, RCV_US: channel (dy)
+          )
+        
+played_by U
+def=
+
+  local State   	: nat,
+        SK,Path,RNU,Root,Kb,D,C,E,R,Recv_msg,A      : text,
+	Tstamp1   	: text,
+	PERMIT_LOGIN,MA_u,Tstamp7 : text,
+	Reg_req,Req_Login : text.text,
+	NewPassword 	: text
+		
+        const sec_i_Pwd,sec_i_NPwd,user_gateway,gateway_user,user_sensor,sensor_user: protocol_id
+		
+  init  State := 0
+
+  transition     
+
+  1.  State  = 0 /\ RCV_UG(start) =|>
+      State':= 1 /\ SND_UG(UID.Password.Biometric) 
+                 /\ secret(Password,  sec_i_Pwd,{GW})  
+                
+
+  2. State  =  1 /\ RCV_UG(UID.E.R) =|>
+     State' := 2 /\ Tstamp1' := new()
+	             /\ Path':= new()
+		     /\ Root' := new()
+		     /\ RNU':= new()
+		     /\ Kb' :=new()
+	    	 /\ D' := xor(R',H(Password.H(Biometric).UID)
+	         /\ Kb':= H(D',Tstamp1')
+		 /\ C'= {UID.RNU'.Path'.Root'}_Kb'
+	    	 /\ SND_UG(UID.C'.Tstamp1') 
+	    	 /\ Req_Login' := C'.Tstamp1'
+            	 /\ witness(U,SN,user_sensor,Req_Login') 
+			 
+				 
+  3. State  =  2 /\ RCV_US(UID.SID.{RNU}_SK) =|> 
+     State' := 3  
+		 /\ NewPassword' := new()
+		 
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role target_GW( 
+		U,GW,SN       : agent,      
+		H             : hash_func,
+		UID			  : text,
+		SID           : text,
+		Pwd 		  : hash_func,
+		Biometric     : text,
+		MK            : symmetric_key,
+		SND_UG, RCV_UG,SND_GS, RCV_GS      : channel (dy)
+	      )
+        
+played_by GW 
+def=
+
+  local State  		      : nat,
+         M,RNU,RNB,X,E,R,T,MA_sn,MA_u       : text,
+         A,C,Tstamp1,Tstamp3,Tstamp5 :text,
+        Tstamp       : text,
+        Succ_msg     : text,
+        Reg_resp     : text,
+        Broad_N_TS   : text.text,
+	Accept_Login : text.text.text,
+        NPwd 	     : text,
+	PERMIT_LOGIN :text
+
+  const user_gateway,gateway_user,gateway_sensor,sensor_gateway,sec_N_sensor,sec_Ts_sensor,sec_success : protocol_id
+
+  init  State := 0
+
+  transition 
+
+  1. State  =  0 /\ RCV_UG(UID.Pwd.Biometric) =|>  
+     State' := 1 /\ Succ_msg' := new() ----------is this a acknowledgement?
+                 /\ secret(Succ_msg',sec_success,{U})
+		 /\ SND_UG(Succ_msg') 
+                 /\ witness(GW,U,gateway_user,Succ_msg')
+                 /\ request(U,GW,user_gateway,UID.Pwd)
+ 
+		 /\ X' := new()
+		 /\ T':= H(Biometric)
+		 /\ E' := H(T'.Pwd)
+		 /\ R':= xor( H(UID.X').H(Pwd.T'.UID) ) 
+		       	 /\ secret(N',  sec_N_sensor,{SN})  
+                 /\ secret(Tstamp',  sec_Ts_sensor,{SN})  
+                 /\ SND_GU(UID.E'.R') 
+                 /\ witness(GW,SN,gateway_sensor,E'.R') 
+				 
+
+  2. State   = 1 /\ RCV_GS(UID.C.Tstamp1) =|>
+     State' := 2 /\ Accept_Login' := RNU
+                 /\ request(SN,GW,sensor_gateway,Accept_Login') 
+
+		 /\ PERMIT_LOGIN' := new()
+		 /\ M' := {RNU.RNB.Path.Root}_MK
+		 /\ SND_GS(PERMIT_LOGIN'.UID.SID.M') 
+    		/\ witness(GW,SN,gateway_sensor,PERMIT_LOGIN'.M') 
+			 
+				 
+
+  
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role target_SN( 
+		U,GW,SN       : agent,      
+		H             : hash_func,
+		UID			  : text, 
+		SID           : text,
+		Pwd 		  : text,
+		Biometric     : text,
+		MK            : symmetric_key,
+		SND_US, RCV_US,SND_GS, RCV_GS      : channel (dy)
+	      )
+
+        
+played_by SN 
+def=
+
+  local State        : nat,
+        SK,RNU,RNB,Path,Root,N,A,C      	 : text,
+        Tstamp       : text,
+        Tstamp1,Tstamp3       : text,
+        Rec_N_TS,Req_Login : text.text,
+        Res_Login: text.text.text,
+        MA_sn,MA_u : text,
+        PERMIT_LOGIN,XMA_sn_XMA_u,HMA_u,Tstamp5,Tstamp7 : text
+		
+  const user_gateway,gateway_sensor,sensor_user : protocol_id
+
+  init  State := 0
+
+  transition 
+
+  1. State  =  0 /\ RCV_GS(PERMIT_LOGIN.UID.SID.M) =|>  
+     State' := 1 /\ Rec_N_TS' := UID.SID.M
+                 /\ request(GW,SN,gateway_sensor,Rec_N_TS') 
+				 /\ SK' := new()
+		 /\ SK' := H(UID,SID,RNU,Root)
+   		 /\ SND_SU(UID.SID.{RNU}_SK) 
+		 /\ Res_Login' := SID.{RNU}_SK
+		 /\ witness(SN,GW,sensor_gateway,Res_Login') 
+
+  		 
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(
+		U  : agent,
+		GW : agent,             
+		SN : agent,             
+		H  : hash_func,
+		UID: text,
+        SID: text,		
+		Password: text,
+		Biometric: text
+ 	   )
+	
+def=  
+
+  local   SND_UG,RCV_UG, SND_GS,RCV_GS,SND_US,RCV_US : channel (dy) 
+  
+  composition 
+
+     user(U,GW,SN,H,UID,Password,SND_UG,RCV_UG,SND_US,RCV_US)
+  /\ target_GW(U,GW,SN,H,UID,H(Password),SND_UG, RCV_UG,SND_GS, RCV_GS)
+  /\ target_SN(U,GW,SN,H,UID,H(Password),SND_US, RCV_US,SND_GS, RCV_GS)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+def=
+
+	const u,gw,sn : agent,             
+              h       : hash_func,
+	      uid     : text, 
+	      pwd_u_gw: text,		
+	      sec_i_pwd,user_gateway : protocol_id
+
+  intruder_knowledge = {u,gw,sn,h,uid} 
+
+  composition
+	session(u,gw,sn,h,uid,pwd_u_gw)
+	/\  session(u,gw,sn,h,uid,pwd_u_gw)
+	/\  session(u,gw,sn,h,uid,pwd_u_gw)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal 
+
+  authentication_on gateway_sensor
+  authentication_on gateway_user
+  authentication_on user_sensor
+  authentication_on user_gateway
+  authentication_on sensor_gateway
+  authentication_on sensor_user
+  
+  secrecy_of sec_i_Pwd,sec_i_NPwd
+  secrecy_of sec_N_sensor
+  secrecy_of sec_Ts_sensor,sec_success
+  
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+   

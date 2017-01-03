@@ -1,0 +1,92 @@
+%% IF specification of /home/friends/drwho/Desktop/Archivio/Work/Science/AVISPA/AVISPA-FET-EU-02/shared/testsuite/hlpsl/TLS.problems.hlpsl
+
+section signature:
+
+state_Bob: agent * agent * function * function * function * public_key * public_key * text * text * text * text * text * nat * public_key * message * message * nat -> fact
+state_Alice: agent * agent * function * function * function * public_key * public_key * text * text * text * text * text * nat * message * message * message * public_key * message * message * nat -> fact
+
+
+section types:
+
+na_nb : protocol_id
+3, CID, CID2, CID1, State, 5, 2, 1, 0, 10, 6, 4 : nat
+dummy_pk, ki, ks, kb, ka, Ka, Kb, Ks, Dummy_Ka, Dummy_Kb : public_key
+keygen, prf, h, H, PRF, KeyGen : function
+dummy_msg, MGoal, M, Na_Nb, Finished, ClientK, ServerK, Dummy_M, Dummy_Na_Nb, Dummy_ServerK, Dummy_ClientK, Dummy_Finished, start : message
+AGoal, b, a, A, B, i : agent
+dummy_nonce, Na, Sid, Pa, PMS, Nb, Dummy_Nb, Dummy_PMS, Dummy_Pa, Dummy_Sid, Dummy_Na : text
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(keygen).
+ iknows(prf).
+ iknows(h).
+ iknows(scrypt(inv(ks),pair(i,ki))).
+ iknows(a).
+ iknows(b).
+ iknows(ka).
+ iknows(kb).
+ iknows(ks).
+ iknows(ki).
+ iknows(inv(ki)).
+ iknows(start).
+ iknows(i).
+ state_Alice(a,b,h,prf,keygen,ka,ks,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,0,dummy_msg,dummy_msg,dummy_msg,dummy_pk,dummy_msg,dummy_msg,3).
+ state_Bob(b,a,h,prf,keygen,kb,ks,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,1,dummy_pk,dummy_msg,dummy_msg,4).
+ state_Alice(a,i,h,prf,keygen,ka,ks,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,0,dummy_msg,dummy_msg,dummy_msg,dummy_pk,dummy_msg,dummy_msg,6).
+ state_Bob(b,i,h,prf,keygen,kb,ks,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,1,dummy_pk,dummy_msg,dummy_msg,10)
+
+
+section rules:
+
+step step_0 (A,B,H,PRF,KeyGen,Ka,Ks,Dummy_Na,Dummy_Sid,Dummy_Pa,PMS,Nb,Finished,ClientK,ServerK,Kb,Na_Nb,M,Na,Sid,Pa,CID) :=
+ state_Alice(A,B,H,PRF,KeyGen,Ka,Ks,Dummy_Na,Dummy_Sid,Dummy_Pa,PMS,Nb,0,Finished,ClientK,ServerK,Kb,Na_Nb,M,CID).
+ iknows(start)
+=[exists Pa,Sid,Na]=>
+ state_Alice(A,B,H,PRF,KeyGen,Ka,Ks,Na,Sid,Pa,PMS,Nb,2,Finished,ClientK,ServerK,Kb,Na_Nb,M,CID).
+ iknows(pair(pair(pair(A,Na),Sid),Pa))
+
+step step_1 (A,B,H,PRF,KeyGen,Ka,Ks,Na,Sid,Pa,Dummy_PMS,Dummy_Nb,Dummy_Finished,Dummy_ClientK,Dummy_ServerK,Dummy_Kb,Dummy_Na_Nb,Dummy_M,PMS,Nb,Kb,CID) :=
+ state_Alice(A,B,H,PRF,KeyGen,Ka,Ks,Na,Sid,Pa,Dummy_PMS,Dummy_Nb,2,Dummy_Finished,Dummy_ClientK,Dummy_ServerK,Dummy_Kb,Dummy_Na_Nb,Dummy_M,CID).
+ iknows(pair(pair(pair(Nb,Sid),Pa),crypt(inv(Ks),pair(B,Kb))))
+=[exists PMS]=>
+ state_Alice(A,B,H,PRF,KeyGen,Ka,Ks,Na,Sid,Pa,PMS,Nb,3,apply(H,pair(pair(pair(pair(pair(apply(PRF,pair(pair(PMS,Na),Nb)),A),B),Na),Pa),Sid)),apply(KeyGen,pair(pair(pair(A,Na),Nb),apply(PRF,pair(pair(PMS,Na),Nb)))),apply(KeyGen,pair(pair(pair(B,Na),Nb),apply(PRF,pair(pair(PMS,Na),Nb)))),Kb,pair(Na,Nb),apply(PRF,pair(pair(PMS,Na),Nb)),CID).
+ iknows(pair(pair(pair(crypt(Kb,PMS),crypt(inv(Ks),pair(A,Ka))),crypt(inv(Ka),apply(H,pair(pair(Nb,B),PMS)))),scrypt(apply(KeyGen,pair(pair(pair(A,Na),Nb),apply(PRF,pair(pair(PMS,Na),Nb)))),apply(H,pair(pair(pair(pair(pair(apply(PRF,pair(pair(PMS,Na),Nb)),A),B),Na),Pa),Sid)))))
+
+step step_2 (A,B,H,PRF,KeyGen,Ka,Ks,Na,Sid,Pa,PMS,Nb,Finished,ClientK,ServerK,Kb,Na_Nb,M,CID) :=
+ state_Alice(A,B,H,PRF,KeyGen,Ka,Ks,Na,Sid,Pa,PMS,Nb,3,Finished,ClientK,ServerK,Kb,Na_Nb,M,CID).
+ iknows(scrypt(ServerK,Finished))
+ =>
+ state_Alice(A,B,H,PRF,KeyGen,Ka,Ks,Na,Sid,Pa,PMS,Nb,5,Finished,ClientK,ServerK,Kb,Na_Nb,M,CID).
+ request(A,B,na_nb,Na_Nb,CID)
+
+step step_3 (B,A,H,PRF,KeyGen,Kb,Ks,Dummy_Nb,Dummy_Na,Dummy_Sid,Dummy_Pa,PMS,Ka,M,Dummy_Na_Nb,Nb,Na,Sid,Pa,CID) :=
+ state_Bob(B,A,H,PRF,KeyGen,Kb,Ks,Dummy_Nb,Dummy_Na,Dummy_Sid,Dummy_Pa,PMS,1,Ka,M,Dummy_Na_Nb,CID).
+ iknows(pair(pair(pair(A,Na),Sid),Pa))
+=[exists Nb]=>
+ state_Bob(B,A,H,PRF,KeyGen,Kb,Ks,Nb,Na,Sid,Pa,PMS,3,Ka,M,pair(Na,Nb),CID).
+ iknows(pair(pair(pair(Nb,Sid),Pa),crypt(inv(Ks),pair(B,Kb)))).
+ witness(B,A,na_nb,pair(Na,Nb))
+
+step step_4 (B,A,H,PRF,KeyGen,Kb,Ks,Nb,Na,Sid,Pa,Dummy_PMS,Dummy_Ka,M,Na_Nb,PMS,Ka,CID) :=
+ state_Bob(B,A,H,PRF,KeyGen,Kb,Ks,Nb,Na,Sid,Pa,Dummy_PMS,3,Dummy_Ka,M,Na_Nb,CID).
+ iknows(pair(pair(pair(crypt(Kb,PMS),crypt(inv(Ks),pair(A,Ka))),crypt(inv(Ka),apply(H,pair(pair(Nb,B),PMS)))),scrypt(apply(KeyGen,pair(pair(pair(A,Na),Nb),apply(PRF,pair(pair(PMS,Na),Nb)))),apply(H,pair(pair(pair(pair(pair(apply(PRF,pair(pair(PMS,Na),Nb)),A),B),Na),Pa),Sid)))))
+ =>
+ state_Bob(B,A,H,PRF,KeyGen,Kb,Ks,Nb,Na,Sid,Pa,PMS,5,Ka,M,Na_Nb,CID).
+ iknows(scrypt(apply(KeyGen,pair(pair(pair(B,Na),Nb),apply(PRF,pair(pair(PMS,Na),Nb)))),apply(H,pair(pair(pair(pair(pair(apply(PRF,pair(pair(PMS,Na),Nb)),A),B),Na),Pa),Sid))))
+
+
+section goals:
+
+goal authenticate_Na_Nb (B,A,Na_Nb,CID) :=
+ request(A,B,na_nb,Na_Nb,CID).
+ not(witness(B,A,na_nb,Na_Nb)) &
+ not(equal(B,i))
+goal replay_protection_Na_Nb (B,A,Na_Nb,CID1,CID2) :=
+ request(A,B,na_nb,Na_Nb,CID1).
+ request(A,B,na_nb,Na_Nb,CID2) &
+ not(equal(CID1,CID2)) &
+ not(equal(B,i))
+

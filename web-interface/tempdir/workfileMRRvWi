@@ -1,0 +1,149 @@
+role basestation (U, BS, S: agent, Kdf : hash_func, KU, KBS : public_key, MSenc, MSauth : symmetric_key,  SND_ABS,RCV_ABS : channel(dy))
+
+played_by BS
+def=
+
+local State : nat,
+	  Tstart, Texpire, M , M1, A, Cred : text,
+	  Kenc, Kauth : symmetric_key
+	  
+init State := 1
+
+transition	  
+
+1. State = 0 /\ MSenc' := new()
+             /\ SND_BSS(MSenc,MSauth) =|> 
+			 
+   State = 1  /\ RCV_ABS({U.S'.Cred'}_KBS) =|>
+   
+   State' := 3  /\ A':= new()
+       
+			  /\ Tstart' := new()
+			  /\ Texpire' := new()
+			/\ Kenc' := Kdf(MSenc.A'.U.Tstart'.Texpire')
+			/\ Kauth' := Kdf(MSauth.A'.U.Tstart'.Texpire')
+			/\ SND_ABS({Kenc'.Kauth'.A'.Tstart'.Texpire'}_KU)
+			/\ secret(Kenc',kenc,{U,BS})
+			/\ secret(Kauth',kauth,{U,BS})
+	   
+	
+end role     
+
+%------------------------------------
+
+role user (U, BS, S: agent, Succ, MAC : hash_func, Cred : text, KU, KBS : public_key, SND_ABS,RCV_ABS, SND_AS, RCV_AS: channel(dy))
+
+played_by U
+def=
+
+local State : nat,
+      MSenc, MSauth,Kenc,Kauth,Kenc1,Kauth1 : symmetric_key,
+	  Tstart, Texpire, M , M1, Ctr, Ctr1, A : text
+	  
+init State := 0
+
+transition	  
+
+1. State = 0 /\ RCV_ABS(start) =|>
+   State' := 2 /\ SND_ABS({U.S.Cred}_KBS) 
+              %% /\ secret(Cred,cred,{U,BS}) 
+
+2.   State = 2 /\  RCV_ABS({Kenc'.Kauth'.A'.Tstart'.Texpire'}_KU) =|>			
+
+     State' := 4  /\  Ctr' := new()
+              /\  SND_AS({M.Ctr'}_Kenc'.U.A'.Tstart'.Texpire'.Ctr'.MAC(Kauth',M.U,A'.Texpire'.Ctr')) 
+			  /\  witness(U,S,s_u_Kenc_Kauth,Kenc')
+			  /\  witness(U,S,s_u_Kenc_Kauth,Kauth') 
+
+3.  State = 4 /\  RCV_AS( {M1'.Succ(Ctr1')}_Kenc1',MAC(Kauth1',M1'.Succ(Ctr1'))) =|>
+   
+ State':= 6 /\ request(U,S,u_s_ctr,Ctr1')    
+             /\ request(U,S,u_s_ctr,Kenc1')
+			 /\ request(U,S,u_s_ctr,Kauth1')
+   
+        
+end role
+
+%-------------------------------------------------
+
+role sensor (U, BS, S: agent, Succ, Kdf,MAC, H : hash_func, MSenc, MSauth : symmetric_key, SND_AS, RCV_AS: channel(dy))
+
+played_by S
+def=
+
+local State : nat,
+	  Tstart, Texpire, M , M1, Ctr, ID_A, A : text,
+	  Kenc, Kenc1, Kauth, Kauth1 : symmetric_key
+	  
+init State := 5
+
+transition	  
+
+1.			 
+   State = 7  /\ RCV_AS({M'. Ctr'}_Kenc'.ID_A'.A'.Tstart'.Texpire'.Ctr'.MAC(Kauth',M'.ID_A'.A'.Texpire'.Ctr')) =|>
+    
+	State' := 9 /\  M1' := new()
+			  /\ Kenc1' := H(Kenc')
+			  /\ Kauth1' := H(Kauth')  
+	          /\ SND_AS({M1'.Succ(Ctr')}_Kenc1'.MAC(Kauth1',M1.Succ(Ctr')))
+			  /\ witness(S,U,u_s_ctr,Ctr')
+			  /\ request(S,U,s_u_Kenc_Kauth,Kenc')
+			  /\ request(S,U,s_u_Kenc_Kauth,Kauth')
+	   
+	
+end role     
+
+
+
+%-------------------------------------------------------
+
+
+role session (U, BS, S : agent, Cred : text, KU, KBS : public_key, Kdf, Succ, MAC, H : hash_func,
+			  MSenc, MSauth : symmetric_key) def=
+			  
+local 	S_ABS,S_BSA, R_ABS, R_BSA, S_AS, S_SA, R_AS,R_SA : channel (dy)		  
+			  
+composition 
+
+     user (U, BS, S, Succ, MAC, Cred, KU, KBS, S_ABS, R_ABS, S_AS, R_AS )
+  /\ basestation (BS, S, U, Kdf, KU, KBS, MSenc, MSauth, S_ABS, R_ABS)
+  /\ sensor (S, BS, U,Succ,Kdf,MAC, H, MSenc, MSauth, S_AS, R_AS)  
+  
+end role
+
+
+%-----------------------------------------------------------
+
+role environment()
+def=
+
+	const u, bs, s : agent,
+		  ku, kbs, ki : public_key,
+		  succ, kdf, mac, h : hash_func,
+		  msenc, msauth, msenci, msauthi, kenc, kauth : symmetric_key,
+		  cred : text,
+		  u_s_ctr, s_u_Kenc_Kauth : protocol_id
+		  
+
+	intruder_knowledge = {u, bs, s, ki, ku, kbs, msenci, msauthi,succ}
+
+	composition
+
+	   session(u,bs,s,cred,ku,kbs,kdf,succ,mac,h,msenc,msauth)
+	/\ session(i,bs,s,cred,ki,kbs,kdf,succ,mac,h,msenc,msauth)
+	/\ session(u,bs,i,cred,ku,kbs,kdf,succ,mac,h,msenci,msauthi)
+
+end role
+
+
+
+goal
+
+secrecy_of kenc, kauth
+authentication_on u_s_ctr
+authentication_on s_u_Kenc_Kauth
+
+end goal
+
+
+environment()

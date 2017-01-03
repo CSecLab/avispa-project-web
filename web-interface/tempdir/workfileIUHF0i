@@ -1,0 +1,110 @@
+role server(S, T:agent,
+	 P,K:symmetric_key,
+                 H:hash_func,
+	EPC:text,
+                 SND,  RCV: channel(dy))
+
+played_by S def=
+local State:  nat,
+         Nr,Nt:text,
+         Auth1:hash(text.text.text)
+
+init State :=0
+transition
+
+0. State =0  /\ RCV(start)
+                   =|> State' :=2
+                    /\  Nr' := new() 
+                    /\  SND(Nr')
+
+1.State =2  /\ RCV(xor(xor(xor(EPC,Nt'),Nr'),K).Nt')
+=|> State' :=4 /\ Auth1' := xor(xor(xor(EPC,Nt'),Nr'),K)
+                          /\ request(S,T,id3,Auth1')
+
+2.State=4      /\ SND(xor(h (EPC.Nt')), P)
+=|> State' := 4 
+  /\ witness(S,T,trid, EPC)
+                      /\ P' :=new()
+                      /\ K' :=new()
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role tag( T, S :agent,
+              K, P:  symmetric_key,
+              H:hash_func,
+	EPC:text,
+              SND,RCV : channel(dy))
+
+played_by T def=
+
+local  State  : nat ,
+Nr, Nt  :text ,
+Auth :hash(text.text.text)
+
+init State :=1 
+
+transition 
+
+0.State =1 /\ RCV(Nr') 
+=|> State' :=3
+/\ Nt' := new() 
+/\ SND(xor(xor(xor(EPC,Nt'),Nr'),K).Nt')
+/\ witness (T , S , trid , EPC)
+/\ witness (T , S , trk , K )
+/\ secret (EPC , id , {T , S})
+
+1. State = 3 /\ RCV (xor(h (EPC.Nt'), P))
+=|> State' := 3 /\ Auth' := xor(h(EPC.Nt'), P)
+	      /\ request(S,T,trid,Auth')	
+                      /\ K' := new()
+                      /\ P'  := new()
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session( T , S :agent,
+                     K , P: symmetric_key,
+                     Hash : hash_func,
+	     EPC :text		)
+def=
+ 
+local SND, RCV : channel(dy)
+
+composition 
+
+tag(T,S,K,P,Hash,EPC,SND,RCV)
+/\ server(S,T,P,K,Hash,EPC, SND , RCV)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role enviroment() def=
+const 
+id, id4,id5, trid, trk : protocol_id,
+h : hash_func,
+k,p,kti,kit,kis,ksi :symmetric_key,
+tag,server : agent,
+epc,epci : text
+
+intruder_knowledge = { tag , server, h, i, kti,kit,kis, ksi,epci,epc} 
+composition
+
+session (tag,server, k,p,h,epc)
+%/\ session(tag,i,k,kti,h,epc)
+/\ session (i,server,ksi,p, h,epci)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+
+secrecy_of id
+authentication_on trid
+%authentication_on id3
+authentication_on trk
+end goal 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+enviroment()
+ 
+                         

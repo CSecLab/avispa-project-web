@@ -1,0 +1,163 @@
+role alice(Ui , Sj : agent,
+           SKab :symmetric_key,
+		   H : hash_func,
+		   Snd , Rcv : channel(dy))
+played_by Ui
+def=
+local State : nat,
+IDi, PWi, Bi, PWDi, B, K, Ci, Xs, SIDj, Rc, Rs, T1, T2, Bp, Eii, Fi, Gi, Ei, BPub, P: text,
+Ai, AIDi, M1, M2, M3, SK: message,
+Mul, Sub, Add, Rep, Gen: hash_func
+const alice_server_t1, alice_server_rc, server_alice_t2, server_alice_rs,
+subs1, subs2, subs3, subs4, subs5, subs6: protocol_id 
+init State :=0
+transition
+1. State=0/\Rcv(start)=|>
+State':=1/\K':=new()
+/\B':=new()
+/\PWDi':=H(IDi.PWi.K')
+/\Bp':=Mul(B'.P)
+/\Snd({IDi.PWDi'.Bp'}_SKab)
+/\secret({IDi},subs1,{Ui, Sj})
+/\secret({PWi,K,B},subs2,{Ui})
+/\secret({Xs ,SIDj},subs5,{Sj})
+2. State= 1/\Rcv({Eii'.H.Mul(Xs.P)}_SKab)=|>
+State':= 2 /\ Fi':=H(xor(IDi,PWDi,Bi))
+/\BPub':=Mul(B.Xs.P)
+/\Gi':=xor(H(IDi.Bi),K)
+/\Ci':={Eii'}_BPub'
+/\Ei':=xor(Ci',H(PWDi.Bi))
+/\Rc':=new()
+/\T1':=new()
+/\Ai':=xor(Ci, PWDi)
+/\AIDi':=Add(Mul(Ai'.P),Mul(Rc'.P))
+/\M1':=H(Ai'.T1'.Mul(Rc'.Xs.P))
+/\Snd(AIDi'.T1'.M1')
+/\witness(Ui,Sj,alice_server_t1 ,T1')
+/\witness(Ui,Sj,alice_server_rc ,Rc')
+/\secret({Rc'},subs3,{Ui})
+3. State= 2 /\ Rcv(M2'.M3'.T2')=|>
+State':= 3 /\ request (Sj,Ui,server_alice_t2 ,T2')
+/\ request (Sj,Ui,server_alice_rs ,Mul(Rs.Xs.P))
+/\ SK':=Mul(Rc.Rs.Xs.P)
+/\ secret({SK'}, subs4 , {Ui,Sj})
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role server(Sj , Ui : agent,
+           SKab :symmetric_key,
+		   H : hash_func,
+		   Snd , Rcv : channel(dy))
+played_by Sj 
+def=
+local State : nat,
+IDi, PWi, Bi, PWDi, K, B, Ci, Xs, SIDj, Rc, Rs, T1, T2, Bp, Eii, Fi, Gi, Ei, BPub, P: text,
+Ai, AIDi, M1, M2, M3, SK: message,
+Mul, Sub, Add, Rep, Gen: hash_func
+const alice_server_t1, alice_server_rc, server_alice_t2, server_alice_rs,
+subs1, subs2, subs3, subs4, subs5, subs6: protocol_id 
+init State :=0
+transition
+1. State=0 /\ Rcv(IDi.PWDi'.Bp')=|>
+State':=2 /\ Ci':=xor(H(SIDj.Xs),PWDi)
+/\ Eii':={Ci'}_BPub
+/\ Snd({Eii'.H.Mul(Xs.P)}_SKab)
+/\ secret({SIDj,Xs},subs5,{Sj})
+2. State=2 /\ Rcv(AIDi'.T1'.M1')=|>
+State':=4 /\ T2':=new()
+/\ Rs':=new()
+/\ SK':=Mul(Rs'.Rc.Xs.P)
+/\ M2':=Add(Mul(Rc.P),Mul(Rs'.Xs.P))
+/\ M3':=H(Ai.T2'.Mul(Rs'.Xs.P).Mul(Rc.Xs.P))
+/\ Snd(M2'.M3'.T2')
+/\ secret({Rs'},subs6,{Sj})
+/\ witness(Sj,Ui,server_alice_t2,T2')
+/\ witness(Sj,Ui,server_alice_rs,Rs')
+/\ request(Ui,Sj,alice_server_t1,T1)
+/\ request(Ui,Sj,alice_server_rc,Rc)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(Ui , Sj : agent,
+             SKab :symmetric_key,
+		     H: hash_func)
+def=
+local SI,SJ,RI,RJ:channel(dy)
+composition
+   alice(Ui,Sj,SKab,H,SI,RI)
+/\ server(Ui,Sj,SKab,H,SJ,RJ)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+const ui,sj:agent,
+skab:symmetric_key,
+h:hash_func,
+gen,rep,mul,add,sub:hash_func,
+t1,t2,k,b,xs,sidj,idi,pwi,bi,rc,rs:text,
+server_alice_rs,server_alice_t2,
+alice_server_rc,alice_server_t1,
+subs1,subs2,subs3,
+subs4,subs5,subs6: protocol_id
+intruder_knowledge={h,gen,rep,t1,t2,sub,add,mul}
+composition
+session(ui,sj,skab,h)
+/\ session(ui,sj,skab,h)
+end role
+goal
+secrecy_of subs1
+secrecy_of subs2
+secrecy_of subs3
+secrecy_of subs4
+secrecy_of subs5
+secrecy_of subs6
+authentication_on alice_server_rc
+authentication_on alice_server_t1
+authentication_on server_alice_rs
+authentication_on server_alice_t2
+end goal
+environment()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

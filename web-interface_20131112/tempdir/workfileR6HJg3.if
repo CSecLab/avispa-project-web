@@ -1,0 +1,101 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileR6HJg3
+
+section signature:
+
+state_ra: agent * agent * message * message * symmetric_key * public_key * hash_func * nat * text * text * text * set(agent) * set(agent) * set(agent) * nat -> fact
+state_patient: agent * agent * message * message * symmetric_key * public_key * hash_func * nat * text * text * text * nat -> fact
+
+
+section types:
+
+tn, tp, ri: protocol_id
+set_76, set_75, set_74: set
+Set_44, Set_42, Set_39, Dummy_Set_44, Dummy_Set_42, Dummy_Set_39, ASGoal: set(agent)
+Req_ID, Type, TN, Dummy_TN, Dummy_Type, Dummy_Req_ID, dummy_nonce: text
+4, 1, State, SID, 3, 2, Dummy_State, 0: nat
+F1, f1: hash_func
+Kb, kb: public_key
+MS, ms: symmetric_key
+ID_A, ID_B, start, MGoal, id_A, id_B: message
+A, B, a, b, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(id_A).
+ iknows(id_B).
+ iknows(kb).
+ iknows(f1).
+ iknows(i).
+ state_patient(a,b,id_A,id_B,ms,kb,f1,0,dummy_nonce,dummy_nonce,dummy_nonce,3).
+ state_ra(a,b,id_A,id_B,ms,kb,f1,1,dummy_nonce,dummy_nonce,dummy_nonce,set_74,set_75,set_76,4)
+
+
+section rules:
+
+step step_0 (A,B,ID_A,ID_B,MS,Kb,F1,Req_ID,Type,TN,SID) :=
+ state_patient(A,B,ID_A,ID_B,MS,Kb,F1,0,Req_ID,Type,TN,SID).
+ iknows(start)
+ =>
+ state_patient(A,B,ID_A,ID_B,MS,Kb,F1,2,Req_ID,Type,TN,SID).
+ iknows(ID_A)
+
+step step_1 (A,B,ID_A,ID_B,MS,Kb,F1,Dummy_Req_ID,Dummy_Type,Dummy_TN,SID,Req_ID,Type,TN) :=
+ state_patient(A,B,ID_A,ID_B,MS,Kb,F1,2,Dummy_Req_ID,Dummy_Type,Dummy_TN,SID).
+ iknows(scrypt(MS,pair(Req_ID,pair(Type,pair(TN,pair(ID_A,pair(ID_B,crypt(inv(Kb),apply(F1,pair(Req_ID,pair(Type,pair(TN,pair(ID_A,ID_B)))))))))))))
+ =>
+ state_patient(A,B,ID_A,ID_B,MS,Kb,F1,3,Req_ID,Type,TN,SID)
+
+step step_2 (A,B,ID_A,ID_B,MS,Kb,F1,Dummy_Req_ID,Dummy_Type,Dummy_TN,Dummy_Set_39,Dummy_Set_42,Dummy_Set_44,SID,Req_ID,Type,TN) :=
+ state_ra(A,B,ID_A,ID_B,MS,Kb,F1,1,Dummy_Req_ID,Dummy_Type,Dummy_TN,Dummy_Set_39,Dummy_Set_42,Dummy_Set_44,SID).
+ iknows(ID_A)
+=[exists TN,Type,Req_ID]=>
+ state_ra(A,B,ID_A,ID_B,MS,Kb,F1,4,Req_ID,Type,TN,Dummy_Set_39,Dummy_Set_42,Dummy_Set_44,SID).
+ iknows(scrypt(MS,pair(Req_ID,pair(Type,pair(TN,pair(ID_A,pair(ID_B,crypt(inv(Kb),apply(F1,pair(Req_ID,pair(Type,pair(TN,pair(ID_A,ID_B))))))))))))).
+ secret(Req_ID,ri,Dummy_Set_39).
+ secret(Type,tp,Dummy_Set_42).
+ secret(TN,tn,Dummy_Set_44).
+ contains(A,Dummy_Set_39).
+ contains(B,Dummy_Set_39).
+ contains(A,Dummy_Set_42).
+ contains(B,Dummy_Set_42).
+ contains(A,Dummy_Set_44).
+ contains(B,Dummy_Set_44)
+
+
+section properties:
+
+property secrecy_of_ri (MGoal,ASGoal) :=
+ [] ((secret(MGoal,ri,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_tp (MGoal,ASGoal) :=
+ [] ((secret(MGoal,tp,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_tn (MGoal,ASGoal) :=
+ [] ((secret(MGoal,tn,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_ri (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,ri,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_tp (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,tp,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_tn (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,tn,ASGoal) &
+ not(contains(i,ASGoal))
+

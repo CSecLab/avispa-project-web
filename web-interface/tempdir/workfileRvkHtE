@@ -1,0 +1,142 @@
+%% PROTOCOLE: IMS-AKA+
+%% BUT: 
+%% Authentication and Key Agreement (authentification et échange des clés)
+%% Terminal_Serveur:
+%% S est le serveur (HSS), UE est le terminal, ils partagent une clé secète Sk.
+%% S publie une équation de courbe elliptique , un point de base P sur la courbe , une fonction de hachage h
+%% UE ---> S : V=x*P 
+%%             UE génère aléatoirement sa clé privée x et calcule clé publique V=x*B
+%%
+%% S ---> UE : W= c*B , Auths= H (W | c*Sk*V)
+%%             A la réception de V,S génère sa clé privée c et calcule la clé AICK= c*Sk*V
+%%             ensuite, il calcule son jeton d'authentification Auths
+%% 
+%% UE ---> S : Authu= H(V | x*Sk*W)
+%%            A la réception de Auths, UE calcule la clé AICK= x*Sk*W
+%%            et vérifie Auths, si ok , il envoie Authu
+%% S ---> UE : 200OK
+%%            S vérifie si Authu est correcte 
+%%            Si oui, S envoie 200OK au terminal
+%%
+%% Le but est qu'à la fin, les deux entités(serveur et terminal) s'authentifient mutuellement et arrivent à calculer localement 
+%% le meme point AICK
+%%
+%% HLPSL
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Premier role: 
+                %role user_equipement: représente le terminal 
+                %où les paramètres d'entrée sont ses connaissances initiales
+role user_equipement ( 
+              UE,S: agent,
+              Sk: symmetric_key,  % Clé secrète partagée entre le terminal et serveur
+              B: public_key,  % Clé publique
+              H: hash_func,  % fonctions de hachage
+              SND,RCV: channel(dy) % Canal de communication avec les autres roles
+                     ) played_by UE  % L'agent UE joue le role du terminal
+def=
+% Décalaration des variables locales
+local 
+     State: nat,
+     X,C: text %  clé privée du terminal serveur respectivement.
+const sec_X, sec_aick: protocol_id  % identificateurs des propriétés de sécurité
+init State:=1
+% Définition des échanges
+transition
+% Le terminal initie le protocole en générant aléatoirement sa clé privée X,
+% calcule sa clé publique puis envoie une demande d'authentification.
+1. State = 1 /\ RCV(start) =|>
+   State':=2 /\ X':= new() % clé privée
+             /\ SND(sipregister.{X'}_B) 
+             /\ secret(X', sec_X ,UE)
+% En recevant lejeton d'authentification du serveur, le terminal calcule la clé aick et 
+% son jeton d'authentification, il envoie son jeton d'authentification au serveur pour s'authentifier  
+2. State=2   /\ RCV (sip401.{C'}_B.H({C'}_B.{C'.Sk.X}_B)) =|>
+   State':=3
+             /\ SND(sipregister.H({X}_B.{X.Sk.C}_B))
+             /\ witness (UE,S,nx, H({X}_B.{X.Sk.C}_B))
+             /\ request (UE,S,nc, H({C}_B.{C.Sk.X}_B)) 
+             /\ secret ({X.Sk.C}_B,sec_aick,{UE,S})
+
+3. State = 3 /\ RCV(sip200) =|> State':= 4
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%Deuxième role:
+                 % role hss: c'est le role du HSS dans IMS-AKA+
+                 % où les paramètres d'entrée sont les connaissances initiales du HSS
+role hss ( 
+              S,UE: agent,  
+              Sk  : symmetric_key, % Clé secrète partagée entre serveur et terminal
+              B   : public_key, % Clé publique
+              H   : hash_func, % Foncions de hachage
+              SND,RCV: channel(dy) % Canal de communication avec le terminal
+          ) played_by S %% L'agent S joue le role du serveur
+def=
+% Déclaration des variables locales
+local 
+     State: nat,
+     X,C,Aick: text % respectivement: clé privée du terminal, du serveur, clé de session
+const sec_C, sec_aick : protocol_id % identificateurs de propriétés de sécurité à vérifier
+init State := 1
+% Définition des échanges
+transition
+% En recevant la demande d'authentification, le S-CSCF génère aléatoirement sa clé privée C
+% Calcule son jeton d'authentification et la clé aick 
+0. State = 1   /\ RCV (sipregister.{X'}_B) =|>
+   State':=2   /\  C':=new() % générer sa clé privée
+               /\  SND (sip401.{C'}_B.H({C'}_B.{C'.Sk.X}_B)) 
+               /\  witness (S, UE, nc, H({C'}_B.{C'.Sk.X}_B)) 
+               /\  secret (C', sec_C, S) 
+               /\  secret ({C'.Sk.X}_B, sec_aick, {S,UE})
+                             
+% A la réception du jeton d'authentification du terminal, le serveur authentifie le terminal  
+% et lui envoie un message 200OK    
+1. State = 2   /\ RCV (sipregister.H({X}_B.{X.Sk.C}_B)) =|>  
+   State' :=3  /\ request (S ,UE, nx , H({X}_B.{X.Sk.C}_B))
+               /\ SND(sip200)    
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% role session: Ce role représente une session du protocole 
+role session        ( UE, S  : agent , 
+                      Sk: symmetric_key,
+                      B : public_key ,
+                      H : hash_func 
+                    ) 
+def= 
+local SND, RCV : channel(dy)
+composition
+      
+   user_equipement (UE, S,Sk,B,H, SND, RCV)
+   /\ hss (S, UE,Sk, B, H,SND, RCV)  
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Role principal
+role environment ( ) 
+def= 
+const  
+ue,s,i   : agent , 
+nx, nc   : protocol_id ,
+sip401,sip200,sipregister: protocol_id,        
+sk, suei,sis: symmetric_key,
+b,bi,bii  : public_key,
+h: hash_func  
+ %% définir les connaissances initiales de l’intrus 
+intruder_knowledge={ue, s, h, b,bi,bii,suei,sis,sip401,sip200,sipregister} 
+
+composition 
+           session (ue, s, sk,b, h) 
+      %%     session (ue,i,suei,bi,h)
+      %%/\   session (i,s,sis,bii,h)
+      
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal 
+%Vérification de la confidentialité des clés privées et de la clé secrète établie entre le HSS et le terminal
+secrecy_of  sec_C,   sec_X ,sec_aick
+%Authentification mutuelle:
+        %1- Le terminal cherche à authentifier le réseau grâce à son nc 
+authentication_on nc 
+        %2- Le réseau cherche à authentifier la terminal grâce à son nx
+authentication_on nx 
+end goal 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment ()

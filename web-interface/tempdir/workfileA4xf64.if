@@ -1,0 +1,188 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileA4xf64
+
+section signature:
+
+state_server: agent * agent * agent * symmetric_key * hash_func * text * text * text * text * nat * text * text * text * set(agent) * nat -> fact
+state_auth: agent * agent * agent * symmetric_key * hash_func * text * text * text * text * text * nat * text * text * text * scrypt(symmetric_key,text) * nat -> fact
+state_client: agent * agent * agent * symmetric_key * hash_func * text * text * text * text * nat * text * text * text * set(agent) * nat -> fact
+
+
+section types:
+
+Client_chall_reply, Dummy_Client_chall_reply: scrypt(symmetric_key,text)
+set_139, set_125: set
+sec_s_Kcs, sec_c_Kcs, kcs: protocol_id
+Set_78, Dummy_Set_78, Dummy_Set_26, Set_26, ASGoal: set(agent)
+start, MGoal: message
+28, 27, 26, 21, State, 17, 16, 15, 14, 13, 12, 11, 5, SID, 4, 3, Dummy_State, 2, 1, SID2, 0, SID1: nat
+Chall_Message, NAS_ID, NAS_Port, Access_accept, Access_reject, Success, Failure, Chall_message, EAPOL_Success, EAPOL_Start, EAPOL_Req_Identity, Dummy_Chall_message, Dummy_Chall_Message, Dummy_NAS_Port, Dummy_NAS_ID, dummy_nonce, eap_succ, eap_start, eap_req_id, acc_acp, acc_rej, succs, fails: text
+Md5, md5: hash_func
+Kcs, dummy_sk, kcsk, kisk, kcik: symmetric_key
+C, A, S, A2Goal, A1Goal, c1, a1, s1, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(c1).
+ iknows(a1).
+ iknows(s1).
+ iknows(md5).
+ iknows(kisk).
+ iknows(kcik).
+ iknows(succs).
+ iknows(fails).
+ iknows(acc_acp).
+ iknows(acc_rej).
+ iknows(eap_succ).
+ iknows(eap_start).
+ iknows(eap_req_id).
+ iknows(i).
+ state_client(c1,a1,s1,kcsk,md5,eap_succ,eap_start,eap_req_id,succs,0,dummy_nonce,dummy_nonce,dummy_nonce,set_125,3).
+ state_auth(a1,c1,s1,kcsk,md5,eap_succ,eap_start,eap_req_id,succs,acc_acp,11,dummy_nonce,dummy_nonce,dummy_nonce,scrypt(dummy_sk,dummy_nonce),4).
+ state_server(s1,c1,a1,kcsk,md5,succs,fails,acc_acp,acc_rej,21,dummy_nonce,dummy_nonce,dummy_nonce,set_139,5)
+
+
+section rules:
+
+step step_0 (C,A,S,Kcs,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Req_Identity,Success,NAS_ID,NAS_Port,Chall_Message,Set_26,SID) :=
+ state_client(C,A,S,Kcs,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Req_Identity,Success,0,NAS_ID,NAS_Port,Chall_Message,Set_26,SID).
+ iknows(start)
+ =>
+ state_client(C,A,S,Kcs,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Req_Identity,Success,1,NAS_ID,NAS_Port,Chall_Message,Set_26,SID).
+ iknows(EAPOL_Start)
+
+step step_1 (C,A,S,Kcs,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Req_Identity,Success,Dummy_NAS_ID,Dummy_NAS_Port,Chall_Message,Dummy_Set_26,SID,NAS_ID,NAS_Port) :=
+ state_client(C,A,S,Kcs,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Req_Identity,Success,1,Dummy_NAS_ID,Dummy_NAS_Port,Chall_Message,Dummy_Set_26,SID).
+ iknows(EAPOL_Req_Identity)
+=[exists NAS_Port,NAS_ID]=>
+ state_client(C,A,S,Kcs,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Req_Identity,Success,2,NAS_ID,NAS_Port,Chall_Message,Dummy_Set_26,SID).
+ iknows(pair(NAS_ID,pair(NAS_Port,apply(Md5,Kcs)))).
+ secret(Kcs,sec_c_Kcs,Dummy_Set_26).
+ contains(C,Dummy_Set_26).
+ contains(S,Dummy_Set_26)
+
+step step_2 (C,A,S,Kcs,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Req_Identity,Success,NAS_ID,NAS_Port,Dummy_Chall_Message,Set_26,SID,Chall_Message) :=
+ state_client(C,A,S,Kcs,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Req_Identity,Success,2,NAS_ID,NAS_Port,Dummy_Chall_Message,Set_26,SID).
+ iknows(pair(NAS_ID,Chall_Message))
+ =>
+ state_client(C,A,S,Kcs,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Req_Identity,Success,3,NAS_ID,NAS_Port,Chall_Message,Set_26,SID).
+ iknows(pair(NAS_ID,scrypt(Kcs,Chall_Message))).
+ witness(C,S,kcs,Kcs)
+
+step step_3 (C,A,S,Kcs,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Req_Identity,Success,NAS_ID,NAS_Port,Chall_Message,Set_26,SID) :=
+ state_client(C,A,S,Kcs,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Req_Identity,Success,3,NAS_ID,NAS_Port,Chall_Message,Set_26,SID).
+ iknows(pair(NAS_ID,EAPOL_Success))
+ =>
+ state_client(C,A,S,Kcs,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Req_Identity,Success,4,NAS_ID,NAS_Port,Chall_Message,Set_26,SID).
+ iknows(pair(NAS_ID,Success))
+
+step step_4 (A,C,S,Kcs,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Req_Identity,Success,Access_accept,NAS_ID,NAS_Port,Chall_message,Client_chall_reply,SID) :=
+ state_auth(A,C,S,Kcs,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Req_Identity,Success,Access_accept,11,NAS_ID,NAS_Port,Chall_message,Client_chall_reply,SID).
+ iknows(EAPOL_Start)
+ =>
+ state_auth(A,C,S,Kcs,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Req_Identity,Success,Access_accept,12,NAS_ID,NAS_Port,Chall_message,Client_chall_reply,SID).
+ iknows(EAPOL_Req_Identity)
+
+step step_5 (A,C,S,Kcs,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Req_Identity,Success,Access_accept,Dummy_NAS_ID,Dummy_NAS_Port,Chall_message,Client_chall_reply,SID,NAS_ID,NAS_Port) :=
+ state_auth(A,C,S,Kcs,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Req_Identity,Success,Access_accept,12,Dummy_NAS_ID,Dummy_NAS_Port,Chall_message,Client_chall_reply,SID).
+ iknows(pair(NAS_ID,pair(NAS_Port,apply(Md5,Kcs))))
+ =>
+ state_auth(A,C,S,Kcs,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Req_Identity,Success,Access_accept,13,NAS_ID,NAS_Port,Chall_message,Client_chall_reply,SID).
+ iknows(pair(NAS_ID,pair(NAS_Port,apply(Md5,Kcs))))
+
+step step_6 (A,C,S,Kcs,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Req_Identity,Success,Access_accept,NAS_ID,NAS_Port,Dummy_Chall_message,Client_chall_reply,SID,Chall_message) :=
+ state_auth(A,C,S,Kcs,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Req_Identity,Success,Access_accept,13,NAS_ID,NAS_Port,Dummy_Chall_message,Client_chall_reply,SID).
+ iknows(pair(NAS_ID,Chall_message))
+ =>
+ state_auth(A,C,S,Kcs,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Req_Identity,Success,Access_accept,14,NAS_ID,NAS_Port,Chall_message,Client_chall_reply,SID).
+ iknows(pair(NAS_ID,Chall_message))
+
+step step_7 (A,C,S,Kcs,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Req_Identity,Success,Access_accept,NAS_ID,NAS_Port,Chall_message,Dummy_Client_chall_reply,SID,Client_chall_reply) :=
+ state_auth(A,C,S,Kcs,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Req_Identity,Success,Access_accept,14,NAS_ID,NAS_Port,Chall_message,Dummy_Client_chall_reply,SID).
+ iknows(pair(NAS_ID,Client_chall_reply))
+ =>
+ state_auth(A,C,S,Kcs,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Req_Identity,Success,Access_accept,15,NAS_ID,NAS_Port,Chall_message,Client_chall_reply,SID).
+ iknows(pair(NAS_ID,Client_chall_reply))
+
+step step_8 (A,C,S,Kcs,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Req_Identity,Success,Access_accept,NAS_ID,NAS_Port,Chall_message,Client_chall_reply,SID) :=
+ state_auth(A,C,S,Kcs,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Req_Identity,Success,Access_accept,15,NAS_ID,NAS_Port,Chall_message,Client_chall_reply,SID).
+ iknows(pair(NAS_ID,Access_accept))
+ =>
+ state_auth(A,C,S,Kcs,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Req_Identity,Success,Access_accept,16,NAS_ID,NAS_Port,Chall_message,Client_chall_reply,SID).
+ iknows(EAPOL_Success)
+
+step step_9 (A,C,S,Kcs,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Req_Identity,Success,Access_accept,NAS_ID,NAS_Port,Chall_message,Client_chall_reply,SID) :=
+ state_auth(A,C,S,Kcs,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Req_Identity,Success,Access_accept,16,NAS_ID,NAS_Port,Chall_message,Client_chall_reply,SID).
+ iknows(pair(NAS_ID,Success))
+ =>
+ state_auth(A,C,S,Kcs,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Req_Identity,Success,Access_accept,17,NAS_ID,NAS_Port,Chall_message,Client_chall_reply,SID)
+
+step step_10 (S,C,A,Kcs,Md5,Success,Failure,Access_accept,Access_reject,Dummy_NAS_ID,Dummy_NAS_Port,Dummy_Chall_Message,Dummy_Set_78,SID,NAS_ID,NAS_Port,Chall_Message) :=
+ state_server(S,C,A,Kcs,Md5,Success,Failure,Access_accept,Access_reject,21,Dummy_NAS_ID,Dummy_NAS_Port,Dummy_Chall_Message,Dummy_Set_78,SID).
+ iknows(pair(NAS_ID,pair(NAS_Port,apply(Md5,Kcs))))
+=[exists Chall_Message]=>
+ state_server(S,C,A,Kcs,Md5,Success,Failure,Access_accept,Access_reject,26,NAS_ID,NAS_Port,Chall_Message,Dummy_Set_78,SID).
+ iknows(pair(NAS_ID,Chall_Message)).
+ secret(Kcs,sec_s_Kcs,Dummy_Set_78).
+ contains(C,Dummy_Set_78).
+ contains(S,Dummy_Set_78)
+
+step step_11 (S,C,A,Kcs,Md5,Success,Failure,Access_accept,Access_reject,NAS_ID,NAS_Port,Chall_Message,Set_78,SID) :=
+ state_server(S,C,A,Kcs,Md5,Success,Failure,Access_accept,Access_reject,26,NAS_ID,NAS_Port,Chall_Message,Set_78,SID).
+ iknows(pair(NAS_ID,scrypt(Kcs,Chall_Message)))
+ =>
+ state_server(S,C,A,Kcs,Md5,Success,Failure,Access_accept,Access_reject,27,NAS_ID,NAS_Port,Chall_Message,Set_78,SID).
+ iknows(pair(NAS_ID,Access_accept)).
+ request(S,C,kcs,Kcs,SID)
+
+step step_12 (S,C,A,Kcs,Md5,Success,Failure,Access_accept,Access_reject,NAS_ID,NAS_Port,Chall_Message,Set_78,SID) :=
+ state_server(S,C,A,Kcs,Md5,Success,Failure,Access_accept,Access_reject,27,NAS_ID,NAS_Port,Chall_Message,Set_78,SID).
+ iknows(pair(NAS_ID,Success))
+ =>
+ state_server(S,C,A,Kcs,Md5,Success,Failure,Access_accept,Access_reject,28,NAS_ID,NAS_Port,Chall_Message,Set_78,SID)
+
+
+section properties:
+
+property secrecy_of_sec_c_Kcs (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_c_Kcs,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_sec_s_Kcs (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_s_Kcs,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_kcs (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,kcs,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,kcs,MGoal))
+     /\ ((request(A1Goal,A2Goal,kcs,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,kcs,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_sec_c_Kcs (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_c_Kcs,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_sec_s_Kcs (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_s_Kcs,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_kcs (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,kcs,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,kcs,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_kcs (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,kcs,MGoal,SID1).
+ request(A1Goal,A2Goal,kcs,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

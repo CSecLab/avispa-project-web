@@ -1,0 +1,80 @@
+
+%% IF specification of /home/jprochaz/Downloads/span/testsuite/results/hlpslGenFile.hlpsl
+
+section signature:
+
+state_role_A: agent * agent * agent * nat * symmetric_key * symmetric_key * symmetric_key * text * set * nat -> fact
+state_role_B: agent * agent * agent * nat * symmetric_key * symmetric_key * text * set * nat -> fact
+state_role_S: agent * agent * agent * nat * symmetric_key * text * symmetric_key * symmetric_key * set * nat -> fact
+
+
+section types:
+
+sec_1: protocol_id
+ASGoal: set(agent)
+start, MGoal: message
+hash_0: hash_func
+T, dummy_nonce, Dummy_T: text
+2, 5, State, 3, 0, SID, 1, 4, Dummy_State: nat
+S, server, alice, B, bob, i, A: agent
+Kab, Kbs, Dummy_Kas, Dummy_Kab, Dummy_Kbs, dummy_sk, Kas: symmetric_key
+set_74, Set_45, set_78, Dummy_Set_20, Dummy_Set_33, Dummy_Set_45, Set_33, set_63, Set_20: set
+
+
+section inits:
+
+initial_state init1 :=
+ iknows(start).
+ iknows(i).
+ state_role_S(server,alice,bob,0,dummy_sk,dummy_nonce,dummy_sk,dummy_sk,set_63,3).
+ state_role_B(bob,alice,server,0,dummy_sk,dummy_sk,dummy_nonce,set_74,4).
+ state_role_A(alice,bob,server,0,dummy_sk,dummy_sk,dummy_sk,dummy_nonce,set_78,5)
+
+
+section rules:
+
+step step_0 (S,A,B,Dummy_Kas,Dummy_T,Dummy_Kab,Dummy_Kbs,Dummy_Set_45,SID,Kas,T,Kab,Kbs) :=
+ state_role_S(S,A,B,0,Dummy_Kas,Dummy_T,Dummy_Kab,Dummy_Kbs,Dummy_Set_45,SID).
+ iknows(pair(A,B))
+=[exists Kab,T,Kbs,Kas]=>
+ state_role_S(S,A,B,1,Kas,T,Kab,Kbs,Dummy_Set_45,SID).
+ secret(Kab,sec_1,Dummy_Set_45).
+ iknows(scrypt(Kas,pair(B,pair(Kab,pair(T,scrypt(Kbs,pair(Kab,pair(A,T))))))))
+
+step step_1 (B,A,S,Dummy_Kbs,Dummy_Kab,Dummy_T,Dummy_Set_33,SID,Kbs,Kab,T) :=
+ state_role_B(B,A,S,0,Dummy_Kbs,Dummy_Kab,Dummy_T,Dummy_Set_33,SID).
+ iknows(scrypt(Kbs,pair(Kab,pair(A,T))))
+ =>
+ state_role_B(B,A,S,1,Kbs,Kab,T,Dummy_Set_33,SID).
+ secret(Kab,sec_1,Dummy_Set_33)
+
+step step_2 (A,B,S,Kas,Kbs,Kab,T,Set_20,SID) :=
+ state_role_A(A,B,S,0,Kas,Kbs,Kab,T,Set_20,SID).
+ iknows(start)
+ =>
+ state_role_A(A,B,S,1,Kas,Kbs,Kab,T,Set_20,SID).
+ iknows(pair(A,B))
+
+step step_3 (A,B,S,Dummy_Kas,Dummy_Kbs,Dummy_Kab,Dummy_T,Dummy_Set_20,SID,Kas,Kbs,Kab,T) :=
+ state_role_A(A,B,S,1,Dummy_Kas,Dummy_Kbs,Dummy_Kab,Dummy_T,Dummy_Set_20,SID).
+ iknows(scrypt(Kas,pair(B,pair(Kab,pair(T,scrypt(Kbs,pair(Kab,pair(A,T))))))))
+ =>
+ state_role_A(A,B,S,2,Kas,Kbs,Kab,T,Dummy_Set_20,SID).
+ secret(Kab,sec_1,Dummy_Set_20).
+ iknows(scrypt(Kbs,pair(Kab,pair(A,T))))
+
+
+section properties:
+
+property secrecy_of_sec_1 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_1,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_sec_1 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_1,ASGoal) &
+ not(contains(i,ASGoal))
+

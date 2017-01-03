@@ -1,0 +1,185 @@
+%% PROTOCOL: PAKE
+%% PURPOSE: A client and a server authenticate each other based on 
+%% a password such that the password remains highly confidential 
+%% REFERENCE: 
+%% \begin{itemize}
+%% \end{itemize}
+%% MODELER: 
+%% \begin{itemize}
+%% \end{itemize}
+%% ALICE_BOB:
+%% We have a password $p$ initially shared between the participants
+%% and a random number $s$, the \emph{c} (which at least the server knows 
+%% initially). Original protocol, according to RFC:
+%% \begin{verbatim}
+%% identifiers & macros:
+%% U =  
+%% p = 
+%% C =  (see notes section below)
+%% N = 
+%% x = SHA(s | SHA(U | ":" | p))
+%% v = g^x mod N, the "password verifier"
+%% a = 
+%% b =  
+%% A = g^a mod N
+%% B = v + g^b mod N
+%% u = H(A,B)
+%% C = (B - g^x) ^ (a + u * x) mod N 
+%%   = (A * v^u) ^ b mod N
+%% K = SHA_Interleave(C)
+%% M = H(H(N) XOR H(g),H(U),C,A,B,K)
+%% -----------------------------------------------------------------
+%% Client -> Host   : U,A
+%% Host   -> Client : C,B
+%% Client -> Host   : M
+%% Host   -> Client : H(A,M,K)
+%% -----------------------------------------------------------------
+%% \end{verbatim}
+%% Simplified version:
+%% \begin{verbatim}
+%% Macros:
+%% K = H(V.(G^p)^Nb)
+%% M = H(H(G),H(A).C.G^p.{G^Nb}V.K)
+%% -----------------------------------------------------------------
+%% A -> B : A, G^P
+%% B -> A : C, {G^Nb}V
+%% A -> B : M
+%% B -> A : H(G^p,M,K)
+%% \end{verbatim}
+%% PROBLEMS: 3
+%% ATTACKS: None
+%% LIMITATIONS:
+%% Note that the protocol is slightly simplified as in the original version
+%% a full-scale algebraic theory is required. 
+%% NOTES: 
+%% A triangle properties is a commonly-used mechanism to render dictionary
+%% (i.e. guessing) attacks more difficult.  Standard password
+%% files, for instance, store a triangle properties of each password prepended with
+%% a values.  This therefore greatly increases the 
+%% computing power required for an intruder to mount a password
+%% guessing attack based on a precomputed dictionary of passwords
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+%%  HLPSL:
+role pake_Init (A,B : agent,
+               Password : symmetric_key,
+	       H : function,
+	       G : text,
+               Snd,Rcv:channel(dy))
+played_by A
+def=
+  local State : nat, 
+	P  : text,
+	C  : message,
+	DHY, V, K, M : message,
+              MUL : hash_func
+
+  const sec_i_K : protocol_id
+
+  init  State := 0
+
+  transition
+
+  1. State = 0  /\ Rcv(start) =|>
+     State':= 1 /\ P' := new()
+                /\ Snd(A.exp(G,P'))  
+
+  2. State = 1  /\ Rcv(C'.{DHY'}_(MUL(G,H(C'.H(A.Password))))) =|> 
+     State':= 2 /\ V' := MUL(G,H(C'.H(A.Password))) 
+                /\ K' := H( V'.MUL(DHY',P) )
+                /\ M' := H(H(G).H(A).C'.MUL(G,P).{DHY'}_V'.K' )
+                /\ Snd( M' )
+                /\ witness(A,B,k1,K')
+                /\ secret(K',sec_i_K,{A,B})
+
+  3. State = 2  /\ Rcv(H(MUL(G,P).M.K)) =|>  
+     State':= 3
+                /\ request(A,B,k2,K)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role pake_Resp (B,A : agent,
+               Password : symmetric_key,
+	       C : message,
+	       H: function,
+	       G: text,
+               Snd, Rcv:channel(dy))
+played_by B
+def=
+
+  local State : nat, 
+	Nb    : text,
+	M, K, DHX, V: message,
+              MUL : hash_func
+
+  const sec_r_K : protocol_id
+
+  init  State := 0
+
+  transition
+
+  1. State = 0  /\ Rcv(A.DHX') =|> 
+     State':= 1 /\ Nb' := new()
+                /\ Snd(c.{MUL(G,Nb')}_(MUL(G,H(C.H(A.Password)))))
+                /\ V' := MUL(G,H(C.H(A.Password)))
+                /\ K' := H( V'.MUL(DHX',Nb') )
+                /\ M' := H(H(G).H(A).C.DHX'.{MUL(G,Nb')}_V'.K')
+                /\ witness(B,A,k2,K')
+                /\ secret(K',sec_r_K,{A,B})
+
+  2. State = 1  /\ Rcv(M) =|>
+     State':= 3 /\ Snd(H(DHX.M.K)) 
+                /\ request(B,A,k1,K)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role session(A,B: agent,
+	     Password: symmetric_key,
+	     C: message,
+	     H: function,
+	     G: text)
+def=
+
+   local SA,RA,SB,RB: channel (dy)
+   composition
+           pake_Init(A,B,Password,H,G,SA,RA)  /\
+           pake_Resp(B,A,Password,C,H,G,SB,RB)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role environment()
+def=
+
+  const k1,k2 : protocol_id,
+	a,b,i: agent,
+	kab,kai,kbi: symmetric_key,
+	c_ab,c_ai,c_bi: message,
+	h:function,
+	g:text
+	
+  intruder_knowledge = {i, kai, kbi, c_ai, c_bi}
+  composition
+	   session(a,b,kab,c_ab,h,g)
+	/\ session(a,i,kai,c_ai,h,g)
+	/\ session(b,i,kbi,c_bi,h,g)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+  
+goal
+
+    %secrecy_of K
+    secrecy_of sec_i_K, sec_r_K
+
+    %pake_Init authenticates 3D_Resp on k
+    authentication_on k2
+    %pake_Resp authenticates 3D_Init on k
+    authentication_on k1
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

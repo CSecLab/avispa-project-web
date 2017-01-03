@@ -1,0 +1,215 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfile4EuEiG
+
+section signature:
+
+state_kdcRole: agent * agent * agent * symmetric_key * nat * text * text * text * text * text * text * text * set(text) * nat -> fact
+state_sensorRole: agent * agent * agent * symmetric_key * nat * text * text * text * text * text * text * text * text * nat -> fact
+state_aliceRole: agent * agent * agent * symmetric_key * hash_func * nat * text * text * text * text * text * set(symmetric_key) * nat -> fact
+
+
+section types:
+
+ASGoal: set(agent)
+MGoal, start: message
+Set_64, Dummy_Set_64: set(text)
+kdc_sensor_1, sensor_kdc_1, kdc_s_1, sub2, alice_sensor_l, sensor_alice_1, sub1: protocol_id
+h, H: hash_func
+Set_24, Dummy_Set_24: set(symmetric_key)
+l, L: symmetric_key
+set_125, set_122, set_117, set_105: set
+ta, s1, mac1, m, tkdc, mac2, mac3, M, Tkdc, MAC2, Ta, S1, MAC1, R, MAC3, Dummy_MAC1, Dummy_Tkdc, Xa, Dummy_M, Dummy_R, Dummy_Xa, Dummy_Ta, dummy_nonce: text
+A2Goal, A1Goal, a, s, kdc, A, S, KDC, i: agent
+State, 2, 9, 8, 1, 7, 0, 5, SID, 4, Dummy_State, 3, SID2, SID1: nat
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(s).
+ iknows(kdc).
+ iknows(l).
+ iknows(ta).
+ iknows(s1).
+ iknows(mac1).
+ iknows(m).
+ iknows(tkdc).
+ iknows(mac2).
+ iknows(mac3).
+ iknows(i).
+ state_aliceRole(a,s,kdc,l,h,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_105,3).
+ state_sensorRole(s,a,kdc,l,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,4).
+ state_kdcRole(kdc,a,s,l,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_117,5).
+ state_aliceRole(a,s,kdc,l,h,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_122,7).
+ state_sensorRole(s,a,kdc,l,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,8).
+ state_kdcRole(kdc,a,s,l,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_125,9)
+
+
+section rules:
+
+step step_0 (A,S,KDC,L,H,S1,MAC3,Dummy_Ta,Dummy_Xa,Dummy_R,Dummy_Set_24,SID,Ta,Xa,R) :=
+ state_aliceRole(A,S,KDC,L,H,0,S1,MAC3,Dummy_Ta,Dummy_Xa,Dummy_R,Dummy_Set_24,SID).
+ iknows(start)
+=[exists R,Xa,Ta]=>
+ state_aliceRole(A,S,KDC,L,H,1,S1,MAC3,Ta,Xa,R,Dummy_Set_24,SID).
+ secret(Dummy_Set_24,sub1,A).
+ iknows(pair(scrypt(L,R),pair(Ta,S1))).
+ witness(A,S,alice_sensor_l,L).
+ contains(L,Dummy_Set_24)
+
+step step_1 (A,S,KDC,L,H,S1,MAC3,Ta,Xa,R,Set_24,SID) :=
+ state_aliceRole(A,S,KDC,L,H,1,S1,MAC3,Ta,Xa,R,Set_24,SID).
+ iknows(MAC3)
+ =>
+ state_aliceRole(A,S,KDC,L,H,2,S1,MAC3,Ta,Xa,R,Set_24,SID).
+ request(S,A,sensor_alice_1,MAC3,SID)
+
+step step_2 (S,A,KDC,L,Dummy_Ta,S1,MAC1,M,Tkdc,MAC2,MAC3,Dummy_R,SID,Ta,R) :=
+ state_sensorRole(S,A,KDC,L,0,Dummy_Ta,S1,MAC1,M,Tkdc,MAC2,MAC3,Dummy_R,SID).
+ iknows(pair(scrypt(L,R),pair(Ta,S1)))
+ =>
+ state_sensorRole(S,A,KDC,L,1,Ta,S1,MAC1,M,Tkdc,MAC2,MAC3,R,SID).
+ iknows(pair(scrypt(L,R),pair(Ta,pair(S1,MAC1)))).
+ witness(S,KDC,sensor_kdc_1,MAC1).
+ request(A,S,alice_sensor_l,L,SID)
+
+step step_3 (S,A,KDC,L,Ta,S1,MAC1,Dummy_M,Dummy_Tkdc,MAC2,MAC3,R,SID,M,Tkdc) :=
+ state_sensorRole(S,A,KDC,L,1,Ta,S1,MAC1,Dummy_M,Dummy_Tkdc,MAC2,MAC3,R,SID).
+ iknows(pair(M,pair(Tkdc,MAC2)))
+ =>
+ state_sensorRole(S,A,KDC,L,2,Ta,S1,MAC1,M,Tkdc,MAC2,MAC3,R,SID).
+ iknows(MAC3).
+ witness(S,A,sensor_alice_1,MAC3).
+ request(KDC,S,kdc_s_1,M,SID)
+
+step step_4 (KDC,A,S,L,Dummy_M,Dummy_Tkdc,MAC2,Dummy_Ta,S1,Dummy_MAC1,Dummy_R,Dummy_Set_64,SID,M,Tkdc,Ta,MAC1,R) :=
+ state_kdcRole(KDC,A,S,L,0,Dummy_M,Dummy_Tkdc,MAC2,Dummy_Ta,S1,Dummy_MAC1,Dummy_R,Dummy_Set_64,SID).
+ iknows(pair(scrypt(L,R),pair(Ta,pair(S1,MAC1))))
+=[exists Tkdc,M]=>
+ state_kdcRole(KDC,A,S,L,1,M,Tkdc,MAC2,Ta,S1,MAC1,R,Dummy_Set_64,SID).
+ secret(Dummy_Set_64,sub2,KDC).
+ iknows(pair(M,pair(Tkdc,MAC2))).
+ witness(KDC,S,kdc_sensor_1,M).
+ request(S,KDC,sensor_kdc_1,Dummy_MAC1,SID).
+ contains(M,Dummy_Set_64)
+
+
+section properties:
+
+property secrecy_of_sub1 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sub1,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_sub2 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sub2,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_sensor_kdc_1 (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,sensor_kdc_1,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,sensor_kdc_1,MGoal))
+     /\ ((request(A1Goal,A2Goal,sensor_kdc_1,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,sensor_kdc_1,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_kdc_sensor_1 (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,kdc_sensor_1,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,kdc_sensor_1,MGoal))
+     /\ ((request(A1Goal,A2Goal,kdc_sensor_1,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,kdc_sensor_1,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_alice_sensor_l (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,alice_sensor_l,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,alice_sensor_l,MGoal))
+     /\ ((request(A1Goal,A2Goal,alice_sensor_l,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,alice_sensor_l,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_sensor_alice_1 (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,sensor_alice_1,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,sensor_alice_1,MGoal))
+     /\ ((request(A1Goal,A2Goal,sensor_alice_1,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,sensor_alice_1,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_kdc_s_1 (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,kdc_s_1,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,kdc_s_1,MGoal))
+     /\ ((request(A1Goal,A2Goal,kdc_s_1,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,kdc_s_1,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_sub1 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sub1,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_sub2 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sub2,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_sensor_kdc_1 (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,sensor_kdc_1,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,sensor_kdc_1,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_sensor_kdc_1 (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,sensor_kdc_1,MGoal,SID1).
+ request(A1Goal,A2Goal,sensor_kdc_1,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_kdc_sensor_1 (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,kdc_sensor_1,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,kdc_sensor_1,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_kdc_sensor_1 (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,kdc_sensor_1,MGoal,SID1).
+ request(A1Goal,A2Goal,kdc_sensor_1,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_alice_sensor_l (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,alice_sensor_l,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,alice_sensor_l,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_alice_sensor_l (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,alice_sensor_l,MGoal,SID1).
+ request(A1Goal,A2Goal,alice_sensor_l,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_sensor_alice_1 (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,sensor_alice_1,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,sensor_alice_1,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_sensor_alice_1 (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,sensor_alice_1,MGoal,SID1).
+ request(A1Goal,A2Goal,sensor_alice_1,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_kdc_s_1 (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,kdc_s_1,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,kdc_s_1,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_kdc_s_1 (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,kdc_s_1,MGoal,SID1).
+ request(A1Goal,A2Goal,kdc_s_1,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

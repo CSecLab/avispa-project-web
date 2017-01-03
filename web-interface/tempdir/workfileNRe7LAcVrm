@@ -1,0 +1,42 @@
+role mserver (MS, Ui, MRS, PS : agent,
+SKuisj : symmetric_key,
+SK1: symmetric_key,
+% H is hash function
+H : hash_func,
+Snd, Rcv: channel(dy) )
+played_by MS
+def=
+local State : nat,
+IDi, IDmsj, IDk, PWi, Bi, Xc, Xj, Xk, Fi,
+PWDi, Aj, Pj, REGi, Rc, Rms, Rk: text,
+Ci, Di, Ei, Gi, Li, Nj, Oj,Sj,RANj, Qj,
+Tk, RANk, Vk, SK: message,
+Inc : hash_func
+const alice_server, server_mserver,
+mserver_pserver, pserver_alice, alice_mserver,
+subs1, subs2, subs3, subs4, subs5, subs6,subs7,subs8 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(start) =|>
+State' := 1 /\ IDmsj' := new()
+/\ Snd(IDmsj')
+2. State = 1 /\ Rcv({Xj'}_SK1, Fi'.Di'.Gi'.Li'.IDmsj'.IDk') =|>
+% Receive secret key including login message parameter
+State' := 2 /\ Rms' := new()
+/\ Ei' := H(IDmsj.Xj'.Fi')
+/\ IDi' := xor(Gi', Ei')
+/\ Rc' := xor(Li', Ei')
+/\ Xk' := H(IDk' . Xj')
+/\ Nj' := H(IDk'.Xk'.Fi')
+/\ Oj' := xor(IDi', Nj')
+/\ Sj' := xor(H(IDk'.Xk'), Rms')
+/\Qj' := H(IDi' . Xk' . Nj' . Rms')
+/\RANj' := xor(Rc',Rms')
+/\ Snd (Oj'. Sj' . Qj'. IDk'. Fi'. RANj')
+/\ Snd({Xk'}_SK1)
+% send secret key Xk including authentication message to the PS
+/\ secret({Xk}, subs5, {MRS,PS})
+/\ secret({Rms'}, subs7, {Ui,MS,PS})
+/\ witness(MS, PS, mserver_pserver_rms, Rms')
+/\ request(MS, PS, mserver_pserver, Rms')
+end role

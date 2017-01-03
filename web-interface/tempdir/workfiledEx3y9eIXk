@@ -1,0 +1,140 @@
+role ue (
+	U, M, H                        	: agent,
+	IMSI			: text,
+              F1, F2, F3, F4, F5, F    	: hash_func,
+	K		         	: symmetric_key,
+	K0		        	: public_key,
+              SND, RCV                     	: channel (dy)  )
+
+played_by U def= 
+        local
+	State						: nat,
+RANDu, RANDd, RANDRu, RANDRh, RANDRm	: text,
+	A, B, XRES, RES, MMEV, PIMSI			: text,
+	K1, K2  						 : symmetric_key
+         const
+	request_id, success  : text,
+ue_hss_randru, ue_hss_randrh, ue_hss_k2  : protocol_id
+         init
+	        State := 1
+          transition
+1.    State  = 1 /\ RCV ({request_id.B}_K0) =|> 
+State¡¯:= 5 /\ RANDu = new()
+                  /\ RANDd = new()
+                  /\ RANDRu = new()
+                  /\ A = F4(RANDu, RANDd)
+                  /\ PIMSI = F(IMSI, RANDRu)
+                  /\ K1 = F5(B, RANDu)
+                  /\ K2 = xor(K1, K)
+                  /\ SND({A.PIMSI.RANDRu}_K0)
+	          /\ secret(K1, k1, {U, H})
+	          /\ wrequest(U, H, ue_hss_k2, RANDRu)
+	5.   State  = 5  /\ RCV({MMEV.RANDRm.RANDRh}_K1) =|>
+	                         /\ RES = F2(RANDRh)
+		          /\ SND({RES}_K1)
+		          /\ witness(U, H, ue_hss_k2, RANDRh¡¯)
+end role
+
+role mme (
+	U, M, H                        : agent,
+              F1, F2, F3, F4, F5, F    : hash_func,
+	Kx		        : symmetric_key,
+	K0		        : public_key,
+              SND, RCV                     : channel (dy)  )
+played_by M def=
+          local
+	State					: nat,
+RANDm, RANDRu, RANDRh, RANDRm  	: text,
+	A, B, HSSV, XRES, RES, MMEV, PIMSI   	: text,
+	K1,K2       : symmetric_key
+         const
+	request_id, success  : text,
+ue_mme_K1, ue_hss_K2    : protocol_id
+	
+         init
+	        State := 0
+        transition
+0.  State  = 0 /\ RCV(start) =|>
+     State¡¯ = 2 /\ RANDm = new()
+                       /\ B = F3(RANDm)
+                                     /\ SND({request_id.B}_K0)
+	2. State   = 2 /\ RCV({A.PIMSI.RANDRu}_K0) =|>
+	     State¡¯ = 4 /\ K1 = F5(A, RANDm)
+		        /\ SND({K1.PIMSI.RANDRu}_Kx)
+	4. State  = 4 /\ RCV({HSSV.XRES.RANDRh}_Kx) =|>
+	    State¡¯ = 6 /\ RANDm = new()
+		       /\ MMEV = F1(HSSV, RANDRh)
+		       /\ SND({MMEV.RANDRm.RANDRh}_K1)
+	6. State = 6 /\ RCV({RES}_K1) =|>
+		       /\ SND({success}_K1)
+
+end role
+
+
+role hss (
+	U, M, H			: agent,
+              F1, F2, F3, F4, F5, F	: hash_func,
+	Kx			: public_key,
+	K			: symmetric_key,
+              SND, RCV		: channel (dy)  )
+played_by H def=
+          local
+	State : nat,
+RANDRu, RANDRh  : text,
+	HSSV, XRES, PIMSI, IMSI  : text,
+	K1,K2       : symmetric_key
+         const
+	ue_mme_K1, ue_hss_K2    : protocol_id
+	
+         init
+	        State := 3
+        transition
+3.  State  = 3 /\ RCV({K1.PIMSI.RANDRu}_Kx) =|>
+        /\ RANDRh = new()
+                       /\ K2 = xor(K1, K)
+	        /\ HSSV = F1(RANDRu, RANDRh)
+        /\ XRES = F2(RANDRh)
+                       /\ SND({HSSV.XRES.RANDRh}_Kx)
+	        /\ secret(K2, k2, {U, H})
+	        /\ witness(H, U, ue_hss_k2, RANDRu¡¯)
+	        /\ wrequest(H, U, ue_hss_k2, RANDRh) 
+End role
+
+role session(
+	U, M, H							: agent,
+	F1, F2, F3, F4, F5, F					: hash_func,
+	RANDm, RANDu, RANDd, RANDRu, RANDRh, RANDRm	: text,
+	A, B, HSSV, XRES, RES, MMEV, PIMSI, IMSI		: text,
+	K0, Kx							: public_key,
+	K1, K2							: symmetric_key    )
+def=
+	local
+		SND1, RCV1, SND2, RCV2, SND3, RCV3		: channel (dy)
+	composition
+		ue(U, H, M, RANDu, RANDd, RANDRu, RANDRh, RANDRm, A, B, XRES, RES, MMEV, PIMSI, IMSI, F1, F2, F3, F4, F5, F, K, K0, K1, K2, SND1, RCV1)
+	           /\mme(M, H, U, RANDm, RANDRu, RANDRh, RANDRm, A, B, HSSV, XRES, RES, MMEV, PIMSI, F1, F2, F3, F4, F5, F, K0, K1, K2, Kx, SND2, RCV2)
+	           /\hss(H, M, U, RANDRu, RANDRh, HSSV, XRES, PIMSI, IMSI, F1, F2, F3, F5, F, K, K1, K2, Kx, SND3, RCV3)
+end role
+
+role environment()
+def=
+	const
+		f, f1, f2, f3, f4, f5  				: hash_func,
+		u, m, h						: agent,
+		randm, randu, randd, randru, randrh, randrm	: text,
+		a, b, hssv, xres, res, mmev, pimsi, imsi		: text,
+		k0, kx						: public_key,
+		k1, k2						: protocol_id
+
+	intruder_knowledge = {u, m, h, ki, k0, kx, f, f1, f2, f3, f4, f5}
+	
+	composition
+		session(h, m, u, randm, randu, randd, randru, randrh, randrm, a, b, hssv, xres, res, mmev, pimsi, imsi, k0, kx)
+end role
+
+goal
+secrecy_of K1, K2
+authentication_on randru
+authentication_on randrh
+end goal
+environment()

@@ -1,0 +1,95 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilepm5H5F
+
+section signature:
+
+state_auth_serv_S: agent * agent * agent * symmetric_key * symmetric_key * text * text * nat * symmetric_key * set(agent) * nat -> fact
+state_server_B: agent * agent * agent * symmetric_key * symmetric_key * text * text * nat * symmetric_key * nat -> fact
+state_client_A: agent * agent * symmetric_key * symmetric_key * nat * text * text * symmetric_key * nat -> fact
+
+
+section types:
+
+secret_k: protocol_id
+set_83: set
+Set_48, Dummy_Set_48, ASGoal: set(agent)
+MGoal, start: message
+Na, Nb, Dummy_Nb, Dummy_Na, dummy_nonce: text
+State, 5, 4, SID, 3, Dummy_State, 2, 1, 0: nat
+Kab, K_BS, K_AS, Dummy_Kab, dummy_sk, kas, kbs: symmetric_key
+A, B, S, a, b, s, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(s).
+ iknows(i).
+ state_client_A(a,b,kbs,kas,0,dummy_nonce,dummy_nonce,dummy_sk,3).
+ state_server_B(b,a,s,kbs,kas,dummy_nonce,dummy_nonce,1,dummy_sk,4).
+ state_auth_serv_S(s,a,b,kbs,kas,dummy_nonce,dummy_nonce,1,dummy_sk,set_83,5)
+
+
+section rules:
+
+step step_0 (A,B,K_BS,K_AS,Dummy_Na,Nb,Kab,SID,Na) :=
+ state_client_A(A,B,K_BS,K_AS,0,Dummy_Na,Nb,Kab,SID).
+ iknows(start)
+=[exists Na]=>
+ state_client_A(A,B,K_BS,K_AS,1,Na,Nb,Kab,SID).
+ iknows(scrypt(K_AS,pair(Na,A)))
+
+step step_1 (A,B,K_BS,K_AS,Na,Dummy_Nb,Dummy_Kab,SID,Nb,Kab) :=
+ state_client_A(A,B,K_BS,K_AS,1,Na,Dummy_Nb,Dummy_Kab,SID).
+ iknows(pair(scrypt(K_AS,pair(Kab,pair(Na,pair(A,B)))),scrypt(Kab,pair(Na,Nb))))
+ =>
+ state_client_A(A,B,K_BS,K_AS,2,Na,Nb,Kab,SID).
+ iknows(scrypt(Kab,Nb))
+
+step step_2 (B,A,S,K_BS,K_AS,Dummy_Na,Dummy_Nb,Kab,SID,Na,Nb) :=
+ state_server_B(B,A,S,K_BS,K_AS,Dummy_Na,Dummy_Nb,1,Kab,SID).
+ iknows(scrypt(K_AS,pair(Na,A)))
+=[exists Nb]=>
+ state_server_B(B,A,S,K_BS,K_AS,Na,Nb,2,Kab,SID).
+ iknows(scrypt(K_BS,pair(scrypt(K_AS,pair(Na,A)),pair(Nb,B))))
+
+step step_3 (B,A,S,K_BS,K_AS,Na,Nb,Dummy_Kab,SID,Kab) :=
+ state_server_B(B,A,S,K_BS,K_AS,Na,Nb,2,Dummy_Kab,SID).
+ iknows(scrypt(K_BS,pair(Kab,pair(Nb,scrypt(K_AS,pair(Kab,pair(Na,pair(A,B))))))))
+ =>
+ state_server_B(B,A,S,K_BS,K_AS,Na,Nb,3,Kab,SID).
+ iknows(pair(scrypt(K_AS,pair(Kab,pair(Na,pair(A,B)))),scrypt(Kab,pair(Na,Nb))))
+
+step step_4 (B,A,S,K_BS,K_AS,Na,Nb,Dummy_Kab,SID,Kab) :=
+ state_server_B(B,A,S,K_BS,K_AS,Na,Nb,3,Dummy_Kab,SID).
+ iknows(scrypt(Kab,Nb))
+ =>
+ state_server_B(B,A,S,K_BS,K_AS,Na,Nb,4,Kab,SID)
+
+step step_5 (S,A,B,K_BS,K_AS,Dummy_Na,Dummy_Nb,Dummy_Kab,Dummy_Set_48,SID,Na,Nb,Kab) :=
+ state_auth_serv_S(S,A,B,K_BS,K_AS,Dummy_Na,Dummy_Nb,1,Dummy_Kab,Dummy_Set_48,SID).
+ iknows(scrypt(K_BS,pair(scrypt(K_AS,pair(Na,A)),pair(Nb,B))))
+=[exists Kab]=>
+ state_auth_serv_S(S,A,B,K_BS,K_AS,Na,Nb,2,Kab,Dummy_Set_48,SID).
+ iknows(scrypt(K_BS,pair(Kab,pair(Nb,scrypt(K_AS,pair(Kab,pair(Na,pair(A,B)))))))).
+ contains(A,Dummy_Set_48).
+ contains(B,Dummy_Set_48).
+ contains(S,Dummy_Set_48)
+
+
+section properties:
+
+property secrecy_of_secret_ks (MGoal,ASGoal) :=
+ [] ((secret(MGoal,secret_ks,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_secret_ks (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,secret_ks,ASGoal) &
+ not(contains(i,ASGoal))
+

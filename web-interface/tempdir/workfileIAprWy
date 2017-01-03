@@ -1,0 +1,112 @@
+role ue(
+            UE,BS1,BS2:agent,
+            Auk1:symmetric_key,
+            A,P:text,
+            Fkey,Mul:hash_func,
+            SND_UB1,RCV_UB1,SND_UB2,RCV_UB2:channel(dy))
+played_by UE def=
+  local  State :nat,
+           ID:text,
+           N_ue,N_bs2:text,
+           Auk2,PTK1:symmetric_key,
+           HO_req,HO_res,Exd,Mac:message
+   init  State :=0
+transition
+   1.State=0/\RCV_UB1(start)=|>
+     State':=1/\ HO_req ':=new()
+                  /\SND_UB1(HO_req ')
+   2.State=1/\RCV_UB1(HO_res ')=|>
+    State':=6/\Auk2¡¯:=Fkey(Auk1,A)
+                  /\Exd¡¯:=new()
+                  /\ID¡¯:=new()
+                  /\N_ue¡¯:=new()
+                  /\Mac¡¯:={ID¡¯.Mul(N_ue¡¯,P).Exd¡¯}_Auk2¡¯
+                  /\SND_UB2(ID¡¯.Mul(N_ue¡¯,P).Exd¡¯. Mac¡¯)
+                  /\witness(UE,BS2,bs2_ue_mac,Mac')
+  3.State=6/\RCV_UB2(Mul(N_bs2¡¯,P).Exd¡¯. Mac¡¯)
+                 /\Mac¡¯={ Mul(N_bs2¡¯,P).Exd¡¯}_Auk2
+                 /\request(UE,BS2,ue_bs2_mac,Mac')=|>
+   State':=8/\PTK1¡¯:=Mul(N_ue, Mul(N_bs2¡¯,P))
+                 /\secret(PTK1¡¯,ptk1,{UE,BS2})
+end role
+
+role bs1(
+             UE,BS1,BS2:agent,
+             AuK1:symmetric_key,
+             A,P:text,
+             Fkey,Mul:hash_func,
+             SND_UB1,RCV_UB1,SND_B1B2,RCV_B1B2:channel(dy))
+played_by BS1 def=
+  local  State :nat,
+           Auk2:symmetric_key,
+           HO_req,HO_res:message
+   init  State :=2
+transition
+   1.State=2/\RCV_UB1(HO_req ')=|>
+     State':=3/\ HO_reS ':=new()
+                  /\SND_UB1(HO_res ')
+                  /\Auk2¡¯:=Fkey(Auk1,A)
+                  /\SDN_B1B2(Auk2¡¯)
+end role
+
+role bs2(
+             UE,BS1,BS2:agent,
+              A,P:text,
+             Fkey,Mul:hash_func,
+             SND_B1B2,RCV_B1B2,SND_UB2,RCV_UB2:channel(dy))
+played_by BS2 def=
+  local  State :nat,
+           ID:text,
+           N_ue,N_bs2:text,
+           Auk2,PTK2:symmetric_key,
+           Exd,Mac:message,
+   init  State :=4
+transition
+   1.State=4/\RCV_B1B2(Auk2 ')=|>
+      State':=5
+   2.State=5/\RCV_UB2(ID¡¯.Mul(N_ue¡¯,P).Exd¡¯. Mac¡¯)
+                  /\Mac¡¯={ID¡¯.Mul(N_ue¡¯,P).Exd¡¯}_Auk2¡¯
+                  /\request(BS2,UE,bs2_ue_mac,Mac')=|>
+     State':=7/\Exd¡¯:=new()
+                  /\N_bs2¡¯:=new()
+                  /\Mac¡¯:={Mul(N_bs2¡¯,P).Exd¡¯}_Auk2
+                  /\SND_UB2(Mul(N_bs2¡¯,P).Exd¡¯. Mac¡¯)
+                  /\PTK2¡¯:=Mul(N_bs2, Mul(Mul(N_ue¡¯,P)))
+                  /\witness(BS2,UE,ue_bs2_mac,Mac')
+                  /\secret(PTK2¡¯,ptk2,{UE,BS2})
+end role
+
+role session(
+	  UE,BS1,BS2:agent,
+	  Auk1:symmetric_key,
+                    A,P:text,
+	  Fkey,Mul:hash_func)
+def=
+  local  SUB1,RUB1,SUB2,RUB2,SB1B2,RB1B2:channel(dy)
+  composition
+	   ue(UE,BS1,BS2,Auk1,A,P,Fkey,Mul,SUB1,RUB1,SUB2,RUB2)
+	/\enb1(UE,BS1,BS2,Auk1,A,P,Fkey,Mul, SUB1,RUB1,SB1B2,RB1B2)
+                  /\enb2(UE,BS1,BS2, A,P,Fkey,Mul, SB1B2,RB1B2,SUB2,RUB2)
+end role
+
+role environment()
+def=
+   const u,b1,b2:agent,
+        k1,k2,ki:symmetric_key,
+        a,p:text,
+        f,m:hash_func,
+        ue_b2_mac,b2_ue_mac, ptk1,ptk2:protocol_id
+        intruder_knowledge={w,b1,b2,k1,k2,ki,a,p,f,m}
+  composition
+	session(u,b1,b2,k1,f,m)
+	/\session(i,b1,b2, ki,f,m)
+	/\session(u,i,b2, ki,f,m)
+                  /\session(u,b1,i, ki,f,m)
+end role
+
+goal
+  authentication_on ue_b2_mac,b2_ue_mac
+  secrecy_of ptk1,ptk2
+end goal
+
+environment()

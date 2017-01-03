@@ -1,0 +1,145 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Role of the payer
+role payer(	Pr,B		:agent,
+		Skb 		:symmetric_key,
+		H1,H2		:hash_func,
+		Id,Bi		:text,		
+		Snd,Rcv		:channel(dy))
+played_by Pr def=
+	local State : nat,
+	NPr,NB,Tspr,Tsb	     : text,
+	
+	KB,KPr	     : public_key,
+	Amount,Payee_id,Alpha,Beta,Payment_success	     : message
+const npr,skb,payer_bank_npr,payer_bank_skb	:protocol_id
+
+init State := 0
+transition
+1.	State  = 0 	/\ Rcv(start) =|>
+	State':= 2 	/\ Id' := new()
+		   	/\ Bi' := new()
+		   	/\ Tspr':=new()
+		   	/\ NPr' :=new()
+		   	/\ Snd({Id.Bi.Tspr.NPr}_KB)
+		  	/\ secret(Tspr',NPr')
+		   	/\ witness(Pr,B,payer_bank_npr,{npr})
+
+2.	State   = 2	/\ Rcv({Skb.Tsb.NB}_KPr) =|>
+	State' := 4 	/\ Amount':=new()
+		   	/\ Payee_id':=new()
+		   	/\ Tspr':=new()
+		   	/\ NPr':=new()
+			/\ Alpha':=new()
+			/\ Alpha':=H1(Skb.Amount'.Payee_id'.Tspr'.NPr')
+		   	/\ secret(Tspr',NPr',Skb)
+		   	/\ witness(Pr,B,payer_bank_npr,payer_bank_skb,{npr},{skb})
+
+3.	State	 = 4	/\ Snd({Amount.Payee_id.Tspr'.NPr'.Alpha}_Skb) =|>
+	State'	:= 6	/\ Rcv({Payment_success.Amount.Payee_id.Tspr'.NPr'.Tsb'.NB'.Beta}_Skb)
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Role of the Bank
+role bank(	Pr,B		:agent,
+		Skb 		:symmetric_key,
+		H1,H2		:hash_func,
+		Id,Bi		:text,
+		
+		Snd,Rcv		:channel(dy))
+played_by Pr def=
+	local State : nat,
+	NPr,NB,Tsb,Tspr	     : text,
+	KB,KPr	     : public_key,
+	Amount,Payee_id,Alpha,Beta,Payment_success	     : message
+const nb,npr,skb,bank_payer_nb,bank_payer_skb,payer_bank_skb,payer_bank_npr	:protocol_id
+
+
+init State := 1
+transition
+1. 	State	 = 1	/\ Rcv(start) =|>
+			
+	State'	:= 3	/\ Tsb':=new()
+		   	/\ NB':=new()
+		   	/\Snd({Skb.Tsb'.NB'}_KPr)
+		   	/\secret(Tsb',NB')
+		   	/\witness(Pr,B,bank_payer_nb)
+
+2.	State	 = 3	/\Rcv({Id.Bi.Tspr.NPr}_KB) =|>
+	State'	:= 5 	/\Payment_success' := new()
+			/\ Amount':=new()
+			/\ Payee_id':=new()
+			/\ Tspr':=new()
+			/\ NPr':=new()
+			/\ Tsb':=new()
+			/\ NB':=new()
+			/\ Beta':=new()
+			/\ Beta':=H2(Skb.Payment_success'.Amount'.Payee_id.Tspr'.NPr'.Tsb'.NB')
+			
+			/\secret(Tspr',NPr',Tsb',NB')
+			/\witness(Pr,B,bank_payer_nb,payer_bank_npr)	
+			/\ witness(Pr,B,bank_payer_skb,payer_bank_skb)
+	
+3.	State	= 5	/\Snd({Payment_success'.Amount'.Payee_id.Tspr'.NPr'.Tsb'.NB'.Beta'}_Skb) =|>
+	State' := 7	/\ Rcv({Amount.Payee_id.Tspr'.NPr'.Alpha}_Skb)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% role Session
+role session( Pr,B		:agent,
+	      Skb 		:symmetric_key,
+	      H1,H2		:hash_func,
+	      Id,Bi		:text,
+	     
+	      Snd,Rcv		:channel(dy))
+def=
+local SPr,SB,Rpr,RB	:channel(dy)
+
+composition
+
+payer(Pr,B,Skb,H1,H2,Id,Bi,SPr,Rpr) /\
+bank(Pr,B,Skb,H1,H2,Id,Bi,SB,RB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%Role Environment
+
+role environment()
+def=
+
+const
+
+prr,ba,i	:agent,
+skbb 		:symmetric_key,
+h1,h2		:hash_func,
+
+idp,bi1		:text,
+payer_bank_NPr,payer_bank_Skb,bank_payer_NB,bank_payer_Skb :protocol_id
+
+intruder_knowledge ={prr,ba,i,skbb,idp,bi1}
+
+composition
+session(prr,ba,skbb,h1,h2,payer_bank_Skb,idp,bi1)/\
+session(i,prr,skbb,h1,h2,bank_payer_Skb,idp,bi1)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%Goal	
+goal
+
+secrecy_of nb,npr,skb
+
+authentication_on bank_payer_nb,bank_payer_skb,payer_bank_skb,payer_bank_npr
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Call of the Main role:
+environment()
+	
+	      

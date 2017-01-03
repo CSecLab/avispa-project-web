@@ -1,0 +1,71 @@
+role mdms(
+	MDMS,CA : agent,
+	MDU : public_key,
+	H :hash_func,
+	SND,RCV :channel(dy))
+played_by MDMS def=
+local   MDID:text,
+        T_md:text,
+        CA_List:message,
+        State:nat
+init
+    State:=0
+transition
+     0. State = 0 /\ RCV(start) =|>
+        State':= 2 /\ MDID' := new()
+                   /\ SND({H(MDID').T_md.MDID'}_(inv(MDU)))
+                   /\ witness(MDMS,CA,mdid,MDID')
+     2. State = 2 /\ RCV(CA_List)
+end role
+
+role ca(
+	MDMS,CA : agent,
+	MDU : public_key,
+	H :hash_func,
+	SND,RCV :channel(dy))
+played_by CA def=
+local   MDID:text,
+        T_md:text,
+        CA_List:message,
+        State:nat
+init
+    State:=1
+transition
+     1. State = 1 /\ RCV({H(MDID').T_md.MDID'}_(inv(MDU))) =|>
+        State':= 3 /\ SND(CA_List)
+	           /\ request(MDMS,CA,mdid,MDID') 
+end role
+
+role session(
+	MDMS,CA :agent,
+	MDU :public_key,
+	G:hash_func)
+def=
+local 
+SMDMS,RMDMS,SCA,RCA:channel(dy)
+composition
+	mdms(MDMS,CA,MDU,H,SMDMS,RMDMS)
+	/\ca(MDMS,CA,MDU,H,SCA,RCA)
+end role
+
+
+role environment()
+def=
+   const a,b,i:agent,
+        k,ki:public_key,
+	h: hash_func,
+        mdid: protocol_id
+	
+	
+   intruder_knowledge={a,b,i,k,ki,h,inv(ki)} 
+  composition
+     
+    session(a,b,k,h) 
+   /\session(a,i,ki,h)
+   /\session(i,b,ki,h)
+end role
+
+goal
+authentication_on mdid
+end goal
+environment()

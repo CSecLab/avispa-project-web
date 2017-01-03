@@ -1,0 +1,57 @@
+role role_A(A:agent,B:agent,R:agent,Ka:public_key,SND,RCV:channel(dy))
+played_by A
+def=
+	local
+		State:nat,TA:text,TB:text,ToS:text,Kb:public_key,Nb:text,Na:text,Kreg:public_key,Cloudida:text,Sid:text,Cloudidb:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ TA':=new() /\ Na':=new() /\ ToS':=new() /\ Sid':=new() /\ SND(A.Na'.Sid'.ToS'.TA'.A.Ka.Na'.TA')
+		4. State=1 /\ RCV({B.Cloudida'.ToS.Ka.TB'.Na.Nb'}_Ka) =|> State':=2 /\ Kb':=new() /\ Cloudidb':=new() /\ SND(Cloudidb'.ToS.Kb'.Sid)
+		6. State=2 /\ RCV({Cloudidb.Ka.Kb.Sid.A.B.Na.Nb}_Kb) =|> State':=3 /\ SND(A.Na.B.Na) /\ Kreg':=new() /\ SND({Sid.Cloudida.Cloudidb}_Kreg')
+end role
+
+role role_B(A:agent,B:agent,R:agent,Kb:public_key,SND,RCV:channel(dy))
+played_by B
+def=
+	local
+		State:nat,TA:text,Kreg:public_key,Cloudidb:text,VID:text,Sid:text,Ka:public_key,Cloudida:text,ToS:text,TB:text,Nb:text,Na:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(A.Na'.Sid'.ToS'.TA'.A.Ka'.Na'.TA') =|> State':=1 /\ Kreg':=new() /\ Cloudidb':=new() /\ Cloudida':=new() /\ VID':=new() /\ SND(VID'.{Sid'.ToS'.Ka'.Cloudida'.Cloudidb'}_Kreg')
+		3. State=1 /\ RCV({Sid.A}_Kb) =|> State':=2 /\ Nb':=new() /\ TB':=new() /\ SND({B.Cloudida.ToS.Ka.TB'.Na.Nb'}_Ka)
+		7. State=2 /\ RCV(A.Na.B.Na) =|> State':=3
+end role
+
+role role_R(A:agent,B:agent,R:agent,Ka:public_key,Kb:public_key,SND,RCV:channel(dy))
+played_by R
+def=
+	local
+		State:nat,VID:text,ToS:text,Na:text,Nb:text,Kreg:public_key,Cloudida:text,Sid:text,Cloudidb:text
+	init
+		State := 0
+	transition
+		2. State=0 /\ RCV(VID'.{Sid'.ToS'.Ka.Cloudida'.Cloudidb'}_Kreg') =|> State':=1 /\ SND({Sid'.A}_Kb)
+		5. State=1 /\ RCV(Cloudidb.ToS.Kb.Sid) =|> State':=2 /\ Nb':=new() /\ Na':=new() /\ SND({Cloudidb.Ka.Kb.Sid.A.B.Na'.Nb'}_Kb)
+		8. State=2 /\ RCV({Sid.Cloudida.Cloudidb}_Kreg) =|> State':=3
+end role
+
+role session1(A:agent,B:agent,R:agent,Ka:public_key,Kb:public_key)
+def=
+	local
+		SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_R(A,B,R,Ka,Kb,SND3,RCV3) /\ role_B(A,B,R,Kb,SND2,RCV2) /\ role_A(A,B,R,Ka,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		hash_0:function,ka:public_key,cloud:agent,service:agent,registry:agent,kb:public_key
+	intruder_knowledge = {}
+	composition
+		session1(service,cloud,registry,ka,kb)
+end role
+
+environment()

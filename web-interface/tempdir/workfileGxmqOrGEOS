@@ -1,0 +1,149 @@
+
+role registrationcenter  (RC,U,S               : agent,  
+                          X,Xs,Xu              : public_key,
+                          Z,Zs,Zu,PWu,ID,SID   : text, 
+                          H                    : hash_func,
+                          SND_SRC, RCV_SRC, SND_URC, RCV_URC: channel(dy))
+played_by RC
+
+def=
+
+  local    State      : nat,
+           Ii,Ij,Ti   : text
+       
+  init State := 1
+  transition
+  1.State  = 1 /\ RCV_SRC(SID)     =|>
+    State':= 3 /\ Ij' := exp(H(SID.Xs),X)   %50
+               /\ secret(Ij,Xu,Zs,{RC,S})
+               /\ secret(Z,X,{RC})  
+               /\ SND_SRC(H,Ij,Xu,Zs)  
+  2.State  = 3 /\ RCV_URC(ID,PWu)  =|>
+    State':= 5 /\ Ii' := exp(H(ID.Xu),X)
+               /\ Ti' := xor(H(ID.Zu.PWu),Ii)
+               /\ secret (Ii,Xs,Zu,{RC,U})
+               /\ SND_URC(H,Ti,Xs,Zu)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role user (RC,U,S                            : agent,    %63
+           Ki                                : symmetric_key,
+           SKij                              : symmetric_key, 
+           Xs                                : public_key,
+           Ii,Zu,Ti,PW,ID,SID                : text,
+           H                                 : hash_func,
+           SND_URC, RCV_URC, SND_US, RCV_US: channel(dy))
+
+played_by U
+
+def=
+
+  local State               : nat,  
+        B                   : nat,
+        Pj,PWu,Ns,Nu        : text,
+        Ri,Rj,Vi,Vj         : message
+const user_server_ki, server_user_kj,
+      user_server_skij, server_user_skij,
+      server_user_skij ,ki ,kj : protocol_id
+       
+  init State := 5
+  transition
+  1.State  = 5 /\ SND_URC(ID,PWu)  =|>  
+    State':= 7 /\ RCV_URC(H,Ti,Xs,Zu)
+  2.State  = 9 /\ RCV_US(SID,Rj,Vj)   %85
+               /\ Ns = xor(H(Ki),Rj)
+               /\ SKij= H(exp(B,Ns))  =|>
+    State':= 7 /\ Ii':= xor(H(ID.Zu.PWu),Ti)  
+               /\ Pj':= exp(H(SID.Xs),H(exp(Zu,Xs)))
+               /\ Ki':= exp(Ii,Pj)
+               /\ B':= new()
+               /\ Nu':= exp(Ki,B')
+               /\ Ri':= xor(H(Ki),Nu)
+               /\ Vi':= H(Ki.Nu)
+               /\ SND_US(ID,Ri,Vi)  %95
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role server (RC, U, S                 : agent,
+                 Kj                   : symmetric_key,
+                 SKij                 : symmetric_key,
+                 Xu                   : public_key,
+                 Ij,Zs,ID,SID         : text,
+                 H                    : hash_func,
+                 SND_SRC, RCV_SRC, SND_US, RCV_US: channel(dy))
+played_by S
+
+def=
+
+ local State               : nat,
+  D                   : nat, 
+  Ri,Rj,Vi,Vj         : message, 
+  Ns,Nu,Pi            : text 
+const user_server_ki, server_user_kj,
+      user_server_skij, server_user_skij,
+      server_user_skij ,ki ,kj : protocol_id
+
+  init State := 0
+  transition
+  1.State  = 0 /\ RCV_SRC(start)  =|>
+    State':= 2 /\ SND_SRC(SID)
+
+  2.State  = 2 /\ RCV_SRC(H,Ij,Xu,Zs)   =|>   %23
+    State':= 4 /\ D' := new()
+               /\ Pi' := exp(H(ID.Xu),H(exp(Zs,Xu)))
+               /\ Kj' := exp(Ij,Pi)
+               /\ Nu' := xor(H(Kj),Ri) 
+               /\ Ns' := exp(D,Kj)
+               /\ Rj' := xor(H(Kj),Ns)
+               /\ Vj' := H(Kj.Ns)
+               /\ SKij' := H(exp(D,Nu))
+               /\ SND_US(SID,Rj,Vj)                                
+
+end role 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session
+             (RC,U,S      : agent,
+               Xu,X,Xs     : public_key,
+               Ki,Kj,SKij  : symmetric_key,
+               H           : hash_func)
+           
+def=
+local 
+   SSRC, RSRC,
+   SRCU, RRCU,
+   SUS, RUS  : channel (dy)
+   composition
+ user               ( U, S, H, SRCU, Xs, RC,  RRCU, SUS, RUS)  /\  
+ server             ( U, S, H, Xu, SSRC,RC, RSRC, SUS, RUS)/\
+ registrationcenter ( U, S, H, RC,  X, Xs, Xu, SRCU, RRCU, SSRC, RSRC) %117
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()     
+def=
+  const user_server_ki, server_user_kj,
+      user_server_skij, server_user_skij,
+      server_user_skij ,ki ,kj : protocol_id,
+        rc, u, s                 : agent,
+        x, xs,xi, xu             : public_key
+        
+  intruder_knowledge = {rc, u, s, x, xu, xs, xi}
+
+  composition   
+     
+  session (rc, u, s, x, xu, xs, i)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal 
+  secrecy_of x
+  secrecy_of xs
+  secrecy_of ki
+  secrecy_of xu
+  secrecy_of kj  
+  authentication_on user_server_skij
+  authentication_on user_server_ki
+  authentication_on server_user_kj
+end goal    
+environment()
+

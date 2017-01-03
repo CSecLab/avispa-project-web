@@ -1,0 +1,136 @@
+role alice 	(A, B	: agent,
+		G	: text,
+		H	: hash_func,
+		Snd,Rcv	: channel(dy),
+		Kab	: symmetric_key)
+
+played_by A
+def=
+
+	local State	: nat,
+	da		: text,			% Random number
+	Xa		: text,
+	GY		: message,	
+	Ia, Iab		: text,
+	K_A, K_B	: message
+	
+	
+	
+
+const sec_i_K_A		: protocol_id
+
+init State := 0
+transition
+
+1.	State = 0	/ Rcv(start) =|>
+	State' :=1	/ da' :=new()
+			/ Xa' :=exp(da',G).Ia
+			/ Snd(A.{Xa'}_Kab)
+
+
+2. 	State = 1	/ Rcv({GY'}_Kab.H(H(A.B.exp(G,da).GY'.exp(GY',da).Ia) = |>
+
+	State':=2	/ K_A' := A.B.exp(G,da).GY'.exp(GY',da).Iab
+			/ K_B' := K_A'
+			/ Snd(H(H(K_A')))
+			/ secret(K_A', sec_i_K_A,{A,B})
+			/ request(A,B.k_a,K_A')
+			/ witness(A,B,k_b,K_B')
+end role
+
+
+
+role bob 	(B,A	: agent,
+		G	: text,
+		H	: hash_func,
+		Snd,Rcv	: channel(dy),
+		Kab	: symmetric_key)
+
+played_by B
+
+def=
+
+local State			: nat,		
+		db		: text,
+		Xb		: text,
+		Ib, Iab		: text,
+		GX		: message,
+		K_A, K_B	: message
+
+
+
+const sec_K_A			: protocol_id
+
+init State := 0
+
+transition
+
+1.	State = 0 	/ Rcv(A.{GX'}_Kab =|>
+
+	State' :1 = 0	/ db' := new()
+			/ Xb' := exp(G,db').Ib
+
+
+			/ K_B' := A.B.GX'.exp(Xb').exp(GX',db').Iab
+			/ K_A' := K_B'
+			/ Snd({exp(G,db')}_Kab.H(H(K_B').Ib))
+			/ secret(K_B',sec_r_K_B,{A,B})
+			/ witness(B,A,k_a,K_A')
+
+2.	State = 1	/ Rcv(H(H(K_B))) = |>
+	State' :=2	/ request(B,A,k_b,K_B)
+
+end role	
+
+
+
+
+role session (	A, B	: agent,
+		G	: text,
+		H	: hash_func,
+		Kab	: symmetric_key)
+
+def=
+
+	local SA, RA, SB, RB; channel(dy)
+
+composition
+
+	alice(A,B, G, H, Kab,SA,RB) /
+	bob(B,A,G,H,Kab,SB,RA)
+
+end role
+
+role environment() def=
+
+const	k_a, k_b	: protocol_id,
+	a,b,c		: agent,
+	kab,kai,kib	: symmetric_key,
+	g		: text,
+	Ia,Ib,Iab	: text,
+	h		: hash_func
+
+intruder_knowledge = {a,b,c,kai,kib}
+
+
+composition
+
+	session (a,b,g,h,kab) /
+	session (a,i,g,h,kai) /
+	session (i,b,g,h,kib)
+
+end role
+
+goal
+
+	secrecy_of sec_i_K_A, sec_r_K_B
+
+	
+
+	authentication_on k_a
+	authentication_on k_b
+
+			
+end goal
+
+environment() 

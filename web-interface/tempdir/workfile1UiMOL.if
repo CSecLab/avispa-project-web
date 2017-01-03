@@ -1,0 +1,132 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfile1UiMOL
+
+section signature:
+
+state_cassandraserver: agent * agent * agent * agent * public_key * public_key * nat * text * text * text * text * text * text * text * symmetric_key * nat -> fact
+state_client: agent * agent * agent * agent * public_key * public_key * nat * text * text * text * text * text * text * nat -> fact
+
+
+section types:
+
+SK, dummy_sk: symmetric_key
+sk, userpass: protocol_id
+Username, CN, Action, Response, Password, Data, Usercomponent, Cert_ede, Cert_kms, Edekey, EdData, Dummy_CN, Dummy_Password, Dummy_Username, dummy_nonce: text
+14, 8, State, 11, 9, 7, 5, 6, 4, 3, SID, 2, Dummy_State, 1, 0, SID2, SID1: nat
+Set_72, ASGoal: set(agent)
+start, MGoal: message
+PUcsa, PUede, pucsa, puede, ki: public_key
+C, CAS, EDE, AUTHZ, A2Goal, A1Goal, c, cas, ede, AUTZ, autz, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(c).
+ iknows(cas).
+ iknows(ede).
+ iknows(autz).
+ iknows(pucsa).
+ iknows(puede).
+ iknows(ki).
+ iknows(inv(ki)).
+ iknows(i).
+ state_client(c,cas,ede,autz,pucsa,puede,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,3).
+ state_cassandraserver(cas,c,ede,autz,pucsa,puede,1,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,4).
+ state_client(c,cas,ede,autz,pucsa,puede,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,6).
+ state_cassandraserver(cas,c,ede,autz,pucsa,puede,1,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,7)
+
+
+section rules:
+
+step step_0 (C,CAS,EDE,AUTZ,PUcsa,PUede,Dummy_Username,Dummy_Password,CN,Action,Response,Data,SID,Username,Password) :=
+ state_client(C,CAS,EDE,AUTZ,PUcsa,PUede,0,Dummy_Username,Dummy_Password,CN,Action,Response,Data,SID).
+ iknows(start)
+=[exists Password,Username]=>
+ state_client(C,CAS,EDE,AUTZ,PUcsa,PUede,2,Username,Password,CN,Action,Response,Data,SID).
+ iknows(crypt(PUcsa,pair(Username,Password))).
+ witness(C,CAS,userpass,pair(Username,Password))
+
+step step_1 (C,CAS,EDE,AUTZ,PUcsa,PUede,Username,Password,Dummy_CN,Action,Response,Data,SID,CN) :=
+ state_client(C,CAS,EDE,AUTZ,PUcsa,PUede,2,Username,Password,Dummy_CN,Action,Response,Data,SID).
+ iknows(Response)
+=[exists CN]=>
+ state_client(C,CAS,EDE,AUTZ,PUcsa,PUede,4,Username,Password,CN,Action,Response,Data,SID).
+ iknows(crypt(PUcsa,pair(Username,pair(CN,Action))))
+
+step step_2 (C,CAS,EDE,AUTZ,PUcsa,PUede,Username,Password,CN,Action,Response,Data,SID) :=
+ state_client(C,CAS,EDE,AUTZ,PUcsa,PUede,4,Username,Password,CN,Action,Response,Data,SID).
+ iknows(Response)
+ =>
+ state_client(C,CAS,EDE,AUTZ,PUcsa,PUede,6,Username,Password,CN,Action,Response,Data,SID)
+
+step step_3 (CAS,C,EDE,AUTHZ,PUcsa,PUede,Dummy_Username,Dummy_Password,Response,CN,Action,Data,EdData,SK,SID,Username,Password) :=
+ state_cassandraserver(CAS,C,EDE,AUTHZ,PUcsa,PUede,1,Dummy_Username,Dummy_Password,Response,CN,Action,Data,EdData,SK,SID).
+ iknows(crypt(PUcsa,pair(Username,Password)))
+ =>
+ state_cassandraserver(CAS,C,EDE,AUTHZ,PUcsa,PUede,3,Username,Password,Response,CN,Action,Data,EdData,SK,SID).
+ iknows(crypt(PUede,pair(Dummy_Username,Dummy_Password)))
+
+step step_4 (CAS,C,EDE,AUTHZ,PUcsa,PUede,Username,Password,Response,CN,Action,Data,EdData,SK,SID) :=
+ state_cassandraserver(CAS,C,EDE,AUTHZ,PUcsa,PUede,3,Username,Password,Response,CN,Action,Data,EdData,SK,SID).
+ iknows(crypt(PUcsa,pair(Username,Password)))
+ =>
+ state_cassandraserver(CAS,C,EDE,AUTHZ,PUcsa,PUede,5,Username,Password,Response,CN,Action,Data,EdData,SK,SID).
+ iknows(Response).
+ request(C,CAS,userpass,pair(Username,Password),SID)
+
+step step_5 (CAS,C,EDE,AUTHZ,PUcsa,PUede,Username,Password,Response,Dummy_CN,Action,Data,EdData,SK,SID,CN) :=
+ state_cassandraserver(CAS,C,EDE,AUTHZ,PUcsa,PUede,5,Username,Password,Response,Dummy_CN,Action,Data,EdData,SK,SID).
+ iknows(crypt(PUcsa,pair(Username,pair(CN,Action))))
+ =>
+ state_cassandraserver(CAS,C,EDE,AUTHZ,PUcsa,PUede,7,Username,Password,Response,CN,Action,Data,EdData,SK,SID).
+ iknows(pair(Username,pair(Dummy_CN,Action)))
+
+step step_6 (CAS,C,EDE,AUTHZ,PUcsa,PUede,Username,Password,Response,CN,Action,Data,EdData,SK,SID) :=
+ state_cassandraserver(CAS,C,EDE,AUTHZ,PUcsa,PUede,7,Username,Password,Response,CN,Action,Data,EdData,SK,SID).
+ iknows(Response)
+ =>
+ state_cassandraserver(CAS,C,EDE,AUTHZ,PUcsa,PUede,9,Username,Password,Response,CN,Action,Data,EdData,SK,SID).
+ iknows(Data)
+
+step step_7 (CAS,C,EDE,AUTHZ,PUcsa,PUede,Username,Password,Response,CN,Action,Data,EdData,SK,SID) :=
+ state_cassandraserver(CAS,C,EDE,AUTHZ,PUcsa,PUede,9,Username,Password,Response,CN,Action,Data,EdData,SK,SID).
+ iknows(scrypt(SK,Data))
+ =>
+ state_cassandraserver(CAS,C,EDE,AUTHZ,PUcsa,PUede,11,Username,Password,Response,CN,Action,Data,EdData,SK,SID).
+ iknows(pair(Response,Data))
+
+
+section properties:
+
+property secrecy_of_sk (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sk,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_userpass (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,userpass,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,userpass,MGoal))
+     /\ ((request(A1Goal,A2Goal,userpass,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,userpass,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_sk (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sk,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_userpass (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,userpass,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,userpass,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_userpass (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,userpass,MGoal,SID1).
+ request(A1Goal,A2Goal,userpass,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

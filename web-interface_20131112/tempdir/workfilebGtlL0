@@ -1,0 +1,173 @@
+%%% 1.while sending the F1 for the first time, servut must be appende with it  ,ra_hsp_a1,hsp_doc_a1
+%%%  2. to show the third message, so new text must be appended with F1 and send,i.e. f2'=new,snd(f1.f2')_sk
+
+
+role patient(A,B,C,D: agent,
+	     ID_A,ID_B,ID_C,ID_D,SERVUT:message,
+	     Sk: symmetric_key,
+	     SND,RCV: channel(dy))
+
+played_by A def=
+
+local State: nat,
+	F,F1,PHI: text
+
+init State:=0
+
+
+transition
+
+0. State =0 /\ RCV(start) =|>
+	State' := 2       /\  F':=new() 
+			/\ SND(ID_A.SERVUT.{F'}_Sk)
+			/\ secret(F',f,{A,B})
+			/\ witness(A,B,doc_patient_f,F')
+
+2.  State =2 /\ RCV({F.F1'}_Sk) =|>
+	State':= 8    /\  SND({F1'}_Sk)
+		     /\ request(A,B,patient_doc_f1,F1') 
+8. State =8 /\ RCV({PHI}_Sk) =|>
+	State':=9
+	
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role doc(A,B,C,D:agent,
+	 ID_A,ID_B,ID_C,ID_D,SERVUT: message,
+	 Sk:symmetric_key,
+	 SND,RCV:channel(dy))
+
+played_by B def=
+
+ local State: nat,
+       F,F1,PHI: text
+
+ init State:=1
+ 
+ transition
+
+1. State =1 /\ RCV(ID_A.{SERVUT.F'}_Sk) =|>
+    State' := 3   /\  F1':= new()
+		/\ SND({F.F1'}_Sk)
+		/\secret(F1',f1,{A,B})
+		/\ witness(B,A,patient_doc_f1,F1')
+
+3. State =3  /\ RCV({F1'}_Sk) =|>
+	State':= 7  /\ request(B,A,doc_patient_f,F)
+		   /\ SND(ID_B,{ID_B.ID_A}_Sk)
+%%%%%%		   /\ witness(B,C,hsp_doc_a1,ID_A)
+
+7. State =7 /\ RCV({ID_A.PHI'}_Sk) =|>
+   State' :=  10  /\ SND({PHI}_Sk)
+
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role hsp(A,B,C,D:agent,
+	 ID_A,ID_B,ID_C,ID_D,SERVUT: message,
+	 Sk,MS_HSP:symmetric_key,
+	 SND,RCV:channel(dy))
+
+played_by C def=
+
+ local State: nat,
+       PHI : text
+
+ init State:=4
+ 
+  transition
+
+  4. State =4 /\ RCV(ID_B,{ID_B.ID_A}_Sk) =|>
+	State':= 6    /\  SND(ID_C.{ID_A}_MS_HSP)
+		      /\  witness(C,D,ra_hsp_a1,ID_A)
+
+ 6. State =6 /\ RCV({ID_A.PHI'}_MS_HSP) =|>
+	State' := 11  /\  SND({ID_A.PHI'}_Sk)
+%%%%%		    /\ request(C,B, hsp_doc_a1,ID_A)
+
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role ra(A,B,C,D:agent,
+	 ID_A,ID_B,ID_C,ID_D,SERVUT: message,
+	 MS_HSP:symmetric_key,
+	 SND,RCV:channel(dy))
+
+played_by D def=
+
+local State:nat,
+	PHI:text
+
+ init State:=5
+
+ transition
+ 
+5. State =5 /\ RCV(ID_C.{ID_A}_MS_HSP) =|>
+	State':= 12   /\ PHI':=new()
+		      /\ SND({ID_A.PHI'}_MS_HSP)
+		      /\ secret(PHI',p,{A,B,C,D})
+		      /\ request(D,C,ra_hsp_a1,ID_A)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(A,B,C,D : agent,
+	     ID_A,ID_B,ID_C,ID_D,SERVUT:message,
+	      Sk,MS_HSP: symmetric_key) def=
+
+local SA,RA,SB,RB,SC,RC,SD,RD: channel (dy)
+
+composition
+ 
+           patient(A,B,C,D,ID_A,ID_B,ID_C,ID_D,SERVUT,Sk,SA,RA)
+	/\ doc(A,B,C,D,ID_A,ID_B,ID_C,ID_D,SERVUT,Sk,SB,RB)
+	/\ hsp(A,B,C,D,ID_A,ID_B,ID_C,ID_D,SERVUT,Sk,MS_HSP,SC,RC)
+	/\ ra(A,B,C,D,ID_A,ID_B,ID_C,ID_D,SERVUT,MS_HSP,SD,RD)
+	     
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+    const a, b ,c , d        : agent,
+	  sk,ms  : symmetric_key,
+	  id_A,id_B,id_C,id_D,servut:message,
+          f,f1,p,doc_patient_f,patient_doc_f1,ra_hsp_a1: protocol_id
+
+    intruder_knowledge = {a, b,c,d,id_A,id_B,id_C,id_D,servut}
+
+    composition
+
+	session(a,b,c,d,id_A,id_B,id_C,id_D,servut,sk,ms)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of f,f1,p
+  authentication_on doc_patient_f 
+  authentication_on patient_doc_f1
+  authentication_on ra_hsp_a1
+  %authentication_on hsp_doc_a1
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+
+ 
+

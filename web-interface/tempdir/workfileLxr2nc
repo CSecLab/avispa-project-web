@@ -1,0 +1,103 @@
+%%  C -> S:	C
+%%  S -> C:	T.S
+%%  C -> S:	H(K.T)
+
+role client(
+	C, S		:	agent,
+	K			:	text,
+	H			:	hash_func,
+	SND, RCV	:	channel (dy)
+	) played_by C
+	def=
+	
+	local
+		State	:	nat,
+		T		:	text
+	const
+		sec_K	: protocol_id
+	init
+		State	:=	0
+	transition 
+	1.	State	=	0	/\	RCV(start) =|>
+		State'	:=	1	/\	SND(C)
+	2.	State	=	1   /\	RCV(T'.S) =|>
+		State'	:=	2	/\	SND(H(K.T'))
+						/\	witness(C, S, auth, H(K.T') ) 
+						/\	secret(K, sec_K, {S})
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role server(
+	S			:	agent,
+	K			:	text,
+	H			:	hash_func,
+	SND, RCV	: channel (dy)
+	) played_by S
+	def=
+	
+	local
+		State	:	nat,
+		C		:	agent,
+		T	:	text,
+		Auth	:	hash(text.text)
+	init
+		State	:=	0
+	transition
+	1.	State	=	0	/\	RCV(C') =|>
+		State'	:=	1	/\	T' := new()
+						/\	SND(T'.S)
+	2. State	=	1   /\	RCV(H(K.T)) =|>
+		State'	:=	2	/\	Auth' := H(K.T)
+						/\	request(S, C, auth, H(K.T) )
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role session(C, S: agent,
+             H: hash_func,
+			 K: text)
+def=
+
+  local SNDC, SNDS, RCVC, RCVS: channel (dy)
+
+  composition
+       client(C,S,K,H,SNDC,RCVC)
+    /\ server(S,K,H,SNDS,RCVS)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role environment()
+def=
+
+ const a, s : agent,
+       k : hash_func,
+	   f : text,
+       auth : protocol_id
+
+ intruder_knowledge = {a,s,i,f}
+
+ composition
+      session(a,s,k,f)
+   /\ session(i,s,k,f)
+   /\ session(a,s,k,f)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  %secrecy_of SK
+  secrecy_of sec_K  % Addresses G12
+
+  %Server authenticates Client on auth
+  authentication_on auth  % Addresses G1, G2, G3
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

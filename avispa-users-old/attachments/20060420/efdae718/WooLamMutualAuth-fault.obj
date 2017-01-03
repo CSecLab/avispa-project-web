@@ -1,0 +1,208 @@
+%% Woo Lam Mutual Authentication protocol
+%% By Juan Carlos Lopez Pimentel
+
+%1 P --> Q : P, N1
+%2 Q --> P : Q, N2
+%3 P --> Q : {P, Q, N1, N2}_|KP|
+%4 Q --> S : {P, Q, N1, N2}_|KP|, {P, Q, N1, N2}_|KQ|
+%5 S --> Q : {Q, N1, N2, Kpq}_|KP|, {P, N1, N2, Kpq}_|KQ|
+%6 Q --> P : {Q, N1, N2, Kpq}_|KP|, {N1, N2}_|Kpq|
+%7 P --> Q : {N2}_|Kpq|
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+%1 P --> Q : P, N1
+%2 Q --> P : Q, N2
+%3 P --> Q : {P, Q, N1, N2}_|KP|
+%6 Q --> P : {Q, N1, N2, Kpq}_|KP|, {N1, N2}_|Kpq|
+%7 P --> Q : {N2}_|Kpq|
+
+role alice(P,Q,S:agent,
+	   Kps: symmetric_key,
+	   Snd, Rcv: channel (dy))
+played_by P
+def=
+
+  local State: nat,
+	N1, N2: text, 
+	Kpq: symmetric_key
+
+  const n1,n2,ab_kpq,ba_kpq: protocol_id
+
+  init  State := 0
+
+  transition
+
+%% Start of the protocol
+%1 P --> Q : P, N1
+  step1. 	State = 0  /\ Rcv(start)  =|>	
+		State':= 1 /\ N1':= new() 
+			/\ Snd(P.N1')
+%			/\ witness(P,Q,n1,N1')
+
+%2 Q --> P : Q, N2
+  step2and3. 	State = 1  /\ Rcv(Q.N2') =|>	
+%3 P --> Q : {P, Q, N1, N2}_|KP|
+		State':= 2 /\ Snd({P.Q.N1.N2'}_Kps)
+
+%6 Q --> P : {Q, N1, N2, Kpq}_|KP|, {N1, N2}_|Kpq|
+  step6and7. 	State = 2  /\ Rcv({Q.N1.N2.Kpq'}_Kps.{N1.N2}_Kpq') =|>	
+%7 P --> Q : {N2}_|Kpq|
+		State':= 3 /\ Snd({N2}_Kpq')
+			/\ request(P,Q,ab,kpq,Kpq')
+%			/\ witness(P,Q,ba,kpq,Kpq')
+			/\ request(P,Q,n1,N1)
+%			/\ witness(P,Q,n2,N2)
+%			/\ wrequest(P,Q,n1,N1)
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+%1 P --> Q : P, N1
+%2 Q --> P : Q, N2
+%3 P --> Q : {P, Q, N1, N2}_|KP|
+%4 Q --> S : {P, Q, N1, N2}_|KP|, {P, Q, N1, N2}_|KQ|
+%5 S --> Q : {Q, N1, N2, Kpq}_|KP|, {P, N1, N2, Kpq}_|KQ|
+%6 Q --> P : {Q, N1, N2, Kpq}_|KP|, {N1, N2}_|Kpq|
+%7 P --> Q : {N2}_|Kpq|
+
+role   bob(P,Q,S:agent,
+	   Kqs: symmetric_key,
+	   Snd, Rcv: channel (dy))
+played_by Q
+def=
+
+  local State: nat,
+	N1, N2: text, 
+	Kpq: symmetric_key,
+	X: {agent.agent.text.text}_symmetric_key,
+	XD: {agent.text.text.symmetric_key}_symmetric_key
+
+  const ab_kpq,ba_kpq,n1,n2: protocol_id
+
+  init  State := 0
+
+  transition
+
+%1 P --> Q : P, N1
+  step1and2. 	State = 0  /\ Rcv(P.N1') =|>	
+%2 Q --> P : Q, N2
+		State':= 1 /\ N2':= new() 
+			/\ Snd(Q.N2')
+%			/\ witness(Q,P,n2,N2')
+
+%3 P --> Q : {P, Q, N1, N2}_|KP|
+  step3and4. 	State = 1  /\ Rcv(X') =|>	
+%4 Q --> S : {P, Q, N1, N2}_|KP|, {P, Q, N1, N2}_|KQ|
+		State':= 2 /\ Snd(X'.{P.Q.N1.N2}_Kqs)
+
+%5 S --> Q : {Q, N1, N2, Kpq}_|KP|, {P, N1, N2, Kpq}_|KQ|
+  step5and6. 	State = 2  /\ Rcv(XD'.{P.N1.N2.Kpq'}_Kqs) =|>	
+%6 Q --> P : {Q, N1, N2, Kpq}_|KP|, {N1, N2}_|Kpq|
+		State':= 3 /\ Snd(XD'.{N1.N2}_Kpq')
+%			/\ witness(Q,P,n1,N1)
+
+%7 P --> Q : {N2}_|Kpq|
+  step7. 	State = 3  /\ Rcv({N2}_Kpq) =|>	
+		State':= 4 
+			/\  request(Q,P,n2,N2)
+%			/\  request(Q,P,ba_kpq,Kpq)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+%4 Q --> S : {P, Q, N1, N2}_|KP|, {P, Q, N1, N2}_|KQ|
+%5 S --> Q : {Q, N1, N2, Kpq}_|KP|, {P, N1, N2, Kpq}_|KQ|
+
+role server(P,Q,S:agent,
+	    Kps, Kqs: symmetric_key,
+	    Snd, Rcv: channel (dy))
+played_by S
+def=
+
+  local State:nat,
+	N1, N2: text, 
+	Kpq: symmetric_key
+
+  const secret_kpq,n1,n2,ab_kpq,ba_kpq: protocol_id
+
+  init  State := 0
+
+  transition
+%4 Q --> S : {P, Q, N1, N2}_|KP|, {P, Q, N1, N2}_|KQ|
+  step0.     State = 0 /\ Rcv({P.Q.N1'.N2'}_Kps.{P.Q.N1'.N2'}_Kqs) =|>	
+%5 S --> Q : {Q, N1, N2, Kpq}_|KP|, {P, N1, N2, Kpq}_|KQ|
+	     State' := 1 /\  Kpq':= new() /\ Snd({Q.N1'.N2'.Kpq'}_Kps.{P.N1'.N2'.Kpq'}_Kqs)	
+	                /\ secret(Kpq',secret_kpq,{P,Q,S})
+			/\ witness(Q,P,n1,N1')
+			/\ witness(P,Q,n2,N2')
+			/\ witness(Q,P,ab_kpq,Kpq')
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+
+%% The role representing a partial session between alice and bob
+role  woolam(P,Q,S: agent,
+	     Kps, Kqs: symmetric_key)
+		
+def=
+
+  local Snd, Rcv: channel (dy)
+
+  composition
+	    alice (P,Q,S,Kps,Snd,Rcv) 
+	/\  bob   (P,Q,S,Kqs,Snd,Rcv) 
+	/\  server(P,Q,S,Kps,Kqs,Snd,Rcv) 
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+%% The main role
+role environment()
+def=
+ 
+  const p, q, s, i : agent,
+        kps, kqs, kis : symmetric_key
+
+  intruder_knowledge = {kis, p, q, s, i} 
+
+  composition
+%     	   woolam (p,q,s,kps,kqs)
+%	/\ woolam (p,q,s,kps,kqs)
+	 woolam (p,i,s,kps,kis)
+%	/\ woolam (p,i,s,kps,kis)
+	/\ woolam (i,p,s,kis,kps)
+
+%	/\ woolam (i,p,s,kis,kps)
+%	/\ woolam (i,p,s,kis,kps)
+
+%     	/\ woolam (i,q,s,kis,kqs)
+%     	/\ woolam (q,p,s,kqs,kps)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+%% Properties to verify
+goal
+
+  	secrecy_of secret_kpq
+  	authentication_on n1
+  	authentication_on n2
+  	authentication_on ab_kpq
+%  	authentication_on ba_kpq
+
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+%% Call of the main role
+environment()
+

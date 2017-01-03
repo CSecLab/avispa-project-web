@@ -1,0 +1,232 @@
+role cardholder(C,M,P: agent,
+ID_C, ID_M, ID_PG, PurchAmt : nat,
+AI, OrderDesc               : text,
+Minus, Union, Pred, H0, H1, H2 : hash_func,
+P_pub, Pa_M, Pb_M, Pa_C, Pb_C, Pg, EncK_C, SignK_C, EncK_M, SignK_M, EncK_P, SignK_P : public_key,
+Xa_C, Xb_C: symmetric_key
+) 
+
+played_by C 
+
+def=
+
+ local S : nat,
+       LID_M, Chall_C, Y_ds,Y_RESP, XID, Chall_M : text,
+       MResp, YRESP, M_RESP, M_DS, Yds, Sa, Sigma, OI, PI, POMD, DualSig : message,
+       K1 : symmetric_key,
+       SND, RCV: channel (dy)
+
+ init S := 0
+
+ transition
+
+ % =|> Purchase Initiate Request
+ 1. S = 0 / 
+    RCV(start) 
+    =|>
+    S' := 1 /
+    LID_M' := new() /
+    SND(LID_M')
+
+ % Purchase Initiate Response Verify =|> Purchase Request
+ 2. S = 1 / 
+    RCV(M_RESP, Y_RESP, Sigma) /
+    Sa = Union(Union(Minus(Pred(Sigma, Pg), Y_RESP), Pred(h2(M_RESP, ID_M, Pa_M, Y_RESP), Pa_M)), Pred(h1(M_RESP, ID_M, Pb_M, YRESP), Union(Pb_M, Pred(h0(ID_M, Pb_M, Pa_M), p_pub))))
+    =|> 
+    S' := 2 /
+    OI' := M_RESP.h(OrderDesc.PurchAmt) /
+    PI' := M_RESP.h(OrderDesc.PurchAmt).PurchAmt.h(AI) /
+    POMD' := h(OI').h(PI').h(h(OI').h(PI')) /
+    M_DS' := new() /
+    Y_ds' := new() /
+    secret(Y_ds', mid, M) /
+    Yds' := Pred(Y_ds, pa_C) /
+    DualSig' := Minus(Pred(Xa_C, Y_ds), Union(Pred(h2(POMD, ID_C, pa_C, Yds),Xa_C), Pred(h1(POMD, ID_C, Pb_C, Yds), Xb_C))) /
+    K1' := new() /
+    SND(OI'.DualSig'.Yds.h(PI).{PI}_K1.{K1}_EncK_P) /
+    witness(C,M,deal,OI'.h(PI')) /
+    witness(C,P,deal,OI'.PI') /
+    secret(OrderDesc,order,{C,M}) /
+    secret(PurchAmt,order,{C,M,P}) /
+    secret(PI,payment,{C,P})
+
+ % Purchase Response =|>
+ 3. S = 2 /
+    RCV(LID_M.MResp)
+    =|>
+    S' := 3 /
+    request(C,M,deal,OI.h(PI))
+    % / request(C,P,deal,OI.PI) %% cannot be done; see notes, item 2
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
+
+role merchant  (
+C,M,P: agent,
+ID_C, ID_M, ID_PG, PurchAmt : nat,
+AI, OrderDesc               : text,
+Minus, Union, Pred, H0, H1, H2 : hash_func,
+P_pub, Pa_M, Pb_M, Pa_C, Pb_C, Pg, EncK_C, SignK_C, EncK_M, SignK_M, EncK_P, SignK_P : public_key,
+Xa_C, Xb_C: symmetric_key   
+) 
+
+played_by M 
+
+def=
+
+ local S : nat,
+       LID_M, Chall_C, Y_resp, XID, Chall_M : text,
+       MResp, M_RESP, YRESP, Yds, Sigma, OI, HPI, DualSig, Paymentpart, AuthReq : message,
+       K2, K3 : symmetric_key,
+       SND, RCV: channel (dy)
+
+ init S := 0
+
+ transition
+
+ % Purchase Initiate Request =|> Purchase Initiate Response
+ 1. S = 0 / 
+    RCV(LID_M') 
+    =|>
+    S' := 1 /
+    XID' := new() /
+    M_RESP' := new() /
+    Y_resp' := new() /
+    secret(Y_resp', cid, M) /
+    YRESP' := Pred(Y_resp, Pa_M) /
+    Sigma' := Minus(Pred(Xa_M, Y_resp), Union(Pred(h2(M_RESP, ID_M, Pa_M, YRESP),Xa_M), Pred(h1(M_RESP, ID_M, Pb_M, YRESP), Xb_M))) /
+    SND(M_RESP, YRESP, Sigma)
+
+ % Purchase Request =|> Payment Authorization Request
+ 2. S = 1 / 
+    RCV(M_RESP.h(OrderDesc.PurchAmt).DualSig'.Yds'.HPI'.Paymentpart') /
+    OI' = M_RESP.h(OrderDesc.PurchAmt)
+    =|>
+    S' := 2 /
+    K2' := new() /
+    AuthReq' := Paymentpart.MResp.DualSig'.h(OI) /
+    SND({AuthReq}_K2'.{K2}_EncK_P) /
+    witness(M,C,deal,OI.HPI) /
+    witness(M,P,deal,OI.HPI)
+
+ % Payment Authorization Response =|> Purchase Response
+ 3. S = 2 /
+    RCV({MResp'}_K3'.{K3'}_EncK_M)
+    =|>
+    S' := 3 /
+    SND(LID_M.MResp) /
+    request(M,C,deal,OI.HPI) /
+    request(M,P,deal,OI.HPI)
+
+
+end role
+
+role paymentgateway(C,M,P: agent,
+ID_C, ID_M, ID_PG, PurchAmt : nat,
+AI, OrderDesc               : text,
+Minus, Union, Pred, H0, H1, H2 : hash_func,
+P_pub, Pa_M, Pb_M, Pa_C, Pb_C, Pg, EncK_C, SignK_C, EncK_M, SignK_M, EncK_P, SignK_P : public_key,
+Xa_C, Xb_C: symmetric_key
+) 
+
+played_by P 
+
+def=
+
+ local S : nat,
+       XID, Chall_M, LID_M, Chall_C, OrderDesc: text ,
+       MResp, AuthReq,PaymentPart,OI,PI,DualSig : message,
+       K1,K2, K3 : symmetric_key,
+       PurchAmt : nat,
+       SND, RCV: channel (dy)
+
+ init S := 0
+
+ transition
+
+ % Payment Authorization Request =|> Payment Authorization Response
+
+ 1. S = 0 / 
+    RCV({AuthReq'}_K2'.{K2'}_EncK_P) /
+    AuthReq' = PaymentPart'.MResp'.DualSig'.h(OI') /
+    PaymentPart = {PI'}_K1'.{K1'}_EncK_P
+    =|>
+    S' := 1 /
+    K3' := new() /
+    SND({MResp}_K3'.{K3'}_EncK_M) /
+    wrequest(P,C,deal,OI'.PI') /
+    wrequest(P,M,deal,OI'.h(PI')) /
+    witness(P,C,deal,OI'.PI') /
+    witness(P,M,deal,OI'.h(PI'))
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
+
+role session(C,M,P: agent,
+ID_C, ID_M, ID_PG, PurchAmt : nat,
+AI, OrderDesc               : text,
+Minus, Union, Pred, H0, H1, H2 : hash_func,
+P_pub, Pa_M, Pb_M, Pa_C, Pb_C, Pg, EncK_C, SignK_C, EncK_M, SignK_M, EncK_P, SignK_P : public_key,
+Xa_C, Xb_C: symmetric_key
+) 
+
+def=
+
+% local SI, RI, SR, RR: channel(dy)
+
+ composition
+  cardholder(C,M,P,ID_C,ID_M,ID_PG,AI,PurchAmt,OrderDesc,Minus,Union,Pred,H0,H1,H2,P_pub,Pa_M,Pb_M,Pa_C,Pb_C,Pg, Xa_C,Xb_C,EncK_C,SignK_C,EncK_M,SignK_M,EncK_P,SignK_P) /
+  merchant  (C,M,P,P_pub,Pa_M,Pb_M,Pg, Xa_M, Xb_M, ID_C,ID_M,ID_PG,PurchAmt,OrderDesc,Minus,Union,Pred,H0,H1,H2,EncK_C,SignK_C,EncK_M,SignK_M,EncK_P,SignK_P) /
+  paymentgateway(C,M,P,AI,EncK_C,SignK_C,EncK_M,SignK_M,EncK_P,SignK_P)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
+
+role environment() def=
+ 
+  local AList, RList: (message.message) set,
+        S2, R2, S3, R3: channel (dy)
+
+  const h, h0, h1, h2, minus, union, pred: hash_func, 
+       deal,order,payment, mid, cid : protocol_id,
+        c,m,p: agent,
+        p_pub, pa_I,pb_I,pa_C, pb_C, pa_M, pb_M, pg, enc_c,sign_c,enc_m,sign_m,enc_p,sign_p,enc_i,sign_i: public_key,
+        xa_I,xb_I,xa_C, xb_C,xa_M, xb_M: symmetric_key,
+        ai_c,ai_i,od1,od2,od3,od4,od5: text,
+        id_i,id_c, id_m, id_pg, pa1,pa2,pa3,pa4,pa5 : nat
+
+
+ intruder_knowledge = {c,m,p,id_c, id_m, id_pg,minus, union, pred,h0, h1, h2,p_pub, pa_C, pb_C, pa_M, pb_M, pg,enc_c,sign_c,enc_m,sign_m,enc_p,sign_p,enc_i,sign_i,inv(enc_i),inv(sign_i),ai_i,pa3,od3,pa4,od4,h }
+
+ composition
+  session(c,m,p,ai_c,pa2,od2,id_c, id_m, id_pg,minus, union, pred,h0, h1, h2,p_pub, pa_C, pb_C, pa_M, pb_M, pg,xa_C, xb_C,xa_M, xb_M,enc_c,sign_c,enc_m,sign_m,enc_p,sign_p) /
+%  session(i,m,p,ai_i,pa3,od3,id_i, id_m, id_pg,minus, union, pred,h0, h1, h2,p_pub, pa_I, pb_I, pa_M, pb_M, pg,xa_I, xb_I,xa_M, xb_M,enc_i,sign_i,enc_m,sign_m,enc_p,sign_p) /
+  session(c,i,p,ai_c,pa4,od4,id_c, id_i, id_pg,minus, union, pred,h0, h1, h2,p_pub, pa_C, pb_C, pa_I, pb_I, pg,xa_C, xb_C, xa_I, xb_I,enc_c,sign_c,enc_i,sign_i,enc_p,sign_p) /
+  session(c,m,i,ai_c,pa5,od5,id_c, id_m, id_i,minus, union, pred,h0, h1, h2,p_pub, pa_C, pb_C, pa_M, pb_M, pg,xa_C, xb_C,xa_M, xb_M,enc_c,sign_c,enc_m,sign_m,enc_i,sign_i)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
+
+goal
+
+  % Entity authentication (G1)
+  % Message authentication (G2)
+  % Replay protection (G3)
+  % Accountability (G17)
+  % Proof of Origin (G18)
+  % Proof of Delivery (G19)
+  authentication_on deal
+  weak_authentication_on deal
+
+  % ID protection (Eavesdr.) (G13)
+  % Conifidentiality (G12) --- Missing in table of D6.1
+  secrecy_of order
+  secrecy_of payment
+end goal
+
+environment() 

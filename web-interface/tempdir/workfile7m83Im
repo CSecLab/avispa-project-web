@@ -1,0 +1,84 @@
+%% IF specification of /Users/cc/span/testsuite/results/hlpslGenFile.hlpsl
+
+section signature:
+
+state_role_C: agent * agent * public_key * public_key * nat * text * text * symmetric_key * set * nat -> fact
+state_role_SM: agent * agent * public_key * nat * text * text * symmetric_key * public_key * set * nat -> fact
+
+
+section types:
+
+hash_0: hash_func
+sec_1: protocol_id
+3, State, 2, 4, 1, SID, 0, Dummy_State: nat
+Kc, Dummy_Kc, dummy_sk: symmetric_key
+Nb, Na, Dummy_Nb, Dummy_Na, dummy_nonce: text
+Set_35, Set_20, Dummy_Set_20, set_65, Dummy_Set_35, set_53: set
+ASGoal: set(agent)
+serveurMessage, client, C, SM, i: agent
+start, MGoal: message
+kc, KPc, KPs, Dummy_KPc, dummy_pk, ks: public_key
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(i).
+ state_role_SM(serveurMessage,client,ks,0,dummy_nonce,dummy_nonce,dummy_sk,dummy_pk,set_53,3).
+ state_role_C(client,serveurMessage,kc,ks,0,dummy_nonce,dummy_nonce,dummy_sk,set_65,4)
+
+
+section rules:
+
+step step_0 (SM,C,KPs,Dummy_Na,Dummy_Nb,Kc,Dummy_KPc,Set_35,SID,Na,Nb,KPc) :=
+ state_role_SM(SM,C,KPs,0,Dummy_Na,Dummy_Nb,Kc,Dummy_KPc,Set_35,SID).
+ iknows(crypt(KPs,pair(Na,KPc)))
+=[exists Nb]=>
+ state_role_SM(SM,C,KPs,1,Na,Nb,Kc,KPc,Set_35,SID).
+ iknows(crypt(KPc,pair(Na,Nb)))
+
+step step_1 (SM,C,KPs,Na,Nb,Kc,KPc,Set_35,SID) :=
+ state_role_SM(SM,C,KPs,1,Na,Nb,Kc,KPc,Set_35,SID).
+ iknows(crypt(KPs,Nb))
+ =>
+ state_role_SM(SM,C,KPs,2,Na,Nb,Kc,KPc,Set_35,SID)
+
+step step_2 (SM,C,KPs,Na,Nb,Dummy_Kc,KPc,Dummy_Set_35,SID,Kc) :=
+ state_role_SM(SM,C,KPs,2,Na,Nb,Dummy_Kc,KPc,Dummy_Set_35,SID).
+ iknows(crypt(KPs,pair(Kc,crypt(inv(KPc),Kc))))
+ =>
+ state_role_SM(SM,C,KPs,3,Na,Nb,Kc,KPc,Dummy_Set_35,SID).
+ secret(Kc,sec_1,Dummy_Set_35)
+
+step step_3 (C,SM,KPc,KPs,Dummy_Na,Nb,Kc,Set_20,SID,Na) :=
+ state_role_C(C,SM,KPc,KPs,0,Dummy_Na,Nb,Kc,Set_20,SID).
+ iknows(start)
+=[exists Na]=>
+ state_role_C(C,SM,KPc,KPs,1,Na,Nb,Kc,Set_20,SID).
+ iknows(crypt(KPs,pair(Na,KPc)))
+
+step step_4 (C,SM,KPc,KPs,Na,Dummy_Nb,Dummy_Kc,Dummy_Set_20,SID,Nb,Kc) :=
+ state_role_C(C,SM,KPc,KPs,1,Na,Dummy_Nb,Dummy_Kc,Dummy_Set_20,SID).
+ iknows(crypt(KPc,pair(Na,Nb)))
+=[exists Kc]=>
+ state_role_C(C,SM,KPc,KPs,2,Na,Nb,Kc,Dummy_Set_20,SID).
+ iknows(crypt(KPs,Nb)).
+ secret(Kc,sec_1,Dummy_Set_20).
+ iknows(crypt(KPs,pair(Kc,crypt(inv(KPc),Kc))))
+
+
+section properties:
+
+property secrecy_of_sec_1 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_1,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_sec_1 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_1,ASGoal) &
+ not(contains(i,ASGoal))
+

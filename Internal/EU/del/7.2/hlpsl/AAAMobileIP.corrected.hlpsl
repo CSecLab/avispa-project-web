@@ -1,0 +1,274 @@
+%%% 2-2 AAA-Mobile IP
+
+%%% A-B Notation:
+
+%%%  1. FA --> MN : FA,N_FA
+
+%%%  2. MN --> FA : N_FA,MN,AAAH,{N_FA,MN,AAAH}K_MnAAAH
+
+%%%  3. FA --> AAAL : N_FA,MN,AAAH,{N_FA,MN,AAAH}K_MnAAAH  
+  
+%%%  4. AAAL --> AAAH : N_FA,MN,AAAH,{N_FA,MN,AAAH}K_MnAAAH       
+ 
+%%%  5. AAAH --> HA : MN, {K_MnHa,K_FaHa}KAAAHHa, {K_MnFa,K_MnHa}K_MnAAAH,
+%%%                      {MN,{K_MnHa,K_FaHa}KAAAHHa,{K_MnFa,K_MnHa}K_MnAAAH}K_AAAHHa
+
+%%%  6. HA --> AAAH : {K_MnFa,K_MnHa}K_MnAAAH, {{K_MnFa,K_MnHa}K_MnAAAH}K_MnHa,
+%%%                     {{K_MnFa,K_MnHa}K_MnAAAH, {{K_MnFa,K_MnHa}K_MnAAAH}K_MnHa}K_AAAHHa
+
+%%%  7. AAAH --> AAAL : N_FA, {K_MnFa,K_FaHa}K_AAAHAAAL, {K_MnFa,K_MnHa}K_MnAAAH,
+%%%                     {{K_MnFa,K_MnHa}K_MnAAAH}K_MnHa,
+%%%                     {N_FA,{K_MnFa,K_FaHa}K_AAAHAAAL, {K_MnFa,K_MnHa}K_MnAAAH,
+%%%                     {{K_MnFa,K_MnHa}K_MnAAAH}K_MnHa}K_AAAHAAAL
+
+%%%  8. AAAL --> FA  : N_FA, {K_MnFa,K_FaHa}K_FaAAAL, {K_MnFa,K_MnHa}K_MnAAAH,
+%%%                     {{K_MnFa,K_MnHa}K_MnAAAH}K_MnHa,
+%%%                     {N_FA,{K_MnFa,K_FaHa}K_FaAAAL, {K_MnFa,K_MnHa}K_MnAAAH,
+%%%                     {{K_MnFa,K_MnHa}K_MnAAAH}K_MnHa}K_FaAAAL
+
+%%%  9. FA --> MN  : {K_MnFa,K_FaHa}K_FaAAAL, {K_MnFa,K_MnHa}K_MnAAAH,
+%%%                     {{K_MnFa,K_MnHa}K_MnAAAH}K_MnHa   
+
+ 
+
+
+%%% --------------------------Nhlpsl-spec ---------------------
+
+role AAA_MIP_MN (MN,AAAH,FA: agent,
+                 Snd,Rcv: channel(dy),
+                 K_MnAAAH: symmetric_key) played_by MN def=
+
+  exists S :nat,
+	 K_MnFa,K_MnHa: symmetric_key
+
+
+  owns Snd
+
+  init  S= 0
+
+  knowledge(MN)={MN,AAAH,K_MnAAAH,FA}
+
+  transition
+
+   1. S=0 /\ Rcv(FA.FA) =|> Snd(FA.MN.AAAH.{FA.MN.AAAH}K_MnAAAH) /\ S'=1
+
+   2. S=1 /\ Rcv( {K_MnFa'.K_MnHa'}K_MnAAAH.
+                 {{K_MnFa'.K_MnHa'}K_MnAAAH}K_MnHa') 
+             =|>  S'=2 /\ wrequest(MN,AAAH,kmnha,K_MnHa')
+		       /\ wrequest(MN,AAAH,kmnfa,K_MnFa')
+
+end role
+
+%% (*------------------------------------------------------*)
+
+role AAA_MIP_FA (FA,AAAL,AAAH,MN: agent,
+                 Snd, Rcv: channel(dy),
+                 K_FaAAAL: symmetric_key) played_by FA def=
+
+  exists S: nat,
+         K_MnFa, K_FaHa: symmetric_key,
+         KeyMnHaKeyMnFa,SignKeyMnHaKeyMnFa,SignedRegReq: message
+
+  owns Snd 
+ 
+  init S= 0
+
+  knowledge(FA)={FA,AAAL,MN,K_FaAAAL}
+
+  transition
+
+   1. S=0 /\ Rcv(start) =|> Snd(FA.FA) /\ S'=1
+
+   2. S=1 /\ Rcv(FA.MN'.AAAH'.SignedRegReq') 
+         =|> Snd(FA.MN'.AAAH'.SignedRegReq') /\ S'=2
+	
+   3. S=2 /\ Rcv(FA.{K_MnFa'.K_FaHa'}K_FaAAAL.KeyMnHaKeyMnFa'.SignKeyMnHaKeyMnFa'.
+                {FA.{K_MnFa'.K_FaHa'}K_FaAAAL.KeyMnHaKeyMnFa'.SignKeyMnHaKeyMnFa'}K_FaAAAL)
+       =|> Snd(KeyMnHaKeyMnFa'.SignKeyMnHaKeyMnFa') /\ S'=3
+           /\ wrequest(FA,AAAH,kfaha,K_FaHa')
+	   /\ wrequest(FA,AAAH,kmnfa,K_MnFa')
+
+end role
+
+%%(*------------------------------------------------------*)
+
+role AAA_MIP_AAAL (AAAL,AAAH,FA,MN: agent,
+                  Snd, Rcv: channel(dy),
+                  K_FaAAAL,K_AAAHAAAL: symmetric_key) played_by AAAL def=	% K_AAAHAAAL was KAAAHAAAL
+
+  exists S: nat,
+         KeyMnFaKeyMnHa,SignedKeyMnFaKeyMnHa,SignedRegReq: message,
+         K_MnFa,K_FaHa: symmetric_key
+          
+  owns Snd
+
+  init S= 0
+
+  knowledge(AAAL)={AAAL,AAAH,FA,MN,K_FaAAAL,K_AAAHAAAL}
+  
+  transition
+
+   1. S=0 /\ Rcv(FA'.MN'.AAAH.SignedRegReq') 
+            =|> Snd(FA'.MN'.AAAH. SignedRegReq') /\ S'=1 
+
+   2. S=1 /\ Rcv(FA.{K_MnFa'.K_FaHa'}K_AAAHAAAL.KeyMnFaKeyMnHa'.SignedKeyMnFaKeyMnHa'.
+                {FA.{K_MnFa'.K_FaHa'}K_AAAHAAAL.KeyMnFaKeyMnHa'.SignedKeyMnFaKeyMnHa'}K_AAAHAAAL)
+     =|>
+      Snd(FA.{K_MnFa'.K_FaHa'}K_FaAAAL.KeyMnFaKeyMnHa'.SignedKeyMnFaKeyMnHa'.
+         {FA.{K_MnFa'.K_FaHa'}K_FaAAAL.KeyMnFaKeyMnHa'.SignedKeyMnFaKeyMnHa'}K_FaAAAL)
+      /\ S'=2
+
+end role
+
+%%(*------------------------------------------------------*)
+
+role AAA_MIP_AAAH (AAAH,AAAL,HA,FA,MN : agent,
+           Snd, Rcv : channel(dy),
+           K_MnAAAH,
+           K_AAAHAAAL,
+           KAAAHHa : symmetric_key) played_by AAAH def=
+
+  exists S: nat,
+	 K_FaHa,K_MnHa,K_MnFa : symmetric_key (fresh)
+
+  owns Snd  
+
+  init S= 0
+
+  knowledge(AAAH)={AAAH,AAAL,HA,FA,MN,K_MnAAAH,K_AAAHAAAL,KAAAHHa}
+
+  transition
+
+   1. S=0 /\ Rcv(FA'.MN'.AAAH.{FA'.MN'.AAAH}K_MnAAAH)
+ 
+               =|> Snd(MN'.{K_MnHa'.K_FaHa'}KAAAHHa.{K_MnFa'.K_MnHa'}K_MnAAAH.
+                       {MN'.{K_MnHa'.K_FaHa'}KAAAHHa.{K_MnFa'.K_MnHa'}K_MnAAAH}KAAAHHa)
+                   /\ S'=1
+                   /\ witness(AAAH,FA',kfaha,K_FaHa')
+		   /\ witness(AAAH,HA,kfaha,K_FaHa')
+		   /\ witness(AAAH,FA',kmnfa,K_MnFa')
+		   /\ witness(AAAH,MN',kmnfa,K_MnFa')
+		   /\ witness(AAAH,MN',kmnha,K_MnHa')
+		   /\ witness(AAAH,HA,kmnha,K_MnHa')
+
+   2. S=1 /\ Rcv({K_MnFa.K_MnHa}K_MnAAAH.{{K_MnFa.K_MnHa}K_MnAAAH}K_MnHa.
+                    {{K_MnFa.K_MnHa}K_MnAAAH.{{K_MnFa.K_MnHa}K_MnAAAH}K_MnHa}KAAAHHa)
+            =|>
+              Snd(FA.{K_MnFa.K_FaHa}K_AAAHAAAL.{K_MnFa.K_MnHa}K_MnAAAH.
+                    {{K_MnFa.K_MnHa}K_MnAAAH}K_MnHa.
+                    {FA.{K_MnFa.K_FaHa}K_AAAHAAAL.{K_MnFa.K_MnHa}K_MnAAAH.
+                    {{K_MnFa.K_MnHa}K_MnAAAH}K_MnHa}K_AAAHAAAL)	
+                /\ S'=2
+		   /\ secret(K_FaHa,FA) 
+		   /\ secret(K_FaHa,HA)
+		   /\ secret(K_MnFa,FA)
+		   /\ secret(K_MnFa,MN)
+		   /\ secret(K_MnHa,MN)
+		   /\ secret(K_MnHa,HA)
+		
+end role
+
+%%(*------------------------------------------------------*)
+
+role AAA_MIP_HA (HA,AAAH,MN: agent,
+                 Snd,Rcv: channel(dy),
+                 K_AAAHHa: symmetric_key) played_by HA def=
+
+  exists S: nat,
+         KeyMnFaKeyMnHa: message,
+	 K_MnFa,K_FaHa, K_MnHa : symmetric_key
+
+  owns Snd 
+
+  init S= 0
+
+  knowledge(HA)={HA,AAAH,K_AAAHHa}
+
+  transition
+
+   1. S=0 /\ Rcv(MN'.{K_MnHa'.K_FaHa'}K_AAAHHa.KeyMnFaKeyMnHa'.
+                {MN'.{K_MnHa'.K_FaHa'}K_AAAHHa.KeyMnFaKeyMnHa'}K_AAAHHa) 
+
+               =|> Snd(KeyMnFaKeyMnHa'.{KeyMnFaKeyMnHa'}K_MnHa'.
+                    {KeyMnFaKeyMnHa'.{KeyMnFaKeyMnHa'}K_MnHa'}K_AAAHHa)
+                   /\ S'=1
+                   /\ wrequest(HA,AAAH,kfaha,K_FaHa')
+		   /\ wrequest(HA,AAAH,kmnha,K_MnHa')
+
+end role
+
+
+%% (*------------------------------------------------------*)
+
+role Session(MN,FA,AAAL,AAAH,HA: agent,
+	     Kmn3ah,Kfa3al,K3ah3al,Kha3ah: symmetric_key,
+	     MNs,MNr,
+	     FAs,FAr,
+	     Ls, Lr,
+	     Hs, Hr,
+	     HAs, HAr: channel(dy)) def=
+
+   composition
+
+           AAA_MIP_MN(MN,AAAH,FA,MNs,MNr,Kmn3ah)
+
+        /\ AAA_MIP_FA(FA,AAAL,AAAH,MN,FAs,FAr,Kfa3al)
+  
+        /\ AAA_MIP_AAAL(AAAL,AAAH,FA,MN,Ls,Lr,Kfa3al,K3ah3al)
+
+        /\ AAA_MIP_AAAH(AAAH,AAAL,HA,FA,MN,Hs,Hr,
+                       Kmn3ah,K3ah3al,Kha3ah)
+         
+        /\ AAA_MIP_HA(HA,AAAH,MN,HAs,HAr,Kha3ah)
+end role
+
+
+%%  (*------------------------------------------------------*)
+
+
+role Environment() def=				% def= was missing
+
+  const n_fa: protocol_id
+  knowledge(i) = {mn,fa,aaal,aaah,ha}
+  composition
+
+	Session(mn,fa,aaal,aaah,ha,	%% Agents
+		k_mn_aaah,k_fa_aaal,k_aaah_aaal,k_ha_aaah,  %% Shared Keys
+	        s1,r1,s2,r2,s3,r3,s4,r4,s5,r5)  %% Channels
+%	/\ Session(i,mn,aaal,aaah,ha,	%% Agents
+% 		k_i_aaah,k_mn_aaal,k_aaah_aaal,k_ha_aaah,  %% Shared Keys
+%	        s1,r1,s2,r2,s3,r3,s4,r4,s5,r5)  %% Channels
+%	/\ Session(mn,i,aaal,aaah,ha,	%% Agents
+% 		k_mn_aaah,k_i_aaal,k_aaah_aaal,k_ha_aaah,  %% Shared Keys
+%	        s1,r1,s2,r2,s3,r3,s4,r4,s5,r5)  %% Channels
+%% necessarily flawed:
+%%	/\ Session(mn,fa,i,aaah,ha,	%% Agents
+%% 		k_mn_aaah,k_fa_i,k_aaah_i,k_ha_aaah,  %% Shared Keys
+%%	        s1,r1,s2,r2,s3,r3,s4,r4,s5,r5)  %% Channels
+%% necessarily flawed:
+%%	/\ Session(mn,fa,aaal,i,ha,	%% Agents
+%% 		k_mn_i,k_fa_aaal,k_i_aaal,k_ha_i,  %% Shared Keys
+%%	        s1,r1,s2,r2,s3,r3,s4,r4,s5,r5)  %% Channels
+%	/\ Session(mn,fa,aaal,aaah,i,	%% Agents
+% 		k_mn_aaah,k_fa_aaal,k_aaah_aaal,k_i_aaah,  %% Shared Keys
+%	        s1,r1,s2,r2,s3,r3,s4,r4,s5,r5)  %% Channels
+
+end role
+
+goal
+
+  secrecy_of K_MnFa, K_FaHa, K_MnFa
+  AAA_MIP_FA weakly authenticates AAA_MIP_AAAH on K_FaHa
+  AAA_MIP_FA weakly authenticates AAA_MIP_AAAH on K_MnFa
+  AAA_MIP_HA weakly authenticates AAA_MIP_AAAH on K_FaHa
+  AAA_MIP_HA weakly authenticates AAA_MIP_AAAH on K_MnHa
+  AAA_MIP_MN weakly authenticates AAA_MIP_AAAH on K_MnHa
+  AAA_MIP_MN weakly authenticates AAA_MIP_AAAH on K_MnFa
+  
+
+end goal
+
+Environment()
+
+
+%% ===========================================================

@@ -1,0 +1,279 @@
+%% PROTOCOL: FairZG
+%% PURPOSE: 
+%% Fair Zhou Gollmann Non-Repudiation
+%% REFERENCE:
+%% \url{http://citeseer.ist.psu.edu/62704.html}
+%% MODELER:
+%% Judson Santiago, LORIA Nancy, 2005
+%%
+%% ALICE_BOB:
+%% \begin{verbatim}
+%%  A  -> B: fNRO,B,L,C,NRO
+%%  B  -> A: fNRR,A,L,NRR
+%%  A  -> S: fSUB,B,L,K,subK
+%%  A  S: fCON,A,B,L,K,conK
+%%  B  S: fCON,A,B,L,K,conK
+%% 
+%%  S    = Trusted Third Party (TTP) 
+%%  C    = {M}_K
+%%  L    = Hash(M,K)
+%%  NRO  = {fNRO,B,L,C}_inv(Ka)
+%%  NRR  = {fNRR,A,L,C}_inv(Kb)
+%%  SubK = {fSUB,B,L,K}_inv(ka)
+%%  ConK = {fCON,A,B,L,K}_inv(ks)
+%% \end{verbatim}
+%%
+%% LIMITATIONS:
+%% The last two exchange of messages between the Server and the agents are
+%% ftp-gets. The agents are supposed to search a certificate on the server
+%% and they should be able to eventually get the certificate even if the  
+%% server is temporarily down. The server is supposed to not be down forever. 
+%%
+%% PROBLEMS: 5
+%%
+%% CLASSIFICATION: G1 G2 G18 G19
+%%
+%% ATTACKS: None 
+%%
+%%% NOTES:
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+%%HLPSL:
+
+role alice ( A, B, S    : agent, 
+             Ka, Kb, Ks : public_key,
+             Hash       : hash_func,
+             Snd, Rcv   : channel(dy)) played_by A def=
+
+  local State : nat, 
+        M     : text,
+        K     : symmetric_key,
+        C     : {text}_symmetric_key,
+        L     : hash(text.symmetric_key)
+
+  init   State := 0
+
+  transition
+
+   1.    State=0 
+      /\ Rcv(start)  
+      =|>
+         State':=1
+      /\ M':=new() 
+      /\ K':=new()
+      /\ C':={M'}_K' 
+      /\ L':=Hash(M'.K') 
+      /\ Snd(fNRO.B.L'.C'.{fNRO.B.L'.C'}_inv(Ka)) 
+      
+      % Non-repudiation of Origin
+      /\ witness(A,B,bob_alice_nro,{fNRO.B.L'.C'}_inv(Ka))
+
+
+   2.    State=1 
+      /\ Rcv(fNRR.A.L.{fNRR.A.L.C}_inv(Kb)) 
+      =|>
+         State':=2    
+      /\ Snd(fSUB.B.L.K.{fSUB.B.L.K}_inv(Ka)) 
+      
+      % Non-repudiation of Submission
+      /\ witness(A,B,bob_alice_sub,K)
+
+   3.    State=2  
+      --|>
+         State':=3 
+         /\ Snd(fREQ.A.B.L) 
+      
+
+   4.    State=3 
+      /\ Rcv(fCON.A.B.L.K.{fCON.A.B.L.K}_inv(Ks)) 
+      =|>
+         State':=4 
+      % Non-repudiation of Delivery
+      /\ wrequest(A,S,alice_server_con,{fCON.A.B.L.K}_inv(Ks)) 
+      % Non-repudiation of Receipt
+      /\ wrequest (A,B,alice_bob_nrr,{fNRR.A.L.C}_inv(Kb))
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role bob (B, A, S    : agent,
+          Kb, Ka, Ks : public_key,
+          Snd, Rcv   : channel (dy)) played_by B def=
+
+  local State : nat, 
+        M     : text,
+        K     : symmetric_key,
+        C     : {text}_symmetric_key,
+        L     : hash(text.symmetric_key)
+
+  init State := 0
+
+  transition
+
+   1.    State=0 
+      /\ Rcv(fNRO.B.L'.C'.{fNRO.B.L'.C'}_inv(Ka))
+      =|>
+         State':=1
+      /\ Snd(fNRR.A.L'.{fNRR.A.L'.C'}_inv(Kb))
+      % Non-repudiation of Receipt
+      /\ witness (B,A,alice_bob_nrr,{fNRR.A.L'.C'}_inv(Kb))
+
+   2.    State=1  
+      --|>
+         State':=2 
+      /\ Snd(fREQ.A.B.L) 
+      
+
+   3.    State=2 
+      /\ Rcv(fCON.A.B.L.K'.{fCON.A.B.L.K'}_inv(Ks))
+      /\ C = {M'}_K'
+      =|>
+         State':=3 
+      % Non-repudiation of Origin
+      /\ wrequest(B,A,bob_alice_nro,{fNRO.B.L.C}_inv(Ka))
+      % Non-repudiation of Delivery
+      /\ wrequest(B,S,bob_server_con,{fCON.A.B.L.K'}_inv(Ks))
+      % Non-repudiation of Origin/Submission
+      /\ wrequest(B,A,bob_alice_sub,K') 
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role server (S, A, B  : agent,
+             Ks, Ka   : public_key,
+             Snd, Rcv : channel (dy)) played_by S def=
+
+  local State: nat,
+        K    : symmetric_key,
+        L     : hash(text.symmetric_key)
+
+  init State := 0
+
+  transition
+
+   1.    State=0 
+      /\ Rcv(fSUB.B.L'.K'.{fSUB.B.L'.K'}_inv(Ka))
+      =|>
+      State':=1 
+
+   2.    State=1
+      /\ Rcv(fREQ.A.B.L)  
+      =|>
+         State':=2  
+      /\ Snd(fCON.A.B.L.K.{fCON.A.B.L.K}_inv(Ks)) 
+      % Non-repudiation of Delivery
+      /\ witness (S,A,alice_server_con,{fCON.A.B.L.K}_inv(Ks))
+      /\ witness (S,B,bob_server_con,{fCON.A.B.L.K}_inv(Ks))
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role session(A,B,S: agent,
+	     Ka,Kb,Ks: public_key,
+             H: hash_func,
+	     Snd,Rcv: channel (dy)) def=
+
+  composition
+    alice(A,B,S,Ka,Kb,Ks,H,Snd,Rcv) /\
+    bob(B,A,S,Kb,Ka,Ks,Snd,Rcv) /\
+    server(S,A,B,Ks,Ka,Snd,Rcv)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role environment() def=
+
+ local Snd,Rcv: channel (dy)
+
+ const a,b,s,i: agent,
+       ka,kb,ks,ki: public_key,
+       h: hash_func,
+       alice_bob_nrr,         
+       bob_alice_nro, 
+       bob_alice_sub, 
+       alice_server_con, 
+       bob_server_con, 
+       fREQ,fNRO,fNRR,fSUB,fCON: protocol_id
+
+ intruder_knowledge = {a,b,s,ka,kb,ks,ki,i,inv(ki),fNRO,fNRR,fSUB,fCON}
+
+ composition
+
+       session(a,b,s,ka,kb,ks,h,Snd,Rcv)
+    /\ session(a,b,s,ka,kb,ks,h,Snd,Rcv)
+
+% The non-repudiation property can not be described like authentification 
+% problems when the intruder plays a role in the protocol. The intruder
+% does not fire the witnesses on behalf of the honest agents and there 
+% will be always an false attack. 
+% 
+%   /\ session(a,i,s,ka,ki,ks,h,Snd,Rcv) 
+%   /\ session(i,b,s,ki,kb,ks,h,Snd,Rcv)
+%   /\ session(a,b,i,ka,kb,ki,h,Snd,Rcv) 
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+goal
+
+%%%---------------------------------------
+%%% Non-repudiation of Origin
+%%% -------------------------------------- 
+%%%    Bob authenticates Alice on NRO 
+%%% /\ Server authenticates Alice on SubK 
+%%% /\ Bob authenticates Server on ConK
+%%%---------------------------------------
+
+%%%---------------------------------------
+%%% Non-repudiation of Receipt 
+%%% -------------------------------------- 
+%%%    Alice authenticates Bob on NRR 
+%%% /\ Server authenticates Alice on SubK   
+%%% /\ Alice authenticates Server on ConK
+%%%---------------------------------------
+
+%%%---------------------------------------
+%%% Fairness
+%%% -------------------------------------- 
+%%%    Bob authenticates Alice on NRO 
+%%% /\ Server authenticates Alice on SubK 
+%%% /\ Bob authenticates Server on ConK
+%%% /\ Alice authenticates Bob on NRR 
+%%% /\ Server authenticates Alice on SubK   
+%%% /\ Alice authenticates Server on ConK
+%%%---------------------------------------
+
+   % All authentications together provide 
+   % entity authentication (G1) and 
+   % message authentication (G2)
+
+   % alice_bob_nrr and alice_server_con provide
+   % proof of delivery (G19)
+
+   % bob_alice_nro, bob_alice_sub and bob_server_con
+   % provide proof of origin (G18)
+
+
+   %%% Alice authenticates Bob on nrr
+   weak_authentication_on alice_bob_nrr
+
+   %%% Bob authenticates Alice on nro
+   weak_authentication_on bob_alice_nro
+
+   %%% Bob authenticates Alice on sub
+   weak_authentication_on bob_alice_sub
+
+   %%% Alice authenticates Server on con     
+   weak_authentication_on alice_server_con 
+   
+   %%% Bob authenticates Server on con
+   weak_authentication_on bob_server_con
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+environment()

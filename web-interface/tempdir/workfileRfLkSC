@@ -1,0 +1,102 @@
+role smartcard (SC, S : agent, K : symmetric_key, Hash : hash_func, SND, RCV : channel (dy))		%1
+											%2
+played_by SC def=										%3
+											%4
+local											%5
+	State : nat,									%6
+	Na, Nb : text,									%7
+											%8
+											%9
+											%10
+											%11
+											%12
+	K1 : message									%13
+											%14
+init											%15
+	State := 0									%16
+											%17
+transition											%18
+											%19
+	1. State = 0 /\ RCV(start) =|>							%20
+	   State' := 2 /\ Na' := new()								%23
+		     /\ SND({Na'}_K)								%24
+											%25
+	2. State = 2 /\ RCV({Nb'}_K) =|>							%26
+	   State' := 4 									%27
+		      									%28
+		      									%29
+		      									%30
+											%31
+end role											%32			
+											%33
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role server (SC, S : agent, K : symmetric_key, Hash : hash_func, SND, RCV : channel (dy))
+
+played_by S def=
+
+local
+	State : nat,
+	Na, Nb : text,
+	K1 : message
+
+init
+	State := 1
+
+transition
+
+	1. State = 1 /\ RCV({Na'}_K) =|>
+	    State' := 3 /\ Nb' := new()
+		      /\ SND({Nb'}_K)
+
+	3. State = 3 /\ RCV({Nb}_K1) =|>
+	    State' := 5
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session (SC, S : agent, K : symmetric_key, Hash : hash_func)
+
+def=
+local SSC, SS, RSC, RS	:	channel (dy)
+
+composition
+smartcard (SC, S, K, Hash, SSC, RSC)
+/\ server (SC, S, K, Hash, SS, RS)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+
+def=
+
+const
+server_smartcard_nb,
+smartcard_server_na,
+
+k1 : protocol_id,
+kscs, ksci, kis : symmetric_key,
+sc, s : agent,
+h : hash_func
+
+intruder_knowledge = {sc, s, h, ksci, kis}
+
+composition
+session (sc, s, kscs, h)
+/\ session (sc, i, ksci, h)
+/\ session (i, s, kis, h)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+ secrecy_of k1
+ authentication_on server_smartcard_nb
+ authentication_on smartcard_server_na
+end goal
+
+environment()

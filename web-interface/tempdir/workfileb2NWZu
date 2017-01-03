@@ -1,0 +1,111 @@
+role server(
+P,S: agent,
+PSK: symmetric_key,
+MIC, HMAC, PRF: hash_function,
+SND,RCV:channel(dy)
+)
+played_by S def=
+local
+State :nat,
+Challenge,RandS,RandP:text,
+MAC,HASH :message,
+AK,EK :message %clés dérivées de la clé partagée PSK
+const
+rp,rs,ch,
+sec_ak,sec_ek :protocol_id,
+request_id, respond_id,success,
+peerId,serverId:text
+init
+State:=0
+transition
+0.State=0 /\ RCV(start)=|>
+State' :=1 /\ SND(request_id)
+1.State=1 /\ RCV(respond_id.peerId)=|>
+State':=2 /\ RandS':=new() 
+ /\ Challenge':=new()
+/\ AK':=PRF(PSK.RandS')
+/\ EK':=PRF(PSK.RandS'.serverId.peerId)
+/\ MAC':={MIC(AK',Challenge'.serverId.RandS')}_EK'
+/\ SND(Challenge'.serverId.RandS'.MAC')
+/\ witness(S,P,rs,RandS')
+/\ witness(S,P,ch,Challenge')
+/\ secret(AK',sec_ak,{P,S})
+/\ secret(EK',sec_ek,{P,S}) 
+2. State=2 /\ RCV(RandP'.HASH')
+/\HASH'={HMAC(AK,Challenge.RandP')}_EK
+%Challenge and not Challenge' 
+=|>
+State':=3 /\ request(S,P,RandP')
+/\ SND(success)
+end role %server 
+role peer(
+P,S: agent,
+PSK: symmetric_key,
+MIC, HMAC, PRF: function,
+SND,RCV:channel(dy)
+)
+played_by P def=
+local
+State :nat,
+Challenge,RandS,RandP:text,
+MAC,HASH:message,
+AK,EK :message %clés dérivées de la clé partagée PSK
+const
+rp,rs,ch,
+sec_ak,sec_ek :protocol_id,
+request_id, respond_id,success,
+peerId,serverId:text
+init
+State:=0
+transition
+0.State=0 /\ RCV(request_id)=|>
+State' :=1 /\ SND(respond_id.peerId)
+1.State=1 /\ RCV(Challenge'.serverId.RandS'.MAC')
+%Peer doit vérifier la validité du champ MIC
+/\ AK'=PRF(PSK.RandS') 
+ /\ EK'=PRF(PSK.RandS'.serverId.peerId)
+/\ MAC'={MIC(AK',Challenge'.serverId.RandS')}_EK'
+=|>
+State':=2 /\ RandP':=new()
+/\ HASH':={HMAC(AK',Challenge'.RandP')}_EK'
+/\ SND(RandP'.HASH')
+/\ witness(P,S,rp,RandP')
+/\ request(P,S,rs,RandS')
+/\ request(P,S,ch,Challenge')
+/\ secret(AK',sec_ak,{P,S})
+/\ secret(EK',sec_ek,{P,S}) 
+2. State=2 /\ RCV(success)=|>
+State':=3
+end role %peer 
+role session(
+P,S: agent,
+PSK: symmetric_key,
+MIC,HMAC,PRF: function
+)
+def= 
+ local
+Speer,Rpeer,Sserver,Rserver : channel (dy)
+composition
+peer(P,S,PSK,MIC,HMAC,PRF,Speer,Rpeer)
+/\ server(P,S,PSK,MIC,HMAC,PRF,Sserver,Rserver)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environnement()
+def=
+const
+p,s,i:agent,
+mic,h,prf:function,
+psk_ps,psk_pi,psk_is:symmetric_key
+intruder_knowledge={p,s,mic,h,prf,psk_pi,psk_is}
+composition
+session(p,s,psk_ps,mic,h,prf)
+/\session(p,i,psk_pi,mic,h,prf)
+/\session(i,s,psk_is,mic,h,prf)
+end role 
+goal
+authentication_on ch,rs
+authentication_on rp
+%secrecy_of key
+secrecy_of sec_ak,sec_ek
+end goal 
+environnement()

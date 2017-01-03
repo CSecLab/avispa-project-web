@@ -1,0 +1,120 @@
+role reader 
+        (T,R,BS : agent,
+         PRNG : hash_func,
+         SND_RT,RCV_RT:channel(dy)
+         SND_RS,RCV_RS : channel(ota))
+played_by R
+def=
+local
+    State : nat,
+    Nr,Nt,Id,S : text,
+    V,M,N,Hv : message
+init
+State := 0
+transition
+1. State = 0   /\ RCV_RT(start) =|>
+   State':= 1  /\ Nr':= new()
+               /\ SND_RT(Nr')
+2. State = 1   /\ RCV_RT(V'.Hv'.Nt')  =|>
+   State':= 2  /\ SND_RS(V'.Hv'.Nt'.Nr)
+3. State = 2   /\ RCV_RS(S) =|>
+   State':=3   /\ M':= PRNG(S.Nr)
+               /\ N':= PRNG(M')             
+               /\ SND_RT(N')
+               /\ SND_RS(M')
+               /\ witness(R,T,interm,N')
+end role
+
+
+% Tag function..........................
+
+role tag (T,R,BS: agent,
+          PRNG: hash_func, 
+          SND_TR,RCV_TR : channel(dy))
+
+played_by T
+def=
+local
+    State : nat,
+    Nr,Nt,Id,S : text,
+    M,N,V,U,Hv : message
+init
+State := 0
+transition
+1. State = 0   /\ RCV_TR(Nr') =|>
+   State':= 1  /\ Nt' := new() 
+               /\ V':= PRNG(S.Nr'.Nt')
+               /\ Hv':= PRNG(Id)
+               /\ SND_TR(V'.Hv'.Nt')
+               /\ secret(Id,Tag_identity,{T,S}) 
+               /\ witness(T,S,Iden_info,Hv')
+               /\ witness (T,S,Pseudo_number,V') 
+               
+2. State = 4   /\ RCV(N')  =|>
+   State':=5   /\ M':= PRNG(S.Nr)
+               /\ N':= PRNG(M')  
+               /\ request(T,R,interm,N')
+               /\ U':=PRNG(S.M')
+               /\ S':=xor(S,U')
+end role
+
+% Role of the server.....................
+
+role server( T,R,BS : gent,
+             PRNG :hash_func,
+             SND_SR,RCV_SR: channel(dy))
+played_by BS
+def=
+local
+     State : nat,
+     Nr,Nt,Id,S : text,
+     M,N,V,U,Hv : message
+init
+State := 0
+transition
+1. State = 0 /\ RCV_SR(V'.Hv'.Nt'.Nr) =|>
+   state'= 1 /\ Hv':= PRNG(Id)
+             /\ V':= PRNG(S.Nr'.Nt')
+             /\ request(BS,T,Iden_info,Hv')
+             /\ request(BS,T,pseudo_number,V')
+             /\ SND_SR(S)
+2. State = 1  /\ RCV_SR(M')
+   State':= 2 /\ U':=PRNG(S.M')
+              /\ S':=xor(S,U')
+               
+                  
+          
+role session(
+T,R,BS : agent,
+PRNG : hash_func)
+def=
+local SND_RS,RCV_RS : channel (ota)
+      SND_RT,RCV_RT : channel (dy))
+composition
+reader (T,R,BS,PRNG,SND_RT,RCV_RT,SND_RS,RCV_RS)
+/\ tag(T,R,BS,PRNG,SND_RT,RCV_RT)
+/\ server(T,R,BS,PRNG,SND_RS,RCV_RS)
+end role
+
+role environment()
+def=
+const
+pseudo_number,Tag_identity,Iden_info,interm: protocol_id,
+t,r,b : agent,
+h : hash_func
+intruder_knowledge = {t,r,h}
+composition
+session(r,t,h)
+/\session(i,t,h)
+/\ session(t,i,h)
+
+end role
+
+goal
+secrecy_of Tag_Identity
+authentication_on interm
+authentication_on pseudo_number
+authentication_on Iden_info
+end goal
+
+environment()

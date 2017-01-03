@@ -1,0 +1,158 @@
+%% PROTOCOL: mvSec-2
+%%
+%%
+%%
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%HLPSL:
+
+role alice(A,B:agent,
+	   G: text,
+	   F: hash_func,
+	   Ks: symmetric_key,	%used to simulate secure channel
+	   SND_B, RCV_B: channel (dy))
+played_by A
+def=
+
+  local State: nat,
+	Ga, Gb, Ea: message,
+	Pa, Pb: public_key,
+	SK, Nauth: symmetric_key,
+	Pha: hash(symmetric_key.message),
+	Commit: hash(symmetric_key.hash(message))
+
+  const sec_a : protocol_id
+
+  init  State := 0
+
+  transition
+
+  1.	State = 0  / RCV_B(start)
+	=|>
+	State':= 2 / Nauth' := new()
+		   / Pa' := new()
+		   / Pha' := F(Nauth'.Pa)
+		   / SND_B( {Pha'.Nauth'}_Ks )
+
+  2.	State = 2  / SND_B( Pa ) 
+	=|>
+	State':= 4
+
+  3.	State = 4  / RCV_B( {Gb'.Nauth.Pb'}_Pa )
+	=|>
+	State':=6  / Ea' := new()
+		   / Ga' := exp(G,Ea')
+		   / SK' := exp(Gb',Ea)
+		   / SND_B( {Ga'}_Pb'.F(SK'.F({Ga'}_Pb')) )
+
+  3.	State = 6  / RCV_B( Commit') %Commit' = F(SK.F({Gb}_Pa))
+	=|>
+	State':=8 
+ 
+  4.	State = 8 / Commit = F(SK.F({Gb}_Pa))
+	=|>
+	State':=10 / secret(SK,sec_a,{A,B})
+
+%	           / request( A,B,nb,F(F({Ga}_Ks).SK) )
+ 
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob (B,A:agent,
+	  G: text,
+	  F: hash_func,
+	  Ks: symmetric_key,	%preshared secret
+	  SND_A, RCV_A: channel (dy))
+played_by B
+def=
+
+  local State: nat,
+	Ga, Gb, Eb: message,
+	SK, Nauth: symmetric_key,
+	Pb, Pa: public_key,
+	Pha, Phb: hash(symmetric_key.message),
+	Commit: hash(symmetric_key.hash(message))
+
+  const sec_b : protocol_id
+
+  init  State := 1
+
+  transition
+
+  1.	State = 1  / RCV_A( {Pha'.Nauth'}_Ks )
+	=|>
+	State':= 3 
+ 
+  2.	State = 3  / RCV_A( Pa' ) 
+		   / Pha' = F(Nauth.Pa') %check mac
+	=|>
+	State':=5  / Pb' := new()
+		   / Eb' := new()
+		   / Gb' := exp(G,Eb')
+		   / SND_A( {Gb'.Nauth.Pb'}_Pa' )
+
+  3.	State = 5  / RCV_A( {Ga'}_Pb.Commit' ) %Commit' = F(SK'.F({Ga'}_Pb)) )
+	=|>
+	State':=7  / SK' := exp(Ga',Eb)
+		   / SND_A( F(SK'.F({Gb}_Pa)) )
+		   / secret(SK',sec_b,{A,B})
+
+%		   / request( B,A,na,F(F({Gb}_Ks).SK) )
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(A,B: agent,
+	     G: text,
+	     H: hash_func,
+	     Kab: symmetric_key)
+def=
+
+  local SA, RA, SB, RB: channel (dy)
+
+  composition
+     alice(A,B,G,H,Kab,SA,RA)
+  / bob(B,A,G,H,Kab,SB,RB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role environment()
+def=
+
+  const a, b           : agent,
+	g              : text,
+	h              : hash_func,
+        kab,kai,kib    : symmetric_key,
+        na, nb         : protocol_id
+
+  intruder_knowledge={a,b,h,g,kai,kib}
+
+  composition
+      session(a,b,g,h,kab)
+    /session(a,i,g,h,kai)
+    /session(i,b,g,h,kib)
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+ % Confidentiality
+ secrecy_of sec_a, sec_b
+
+ % Message authentication
+ %authentication_on nb
+ %authentication_on na
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+ 

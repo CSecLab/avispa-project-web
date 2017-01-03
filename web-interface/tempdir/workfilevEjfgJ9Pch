@@ -1,0 +1,157 @@
+%% PROTOCOL*: ISO4 Public Key Mutual Authentication Protocol
+%% VARIANT: three-pass mutual authentication
+%% PURPOSE: Two parties authenticate each other. Aim of the Mutual authentication
+%% is to make sure to each of the parties of the other's identity. In this protocol
+%% a confirmation of the successful authentication is sent by the initiator.
+%% REFERENCE:
+%% \begin{itemize}
+%% \item \cite{clark97survey, ISO-IEC-9798-3}
+%% \end{itemize}
+%% MODELER: 
+%% \begin{itemize}
+%% \item Haykal Tej, Siemens CT IC 3, 2003 and
+%% \item Luca Compagna et al, AI-Lab DIST University of Genova, November 2004
+%% \end{itemize}
+%% ALICE_BOB:
+%% \begin{verbatim}
+%% 1. B -> A : Nb, Text1
+%% 2. A -> B : PKa,A,{PKa,A}inv(PKs),Na,Nb,B,Text3,{Na,Nb,B,Text2}inv(PKa)
+%% 3. B -> A : PKb,B,{PKb,B}inv(PKs),Nb,Na,A,Text5,{Nb,Na,A,Text4}inv(PKb)
+%% \end{verbatim}
+%% PROBLEMS: 2
+%% CLASSIFICATION: G1, G2
+%% ATTACKS: None
+%% NOTES:
+%% \verb!inv(PKs)! is the private key of the server \verb!C!;
+%% \verb!{PKa,A}inv(PKs)! is the certificate of agent \verb!A!, and\\
+%% \verb!{PKb,B}inv(PKs)! is the certificate of agent \verb!B!.\\
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+%% HLPSL:
+role iso4_Init ( A,B: agent,
+                 Pkb,Pks: public_key, 
+                 Snd,Rec: channel(dy))
+played_by B
+def=
+
+  local  State         : nat,
+         Pka           : public_key,
+         Nb            : text,
+         Na,Text2,Text3: text
+
+  const ctext1,ctext4,ctext5: text
+
+  init State := 0 
+
+%%%  knowledge(B)={A,B,Pkb,inv(Pkb),Pks,ctext1,ctext4,ctext5,{Pkb.B}_inv(Pks)}
+
+  transition
+
+   1. State = 0
+      /\ Rec(start) 
+      =|> 
+      State' := 1
+      /\ Nb' := new() 
+      /\ Snd(Nb'.ctext1) 
+      /\ witness(B,A,nb,Nb')
+
+   2. State = 1
+      /\ Rec(Pka'.A.{Pka'.A}_inv(Pks).Na'.Nb.B.Text3'.
+             {Na'.Nb.B.Text2'}_inv(Pka'))
+      =|> 
+      State' := 2
+      /\ Snd(Pkb.B.{Pkb.B}_inv(Pks).Nb.Na'.A.ctext5.{Nb.Na'.A.ctext4}_inv(Pkb))
+%%%   /\ witness(B,A,nb,Nb)
+      /\ request(B,A,na,Na')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role iso4_Resp ( B,A: agent,
+                 Pka,Pks: public_key, 
+                 Snd,Rec: channel(dy))
+played_by A
+def=
+
+  local  State               : nat,
+         Pkb                 : public_key,
+         Na                  : text,
+         Nb,Text1,Text4,Text5: text
+
+  const ctext2,ctext3: text
+
+  init State := 0
+
+%%%  knowledge(A)={A,B,Pka,inv(Pka),Pks,ctext2,ctext3,{Pka.A}_inv(Pks)}
+
+  transition
+
+   1. State = 0
+      /\ Rec(Nb'.Text1') 
+      =|>
+      State' := 1
+      /\ Na' := new()
+      /\ Snd(Pka.A.{Pka.A}_inv(Pks).
+             Na'.Nb'.B.ctext3.{Na'.Nb'.B.ctext2}_inv(Pka))
+      /\ witness(A,B,na,Na')
+
+   2. State = 1
+      /\ Rec(Pkb'.B.{Pkb'.B}_inv(Pks).
+             Nb.Na.A.Text5'.{Nb.Na.A.Text4'}_inv(Pkb'))
+      =|> 
+      State' := 2
+      /\ request(A,B,nb,Nb)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role session (A,B:agent,
+	      Pka,Pkb,Pks: public_key) def=       
+
+  local SA,RA,SB,RB: channel (dy)
+
+  composition
+
+          iso4_Init(A,B,Pkb,Pks,SA,RA)
+       /\ iso4_Resp(B,A,Pka,Pks,SB,RB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role environment() def=
+
+ const na, nb             : protocol_id,
+       a, b, i            : agent,
+       pka, pkb, pks, pki : public_key
+
+ intruder_knowledge={a,b,pki,inv(pki),pks,
+                     ctext1,ctext4,ctext5,{pki.i}_inv(pks),  %%% 2nd session
+                     ctext2,ctext3,{pki.i}_inv(pks)}         %%% 3rd session
+
+ composition
+
+	session(a,b,pka,pkb,pks)
+     /\	session(a,i,pka,pki,pks)
+     /\	session(i,b,pki,pkb,pks)
+%%%     /\	session(b,a,pkb,pka,pks,sa4,ra4,sb4,rb4)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+goal
+
+   %ISO4_Resp authenticates ISO4_Init on nb
+   authentication_on nb % addressess G1 and G2
+
+   %ISO4_Init authenticates ISO4_Resp on na
+   authentication_on na % addressess G1 and G2
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+environment()

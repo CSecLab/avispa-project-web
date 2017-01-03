@@ -1,0 +1,219 @@
+%% PROTOCOL: 
+%%  Secure User Anonymity-Preserving RSA-Based User Authentication
+%%  and Session Key Agreement Protocol for the Telecare Medicine
+%%  Information Systems
+%%
+%% VARIANT: 
+%%
+%% PURPOSE: 
+%%
+%% REFERENCE:
+%%
+%% MODELER:
+%% \begin{itemize}
+%%   \item name
+%%         \emph{mail}
+%% \end{itemize}
+%%
+%% ALICE_BOB:
+%% \begin{verbatim}
+%%      ...
+%% \end{verbatim}
+%%
+%% LIMITATIONS: 
+%%
+%% PROBLEMS: 
+%%
+%% CLASSIFICATION: 
+%%
+%% ATTACKS: 
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%HLPSL:
+
+role alice (Ui, S: agent,
+           SKas: symmetric_key,
+           H : hash_func,
+           SND, RCV: channel(dy))
+played_by Ui 
+def=
+
+%% Local Variables
+  local State: nat,
+        IDi, PWi, BBi, PWBi, IDBi, TS1, TS2, TS3: text,
+        E, D, N1, N2, N3, P, Q, N: text,
+        Mul: hash_func, 
+        Ci, Bi, Di, Ri, Ai, Li, Ki, SK, SKV, DP: text
+
+%% Constant Variables
+  const alice_server_n1, alice_server_ts1, alice_server_ts3, 
+        server_alice_ts2, server_alice_n2, sec1, 
+        sec2, sec3, sec4, sec5: protocol_id
+
+  init State := 0
+
+%% State transitions
+  transition
+    %% User Registration
+    % Send the registration request  to server securely
+    1. State = 0 /\ RCV(start) =|>
+       State' := 1 /\ BBi' := new()
+                   /\ IDBi' := H(IDi.BBi')
+                   /\ SND({IDBi'}_SKas)
+                   /\ secret({IDi}, sec1, Ui)
+    %% Receive the smart card SCi(Ri, N, E) from Server S securely
+    2. State = 1 /\ RCV({H(H(IDi.BBi).D').Mul(P'.Q').E'}_SKas) =|>
+% Login and authentication phases
+       State' := 2 /\ secret({D', P', Q'}, sec2, {S})
+                   /\ PWBi' := H(PWi.BBi)
+                   /\ Ri' := H(H(IDi.BBi).D')
+                   /\ N1' := new()
+                   /\ TS1' := new()
+                   /\ Ci' := H(PWBi'.N1'.Ri.TS1')
+                   /\ Bi' := exp((H(IDi.BBi).PWBi'.N1'.TS1'), E')
+                   /\ Di' := xor(H(H(IDi.BBi).PWBi'), N1')
+% Send login request  to server S via a public channel
+                   /\ SND(Ci'.Bi'.Di')
+                   %% User Ui must generate N1 freshly for the server S
+                   /\ witness(Ui, S, alice_server_n1, N1')
+                   %% User Ui must generate current time stamp freshly
+                   %% for server S
+                   /\ witness(Ui, S, alice_server_ts1, TS1')
+
+% Recieve authentication message  from S via a public channel
+
+ 3. State = 2 /\ RCV(xor(N1', N2').H(H(H(IDi.BBi).D').N2'.TS2').TS2') =|>
+    State' := 3    /\ TS3' := new()
+                   /\ SK' :=  H(H(IDi.BBi).H(PWi.BBi).N1'.N2'.TS1'.TS2')
+                   /\ SKV' := H(SK'.H(IDi.BBi).TS3')
+% Send authentication reply  to S via a public channel
+                   /\ SND(SKV.TS3')
+                  %% User Ui must generate current time stamp TS3 
+                   %% for server S freshly
+                   /\ witness(Ui, S, alice_server_ts3, TS3')
+% Ui's acceptance of the the timestamp TS2 generated for Ui by server S
+                   /\ request(S, Ui, server_alice_ts2, TS2')
+% Ui's acceptance of the the random nonce N2 generated for Ui by server S
+                   /\ request(S, Ui, server_alice_n2, N2')
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role server (S, Ui: agent,
+             SKas: symmetric_key,
+             H : hash_func,
+             SND, RCV: channel(dy) )
+played_by S 
+def=
+
+  %% Local variables
+  local State: nat,
+        IDi, PWi, BBi, PWBi, IDBi, TS1, TS2, TS3, E, D, N1, N2, N3,
+        P, Q, N: text,
+        Mul: hash_func,
+        Ci, Bi, Di, Ri, Ai, Li, Ki, SK, SKV, DP: text
+
+  %% Constant variables
+  const alice_server_n1, alice_server_ts1, alice_server_ts3, 
+        server_alice_ts2, server_alice_n2, sec1, 
+        sec2, sec3, sec4, sec5: protocol_id
+        
+  init State := 0
+
+  %% State transitions
+  transition
+% Registration phase
+    %% Receive registration request  from user Ui securely
+    1. State = 0 /\ RCV(H(IDi.BBi)) =|>
+       State' := 1 /\ P' := new()
+                   /\ Q' := new()
+                   /\ E' := new()
+                   /\ N' := Mul (P', Q')
+                   /\ D' := inv(E')
+                   /\ Ri' := H(H(IDi.BBi).D')
+   % Send the smart card SCi to Ui securely
+                   /\ SND({Ri'.N'.E'}_SKas)
+                   /\ secret({IDi}, sec1, Ui)
+                   /\ secret({D', P', Q'}, sec2, {S})
+% Login and authentication phases
+% Receive login request (Ci, Bi, Di) from user Ui via a pulic channel
+    2. State = 1 /\ RCV(H(H(PWi.BBi).N1'.H(H(IDi.BBi).D').TS1').
+                        exp((H(IDi.BBi).H(PWi.BBi).N1'.TS1'), E).
+                        xor(H(H(IDi.BBi).H(PWi.BBi)), N1')) =|>
+       State' := 2 /\ N2' := new() 
+                  /\ TS2' := new()
+                  /\ N3' := xor(N1', N2')
+                  %% Generate authenticate request for server S by Ui
+                  /\ Ki' := H(H(H(IDi.BBi).D').N2'.TS2')
+% Send the authentication message  to Ui via a public channel 
+                  /\ SND(N3'.Ki'.TS2')
+                  %% User Ui must validate that the server S has generated
+                  %% current timestamp TS2 for user Ui freshly
+                  /\ witness(S, Ui, server_alice_ts2, TS2')
+                  %% User Ui must validate that the server S has generated
+                  %% new random number N2 for user Ui freshly
+                  /\ witness(S, Ui, server_alice_n2, N2')
+% Receive the authentication reply from Ui via a public channel
+3. State = 2 /\ RCV(H(H(H(IDi.BBi).H(PWi.BBi).N1'.N2'.TS1'.TS2').
+                    H(IDi.BBi).TS3').TS3) =|>
+% S's acceptance of the timestamp T1 generated for S by user Ui
+State' := 3     /\ request(Ui, S, alice_server_ts1, TS1')
+% S's acceptance of the random nonce N1 generated for S by user Ui
+                  /\ request(Ui, S, alice_server_n1, N1')
+% S's acceptance of the timestamp T3 generated for S by user Ui
+                  /\ request(Ui, S, alice_server_ts3, TS3)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session (Ui, S: agent,
+              SKas: symmetric_key,
+              H: hash_func)
+def=
+
+local SNDI, RCVI, SNDJ, RCVJ: channel(dy)
+
+composition
+   alice(Ui, S, SKas, H, SNDI, RCVI)
+/\ server (Ui, S, SKas, H, SNDI, RCVI)
+end role
+              
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+def=
+
+  const ui, s: agent,
+      skas: symmetric_key,
+      h, mul: hash_func,
+      idi, pwi, bbi, pwbi, idbi, ts1, ts2, ts3, e, d, n1, n2, n3,
+      p, q, n, ci, bi, di, ri, ai, li, ki, sk, skv, dp: text,
+      alice_server_n1, alice_server_ts1, alice_server_ts3, 
+      server_alice_ts2, server_alice_n2, sec1, 
+      sec2, sec3: protocol_id
+
+  intruder_knowledge = {ui, s, h, mul, idbi, e, n, bi, ci, di,  
+                        ki, skv, n3, ts2, ts3}
+  composition
+      session(ui, s, skas, h)
+   /\ session (i, s, skas, h)
+   /\ session (ui, i, skas, h)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+  secrecy_of sec1
+  secrecy_of sec2
+  secrecy_of sec3
+  
+  authentication_on alice_server_n1
+  authentication_on alice_server_ts1
+  authentication_on server_alice_ts2
+  authentication_on server_alice_n2
+  authentication_on alice_server_ts3
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

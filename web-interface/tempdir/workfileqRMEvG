@@ -1,0 +1,87 @@
+role alice (  A,B : agent,
+              Kab : symmetric_key,
+              H   : hash_func,
+        SND,  RCV : channel(dy) )
+played_by A
+def=
+   local  State   : nat,
+          R1,R2   : text,
+          K,C     : text,
+          S       : text,
+          G       : text,
+          M       : message,
+          Ya,Yb   : public_key,
+          MUL     : hash_func
+
+const alice_bob_na, bob_alice_nb : protocol_id
+
+init State := 0
+transition
+1. State   = 0 / RCV(start) =|>
+   State' := 2 / K'  := new()
+               / C'  := exp(MUL(exp(H(Ya.Yb),H(Yb.B)).H(B).Yb),K')
+               / R1' := MUL(M.H(C'))
+               / R2' := H(M.H(exp(G,K').C'))
+               / S'  := MUL(K'.inv(Ya).R2')
+               / SND({R1'.R2'.S'}_Kab)
+               / witness(A,B,bob_alice_nb,R2')
+end role
+
+role bob (    A,B : agent,
+              Kab : symmetric_key,
+               H  : hash_func,
+         SND, RCV : channel(dy))
+played_by B
+def=
+   local   State  : nat,
+        R1,R2,S   : text,
+            K,C   : text,
+              G   : text,
+              M   : message,
+          Ya,Yb   : public_key,
+          MUL     : hash_func
+
+init State := 1
+transition
+1. State   = 1 / RCV({R1'.R2'.S'}_Kab)  =|>
+   State' := 3 / K' := MUL(exp(G,S').exp(MUL(exp(H(Ya.Yb),H(Ya.A)).H(A).Ya),MUL(S'.R2')))
+               / C' := exp(K',inv(Yb))
+               / M' := MUL(H(C').R1')
+               / R2':=H(M'.H(K').C')
+               / witness(B,A,alice_bob_na,R2')
+               / request(B,A,bob_alice_nb,R2')
+end role
+
+role session(A,  B : agent,
+              Kab  : symmetric_key,
+              Hash : hash_func)
+def=
+   local SA , RA,
+         SB , RB  : channel (dy)
+
+composition
+      alice (A, B, Kab, Hash, SA, RA)
+   / bob   (A, B, Kab, Hash, SB, RB)
+end role
+
+role environment()
+def=
+   const a, b     : agent,
+    kab, kai, kib : symmetric_key,
+    h             : hash_func,
+    bob_alice_nb, k : protocol_id
+intruder_knowledge = {a, b, h, kai, kib}
+
+composition
+    session(a,b,kab,h)
+ / session(a,i,kai,h)
+ / session(i,b,kib,h)
+end role
+
+goal
+secrecy_of k
+authentication_on bob_alice_nb
+end goal
+
+environment()
+ 

@@ -1,0 +1,35 @@
+role npaa (      
+                      CAAA_PK,NPAA_PK ,PANA_Auth-Key:symmetric_key,
+                      Algorithm_ID,NPAA_ID,CPAA_ID,Sbit,Pbit,Key_ID:text,
+                      F1,F2,F4,F5,F6,F7,F8:function
+                      SND_NAAA,RCV_NAAA,RCV_CPAA,
+                      SND_MN,RCV_MN,SND_CPAA:channel(dy))
+ 
+local   State:nat,
+                      NEW_MN_ID,PAA_Nonce,MN_Nonce,
+                      Pseudo_Random:text,
+                      AAA_Key_Int,New_AAA_Key,New_PANA_Auth_Key:symmetric_key          
+init  State':=6
+
+transition
+
+1.State=6/\RCV_CPAA(New_MN_ID*'*.NPAA_ID)=|>
+   State':=7/\SND_NAAA(CPAA_ID)
+
+2.State=7/\RCV_NAAA(CAAA_PK)=|>
+   State':=10/\PAA_Nonce'=new()
+              /\Sbit'=F2(Sbit)
+              /\SND_MN(Sbit'.PAA_Nonce')
+
+
+3.State=10/\RCV_MN({Sbit*'*.MN_Nonce}_PANA_Auth_Key)=|>
+   State':=12/\SND_CPAA(NPAA_ID.NPAA_PK}_NAAA_SK)   % plus the last PAR message
+
+4.State=12/\RCV_CPAA({AAA_Key_Int'}_NPAA_PK)=|>
+   State':=15/\New_AAA_Key'=F4(PAA_Nonce,MN_Nonce)
+                  /\ PseudoRandom'=F5(Algorithm_ID)
+                  /\New_PANA_Auth-Key'=F6(PseudoRandom')
+                  /\Pbit'=F7(Pbit)
+                   /\New_Key-ID'=F8(New_PANA_Auth_Key')
+                  /\SND_MN({Pbit.New_Key_ID,Algorithm_ID}_New_PANA_Auth_Key)
+                  end role

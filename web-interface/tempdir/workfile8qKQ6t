@@ -1,0 +1,167 @@
+%% PROTOCOL: UMTS-AKA
+%% PURPOSE: 
+%% Authentication and Key Agreement
+%% REFERENCE:
+%% url{http://www.3gpp.org/ftp/tsg_sa/WG3_Security/_Specs/33902-310.pdf}
+%% MODELER:
+%% egin{itemize}
+%%  item Haykal Tej, Siemens CT IC 3, 2003
+%%  item Sebastian M{"o}dersheim, ETH Z{"u}rich, December 2003
+%% end{itemize}
+%%
+%% ALICE_BOB:
+%% S is the server, M is the mobile set, they share a secret key k(M).
+%% 
+%% Both S and M have an own version of a sequence number,
+%% that they try to maintain synchonized.
+%% 
+%% Using k(M), a random number (nonce) r, his sequence number seq,
+%% when S receives a request from M (or whenever he wishes
+%% this part is not modelled here), S generates:
+%% egin{verbatim}
+%%   res = F2(k(M); r)   where F2 hash
+%%   CK =  F3(k(M); r)   where F3 one-way
+%%   IK =  F4(k(M); r)   where F4 one-way
+%%   Ka =  F5(k(M); r)   where F5 one-way
+%%   AUTN = {seq}Ka; F1(k(M); seq; r)  where F1 hash
+%%
+%% M -> S : M
+%% S -> M : r; {seq}_Ka; F1(k(M); seq; r)
+%%
+%%      from r M calculates KA, then seq, then checks if F1(k(M); seq; r) OK
+%%      if yes, M increments his seq number and responds:
+%%
+%% M -> S : F2(k(M); r)
+%% end{verbatim}
+%% The goal is that at the end both authenticate each other and share
+%% the value of erb|CK| and erb|IK|.
+%%
+%%% LIMITATIONS:
+%%
+%% PROBLEMS: 3
+%%
+%% CLASSIFICATON: G2 G12 
+%%
+%% ATTACKS: None
+%%
+%%% NOTES:
+%%
+%%HLPSL:
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role client(C,S,G,R : agent,
+	    SCG, RCG: channel(dy),
+            H1: hash_func)
+played_by C
+def=
+
+  local State     : nat,
+        Nc,Ns     : text,
+        Eap_pay   : text,
+        Kid       : text,
+        MAC       : message,
+        MSK       : text
+
+   init  State := 0 
+
+  transition
+
+    1.  State   = 0 / RCG(start) =|> 
+        State' := 2 / SCG(0) 
+	 	    
+    2.  State   = 2 / RCG(Ns', Eap_pay') =|> 
+        State' := 4 / Nc':=new() 
+		    / SCG(Nc', Eap_pay')
+    3.  State   = 4 / RCG(MAC', Kid') =|>
+                    / MSK':= new()
+                    / MAC':= H1(MSK'.Nc'.Ns'.Kid)
+                    / secret(MSK', s_mac, {C,S})
+        State  :=6  / SCG(MAC',Kid')
+        
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role server(C,S,G,R : agent,
+	    SRS, RRS: channel(dy),
+            H1: hash_func)
+played_by S
+def=
+
+  local State     : nat,
+        Nc,Ns     : text,
+        Eap_pay   : text,
+        Kid       : text,
+        MAC       : message,
+        MSK       : text
+
+   init  State := 1 
+
+  transition
+
+    1.  State   = 1 / RRS(0) =|> 
+        State' := 3 / Ns' := new()
+                    / SRS(Ns', Eap_pay') 
+	 	    
+    2.  State   = 3 / RRS(Nc', Eap_pay') =|> 
+        State' := 5 / MSK':=new()
+                    / Kid':=new() 
+                    / MAC':= H1(MSK'.Nc'.Ns'.Kid')
+                    / SRS(MAC', Kid')
+                    / secret(MSK', s_mac, {C,S})
+    3.  State   = 5 / RRS(MAC', Kid') =|>
+                     
+                   
+        State'  :=7 
+        
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(C,S,G,R: agent,
+             H1: hash_func) 
+def=
+   local SCG,RCG, SGR, RGR, SRS, RRS: channel(dy)
+   composition
+
+	 client(C,S,G,R,H1,SCG,RCG)
+      / gateway(C,S,G,R,SCG,RCG,SGR,RGR)
+      / relay  (C,S,G,R,SGR,RGR,SRS,RRS)
+      / server (C,S,G,R,H1,SRS,RRS)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+ 
+ const s_msk                  : protocol_id,
+       c,s,g,r                : agent,
+       h1                     : hash_func,
+       nc,ns                  : text
+
+ intruder_knowledge={c,s,g,r,h1,nc,ns}
+
+ composition
+ 
+	session(c,s,g,r,h1,nc,ns) 
+  /	session(i,s,g,r,h1,nc,ns) 
+  /	session(c,i,g,r,h1,nc,ns)
+  /	session(c,s,i,r,h1,nc,ns)
+  /	session(c,s,g,i,h1,nc,ns)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  % Confidentiality
+  secrecy_of s_msk
+
+  
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()    

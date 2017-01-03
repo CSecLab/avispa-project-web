@@ -1,0 +1,142 @@
+role alice(Ui,Sj,Rc: agent,
+            SKuisj: symmetric_key,
+             SK1: symmetric_key,
+             H,Mul,Add,Sub: hash_func,
+                   Snd,Rcv:channel(dy))
+played_by Ui
+def=
+local State:nat,
+RPWi,PWi,R,Fi,Bi,IDi,Ai,Ci,Fi,Nc,G,KRU,SIDj,Li,Hi,X,KRS,Nr,Ns,Hi,Xi:text,
+Pi,DID,Di,Xi,Gi,Wi,SK,Zi,Ti,Li,Yi,Wi,Ki:message,
+Inc:hash_func
+const alice_bob_nc,alice_regcentre_nc,bob_alice_ns,regcentre_alice_nr,regcentre_bob_nr,
+subs1,subs2,subs3,subs4:protocol_id
+init State:=0
+transition
+1.State=0/\Rcv(start)=|>
+State':=1/\RPWi':=H(PWi.R)
+         /\Fi':=H(Bi)
+%Send registration request message
+/\Snd({IDi.RPWi'.Fi'}_SKuisj)
+/\secret({PWi,R,Bi},subs1,Ui)
+/\secret({IDi},subs2,{Ui,Sj,Rc})
+2.State=1/\Rcv({Fi'.Ai'.Ci'}_SKuisj)=|>
+State':=2/\Nc':=new()
+/\Ti':=Mul(Nc'.G)
+/\Pi':=Add(Ti',Mul(KRU'.RPWi'))
+/\DID':=H(IDi.Ti')
+/\Di':=H(SIDj.RPWi'.Ti'.KRU')
+/\Snd(Pi'.DID'.Di'.SIDj')
+/\witness(Ui,Rc,alice_regcentre,Ti')
+3.State=2/\Rcv(Xi',Gi',Wi',SIDj')=|>
+State':=3/\SK':=Mul(IDi.SIDj'.Li'.Ti'.Hi')
+/\Zi':=H(IDi.SK')
+/\Snd(Zi')
+/\request(Sj,Ui,bob_alice,Hi')
+/\requset(Rc,Ui,regcentre_alice,Li')
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role regcentre(Ui,Sj,Rc: agent,
+            SKuisj: symmetric_key,
+             SK1: symmetric_key,
+             H,Mul,Add,Sub: hash_func,
+             Snd,Rcv:channel(dy))
+played_by Rc
+def=
+local State:nat,
+RPWi,PWi,R,Fi,Bi,IDi,Ai,Ci,Fi,Nc,G,KRU,SIDj,Li,Hi,X,KRS,Nr,Ns,Hi,Xi:text,
+Pi,DID,Di,Xi,Gi,Wi,SK,Zi,Ti,Li,Yi,Wi,Ki:message,
+Inc:hash_func
+const alice_bob_nc,alice_regcentre_nc,bob_alice_ns,regcentre_alice_nr,regcentre_bob_nr,
+subs1,subs2,subs3,subs4:protocol_id
+init State:=0
+transition
+1. State=0/\Rcv(SIDj')=|>
+State':=1/\secret({X},Subs3,Rc)
+/\KRS':=H(SIDj'.X)
+/\Snd({KRS'}_SK1)
+2.State=1/\Rcv({IDi.RPWi'.Fi'}_SKuisj)=|>
+State'=2/\secret({IDi},subs2,{Ui,Sj,Rc})
+/\secret({PWi,R,Bi},subs1,Ui)
+/\KRU'=Mul(H(IDi.X).G)
+/\Ai'=Add(KRU',Mul(H(IDi.RPWi').G))
+/\Ci'=h(KRU'.IDi.RPWi')
+/\Snd({Fi',Ai',Ci'}_SKuisj)
+3.State=2/\Rcv(Pi'.DID'.Di'.SIDj')
+State'=3/\Nr'=new()
+/\Li'=Mul(Nr'.G)
+/\Yi'=Add(Mul(KRS'.G),Ti')
+/\Wi'=Add(Mul(IDi.G),Li')
+/\Ki'=H(Li'.Yi'.KRS'.IDi)
+/\Snd(SIDj'.Ki'.Yi'.Wi')
+/\request(Ui,Rc,alice_regcentre,Ti')
+/\witness(Rc,Sj,regcentre_bob,Li')
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role bob(Ui,Sj,Rc: agent,
+            SKuisj: symmetric_key,
+             SK1: symmetric_key,
+             H,Mul,Add,Sub: hash_func,
+             Snd,Rcv:channel(dy))
+played_by Sj
+def=
+local State:nat,
+RPWi,PWi,R,Fi,Bi,IDi,Ai,Ci,Fi,Nc,G,KRU,SIDj,Li,Hi,X,KRS,Nr,Ns,Hi,Xi:text,
+Pi,DID,Di,Xi,Gi,Wi,SK,Zi,Ti,Li,Yi,Wi,Ki:message,
+Inc:hash_func
+const alice_bob_nc,alice_regcentre_nc,bob_alice_ns,regcentre_alice_nr,regcentre_bob_nr,
+subs1,subs2,subs3,subs4:protocol_id
+init State:=0
+transition
+1.State=0/\Rcv(start)=|>
+State'=1/\SIDj'=new()
+/\Snd(SIDj')
+2.State=1/\Rcv({KRS'}_SK1.SIDj'.Ki'.Yi'.Wi')=|>
+State'=2/\Ns'=new()
+/\Hi'=Mul(Ns'.G)
+/\Xi'=Add(Hi',Ti')
+/\Zi'=H(Li'.IDi.SIDj'.Hi')
+/\Snd(Xi'.Zi'.Wi'.SIDj')
+/\request(Ui,Sj,alice_bob,Ti')
+/\witness(Sj,Ui,bob_alice,Hi')
+3.State=2/\Rcv(Zi')=|>
+State'=3/\request(Ui,Sj,alice_bob,Ti')
+/\request(Rc,Sj,regcentre_bob,Li')
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(Ui,Sj,Rc: agent,
+            SKuisj: symmetric_key,
+             SK1: symmetric_key,
+             H,Mul,Add,Sub: hash_func)
+def=local SI,SJ,RI,RJ,TI,TJ:channel(dy)
+composition
+alice(Ui,Sj,Rc,SKuisj,SK1,H,Mul,Add,Sub,SI,RI)
+/\bob(Ui,Sj,Rc,SKuisj,SK1,H,Mul,Add,Sub,SJ,RJ)
+/\regcentre(Ui,Sj,Rc,SKuisj,SK1,H,Mul,Add,Sub,TI,TJ)
+end role
+role environment()
+def=
+const ui,sj,rc:agent,
+skuisj:symmetric_key,
+sk1:symmetric_key,
+h,add,mul,sub:hash_function,
+rpwi,pwi,r,fi,bi,idi,ai,ci,fi,nc,g,kru,sidj,li,hi,x,krs,nr,ns,hi,xi:text,
+alice_bob_nc,alice_regcentre_nc,bob_alice_ns,regcentre_alice_nr,regcentre_bob_nr,
+subs1,subs2,subs3,subs4:protocol_id
+intruder_knowledge={ui,sj,rc,h,add,sub,mul,ai,ci,fi}
+composition
+session(ui,sj,skuisj,sk1,h,add,mul,sub)
+/\session(ui,sjskuisj,sk1,h,add,mul,sub)
+/\session(sj,ui,skuisj,sk1,h,add,mul,sub)
+/\session(ui,sj,skuisj,sk1,h,add,mul,sub)
+end role
+goal
+secrecy_of subs1
+secrecy_of subs2
+secrecy_of subs3
+secrecy_of subs4
+authentication_on alice_regcentre_nc
+authentication_on regcentre_bob_nr
+authentication_on bob_alce_ns
+end goal
+environment()

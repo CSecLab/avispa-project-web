@@ -1,0 +1,112 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfile24iUeW
+
+section signature:
+
+state_tag: agent * agent * text * hash_func * hash_func * nat * text * text * nat -> fact
+state_system: agent * agent * text * hash_func * hash_func * nat * text * text * nat -> fact
+
+
+section types:
+
+server_tag_rsys, tag_server_rtag: protocol_id
+start, MGoal: message
+5, 3, State, 10, 6, 4, 2, SID, 1, 0, Dummy_State, SID2, SID1: nat
+H, G, h, g: hash_func
+S, T, A2Goal, A1Goal, s, i, t: agent
+ksi, kit, Rsys, Rtag, Ktag, Dummy_Rtag, Dummy_Ksys, Dummy_Rsys, dummy_nonce, Ksys, kst: text
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(s).
+ iknows(t).
+ iknows(h).
+ iknows(g).
+ iknows(ksi).
+ iknows(kit).
+ iknows(i).
+ state_system(s,t,kst,h,g,0,dummy_nonce,dummy_nonce,3).
+ state_tag(t,s,kst,h,g,1,dummy_nonce,dummy_nonce,4).
+ state_system(s,i,ksi,h,g,0,dummy_nonce,dummy_nonce,6).
+ state_tag(t,i,kit,h,g,1,dummy_nonce,dummy_nonce,10)
+
+
+section rules:
+
+step step_0 (S,T,Ksys,H,G,Dummy_Rsys,Rtag,SID,Rsys) :=
+ state_system(S,T,Ksys,H,G,0,Dummy_Rsys,Rtag,SID).
+ iknows(start)
+=[exists Rsys]=>
+ state_system(S,T,Ksys,H,G,2,Rsys,Rtag,SID).
+ iknows(Rsys)
+
+step step_1 (S,T,Dummy_Ksys,H,G,Rsys,Dummy_Rtag,SID,Rtag) :=
+ state_system(S,T,Dummy_Ksys,H,G,2,Rsys,Dummy_Rtag,SID).
+ iknows(pair(Rtag,apply(H,pair(Dummy_Ksys,pair(Rsys,Rtag)))))
+ =>
+ state_system(S,T,apply(G,Dummy_Ksys),H,G,4,Rsys,Rtag,SID).
+ iknows(apply(H,pair(apply(G,Dummy_Ksys),pair(Rsys,Rtag)))).
+ witness(S,T,tag_server_rtag,Rtag).
+ request(S,T,server_tag_rsys,Rsys,SID)
+
+step step_2 (T,S,Ktag,H,G,Dummy_Rsys,Dummy_Rtag,SID,Rsys,Rtag) :=
+ state_tag(T,S,Ktag,H,G,1,Dummy_Rsys,Dummy_Rtag,SID).
+ iknows(Rsys)
+=[exists Rtag]=>
+ state_tag(T,S,Ktag,H,G,3,Rsys,Rtag,SID).
+ iknows(pair(Rtag,apply(H,pair(Ktag,pair(Rsys,Rtag))))).
+ witness(T,S,server_tag_rsys,Rsys)
+
+step step_3 (T,S,Ktag,H,G,Rsys,Rtag,SID) :=
+ state_tag(T,S,Ktag,H,G,3,Rsys,Rtag,SID).
+ iknows(apply(H,pair(apply(G,Ktag),pair(Rsys,Rtag))))
+ =>
+ state_tag(T,S,Ktag,H,G,5,Rsys,Rtag,SID).
+ request(T,S,tag_server_rtag,Rtag,SID)
+
+
+section properties:
+
+property authentication_on_tag_server_rtag (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,tag_server_rtag,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,tag_server_rtag,MGoal))
+     /\ ((request(A1Goal,A2Goal,tag_server_rtag,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,tag_server_rtag,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_server_tag_rsys (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,server_tag_rsys,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,server_tag_rsys,MGoal))
+     /\ ((request(A1Goal,A2Goal,server_tag_rsys,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,server_tag_rsys,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state authentication_on_tag_server_rtag (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,tag_server_rtag,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,tag_server_rtag,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_tag_server_rtag (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,tag_server_rtag,MGoal,SID1).
+ request(A1Goal,A2Goal,tag_server_rtag,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_server_tag_rsys (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,server_tag_rsys,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,server_tag_rsys,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_server_tag_rsys (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,server_tag_rsys,MGoal,SID1).
+ request(A1Goal,A2Goal,server_tag_rsys,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

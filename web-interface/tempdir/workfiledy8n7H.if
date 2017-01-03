@@ -1,0 +1,94 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfiledy8n7H
+
+section signature:
+
+state_client: agent * agent * agent * agent * agent * agent * public_key * public_key * nat * text * text * text * text * text * text * nat -> fact
+
+
+section types:
+
+Set_78, ASGoal: set(agent)
+sk, userpass: protocol_id
+MGoal, start: message
+Username, CN, Action, Response, Dummy_CN, Password, Dummy_Password, Data, Dummy_Username, Usercomponent, Cert_ede, Cert_kms, Edekey, dummy_nonce, EdData: text
+14, 8, State, Dummy_State, 3, SID, SID2, SID1, 11, 9, 7, 5, 16, 6, 15, 4, 2, 1, 0, 10: nat
+SK: symmetric_key
+PUcsa, PUede, pucsa, puede, ki: public_key
+PEP, PDP, C, CAS, EDE, AUTHZ, A2Goal, A1Goal, c, cas, ede, autz, pep, pdp, AUTZ, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(c).
+ iknows(cas).
+ iknows(ede).
+ iknows(autz).
+ iknows(pep).
+ iknows(pdp).
+ iknows(pucsa).
+ iknows(puede).
+ iknows(ki).
+ iknows(inv(ki)).
+ iknows(i).
+ state_client(c,cas,ede,autz,pep,pdp,pucsa,puede,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,3)
+
+
+section rules:
+
+step step_0 (C,CAS,EDE,AUTZ,PEP,PDP,PUcsa,PUede,Dummy_Username,Dummy_Password,CN,Action,Response,Data,SID,Username,Password) :=
+ state_client(C,CAS,EDE,AUTZ,PEP,PDP,PUcsa,PUede,0,Dummy_Username,Dummy_Password,CN,Action,Response,Data,SID).
+ iknows(start)
+=[exists Password,Username]=>
+ state_client(C,CAS,EDE,AUTZ,PEP,PDP,PUcsa,PUede,2,Username,Password,CN,Action,Response,Data,SID).
+ iknows(crypt(PUcsa,pair(Username,Password))).
+ witness(C,CAS,userpass,pair(Username,Password))
+
+step step_1 (C,CAS,EDE,AUTZ,PEP,PDP,PUcsa,PUede,Username,Password,Dummy_CN,Action,Response,Data,SID,CN) :=
+ state_client(C,CAS,EDE,AUTZ,PEP,PDP,PUcsa,PUede,2,Username,Password,Dummy_CN,Action,Response,Data,SID).
+ iknows(Response)
+=[exists CN]=>
+ state_client(C,CAS,EDE,AUTZ,PEP,PDP,PUcsa,PUede,4,Username,Password,CN,Action,Response,Data,SID).
+ iknows(crypt(PUcsa,pair(Username,pair(CN,Action))))
+
+step step_2 (C,CAS,EDE,AUTZ,PEP,PDP,PUcsa,PUede,Username,Password,CN,Action,Response,Data,SID) :=
+ state_client(C,CAS,EDE,AUTZ,PEP,PDP,PUcsa,PUede,4,Username,Password,CN,Action,Response,Data,SID).
+ iknows(Response)
+ =>
+ state_client(C,CAS,EDE,AUTZ,PEP,PDP,PUcsa,PUede,6,Username,Password,CN,Action,Response,Data,SID)
+
+
+section properties:
+
+property secrecy_of_sk (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sk,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_userpass (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,userpass,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,userpass,MGoal))
+     /\ ((request(A1Goal,A2Goal,userpass,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,userpass,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_sk (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sk,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_userpass (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,userpass,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,userpass,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_userpass (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,userpass,MGoal,SID1).
+ request(A1Goal,A2Goal,userpass,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

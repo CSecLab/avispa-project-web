@@ -1,0 +1,78 @@
+role alice(
+A,B:agent,
+SK1:symmetric_key,
+H:hash_func,
+SND,RCV:channel(dy))
+played_by A def=
+local
+State:nat,
+Ka,Kb,Na,Nb:text,
+Ki,Kj,M1,M2,SK:message
+const bob_alice_nb: protocol_id
+init
+ State:=0
+transition 
+1.State= 0 /\RCV(start)=|>
+State':=1 /\Na':=new()
+              /\Ka':=H(Ki)
+              /\SND({Ka'.Na'}_SK1)
+2.State=1 /\RCV({Nb'.Kb'}_SK1)=|>
+   State':=2
+                        /\SK':=H(Na'.Nb'.Ka'.Kb')
+                        /\SND({M1}_SK)
+3. State=2 /\RCV({M2}_SK)=|>
+ State':=3/\witness(A,B,bob_alice_nb,M2)
+end role
+role bob(
+A,B:agent,
+SK1:symmetric_Key,
+H:hash_func,
+SND,RCV:channel(dy))
+played_by B def=
+local
+State:nat,
+Ka,Kb,Na,Nb:text,
+Ki,Kj,M1,M2,SK:message
+const bob_alice_nb: protocol_id
+init 
+State:=1
+transition
+1.State=1 /\RCV({Ka'.Na'}_Sk1)=|>
+    State':=2 /\Nb':=new()
+                  /\Kb':=H(Kj)
+                  /\SND({Kb'.Nb'}_SK1)
+                   
+2.State=2  /\RCV({M1}_SK)=|>
+  State':=3 /\SND({M2}_SK) 
+                /\secret(M1,M2,{A,B})    
+                /\request(B,A,bob_alice_nb,M1)
+end role
+role session(
+A,B:agent,
+SK1:symmetric_Key,
+H:hash_func)
+def=
+local SA,RA,SB,RB:channel(dy)
+composition 
+alice(A,B,SK1,H,SA,RA)
+ /\bob (A,B,SK1,H,SB,RB)
+end role
+role environment() def=
+     const
+     bob_alice_nb,Ki,Kj: protocol_id,
+     kab,kai,kib : symmetric_key,
+     a,b : agent,
+     h : hash_func
+     
+ intruder_knowledge = {a,b,h,kai,kib}
+   composition
+   session(a,b,kab,h)
+           /\ session(a,i,kai,h)
+           /\ session(i,b,kib,h)
+ end role 
+ goal
+ secrecy_of M1,M2
+ authentication_on bob_alice_nb
+end goal
+environment()
+

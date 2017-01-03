@@ -1,0 +1,206 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Avispa-users] OFMC: exponentiation support question
+   </TITLE>
+   <LINK REL="Index" HREF="index.html" >
+   <LINK REL="made" HREF="mailto:avispa-users%40avispa-project.org?Subject=%5BAvispa-users%5D%20OFMC%3A%20exponentiation%20support%20question&In-Reply-To=">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000106.html">
+   
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Avispa-users] OFMC: exponentiation support question</H1>
+    <B>Ilham Kurnia</B> 
+    <A HREF="mailto:avispa-users%40avispa-project.org?Subject=%5BAvispa-users%5D%20OFMC%3A%20exponentiation%20support%20question&In-Reply-To="
+       TITLE="[Avispa-users] OFMC: exponentiation support question">iwk20 at ui.edu
+       </A><BR>
+    <I>Mon May  1 15:14:28 CEST 2006</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000106.html">[Avispa-users] about TLS
+</A></li>
+        
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#107">[ date ]</a>
+              <a href="thread.html#107">[ thread ]</a>
+              <a href="subject.html#107">[ subject ]</a>
+              <a href="author.html#107">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi all,
+
+I have been trying to verify the authentication protocol B proposed by
+European Telecommunications Standard Institute and used in
+authentication part of Horn-Preneel UTMSPayment protocol. 
+
+The protocol uses exponentiation as shown in Alice-Bob model below:
+
+U -&gt; V: exp(g,u)
+V -&gt; U: r; h2(K; r; V); Timestamp; certV     where K = h1(exp(g,u),v)
+U -&gt; V: {Sig_U(h3(exp(g,u); exp(g,v); r; V; Timestamp; Alpha_T); certU; 
+         Alpha_T}_K
+
+h1, h2, and h3 are hash functions; u and r are nonces, while v is the
+private key of V and exp(g,v) is V's public key. 
+
+When I tested my complete model using OFMC as backend with sessco option
+on, the following message appeared. 
+
+  ofmc: OFMC can't see how the protocol can be executed.
+  See manual for more information.
+
+I have reduced the HLPSL file (attached) to a model of which this
+behaviour is still observable. 
+
+Have I used the exponentiation function incorrectly such that OFMC
+rejects my specification?
+
+Thank you very much for your trouble.
+
+Regards,
+
+Ilham Kurnia
+------
+Undergraduate Student
+Faculty of Computer Science
+University of Indonesia
+-------------- next part --------------
+role user(U, V : agent,
+          H1, H2, H3 : function,
+          F : function,
+          G : text,               % Generator g
+          Kv : message,           % public key of V, from exp(g,v)
+          Ku : public_key,        % dummy for signature
+          Kca : public_key,       % Certificate authority public key
+          Kpriv_v : text,
+          Cert_u : {message}_inv(public_key),
+          Snd, Rcv : channel(dy))
+played_by U def= 
+          
+local State: nat, 
+      Random_u : text,   % randomly generated number
+      Timestamp : text,
+      Random_r : text, 
+      Cert_v : {message}_inv(public_key),
+      Random_u_exp : message,
+      Session_key : text,
+      Hash2 : message
+      
+init State := 0
+transition
+
+0.     State   = 0 /\ Rcv(start)
+   =|&gt; State' := 2 /\ 
+       Random_u' := new() /\ 
+       Random_u_exp' := exp(G,Random_u') /\ 
+       Snd(Random_u_exp')
+       
+2.     State   = 2 /\ 
+       Rcv(Random_r'.H2(H1(exp(Kv,Random_u).Random_r').Random_r'.V).Timestamp'.{V.Kv}_inv(Kca))  
+
+   =|&gt; State' := 4 
+       /\ Session_key' := H1(exp(Kv,Random_u).Random_r')
+       /\ secret(Session_key',session_key,{U,V})
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role vasp(U, V : agent,
+          H1, H2, H3 : function,
+          Ku : public_key,
+          Kca : public_key,       % certificate authority public key
+          Kpriv_v : text,
+          Cert_v : {message}_inv(public_key),
+          Snd, Rcv : channel(dy))
+played_by V def=
+
+local State: nat,
+      Random_u_exp : message, 
+      Random_r : text, 
+      Timestamp : text, 
+      Session_key : message
+      
+const session_key : protocol_id
+      
+init State := 1
+transition
+
+1.     State   = 1 /\ Rcv(Random_u_exp')
+   =|&gt; State' := 3 /\ 
+       Timestamp' := new() /\ 
+       Random_r' := new() /\
+       Session_key' := H1(exp(Random_u_exp',Kpriv_v).Random_r') /\
+       Snd(Random_r'.H2(Session_key'.Random_r'.V).Timestamp'.Cert_v) 
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(U, V : agent, 
+             H1, H2, H3, F : function,
+             G, T : text,
+             Kpriv_v : text,       % V's private key
+             Ku, Kca : public_key, 
+             Cert_u, Cert_v : {message}_inv(public_key))
+def= 
+            
+  local Su, Ru, Sv, Rv : channel(dy)
+
+  composition
+      user(U, V, H1, H2, H3, F, G, exp(G,Kpriv_v), Ku, Kca, Kpriv_v, Cert_u, Su, Ru) 
+   /\ vasp(U, V, H1, H2, H3, Ku, Kca, Kpriv_v, Cert_v, Sv, Rv)
+   
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+  const u, v, a, i : agent,
+        h1, h2, h3, f, exp : function,
+        g, t, kv, ki : text,
+        ku, ka, kca, kpi : public_key
+        
+  intruder_knowledge = {u,v,a,i,h1,h2,h3,f,g,t,exp(g,kv),{v.exp(g,kv)}_inv(kca),{u.ku}_inv(kca),kca,ku,ki,exp(g,ki),kpi,ka}
+
+  composition 
+        session(u,v,h1,h2,h3,f,g,t,kv,ku,kca,{u.ku}_inv(kca),{v.exp(g,kv)}_inv(kca))
+    
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+  
+  secrecy_of session_key
+  
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000106.html">[Avispa-users] about TLS
+</A></li>
+	
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#107">[ date ]</a>
+              <a href="thread.html#107">[ thread ]</a>
+              <a href="subject.html#107">[ subject ]</a>
+              <a href="author.html#107">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="http://www.avispa-project.org/mailman/listinfo/avispa-users">More information about the Avispa-users
+mailing list</a><br>
+</body></html>

@@ -1,0 +1,300 @@
+%% PROTOCOL: UMTS-AKA
+%% PURPOSE: 
+%% Authentication and Key Agreement
+%% REFERENCE:
+%% \url{http://www.3gpp.org/ftp/tsg_sa/WG3_Security/_Specs/33902-310.pdf}
+%% MODELER:
+%% \begin{itemize}
+%%  \item Haykal Tej, Siemens CT IC 3, 2003
+%%  \item Sebastian M{\"o}dersheim, ETH Z{\"u}rich, December 2003
+%% \end{itemize}
+%%
+%% ALICE_BOB:
+%% S is the server, M is the mobile set, they share a secret key k(M).
+%% 
+%% Both S and M have an own version of a sequence number,
+%% that they try to maintain synchonized.
+%% 
+%% Using k(M), a random number (nonce) r, his sequence number seq,
+%% when S receives a request from M (or whenever he wishes
+%% this part is not modelled here), S generates:
+%% \begin{verbatim}
+%%   res = F2(k(M); r)   where F2 hash
+%%   CK =  F3(k(M); r)   where F3 one-way
+%%   IK =  F4(k(M); r)   where F4 one-way
+%%   Ka =  F5(k(M); r)   where F5 one-way
+%%   AUTN = {seq}Ka; F1(k(M); seq; r)  where F1 hash
+%%
+%% M -> S : M
+%% S -> M : r; {seq}_Ka; F1(k(M); seq; r)
+%%
+%%      from r M calculates KA, then seq, then checks if F1(k(M); seq; r) OK
+%%      if yes, M increments his seq number and responds:
+%%
+%% M -> S : F2(k(M); r)
+%% \end{verbatim}
+%% The goal is that at the end both authenticate each other and share
+%% the value of \verb|CK| and \verb|IK|.
+%%
+%%
+%% PROBLEMS: 3
+%%
+%% CLASSIFICATON: G2 G12 
+%%
+%% ATTACKS: None
+%%
+%%
+%%HLPSL:
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role server(S,M : agent,
+	    Snd, Rec: channel(dy),
+            K_M: symmetric_key,
+            Seq : text,
+            F1,F2,F5,F_add,F_asme,F_kenb,F_guti: hash_func,
+	    Km,Ks: public_key)
+played_by S
+def=
+
+  local State 				: nat,
+	Kasme,Kenb1,Kenb2		: symmetric_key,
+	Guti1,Guti2, Cert1, Cert2     	: text,
+	R, R1, R2, R3			: text
+
+  const r1,r2,r10,r20,sseq1,k_asme_s,guti_1_s,kenb_1_s,cert_1_s,cert_2_s : protocol_id
+
+  init  State := 0 
+
+  transition
+
+    1.  State = 0 /\ Rec(S.M) =|> 
+        State':=2 /\ R' := new()
+                  /\ Snd(M.R'.{Seq}_F5(K_M.R').F1(K_M.Seq.R')) 
+	 	  /\ secret(Seq,sseq1,{S,M})
+		  /\ witness(S,M,r1,R')
+
+    2.  State = 2 /\ Rec(S.F2(K_M.R))  =|> 
+        State':=4 /\ Seq' := F_add(Seq.1) 
+		  /\ Kasme' := F_asme(K_M.R)
+		  /\ Guti1' := F_guti(M,K_M,Seq)
+		  /\ wrequest(S,M,r2,R)
+		  /\ secret(Kasme',k_asme_s,{S,M})
+		  /\ secret(Guti1',guti_1_s,{M,S})
+		  /\ Snd(M.{F_guti}_Kasme')
+
+
+    3. State = 4  /\ Rec(S.M.{R1'}_Kasme) =|>
+       State':=6  /\ Kenb1' := F_kenb(Kasme,Guti1)	
+		  /\ secret(Kenb1',kenb_1_s,{M,S})
+		  /\ Snd(M.{F_kenb}_Kasme)
+		  /\ wrequest(S,M,r20,R1')
+
+    4. State = 6  /\ Rec(S.M.{R2'}_Kasme) =|>
+       State':=8  /\ Cert1' := {Guti1.Kenb1}_inv(Ks)
+		  /\ Snd(M.{Cert1'}_Kasme)
+		  /\ secret(Cert1',cert_1_s,{M,S})
+
+    5. State = 8  /\ Rec(S.M.{R3'}_Kasme) =|>
+       State':=10 /\ Seq' := F_add(Seq.1) 
+		  /\ Guti2' := F_guti(Guti1,K_M,Seq)
+  		  /\ Kenb2' := F_kenb(Kenb1,Guti2')	
+		  /\ Cert2' := {Guti2'.Kenb2'}_inv(Ks)
+		  /\ Snd(M.{Cert2'}_Kasme)
+		  /\ secret(Cert2',cert_2_s,{M,S})
+
+
+       
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role mobile(M,S,C:agent,
+            SndS, RecS, SndC, RecC	: channel(dy),
+            K_M				: symmetric_key,
+            Seq				: text,
+            F1,F2,F5,F_add,F_asme	: hash_func,
+	    Km,Ks,Kc			: public_key)
+played_by M
+def=
+
+  local State :nat, 
+	Kasme,Kenb_1,Kenb_2		: symmetric_key,
+	F_kenb,F_guti			: hash_func,
+	Guti1, Guti2, Cert1, Cert2	: text,
+	R, R1, R2, R3, R4, R5		: text
+
+  const
+        r1,r2,r10,r20,sseq2, k_asme_m,guti_1_m,kenb_1_m	: protocol_id,
+        kenb_1_mc,guti_1_mc,cert_1_m			: protocol_id,
+        kenb_2_mc,guti_2_mc,cert_2_m			: protocol_id
+
+  init  State := 1
+
+  transition
+
+    1.  State = 1 /\ RecS(start) =|> 
+        State':=3 /\ SndS(S.M)  
+
+    2.  State = 3 /\ RecS(M.R'.{Seq}_F5(K_M.R').F1(K_M.Seq.R')) =|>  
+        State':=5 /\ Kasme' := F_asme(K_M.R')
+		  /\ secret(Seq,sseq2,{M,S})
+		  /\ secret(Kasme',k_asme_m,{M,S})
+		  /\ SndS(S.F2(K_M.R')) 
+		  /\ wrequest(M,S,r1,R') 
+		  /\ witness(M,S,r2,R')
+
+
+    3.  State = 5 /\ RecS(M.{F_guti'}_Kasme) =|>
+	State':=7 /\ Seq' := F_add(Seq.1)
+		  /\ R1' := new()
+		  /\ SndS(S.M.{R1'}_Kasme)
+		  /\ wrequest(M,S,r10,R1') 
+		  /\ witness(M,S,r20,R1')
+
+    4.  State = 7 /\ RecS(M.{F_kenb'}_Kasme) =|>
+	State':=9 /\ Guti1' := F_guti(M,K_M,Seq)
+		  /\ secret(Guti1',guti_1_m,{M,S})
+		  /\ R2' := new()
+		  /\ SndS(S.M.{R2'}_Kasme)
+
+
+     5. State = 9  /\ RecS(M.{Cert1'}_Kasme) =|>
+	State':=11 /\ Kenb_1' := F_kenb(Kasme,Guti1)	
+		   /\ secret(Kenb_1',kenb_1_m,{M,S})
+		   /\ secret(Cert1',cert_1_m,{S,M})
+		   /\ R3' := new()
+		   /\ SndS(S.M.{R3'}_Kasme)
+		   /\ SndC(C.{Seq.Guti1.Kenb_1'.Cert1'}_Kc)
+		   /\ secret(Guti1,guti_1_mc,{M,C})
+		   /\ secret(Kenb_1',kenb_1_mc,{M,C})
+
+     6. State = 11 /\ RecS(M.{Cert2'}_Kasme) =|>
+	State':=13 /\ Seq' := F_add(Seq.1)
+		   /\ Guti2' := F_guti(Guti1,K_M,Seq)
+		   /\ Kenb_2' := F_kenb(Kenb_1,Guti2')	
+		   /\ secret(Cert2',cert_2_m,{S,M})
+
+     7. State = 13 /\ RecC(M.{R4'}_Kenb_1) =|>
+	State':=15 /\ SndC(C.{Seq.Guti2.Kenb_2.Cert2}_Kc)
+
+     8. State = 15 /\ RecC(M.{R5'}_Kenb_1) =|>
+	State':=17 /\ secret(Guti2,guti_2_mc,{M,C})
+		   /\ secret(Kenb_2,kenb_2_mc,{M,C})
+		  
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role cap(C,M,S:agent,
+            Snd, Rec: channel(dy),
+	    Kc,Ks: public_key)
+played_by C
+def=
+
+  local State :nat, 
+	Kenb1,Kenb2		: symmetric_key,
+	R4, Guti1, Seq1, Cert1  : text,
+	R5, Guti2, Seq2, Cert2  : text
+
+  const
+        seq_1_c, guti_1_c, kenb_1_c : protocol_id,
+        seq_2_c, guti_2_c, kenb_2_c : protocol_id
+
+  init  State := 20
+
+  transition
+
+    1.  State = 20 /\ Rec(C.{Seq1'.Guti1'.Kenb1'.Cert1'}_Kc) /\ Cert1' = {Seq1'.Guti1'.Kenb1'}_inv(Ks)
+	 =|> 
+        State':=21 /\ secret(Seq1',seq_1_c,{C,M})
+		   /\ secret(Guti1',guti_1_c,{C,M})
+		   /\ secret(Kenb1',kenb_1_c,{C,M})
+		   /\ R4' := new()
+		   /\ Snd(M.{R4'}_Kenb1')
+
+    2.  State = 21 /\ Rec(C.{Seq2'.Guti2'.Kenb2'.Cert2'}_Kc) /\ Cert2' = {Seq2'.Guti2'.Kenb2'}_inv(Ks)
+	 =|> 
+        State':=22 /\ secret(Seq2',seq_1_c,{C,M})
+		   /\ secret(Guti2',guti_1_c,{C,M})
+		   /\ secret(Kenb2',kenb_1_c,{C,M})
+		   /\ R5' := new()
+		   /\ Snd(M.{R5'}_Kenb2')
+
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(M,S,C: agent,
+	     K_M: symmetric_key,
+	     Seq: text,
+             F1,F2,F5,F_add,F_asme,F_kenb,F_guti: hash_func,
+             SMs,RMs,SMc,RMc,SS,RS,SC,RC: channel(dy),
+	     Km,Ks,Kc: public_key) def=
+
+   composition
+
+	 mobile(M,S,C,SMs,RMs,SMc,RMc,K_M,Seq,F1,F2,F5,F_add,F_asme,Km,Ks,Kc)
+      /\ server(S,M,SS,RS,K_M,Seq,F1,F2,F5,F_add,F_asme,F_kenb,F_guti,Km,Ks)
+	/\ cap(C,M,S,SC,RC,Kc,Ks)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+ local Sms,Rms,Smc,Rmc,Smi,Rmi,Sis,Ris,Sic,Ric,Ss,Rs,Si,Ri,Sc,Rc : channel (dy)
+
+ const 	r1, r2, r10, r20       		: protocol_id,
+       	m, i, s, c               	: agent,
+       	k_as, k_is, k_ai        	: symmetric_key,
+       	f1, f2, f5, f_add             	: hash_func,
+       	f_asme, f_kenb,f_guti           : hash_func,
+	ks, kap1, kap2, ki, km, kc	: public_key,	
+       	seq_as, seq_is, seq_ai 		: text
+
+ intruder_knowledge={m,s,i,f1,f2,f5,f_add,f_asme,f_kenb,f_guti,ki, inv(ki)}
+
+ composition
+ 
+	session(m,s,c,k_as,seq_as,f1,f2,f5,f_add,f_asme,f_kenb,f_guti,Sms,Rms,Smc,Rmc,Ss,Rs,Sc,Rc,km,ks,kc) 
+   /\	session(i,s,c,k_is,seq_is,f1,f2,f5,f_add,f_asme,f_kenb,f_guti,Sis,Ris,Sic,Ric,Ss,Rs,Sc,Rc,ki,ks,kc) 
+   /\	session(m,i,c,k_ai,seq_ai,f1,f2,f5,f_add,f_asme,f_kenb,f_guti,Smi,Rmi,Smc,Rmc,Si,Ri,Sc,Rc,km,ki,kc)
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  % Confidentiality (G12)
+  secrecy_of sseq1,sseq2
+  secrecy_of k_asme_m, k_asme_s
+  secrecy_of guti_1_m, guti_1_s
+  secrecy_of kenb_1_m, kenb_1_s
+  secrecy_of guti_1_mc, guti_1_c
+  secrecy_of kenb_1_mc, kenb_1_c
+  secrecy_of cert_1_m, cert_1_s
+  secrecy_of seq_1_c, seq_2_c
+  secrecy_of cert_2_m, cert_2_s
+  secrecy_of guti_2_mc, kenb_2_mc
+
+  % Message Authentication (G2)
+  % Mobile weakly authenticates Server on r1  % the nonce R
+  weak_authentication_on r1
+
+  % Message Authentication (G2)
+  % Server weakly authenticates Mobile on r2  % the nonce R
+  weak_authentication_on r2
+
+  weak_authentication_on r10
+  weak_authentication_on r20
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

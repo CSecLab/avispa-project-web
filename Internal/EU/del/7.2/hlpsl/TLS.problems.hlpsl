@@ -1,0 +1,107 @@
+role Alice(A, B : agent,  
+	   H, PRF, KeyGen: function,
+	   Ka, Ks: public_key,  %% Ks is the public key of a T3P (ie. CA)
+	   SND, RCV: channel (dy)) played_by A def=
+
+   exists Na, Sid, Pa, PMS: text (fresh),
+	  Nb: text,
+	  State: nat,
+	  Finished, ClientK, ServerK: message,
+	  Kb: public_key,
+	  Na_Nb, M: message
+
+   init State = 0
+   knowledge(A) = { inv(Ka), {A.Ka}inv(Ks) }
+
+   transition
+
+   1.  State = 0 /\ RCV(start) =|>
+	State' = 2 /\ SND(A.Na'.Sid'.Pa')
+
+   %% Since we have no means of modelling the negotiation
+   %% of cryptographic algorithms, here I simply assume
+   %% that the server must send back Pa.  (Essentially 
+   %% modelling that the client makes only one offer.)
+
+   %% Fully explicit, macro-free transition.
+   2.  State = 2 /\ RCV(Nb'.Sid.Pa.{B.Kb'}inv(Ks)) =|>
+	State' = 3 /\
+	M' = PRF(PMS'.Na.Nb') /\
+	Finished' = H(PRF(PMS'.Na.Nb').A.B.Na.Pa.Sid) /\
+	ClientK' = KeyGen(A.Na.Nb'.PRF(PMS'.Na.Nb')) /\
+	ServerK' = KeyGen(B.Na.Nb'.PRF(PMS'.Na.Nb')) /\
+	SND({PMS'}Kb'.{A.Ka}inv(Ks).{H(Nb'.B.PMS')}inv(Ka).
+            {H(PRF(PMS'.Na.Nb').A.B.Na.Pa.Sid)}KeyGen(A.Na.Nb'.PRF(PMS'.Na.Nb')))
+	/\ Na_Nb' = Na.Nb'
+	/\ witness(A,B,na_nb,Na.Nb')
+
+   4.  State = 3 /\ RCV({Finished}ServerK) =|> State' = 5
+	/\ request(A,B,na_nb,Na_Nb)
+	/\ secret(ClientK,B) /\ secret(ClientK,A)
+	/\ secret(ServerK,B) /\ secret(ServerK,A)
+
+end role
+
+
+role Bob(A, B : agent,
+    	 H, PRF, KeyGen: function,
+	 Kb, Ks: public_key,
+	 SND, RCV: channel (dy)) played_by B def=
+
+   exists Nb: text (fresh),
+	  Na, Sid, Pa, PMS: text,
+	  State: nat,
+	  % Finished, ClientK, ServerK: message,
+          Ka: public_key,
+	  M,Na_Nb: message
+
+   init State = 1
+   knowledge(B) = { inv(Kb),{B.Kb}inv(Ks) }
+
+   transition
+
+   1.  State = 1 /\ RCV(A.Na'.Sid'.Pa') =|>
+	State' = 3 /\ 
+	SND(Nb'.Sid'.Pa'.{B.Kb}inv(Ks))
+	/\ Na_Nb' = Na'.Nb'
+	/\ witness(B,A,na_nb,Na'.Nb')
+
+   2.  State = 3 /\
+       RCV({PMS'}Kb.{A.Ka'}inv(Ks).
+           {H(Nb.B.PMS')}inv(Ka').
+           {H(PRF(PMS'.Na.Nb).A.B.Na.Pa.Sid)}KeyGen(A.Na.Nb.PRF(PMS'.Na.Nb))) =|>
+        State' = 5 
+	/\ SND({H(PRF(PMS'.Na.Nb).A.B.Na.Pa.Sid)}KeyGen(B.Na.Nb.PRF(PMS'.Na.Nb)))
+	/\ request(B,A,na_nb,Na_Nb)
+
+end role
+
+role Session(A,B: agent,
+	     Ka, Kb, Ks: public_key,
+	     H, PRF, KeyGen: function,
+	     SA, SB, RA, RB: channel (dy)) def=
+   composition
+		Alice(A,B,H,PRF,KeyGen,Ka,Ks,SA,RA)
+	   /\	Bob(A,B,H,PRF,KeyGen,Kb,Ks,SB,RB)
+
+end role
+
+role Environment() def=
+
+   const na_nb: protocol_id
+   knowledge(i) = { a, b, ka, kb, ks, ki, inv(ki) }
+   composition
+	Session(a,b,ka,kb,ks,h,prf,keygen,s1,s2,r1,r2)
+    /\	Session(a,i,ka,ki,ks,h,prf,keygen,s3,s4,r3,r4)
+    /\	Session(i,b,ki,kb,ks,h,prf,keygen,s5,s6,r5,r6)
+
+end role
+
+goal
+	secrecy_of ClientK
+	secrecy_of ServerK
+	Alice authenticates Bob on Na_Nb
+	Bob authenticates Alice on Na_Nb
+end goal
+
+Environment()

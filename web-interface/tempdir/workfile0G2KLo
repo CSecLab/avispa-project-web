@@ -1,0 +1,101 @@
+role alice (A,B     : agent,
+            P0,P1,P2,
+            P3,P4   : public_key,  % public key 
+            SND,RCV : channel(dy) )
+played_by A
+def=
+   local  State   : nat,
+          Ni, N   : text,
+          S0,S1   : text,
+          K       : text,
+          T       : text,
+          Z1,Z2,Zi: text,
+          Z       : text,
+          W       : text,
+          Dlist   : text,
+          Clist   : text,
+          Cw      : text,
+          Ki      : text,
+          F       : hash_func
+
+const alice_bob_na, bob_alice_nb : protocol_id
+
+init State := 0
+transition
+1. State   = 0 /\ RCV(start) =|>
+   State' := 2 /\ W'  := new()            %Will
+               /\ K'  := new()            %Will secret key
+               /\ Dlist':= new()          %new list
+               /\ S0' := {W'}_inv(P0)     %signed 
+               /\ S1' := {Dlist'}_inv(P0) %signed
+               /\ Clist' := {S1'}_P1      %encrypted list 
+               /\ Z1' := {K'}_P4          %encryped key for court 
+               /\ Z2' := {K'}_P0          %encryped key for testator
+               /\ Ki' := F(K'.Ni.N.P0)    %secret sharing function
+               /\ Zi' := {Ki'}_P3         %encrypted secret key
+               /\ Z'  := Z1'.Z2'.Zi'      % a set of key
+               /\ Cw' := {W'.S0'}_K'      %encryped signed Will
+               /\ SND(Cw'.Clist'.Z')      %send to Bank
+              %/\ secret(K',bob_alice_nb,{A,B})    
+              %/\ SND(Clist')             %send to conservator
+               /\ witness(A,B,bob_alice_nb,Cw')
+end role 
+
+role bob (A,B     : agent,
+          P0,P1,P2, 
+          P3,P4   : public_key,  % public key  
+          SND,RCV : channel(dy) )
+played_by B  
+% as bank
+def=
+   local  State   : nat,
+          S0,S1   : text,
+          Dlist   : text,
+          Clist   : text,
+          Z1,Z2,Zi: text,
+          Z       : text,
+          Cw      : text,
+          MUL     : hash_func
+
+init State := 1
+transition
+1. State   = 1 /\ RCV(Cw'.Clist'.Z') =|>
+   State' := 3 /\ request(B,A,bob_alice_nb,Cw)
+end role
+
+role session (A,  B : agent,
+              P0,P1,P2,
+              P3,P4 : public_key,  % public key 
+              H     : hash_func )
+def=  
+   local  SA, SB,RA, RB: channel (dy)
+composition
+       alice(A,B,P0,P1,P2,P3,P4, SA, RA)
+       /\bob(A,B,P0,P1,P2,P3,P4, SB, RB)
+end role
+
+role environment()
+def=
+   const a, b ,i       : agent,
+         p0, p1,p2,
+         p3,p4, ki     : public_key,
+         h             : hash_func,
+         cw, clist     : text,
+         bob_alice_na, 
+         alice_bob_nb,
+         na, nb        : protocol_id
+intruder_knowledge = {a,b,i,p0,p1,p2,p3,p4,h,cw, clist}
+
+composition
+    session(a,b,p0,p1,p2,p3,p4)
+ /\ session(a,i,p0,p1,p2,p3,p4)
+end role
+
+goal
+secrecy_of na, nb
+authentication_on alice_bob_nb
+authentication_on bob_alice_na
+end goal
+
+environment()
+

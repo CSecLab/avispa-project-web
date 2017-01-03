@@ -1,0 +1,201 @@
+role ca (R1, R2, RC :agent,
+         Kr, Kca, Krb                    : public_key,
+         H : hash_func,
+ SND, RCV                        : channel (dy)) 
+
+
+
+
+played_by RC def=
+
+local
+
+    Sernb        : text,          
+    Version      : text,          
+    SeID         : text,          
+    Nc           : text,          
+    Ns           : text,          
+    Sialg        : text,        
+    VALp         : text,          
+    Issn         : text,           
+    EXt          : text,
+
+Sig              : hash(text.text.text.text.text.text.text)
+
+const
+    request_id   : text,
+    respond_id   : text,
+    np, ns       : protocol_id
+
+init State := 1
+
+ transition
+
+ 
+ 
+   State' := 2
+
+     Sernb  := new()        
+              
+    SeID    := new()          
+    Nc      := new()          
+    Ns      := new()          
+    Sialg   := new()        
+    VALp    := new()          
+    Issn    := new()           
+    EXt     := new()
+
+   State = 2
+ 
+  / Sig := H(Sernb.Version.SeID.Sialg.VALp.Issn.Ext)
+
+
+   SND(Sig.Sernb.Version.SeID.Sialg.VALp.Issn.Ext)
+
+   State' := 5
+
+   RCV(request_id)
+
+  State = 5
+
+       Sernb  := new()        
+   / Version := new()            
+   / SeID    := new()          
+   / Nc      := new()          
+   / Ns      := new()          
+   / Sialg   := new()        
+   / VALp    := new()          
+   / Issn    := new()           
+   / EXt     := new()
+
+
+   Sig := H(Sernb.Version.SeID.Sialg.VALp.Issn.Ext)
+
+   SND(Sig.Sernb.Version.SeID.Sialg.VALp.Issn.Ext)
+
+end role
+
+
+
+
+role Router1 (R1, R2, RC :agent
+             K1,K2,Kc   :public_key
+             H:hash_func
+SND, RCV                        : channel (dy)) 
+
+played_by R1 def=
+
+
+local
+    Na  :text
+    Tmp :nat
+
+    
+    sign         :hash(text.text.text.text.text.text.text)
+
+const
+    request_id   : text,
+    respond_id   : text,
+    np, ns       : protocol_id
+
+init State := 0
+
+transition
+
+ State   = 0
+  SND(request_id )
+
+ State' := 3
+
+/ RCV(Sig.Sernb.Version.SeID.Sialg.VALp.Issn.Ext)
+
+/ sign := H(Sernb'.Version'.SeID'.Sialg'.VALp'.Issn'.Ext')
+
+/sig = sign
+
+
+  end role
+
+
+
+role Router2 (R1, R2, RC :agent
+             K1,K2,Kc   :public_key
+             H:hash_func
+SND, RCV                        : channel (dy)) 
+
+played_by R2 def=
+
+
+local
+    Na  :text
+    Tmp :nat
+
+    
+    sign         :hash(text.text.text.text.text.text.text)
+
+const
+    request_id   : text,
+    respond_id   : text,
+    np, ns       : protocol_id
+init State := 4
+
+transition
+
+ State   = 4
+  SND(request_id )
+
+ State' := 6
+
+ RCV(Sig.Sernb.Version.SeID.Sialg.VALp.Issn.Ext)
+
+State = 6
+
+ /sign := H(Sernb'.Version'.SeID'.Sialg'.VALp'.Issn'.Ext')
+
+ /sig = sign
+
+end role
+
+role session(
+R1, R2, RC :agent
+K1,K2,Kc   :public_key
+H:hash_func
+def=
+local SR1,SR2,SRC,RR1,RR2,RRC :channel(dy)
+
+composition
+         CA(RC,R1,R2,Kc,H,SRC,RRC)
+ / Router1(R1,R2,RC,K1,H,SR1,RR1)
+ / Router2(R2,R1,RC,K2,H,SR2,RR2)
+
+end role
+
+role environment() def=
+const RC,R1,R2      :agent,
+      Kc,K1,K2,Ki      :public_key,
+      H             :hash_func
+intruder_knowledge = {RC,R1,R2,Kc,K1,K2,H}
+
+composition
+        session(RC,R1,R2,Kc,K1,K2,H)       
+     / session(i,Rc,R1,Ki,K1,Kc,H)
+     / session(i,Rc,R2,Ki,K2,H)
+
+end role
+
+environment()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    

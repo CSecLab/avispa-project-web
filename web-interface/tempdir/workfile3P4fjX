@@ -1,0 +1,70 @@
+role reader ( R,T: agent, ID: text, 
+              CR,CID : message, 
+			  Fg,Phi : hash_func,
+	          KG1: public_key, 
+              Snd,Rec: channel(dy))
+    played_by R
+    def=
+      local  State  : nat,
+             Nr, X, RNew : text,
+             DID,DNew,E : message         
+      init State := 0 
+      transition
+       1. State = 0
+          /\ Rec(start)  =|>  State' := 1 /\ Nr' := new() 
+          /\ Snd(Nr') /\ witness(R,T,aut_reader,Nr')
+       2. State = 1
+          /\ Rec({DID}_E'.Fg(Nr.X'.DID)) =|> State' := 2 /\ RNew':=new() 
+		  /\ CR':={RNew'}_KG1 /\ DNew':= xor(CR',CID) 
+		  /\ Snd(xor(DNew',E').Fg(Nr.DNew'.X')) /\ secret({DNew'},sec_did2, {R,T})        
+          /\ request(R,T,aut_tag,X') /\ DID':= DNew'
+end role
+
+role tag ( T,R: agent, DID: message,
+	       Fg,Phi : hash_func,
+	       Snd,Rec: channel(dy))
+    played_by T
+    def=
+      local  State  : nat,
+             Nr, X, RNew : text,
+             E, DNew: message         
+    init State := 0       
+    transition
+     1. State = 0 /\ Rec(Nr') =|> State' := 1
+        /\ X' := new()  /\ E':=Phi(X')
+        /\ Snd({DID}_E'.Fg(Nr'.X'.DID))
+        /\ witness(T,R,aut_tag,X') /\ secret({DID},sec_did1, {T,R})        
+     2. State = 1 /\ Rec(xor(DNew',E).Fg(Nr.DNew'.X'))
+          =|> State' := 2       
+        /\ request(T,R,aut_reader,Nr) /\ DID' := DNew'
+end role
+
+role session(R,T: agent, ID,Rinit: text, DID: message,
+             Fg, Phi : hash_func, KG1,KG2: public_key) 
+def=
+local Se,Re,Sf,Rf : channel(dy)
+const aut_reader, aut_tag, sec_did1, sec_did2 : protocol_id
+composition
+tag(T,R,DID,Fg,Phi,Se,Re)
+/\ reader(R,T,ID,{Rinit}_KG1,{ID}_KG2,Fg,Phi,KG1, Sf,Rf)    
+end role
+
+role environment() def=
+const t,r,i : agent, id,rinit: text,  did: message,  
+     g,phi : hash_func,
+      kG1,kG2: public_key
+ 
+ intruder_knowledge = {t,r,i,g,kG1,kG2,phi}
+composition
+session(r,t,id,rinit,did,g,phi,kG1,kG2)
+/\ session(r,t,id,rinit,did,g,phi,kG1,kG2)
+
+
+    goal
+     secrecy_of sec_did1
+	 secrecy_of sec_did2
+	 authentication_on aut_reader
+     authentication_on aut_tag
+    end goal
+
+    environment()

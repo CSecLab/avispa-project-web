@@ -1,0 +1,118 @@
+
+
+%UAC -> SS: register (the info is called Nu)
+%SS -> UAC: ok (the content is called Ns)
+% the message in the format: From, To, Content(which is Nu, Ns)
+%
+
+%After TLS established, 
+%using the symmetric key scheme for a security protocol
+
+
+
+%HLPSL:
+
+    role uac (UAC, SS: agent,             
+              Kus: symmetric_key,      
+              UAC_SS, SS_UAC: channel (dy)) 
+    
+    played_by UAC def=
+
+      local State : nat, 
+            Nu, Ns: text
+
+      init State := 0
+
+      transition  
+       
+        0.  State  = 0 /\ SS_UAC(start) =|> 
+            State':= 2 /\ Nu' := new() /\ UAC_SS(UAC.SS.Nu')
+                       /\ secret(Nu',nu,{UAC,SS}) 
+                       /\ witness(UAC,SS,ss_uac_nu,Nu')
+		
+		%UAC sent Nu' to SS. UAC is a witness
+		%SS will ask a request for this.
+
+        2.  State  = 2 /\ SS_UAC(SS.UAC.Nu.Ns') =|> 
+            State':= 4 /\ UAC_SS(UAC.SS.Ns') 
+                       /\ request(UAC,SS,uac_ss_ns,Ns')
+
+    end role
+
+
+
+    role ss(UAC, SS: agent,      
+             Kus: symmetric_key,      
+             UAC_SS, SS_UAC: channel (dy)) 
+    
+    played_by SS def=
+
+      local State : nat, 
+            Nu, Ns: text
+
+      init State := 1
+
+      transition 
+
+        1.  State  = 1 /\ UAC_SS(UAC.SS.Nu') =|> 
+            State':= 3 /\ Ns' := new() /\ SS_UAC(SS.UAC.Nu'.Ns')
+                       /\ secret(Ns',ns,{UAC,SS}) 
+                       /\ witness(SS,UAC,uac_ss_ns,Ns')
+
+        3.  State  = 3 /\ UAC_SS(UAC.SS.Ns) =|> 
+            State':= 5 /\ request(SS,UAC,ss_uac_nu,Nu)
+
+    end role
+
+
+
+    role session(A, B: agent, Kus: symmetric_key) def=
+
+      local SA, RA, SB, RB: channel (dy)
+
+      composition 
+
+            uac(A,B,Kus,SA,RA)
+         /\ ss  (A,B,Kus,SB,RB)
+
+    end role
+
+
+
+    role environment() def=
+
+        const uac, ss    : agent,
+              kus, kiu, kis : symmetric_key,
+              nu, ns,
+              uac_ss_ns, ss_uac_nu : protocol_id
+
+        intruder_knowledge = {uac, ss, kui, kis}
+
+        composition
+
+            session(uac,ss,kus)
+	   /\ session(ss,uac,kus)
+	   /\ session(uac,i,kui)
+           /\ session(i,ss,kis)	
+	  
+         
+
+    end role
+
+
+
+    goal
+
+      secrecy_of nu, ns
+      
+	%remove the authentication
+      %authentication_on uac_ss_ns
+      %authentication_on ss_uac_nu
+
+    end goal
+
+
+
+    environment()
+
+

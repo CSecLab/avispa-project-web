@@ -1,0 +1,116 @@
+%Role of the Client
+role alice (Ci, S: agent,
+	   PWi: symmetric_key,
+	   H1, H2, H3, H4, H5: hash_func,
+	    Cs: text,
+	    SND, RCV: channel(dy))
+
+played_by Ci def=
+local State, G, Ex, Yi, Exsi, PKi, PKsi, Ki, Alpha, K, SK : nat
+
+const ex, pwi, ci_s_pwi : protocol_id
+
+init State :=0
+
+transition
+
+1.	State   = 0 /\ RCV(start) =|>
+	State' := 2 /\ Ex' := new()
+		    /\ Yi' := {Ex'}_PWi
+		    /\ SND(Yi')
+		    /\ secret(Ex, ex, {Ci,S})
+		    /\ secret(PWi, pwi, {Ci,S})
+		    /\ witness(S, Ci, ci_s_pwi, {PWi})
+
+2. State   = 2 /\ RCV({Exsi}_PWi) =|>
+   State' := 4 /\ PKi' := H1(Yi.Exsi.Ex)
+	       /\ PKsi':= H2(PKi' . Cs)
+
+3. State   = 4 /\ RCV(Ki,Alpha) =|>
+   State' := 6 /\ SK' := H4(Yi.Ki.K)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Role of the Server
+role bob (Ci, S: agent,
+	 PWi : symmetric_key,
+	 H1, H2, H3, H4, H5: hash_func,
+	 Cs: text,
+	 SND, RCV: channel(dy))
+
+played_by S def=
+local State, G, Ex, Exsi, Yi, PKi, PKsi, K, Ki, Alpha : nat
+
+const exsi, pwi1, s_ci_pwi1, k, pksi, s_ci_pksi : protocol_id
+
+init State := 1
+
+transition
+1. State   = 1 /\ RCV(start) =|>
+   State' := 3 /\ Exsi' :=new()
+	       /\ SND({Exsi'}_PWi)
+	       /\ secret(Exsi, exsi, {Ci,S})
+	       /\ secret(PWi, pwi1, {Ci,S})
+	       /\ witness(Ci, S, s_ci_pwi1, {PWi})
+
+2. State   = 3 /\ RCV(Yi) =|>
+   State' := 5 /\ PKi' := H1(Yi.Exsi.Ex)
+	       /\ PKsi':= H2(PKi'.Cs)
+	       /\ K' := new()
+	       /\ Ki' := {K'.H5(K')}_PKsi'
+	       /\ Alpha' := H3(PKsi'.S.Cs)
+	       /\ SND(Ki',Alpha')
+	       /\ secret(K, k, {Ci,S})
+	       /\ secret(PKsi, pksi, {Ci,S})
+	     /\ witness(Ci, S, s_ci_pksi, {PKsi})
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session (Ci, S: agent,
+	      PWi: symmetric_key,
+	      H1, H2, H3, H4, H5: hash_func,
+	      Cs: text)
+
+def=
+local SA, SB, RA, RB : channel (dy)
+
+composition
+alice(Ci,S,PWi,H1,H2,H3,H4,H5,Cs,SA,RA)
+/\ bob(Ci,S,PWi,H1,H2,H3,H4,H5,Cs,SB,RB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+local H1,H2,H3,H4,H5: hash_func
+
+const
+
+cii,ss,i : agent,
+pwii : symmetric_key,
+css : text,
+ex,pwi,ci_s_pwi,exsi,pwi1,k,s_ci_pwi1,pksi,s_ci_pksi : protocol_id
+
+intruder_knowledge={cii,ss,css,i}
+composition
+session(cii,ss,pwii,H1,H2,H3,H4,H5,css)
+ /\session(i,ss.pwii,H1,H2,H3,H4,H5,css)
+ /\session(cii,pwii,H1,H2,H3,H4,H5,css)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+
+secrecy_of ex,pwi,exsi,pwi1,pksi
+weak_authentication_on ci_s_pwi,s_ci_pwi1,s_ci_pksi
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

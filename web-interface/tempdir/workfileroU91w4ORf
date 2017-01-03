@@ -1,0 +1,113 @@
+%client
+role alice (		 A, B		:	agent,
+			 Snd_AB, Rcv_AB		:	channel(dy),
+			 KAS				:	symmetric_key) played_by A def=
+
+
+
+
+local		State		:nat,
+			Nonce		:text
+			
+init State := 0
+transition
+
+1.	State=		0 /\ Rcv_AB(start)=|>
+	State':=	2 /\ Snd_AB(A)
+				  
+			  
+2.	State=		2 /\ Rcv_AB(Nonce)=|>
+	State':=	4 /\ Snd_AB({Nonce}_KAS)
+				 
+
+
+end role
+
+%================================================================================
+%BOB
+role bob(	A, B, S				:	agent,
+			KBS					:symmetric_key,
+				Snd_BS,Rcv_BS		:	channel(dy),
+				Snd_BA,Rcv_BA		:	channel(dy)) played_by B def=
+
+local			State		:	nat,
+				Nonce		:	text
+			
+init State:=1
+transition
+
+1.	State=		1 /\ Rcv_BA(A)=|>
+	State':=	3 /\ Nonce':=new() /\ Snd_BA(Nonce')
+
+2.	State=		3 /\ Rcv_BA({Nonce}_KAS)=|>
+	State':=	5 /\ Snd_BS({A.{Nonce}_KAS}_KBS)
+	
+3.	State=		5 /\ Rcv_SB({Nonce'}_KBS)=|>
+	State':=	9 /\ witness(B,A,bob_alice,Nonce)
+				  
+	
+end role
+
+%================================================================================
+%server
+role server(	B, S		:	agent,
+				KAS, KBS	:	symmetric_key,
+				Snd_SB,Rcv_SB	:	channel(dy)) played_by S def=
+				
+local			State		:	nat,
+				Nonce		:	text
+			
+init State:=6
+transition
+
+1.	State=		6 /\ Rcv_SB({A.{Nonce}_KAS}_KBS)=|>
+	State':=	8 /\ Snd_SB({Nonce'}_KBS)
+
+end role				
+%================================================================================
+%session
+role session(	A,B,S	:	agent,
+				KAS, KBS:	symmetric_key)
+def=
+
+local
+		SAB,RAB,
+		SBA,RBA,
+		SBS,RBS,
+		SSB,RSB	:	channel(dy)
+				
+composition
+				alice(A,B,SAB,RAB,KAS)
+			/\	bob(A,B,S,KBS,SBS,RBS,SBA,RBA)
+			/\	server(B,S,KAS,KBS,SSB,RSB)
+			
+end role
+%================================================================================
+%environment
+role environment()
+def=
+
+const	
+							
+		bob_alice	:	protocol_id,
+		a,b,s		:	agent,
+		kas			:	symmetric_key,
+		kbs			:	symmetric_key,
+		kis			:	symmetric_key
+							
+
+intruder_knowledge = {a,b,s,kis}
+
+composition
+				session(a,b,s,kas,kbs)
+			/\	session(i,b,s,kis,kbs)
+			/\	session(a,i,s,kas,kis)
+							
+end role
+%================================================================================
+goal
+				authentication on bob_alice
+			
+end goal
+%================================================================================
+environment()

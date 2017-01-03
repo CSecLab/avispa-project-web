@@ -1,0 +1,82 @@
+role sensorNode (A, B : agent,
+Kab : symmetric_key,
+Dib : public_key,
+Dia : public_key,
+UIDB : text,
+Send, Receive: channel(dy))
+
+played_by A
+def=
+local State : nat,
+SK, Msgsend, TK, Sib, Message : text,
+TS : nat
+const a_b, b_a: protocol_id
+
+init  
+State := 0
+transition 
+1. State   = 0 /\ Receive({TS'.TK.UIDB}_inv(Dib)) =|>		
+State' := 1 /\ Sib' := new() /\ Send({Sib}_inv(Dia)) /\ SK' := Kab.TS'	
+2. State = 1 /\ Receive({Message}_SK') =|>
+Msgsend' := new() /\ Send({Msgsend}_SK') /\ State' := 2
+
+end role
+
+role user (A, B : agent,
+UIDB : text,
+Dib : public_key, 
+Dia : public_key,
+Kab : symmetric_key,
+Send, Receive: channel(dy))
+
+played_by B
+def= 
+local State, TS  : nat,
+Hash : hash_func,
+R, SK, Message, TK, Sib : text
+const a_b,b_a : protocol_id
+init  State := 0
+transition 
+1. State   = 0 /\ Receive(start) =|>   
+State' := 1 /\ R' := new() /\ TK' := R'.Hash(UIDB) /\ TS' := new() /\ Send({TS'.TK'.UIDB}_inv(Dib))		
+2. State = 1 /\ Receive({Sib}_inv(Dia)) =|>			
+State' := 2 /\ SK' := Kab.TS /\ witness(B, A, b_a, SK') /\ request(A, B, a_b, SK') /\ Message' := new() /\ Send({Message}_SK') /\ State' := 2
+3. State = 2 /\ Receive({Message}_SK') =|>
+State' := 1
+
+end role
+
+role session(A,B: agent)
+def=
+local  SA, SB, RA, RB: channel (dy),
+Dia, Dib: public_key,
+Kab : symmetric_key,        
+UIDB :  text
+const a_b,b_a: protocol_id
+           
+composition
+sensorNode(A, B, Kab, Dib, Dia, UIDB, RA, RB) /\  user(A, B, UIDB, Dib, Dia, Kab, RA, RB)
+
+end role 
+
+
+role environment()
+def=
+const a, b   : agent,
+uidb : text,
+Dia, Dib: public_key,
+a_b , b_a : protocol_id
+
+intruder_knowledge = {dib, dia, uidb}
+
+composition
+session(a, b) /\ session(a, b)  
+end role
+
+
+goal
+authentication_on a_b
+authentication_on b_a
+end goal
+
+environment()

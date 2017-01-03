@@ -1,0 +1,132 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileAxlXpZ
+
+section signature:
+
+state_relais: agent * agent * public_key * public_key * hash_func * nat * text * text * text * message * set(agent) * nat -> fact
+state_alice: agent * agent * public_key * public_key * text * hash_func * nat * message * text * text * text * set(agent) * nat -> fact
+
+
+section types:
+
+set_94, set_92, set_87, set_76: set
+res, alice_serveur_log, serveur_alice_log, information: protocol_id
+Set_43, Dummy_Set_43, Dummy_Set_22, Set_22, ASGoal: set(agent)
+X, Dummy_X, dummy_msg, start, MGoal: message
+7, 6, 4, SID, State, Dummy_State, 3, 2, SID2, SID1, 1, 0: nat
+H, h: hash_func
+N1, Dummy_Ncommande, Reponse, Ncommande, Dummy_Reponse, Dummy_N2, Dummy_N1, dummy_nonce, ncommande1, ncommande2, N2, ncommande3: text
+PKa, PKr, pka, pkr, pki: public_key
+A, R, A2Goal, A1Goal, a, r, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(r).
+ iknows(pka).
+ iknows(pkr).
+ iknows(pki).
+ iknows(inv(pki)).
+ iknows(i).
+ state_alice(a,r,pka,pkr,ncommande1,h,0,dummy_msg,dummy_nonce,dummy_nonce,dummy_nonce,set_76,3).
+ state_relais(r,a,pka,pkr,h,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,set_87,4).
+ state_alice(a,r,pka,pkr,ncommande1,h,0,dummy_msg,dummy_nonce,dummy_nonce,dummy_nonce,set_92,6).
+ state_relais(r,a,pka,pkr,h,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,set_94,7)
+
+
+section rules:
+
+step step_0 (A,R,PKa,PKr,Ncommande,H,X,Dummy_N1,N2,Reponse,Dummy_Set_22,SID,N1) :=
+ state_alice(A,R,PKa,PKr,Ncommande,H,0,X,Dummy_N1,N2,Reponse,Dummy_Set_22,SID).
+ iknows(start)
+=[exists N1]=>
+ state_alice(A,R,PKa,PKr,Ncommande,H,1,X,N1,N2,Reponse,Dummy_Set_22,SID).
+ iknows(crypt(inv(PKa),crypt(PKr,pair(Ncommande,pair(N1,apply(H,pair(Ncommande,N1))))))).
+ secret(Ncommande,information,Dummy_Set_22).
+ witness(A,R,serveur_alice_log,pair(Ncommande,N1)).
+ contains(A,Dummy_Set_22).
+ contains(R,Dummy_Set_22)
+
+step step_1 (A,R,PKa,PKr,Ncommande,H,Dummy_X,N2,Dummy_N2,Dummy_Reponse,Set_22,SID,Reponse) :=
+ state_alice(A,R,PKa,PKr,Ncommande,H,1,Dummy_X,N2,Dummy_N2,Dummy_Reponse,Set_22,SID).
+ iknows(crypt(inv(PKr),crypt(PKa,pair(Reponse,pair(N2,apply(H,pair(Reponse,N2)))))))
+ =>
+ state_alice(A,R,PKa,PKr,Ncommande,H,2,apply(H,pair(Reponse,N2)),N2,N2,Reponse,Set_22,SID).
+ request(A,R,alice_serveur_log,Reponse,SID)
+
+step step_2 (R,A,PKa,PKr,H,Dummy_Reponse,Dummy_Ncommande,Dummy_N1,Dummy_X,Dummy_Set_43,SID,Reponse,Ncommande,N1) :=
+ state_relais(R,A,PKa,PKr,H,0,Dummy_Reponse,Dummy_Ncommande,Dummy_N1,Dummy_X,Dummy_Set_43,SID).
+ iknows(crypt(inv(PKa),crypt(PKr,pair(Ncommande,pair(N1,apply(H,pair(Ncommande,N1)))))))
+=[exists Reponse]=>
+ state_relais(R,A,PKa,PKr,H,1,Reponse,Ncommande,N1,apply(H,pair(Ncommande,N1)),Dummy_Set_43,SID).
+ iknows(crypt(inv(PKr),crypt(PKa,pair(Reponse,pair(N1,apply(H,pair(Reponse,N1))))))).
+ secret(Reponse,res,Dummy_Set_43).
+ request(R,A,serveur_alice_log,pair(Ncommande,N1),SID).
+ witness(R,A,alice_serveur_log,Reponse).
+ contains(A,Dummy_Set_43).
+ contains(R,Dummy_Set_43)
+
+
+section properties:
+
+property secrecy_of_information (MGoal,ASGoal) :=
+ [] ((secret(MGoal,information,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_res (MGoal,ASGoal) :=
+ [] ((secret(MGoal,res,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_serveur_alice_log (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,serveur_alice_log,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,serveur_alice_log,MGoal))
+     /\ ((request(A1Goal,A2Goal,serveur_alice_log,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,serveur_alice_log,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_alice_serveur_log (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,alice_serveur_log,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,alice_serveur_log,MGoal))
+     /\ ((request(A1Goal,A2Goal,alice_serveur_log,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,alice_serveur_log,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_information (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,information,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_res (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,res,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_serveur_alice_log (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,serveur_alice_log,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,serveur_alice_log,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_serveur_alice_log (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,serveur_alice_log,MGoal,SID1).
+ request(A1Goal,A2Goal,serveur_alice_log,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_alice_serveur_log (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,alice_serveur_log,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,alice_serveur_log,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_alice_serveur_log (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,alice_serveur_log,MGoal,SID1).
+ request(A1Goal,A2Goal,alice_serveur_log,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

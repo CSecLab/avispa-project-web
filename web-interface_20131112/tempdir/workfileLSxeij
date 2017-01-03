@@ -1,0 +1,148 @@
+role alice (Ui, SNj, BS   : agent,
+         
+            H : hash_func,
+            Snd, Rcv: channel(dy))
+played_by Ui
+def=
+ local State  : nat,
+      IDi, A,VPWi,Ck, PWi, T,T1,T2,T3, X1,X,Ack:  text       
+ const alice_server,alice_bob,  bs_bob,bob_bs, subs, sub1, sub2, sub3 : protocol_id
+
+init  State := 0
+
+transition
+   1.State = 0      /\Rcv(start)=|>
+     State' :=1     /\ VPWi':= H(PWi)
+                    /\ Snd(Ui.BS.IDi.VPWi')
+                    /\ secret({PWi}, sub1, Ui)
+                              
+			  
+  2. State   = 1   /\ Rcv(BS.Ui.Ack) =|>
+      State' := 2  /\ T1':= new()
+                   /\ A' := H(H(PWi).T1')
+                   /\ Snd(Ui.SNj.A'.IDi.T1') 
+                   /\ witness(Ui, SNj, alice_bob, T1')
+
+ 3. State   = 2   /\ Rcv(SNj.Ui.Ack) =|>
+      State' := 3 /\ secret({X}, subs, BS) 
+                  
+ end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role bs (Ui, SNj, BS   : agent,
+        
+         H : hash_func,
+         Snd, Rcv: channel(dy))
+played_by BS
+def=
+local State  : nat,
+     IDi, A,VPWi,Ck, PWi, T,T1,T2,T3, X1,X,Ack:  text       
+ const alice_server,alice_bob,  bs_bob,bob_bs, subs, sub1, sub2, sub3 : protocol_id
+
+ init  State := 0
+
+transition
+1. State   = 0     /\ Rcv(Ui.BS.IDi.H(PWi)) =|>
+   State':=1        /\ X1':=H(IDi.X) 
+			/\ secret({X}, subs, BS)
+                        /\ secret({PWi}, sub1, Ui)
+                        /\Snd(BS.Ui.Ack)
+			/\T':= new()	
+          		/\Snd(BS.SNj.IDi.X1'.T')
+                        /\ witness(BS,SNj, bs_bob, T')   
+
+    2.State=1      /\Rcv(SNj.BS.IDi.xor(xor(H(IDi.X),H(H(PWi).T1')), T2').T2'.T1') =|>
+      State':=2    /\ request(BS,SNj, bob_bs, T2')
+                   /\T3':= new()	
+                   /\ Vm':=H(H(IDi.X).H(H(PWi).T1').T3')  
+                   /\Snd(BS.SNj.Ack.Vm'.T3')
+                   /\ witness(BS,SNj, bs_bob, T3')  
+  
+                         
+               
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role bob (Ui, SNj, BS   : agent,
+        	
+	 H : hash_func,
+                Snd, Rcv: channel(dy))
+played_by SNj
+def=
+local State  : nat,
+        IDi, A,VPWi,Ck, PWi, T,T1,T2,T3, X1,X,Ack:  text       
+ const alice_server,alice_bob,  bs_bob, bob_bs, sub1_subs, subs, sub1, sub2, sub3 : protocol_id
+
+   init  State := 0
+
+  transition
+   1. State   = 0 /\ Rcv(BS.SNj.Di.H(IDi.X).T')  =|>  
+      State' := 1 /\ secret(PWi, sub1, Ui)
+                  /\ secret({X}, subs, BS) 
+                  /\ request(BS,SNj, bs_bob, T') 
+
+   2.State=1      /\Rcv(Ui.SNj.H(H(PWi).T1').IDi.T1') =|>
+      State':=2   /\ request(Ui, SNj, alice_bob, T1') 
+                  /\ T2':= new()   
+                  /\ Ck':= xor(xor(H(IDi.X),H(H(PWi).T1')), T2')
+                  /\ Snd(SNj.BS.IDi.Ck'.T2'.T1')
+                  /\ witness(BS,SNj, bob_bs, T2') 
+
+   3.State=2      /\Rcv(BS.SNj.Ack.H(H(IDi.X).H(H(PWi).T1').T3').T3') =|>
+      State':=3   /\ request(BS, SNj,bs_bob, T3')
+                  /\ Snd(SNj.Ui.Ack)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(Ui,SNj, BS: agent,
+	 
+          H : hash_func 
+	)
+def=
+
+  local  SI, SJ, RI, RJ,BI,BJ: channel (dy)
+  
+  composition
+           alice(Ui, BS,SNj,H, SI, RI)
+         /\   bs(Ui, BS,SNj, H, BI, BJ)   
+        /\  bob(Ui,BS,SNj, H, SJ, RJ)
+      
+
+end role 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role environment()
+def=
+
+  const ui,snj,bs    : agent,
+       h   : hash_func,
+      idi, a, vpwi, ck, pwi, t,t1,t2,t3, x1,x,ack:  text,
+   alice_server,alice_bob,  bs_bob,bob_bs, sub1_subs, subs, sub1, sub2, sub3 : protocol_id
+
+
+  intruder_knowledge = {ui, snj,idi, h}
+
+  composition
+	session(ui,bs,snj,h) /\
+	session(ui,bs,snj,h) 
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+  secrecy_of subs
+  secrecy_of sub1
+  authentication_on alice_server
+  authentication_on bs_bob
+  authentication_on alice_bob
+  authentication_on bob_bs
+  
+end goal
+ 
+
+environment()
+

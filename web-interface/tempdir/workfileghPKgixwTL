@@ -1,0 +1,117 @@
+role server (S,T: agent,
+               Ks, Kt     : public_key,
+               MUL: hash_func,
+                Ps:text,
+               Snd,Rcv: channel(dy))
+played_by S
+def=
+
+  local State   : nat,     
+   Rs,Rt,Xt,Zt : text
+  const sec_k1,sec_k2 : protocol_id
+  init  State := 0
+
+  transition
+
+   1. State = 0
+      /\ Rcv(start)
+      =|> 
+      State' := 1
+      /\ Rs' := new()
+      /\ Snd({Rs'}_Kt)  
+      /\ secret(Rs',sec_k1,{S,T})
+   2. State = 1
+      /\ Rcv(xor(xor(MUL(Ps.Rt'),Zt),MUL(Ps.Rt')))
+      =|> 
+      State' := 2
+      /\ request(S,T,nb,Zt)
+      /\ Snd(xor(MUL(Xt.Rt'),MUL(Zt.Rs'))) 
+      /\ secret(Zt',sec_k2,{S,T})
+      /\ witness(S,T,na,Xt)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role tag (T,S: agent,
+              Kt, Ks      : public_key,
+              MUL: hash_func,
+              Ps:text,
+ 	       Snd,Rcv: channel(dy))
+played_by T
+def=
+  local State   : nat,
+        Rs,Rt,Xt,Zt : text
+  const sec_k3 : protocol_id
+  init  State := 0
+  transition
+   1. State = 0 /\ Rcv({Rs'}_Kt)  
+      =|> 
+      State' := 1
+      /\ Rt' := new()
+      /\ Snd(xor(xor(MUL(Rs'.Rt'),Zt),MUL(Ps.Rt')))
+      /\ secret(Zt,sec_k2,{S,T})
+
+   2. State = 1 /\ Rcv(xor(MUL(Xt.Rt'),MUL(Zt.Rs')))
+      =|> 
+      State' := 2
+
+      
+      /\ request(T,S,nb,Xt')
+
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(S,T: agent,
+	      Kt, Ks      : public_key,
+                    
+              MUL: hash_func,
+              Ps:text)
+def=
+
+  local SA, RA, SB, RB: channel (dy)
+
+  composition
+     server(S,T,Ks,Kt,MUL,Ps,SA,RA)
+  /\ tag(T,S,Kt,Ks,MUL,Ps,SB,RB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role environment()
+def=
+
+  const s, t   : agent,
+        ks,kt, ki: public_key,
+        mul: hash_func,
+        ps:text,
+        na, nb : protocol_id
+
+  intruder_knowledge={s,t,ks,kt,ki,ps, inv(ki)}
+
+  composition
+
+
+      session(s,t,ks,kt,mul,ps)
+   /\ session(s,i,ks,kt,mul,ps)
+   /\ session(i,t,ks,kt,mul,ps)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+ % Confidentiality (G12)
+ secrecy_of sec_k1, sec_k2, sec_k3
+ authentication_on nb
+ authentication_on na
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

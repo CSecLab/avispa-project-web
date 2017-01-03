@@ -1,0 +1,123 @@
+ role user(A, S : agent,
+           Succ,H : hash_func,
+           SND,RCV: channel(dy))
+           played_by A def=
+           local
+                
+                State : nat,
+                N,M : text,
+
+                HashPasswd,HPasswd,C1,C2,C3,P: message
+               
+               
+                init
+                    State := 0 /\ N:=1
+                    transition
+                              0. State = 0   /\ RCV(start) =|>
+                                 State' := 2 /\ P' := new()
+                                             /\ HashPasswd' := H(H(xor(P',1)))
+                                             /\ SND( A,HashPasswd',N) 
+                                             /\ secret(P',ep, {A,S}) 
+                                             /\ witness(S,A,a_s,P')
+                                        
+                              
+                              2. State = 2 /\ RCV(M) =|> State' := 4 
+                                           /\ C1':= xor( H(xor(P',M)) , H(H(xor(P',M))))
+                                           /\ C2':= xor( H(xor(P',M)) , H(H(xor(P',Succ(M)))))
+                                           /\ C3':= H(H(H(xor(P',Succ(M)))))
+                                           /\ SND(C1',C2',C3')
+                                           /\ secret(C1',ec1, {A,S})
+                                           /\ secret(C2',ec2, {A,S})
+                                           /\ secret(C3',ec3, {A,S})
+                                           /\ witness(S,A,a_s,C1')
+                                           /\ witness(S,A,a_s,C2')
+                                           /\ witness(S,A,a_s,C3')
+                                         
+                                            
+                                          
+                           
+ end role
+
+
+ role server( S,A: agent,
+              Succ,H : hash_func,
+              SND,RCV : channel(dy))
+              played_by S def=
+              local
+                   State: nat,
+                   N :text,
+                   HPasswd,HashPasswd,C1,C2,C3,P,A,B : message
+                   
+                   
+              init
+                       State := 1
+                       transition
+                                   1. State = 1 /\ RCV(start) =|> State' := 3
+                                                /\ SND(N)
+                                                /\ secret(N,en, {S,A}) 
+                                                /\ witness(A,S,s_a,N)
+
+
+
+                                   2. State = 3 /\ RCV(A,HashPasswd,N) =|> State' := 5 /\ HPasswd' := HashPasswd
+                                                                             /\ wrequest(S,A,S_A,N)
+                                   3. State = 5 /\ RCV(C1,C2,C3) /\ C3=B' =|> State':= 7 /\ A' := xor(C1,HPasswd')
+                                                                                         /\ B':=xor(C2,B')
+                                                                                      
+                                                                                         /\HPasswd':=B'
+                                                                                         /\ N':=Succ(N')
+                                                                                         /\wrequest(S,A,s_a,N)
+                                                  
+
+                                 
+                                               
+                                             
+
+                                
+
+ end role
+
+
+
+ role session( A, S : agent,
+               Succ,H: hash_func)
+               
+               def=
+               local
+                   SND_AS, RCV_AS, SND_SA, RCV_SA : channel(dy)
+                   composition
+                              user(A, S,Succ,H, SND_SA, RCV_SA)
+                              /\ server(S,A,Succ,H, SND_AS, RCV_AS)
+
+ end role
+
+
+
+ role environment()
+                 def=
+                     const
+
+                         a,s,i : agent,
+                         en,ea,eb,ehpasswd,s_a,ep,a_s,ec1,ec2,ec3 : protocol_id,
+                         succ,h: hash_func
+                     
+                         intruder_knowledge = {a,s,i,succ,h}
+                composition
+                         session(a, s,succ,h)
+                         /\ session(i,s,succ, h)
+
+
+end role
+
+
+
+ goal
+     weak_authentication_on s_a
+     weak_authentication_on a_s
+     secrecy_of en,ea,eb,ehpasswd,ep,ec1,ec2,ec3
+
+ end goal
+
+
+
+ environment()

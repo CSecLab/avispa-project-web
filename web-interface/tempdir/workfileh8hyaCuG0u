@@ -1,0 +1,99 @@
+role client(
+        C, S : agent,
+        MsGen : hash_func,
+        Ks : public_key,
+        SND, RCV : channel(dy))
+played_by C def=
+        
+        local
+                State : nat,
+                SessionId: nat,
+                RandC: text,
+                RandS: text, 
+                Ms : symmetric_key,
+                Pms: text,
+                ChangeToEnc : text
+        
+        init
+                State := 0
+        
+        transition
+        clientHello. State = 0 / RCV(start) =|>
+                RandC' := new() / SessionId' := new() / SND(C.RandC'.SessionId') / State' := 2
+        clientKeyExchange. State = 2 / RCV(S.RandS'.SessionId) =|>
+                Pms' := new() / SND({C.Pms'}_Ks) / Ms' := MsGen(RandC.RandS'.Pms') / secret(Pms',geheim,{C,S}) / State' := 4
+        clientChangeToEncrypted. State = 4 =|>
+                SND({C}_Ms) / State' := 6
+        serverChangeToEncrypted. State = 6 / RCV({S.ChangeToEnc'}_Ms) =|>
+                 request(C,S,server_auth,ChangeToEnc') / State' := 8
+end role
+
+
+role server(
+        C, S : agent, 
+        MsGen : hash_func,
+        Ks : public_key,
+        SND, RCV : channel(dy))
+played_by S def=
+        
+        local
+                State : nat,
+                SessionId: nat,
+                RandC: text,
+                RandS: text, 
+                Ms : symmetric_key,
+                Pms: text,
+                ChangeToEnc : text
+        
+        init
+                State := 1
+        
+        transition
+        serverHello. State = 1 / RCV(C.RandC'.SessionId') =|>
+                RandS' := new() / SND(S.RandS'.SessionId') / State' := 3
+        finished. State = 3 / RCV({C.Pms'}_Ks) =|>
+                Ms' := MsGen(RandC.RandS.Pms') / State' := 5
+        changeToEncrypted. State = 5 / RCV({C}_Ms) =|>
+                ChangeToEnc' := new() / SND({S.ChangeToEnc'}_Ms) / witness(S,C,server_auth,ChangeToEnc') / State' := 7
+end role
+
+
+role session(
+        C, S : agent, 
+        MsGen : hash_func,
+        Ks : public_key)
+def=
+        
+        local
+                SC, SS, RC, RS: channel(dy)
+        
+        composition
+                client(C,S,MsGen,Ks,SC,RC) / server(C,S,MsGen,Ks,SS,RS)
+end role
+
+
+role environment()
+def=
+
+
+        const
+                c,s : agent,
+                ki,ks : public_key,
+                msGen : hash_func,
+                geheim,server_auth : protocol_id
+                
+        intruder_knowledge = {c,s,ks,ki,inv(ki),msGen}
+        
+        composition
+                session(c,s,msGen,ks) / session(i,s,msGen,ks) / session(c,i,msGen,ki)
+end role
+
+
+goal
+        secrecy_of geheim
+        authentication_on client_server
+end goal
+
+
+environment()
+ 

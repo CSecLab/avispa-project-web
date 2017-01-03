@@ -1,0 +1,141 @@
+role mtcd(MTCD,GW,MME: agent,
+	  Kg1_1: symmetric_key,
+	  Gkg1: symmetric_key,
+	  IMSIg1_1:text,
+	  GIDg1:text,
+	  HMAC: function,
+	  F1,F2,F3,F4,F5,F6,KDF:function,
+	  SQN:text,
+	  SND,RCV,SNDG,RCVG:channel(dy))
+played_by MTCD def=
+
+local State:nat, 
+      Rg1_1:text,
+      MACg1_1:text,
+      GMACg1_1:text,
+      Authhss,Rmme,Rhss,Macmme:text,
+      SNID:text
+
+init State:=0
+
+transition
+
+1.	State=0 /\ RCV(start)=|>
+	State':=3 /\ Rg1_1':=new() /\ MACg1_1':= {HMAC(IMSIg1_1.Rg1_1')}_Gkg1 /\ GMACg1_1' := {HMAC(IMSIg1_1.Rg1_1'.MACg1_1'.GIDg1)}_Gkg1 /\ SNDG(IMSIg1_1.Rg1_1'.MACg1_1'.GIDg1.GMACg1_1') /\ witness(MME,MTCD,mme_mtcd_rg11,Rg1_1')
+
+2.	State=3 /\ RCV(Rhss'.({HMAC(Rhss'.GIDg1)}_({F1(Rhss'.SNID)}_Gkg1)).Rmme'.({F2(Rmme'.(Rhss'.({HMAC(Rhss'.GIDg1)}_({F1(Rhss'.SNID)}_Gkg1))))}_({F1(Rhss'.SNID)}_Gkg1))) =|>
+	State':=6 /\ SNDG({F6(Rhss'.Rg1_1)}_Kg1_1) /\ request(MTCD,MME,mtcd_mme_rhss,Rhss') /\ request(MTCD,MME,mtcd_mme_rmme,Rmme')
+
+end role
+
+role gateway(
+MTCD,GW,MME : agent,
+Gkg1:symmetric_key,
+HMAC:function,
+GIDg1:text,
+SND,RCV:channel(dy))
+played_by GW def=
+
+local State:nat,
+      Aggmacg1:text,
+      Rg1_1:text,
+      MACg1_1:text,
+      Resg1_1:text,
+      Aggres:text,
+      IMSIg1_1:text
+           
+init
+      State:=1
+     
+transition
+1.	State=1 /\ RCV(IMSIg1_1'.Rg1_1'.MACg1_1'.GIDg1.{HMAC(IMSIg1_1'.Rg1_1'.MACg1_1'.GIDg1)}_Gkg1) =|>
+	State':= 4 /\ Aggmacg1':= xor(Aggmacg1',MACg1_1') /\ SND(IMSIg1_1'.Rg1_1'.GIDg1.Aggmacg1')
+
+2.	State=4 /\ RCV(Resg1_1') =|>
+	State':=7 /\ SND(xor(Aggres,Resg1_1'))
+
+end role
+
+role mme(MTCD,GW,MME: agent,
+	  Kg1_1: symmetric_key,
+	  Gkg1: symmetric_key,
+	  IMSIg1_1:text,
+	  GIDg1:text,
+	  HMAC: function,
+	  F1,F2,F3,F4,F5,F6,KDF:function,
+	  SQN:text,
+	  SND,RCV:channel(dy))
+played_by MME def=
+local 
+	State:nat,
+	SNID:text,
+	Aggmacg1,Aggres:text,
+	Rhss:text,
+	Macg1:text,
+	GTKg1,Kasmeg1_1:symmetric_key,
+	Authhss:text,
+	Akg1_1,Ckg1_1,Ikg1_1,Xresg1_1:text,
+	Rmme:text,
+	Rg1_1:text,
+	Macmme:text
+
+init 
+	State:=3
+	
+transition
+1.	State=3 /\ RCV(IMSIg1_1.Rg1_1'.GIDg1.(xor(Aggmacg1,{HMAC(IMSIg1_1.Rg1_1')}_Gkg1)).SNID) =|>
+	State':=5 /\ Rhss':=new() /\ GTKg1':={F1(Rhss'.SNID)}_Gkg1 /\ secret(GTKg1',gtkg1,{MME,MTCD}) /\ Macg1':={HMAC(Rhss'.GIDg1)}_GTKg1'
+		/\ Authhss':= Rhss'.Macg1' /\ Akg1_1':= {F5(Rhss')}_Kg1_1 /\ Ckg1_1':= {F3(Rhss')}_Kg1_1 /\ Ikg1_1':= {F4(Rhss')}_Kg1_1 /\
+		Kasmeg1_1':=KDF(xor(SQN,Akg1_1'),Ckg1_1',Ikg1_1',SNID) /\ secret(Kasmeg1_1',kasme,{MTCD,MME}) /\ Xresg1_1' := {F6(Rhss'.Rg1_1')}_Kg1_1 
+		/\ Rmme':= new() /\  Macmme' := {HMAC(Rmme'.Authhss')}_GTKg1' /\ SND(Authhss'.Rmme'.Macmme') /\ witness(MME,MTCD,mtcd_mme_rmme,Rmme) /\ witness(MME,MTCD,mtcd_mme_rhss,Rhss) 
+2.	State=5 /\ RCV(xor(Aggres,{F6(Rhss.Rg1_1')}_Kg1_1)) =|>
+	State':=6 /\ request(MTCD,MME,mme_mtcd_rg11,Rg1_1')
+end role
+
+role session(MTCD,GW,MME: agent,
+Kg1_1,Gkg1:symmetric_key,
+IMSIg1_1:text,
+GIDg1:text,
+HMAC,F1,F2,F3,F4,F5,F6,KDF:function)
+def=
+local SMG,RMM,RGM,SGM,SMM : channel(dy),
+SQN:text
+
+composition
+	mtcd(MTCD,GW,MME,Kg1_1,Gkg1,IMSIg1_1,GIDg1,HMAC,F1,F2,F3,F4,F5,F6,KDF,SQN,SMM,RMM,SMG,RGM) /\
+	gateway(MTCD,GW,MME,Gkg1,HMAC,GIDg1,SGM,RGM) /\
+	mme(MTCD,GW,MME,Kg1_1,Gkg1,IMSIg1_1,GIDg1,HMAC,F1,F2,F3,F4,F5,F6,KDF,SQN,SMM,RMM)
+	
+end role
+
+role environment()
+def=
+const
+	mme_mtcd_rg11,mtcd_mme_rhss,mtcd_mme_rmme,kasme,gtkg1:protocol_id,
+	mtcd,gw,mme:agent,
+	kg1_1,gkg1,kig1_1,kg1_1i,gkig1:symmetric_key,
+	hmac,f1,f2,f3,f4,f5,f6,kdf:function,
+	imsig1_1,gidg1:text
+
+intruder_knowledge = {mtcd,gw,mme,hmac,f1,f2,f3,f4,f5,f6,kdf,kig1_1,kg1_1i}
+
+composition
+	session(mtcd,gw,mme,kg1_1,gkg1,imsig1_1,gidg1,hmac,f1,f2,f3,f4,f5,f6,kdf) /\
+	session(i,gw,mme,kig1_1,gkg1,imsig1_1,gidg1,hmac,f1,f2,f3,f4,f5,f6,kdf) /\
+	session(mtcd,i,mme,kg1_1,gkg1,imsig1_1,gidg1,hmac,f1,f2,f3,f4,f5,f6,kdf) /\
+	session(mtcd,gw,i,kg1_1i,gkg1,imsig1_1,gidg1,hmac,f1,f2,f3,f4,f5,f6,kdf) 
+end role
+
+goal
+	secrecy_of kasme
+	secrecy_of gtkg1
+	authentication_on mtcd_mme_rg11
+	authentication_on mtcd_mme_rhss
+	authentication_on mtcd_mme_rmme
+end goal
+
+environment()
+
+
+
+

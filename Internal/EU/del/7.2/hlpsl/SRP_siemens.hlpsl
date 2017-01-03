@@ -1,0 +1,189 @@
+%% LC changes: 
+%% - Salt was a message, now is a text;
+%% - added macros for DHX and DHY. This requires also:
+%%   (i)  to write the value (and not the name) of the macro 
+%%        inside the first transition in which the role uses it;
+%%   (ii) to add the type declarations for Na and Nb in SRP_Resp and
+%%        SRP_Init respectively.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% 1-6-SRP
+%%
+%% A-B Notation:
+%%
+%% 1. A --> B : A
+%% 2. B --> A : Salt            (* the "salt", modelled here as a nonce *)
+%% 3. A --> B : G^Na		(* First DH Half Key)
+%% 4. B --> A : v + G^Nb        (*  v = G(H(Salt,H(A),K(A,B)))  called "verifier" *)
+%% 	Here we abstract: the recever cannot determine
+%%	either v or G^Nb without the other, so we model
+%%	this as 
+%% 4'.B --> A : {G^Nb}v
+%%
+%%            both A and B compute respectively
+%%            K =(G(Nb)) exp (Na+ [H(v+G(Nb))*(H(Salt,H(A),K(A,B)))])
+%%            K =[(G(Nb)*(v exp H(v+G(Nb))] exp Nb
+%%            and SK= H(K)
+%%    Now, they must prove to each other that their keys are identical
+%% 5. A --> B : M =def H[H(N) xor H(g), H(A), Salt, G(Na), v + G(Nb), SK] |
+%% 6. B --> A : H(G(Na),M,SK)                                             |    challenge/response
+%% G : exponentiation base
+%% H: hash function
+%% K(A,B): password (shared key)
+%%
+%% Notes:
+%% ======
+%% * We use one salt per password (shared key), as in UNIX.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role SRP_Init (A,B : agent,
+               Kab : symmetric_key,
+	       H : function,
+	       G : text,
+               Snd,Rcv:channel(dy)) played_by A def=
+
+  exists State : nat, 
+	 Na:text (fresh),
+	 Nb:text,
+	 Salt : text,
+	 DHY, V, K, M : message
+  owns   Snd
+  
+
+  init  State = 0
+  knowledge(A) = {Kab}
+
+  transition
+
+   1. State = 0 /\  Rcv(start) =|>
+           Snd(A)  
+	/\ State'=1
+
+   %% Receive the salt and calculate the password verifier,
+   %% reply with DH halfkey.
+   2. State = 1 /\  Rcv(Salt') =|> 
+	   State' = 2
+	/\ V' = exp(G,H(Salt'.H(A.Kab)))
+	/\ Snd(exp(G,Na'))
+
+
+   %% I have introduced a slightly abstracted definition of the
+   %% shared key in order to avoid the more complicated operators
+   %% like + and -.  The RFC calls for an SHA-1 hash of a value
+   %% derived from the exchanged DH key and the verifier.
+   3. State = 2  /\ Rcv({exp(G,Nb')}V) =|>
+	   State' = 3 
+	/\ DHY' = exp(G,Nb')
+	/\ K' = H( V.exp(exp(G,Nb'),Na) )
+	/\ M' = H(H(G).H(A).Salt.exp(G,Na).{exp(G,Nb')}V.H( V.exp(exp(G,Nb'),Na) ))
+	/\ Snd( H(H(G).H(A).Salt.exp(G,Na).{exp(G,Nb')}V.H( V.exp(exp(G,Nb'),Na) )) )
+	/\ witness(A,B,k,H( V.exp(exp(G,Nb'),Na) ))
+	/\ secret(H( V.exp(exp(G,Nb'),Na) ), B)
+
+   4. State = 3 /\ Rcv(H(exp(G,Na).M.K)) =|>  
+	   State' = 4
+	/\ request(A,B,k,K)
+
+end role
+
+                        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role SRP_Resp (B,A : agent,
+               Kab : symmetric_key,
+	       Salt : text,
+	       H: function,
+	       G: text,
+               Snd, Rcv:channel(dy)) played_by B def=
+
+  exists State: nat, 
+	  Na :text,
+	  Nb :text(fresh),
+	  M, K, DHX, V: message
+  owns    Snd
+  
+
+  init State = 0
+  knowledge(B) = {Kab}
+
+  transition
+
+   1. State = 0 /\ Rcv(A) =|> 
+	   Snd(Salt)
+	/\ V' = exp(G,H(Salt.H(A.Kab)))
+	/\ State' = 1
+
+   2. State = 1 /\ Rcv(exp(G,Na')) =|> 
+	   Snd({exp(G,Nb')}V)
+	/\ State' = 2
+	/\ DHX' = exp(G,Na')
+	/\ K' = H( V.exp(exp(G,Na'),Nb') )
+	/\ witness(B,A,k,H( V.exp(exp(G,Na'),Nb') ))
+	/\ M' = H(H(G).H(A).Salt.exp(G,Na').{exp(G,Nb')}V.H( V.exp(exp(G,Na'),Nb') ))
+	/\ secret(H( V.exp(exp(G,Na'),Nb') ), A)
+
+   3. State = 2 /\ Rcv(M) =|>
+	   Snd(H(DHX.M.K)) 
+	/\ State' = 3
+	/\ request(B,A,k,K)
+end role
+
+role Session(A,B: agent,
+	     Kab: symmetric_key,
+	     Salt: text,
+	     H: function,
+	     G: text,
+	     SA,RA,SB,RB: channel (dy)) def=
+
+   composition
+           SRP_Init(A,B,Kab,H,G,SA,RA)  /\
+           SRP_Resp(B,A,Kab,Salt,H,G,SB,RB)
+
+end role
+
+
+                   %%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role Environment() def=
+
+  const k: protocol_id
+  knowledge(i) = {i, kai, kbi, s_kai, s_kbi}
+  composition
+	   Session(a,b,kab,s_kab,h,g,s1,r1,s2,r2)
+	/\ Session(a,i,kai,s_kai,h,g,s3,r3,s4,r4)
+	/\ Session(b,i,kbi,s_kbi,h,g,s5,r5,s6,r6)
+%%	/\ Session(a,b,kab,s_kab,h,g,s7,r7,s8,r8)  %% Replay session
+
+end role
+  
+goal
+    secrecy_of K
+    SRP_Init authenticates SRP_Resp on K
+    SRP_Resp authenticates SRP_Init on K
+end goal
+
+Environment()
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% Modelling Notes / Justifications:
+%%
+%% * Key construction: The RFC calls for the client to construct the key
+%%   as follows: SK = H( (B-g^x)^(a+u*x) ) = H( g^b^(a+u*x) )
+%%   and the server as follows:
+%%               SK = H( (g^a * v^u)^b )
+%%   both reduce to H(g^ab * g^bux)
+%%   where g^ab is the DH key, and g^bux = v^ub .
+%%
+%%   From our perspective, v already contains u, so if the intruder can
+%%   construct v then he can also construct u (note that v is never
+%%   transmitted in the clear so his only option would be to compose it
+%%   himself).  
+%%
+%% * One component of message M is the term H(N) XOR H(g), where N is the
+%%   cardinality of the prime field.  We do not explicitly model modular
+%%   arithmetic or the number N, so I have left this out.  However, I think
+%%   this is justified, as both N and g would be public knowledge and the
+%%   intruder could clearly construct this term.
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

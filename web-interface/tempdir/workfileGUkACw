@@ -1,0 +1,32 @@
+%role Alice (A, B: agent)
+%played by A def= 
+%	local Num:nat
+%	init Num:=0 
+%transition
+%	Num=0 /\ RCV(start) =|> Num':=1
+%end role
+
+
+role alice (A, B: agent,             
+            Ka, Kb: public_key,      
+            SND, RCV: channel (dy)) 
+played_by A def=
+
+  local State : nat, 
+        Na, Nb: text
+
+  init State := 0
+
+  transition  
+   
+    0.  State  = 0 /\ RCV(start) =|> 
+	State':= 2 /\ Na' := new() /\ SND({Na'.A}_Kb)
+		   /\ secret(Na',na,{A,B}) 
+		   /\ witness(A,B,bob_alice_na,Na')
+
+    2.  State  = 2 /\ RCV({Na.Nb'}_Ka) =|> 
+	State':= 4 /\ SND({Nb'}_Kb) 
+		   /\ request(A,B,alice_bob_nb,Nb')
+
+end role
+

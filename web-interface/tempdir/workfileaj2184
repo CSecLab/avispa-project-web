@@ -1,0 +1,64 @@
+For analyzing the protocol using AVISPA tool the following notations have been used.
+g -> G(value of g is stored in G)
+x -> X
+y ->  Y
+z  -> Z
+The HLPSL specification for the proposed protocol is given below.
+%% PROTOCOL: Improved G-3PAKE protocol
+%% ALICE BOB SERVER:
+%% Macros:
+%% FM1: H(PwA, A, B, exp(G,X),exp(exp(G,P1),Z))
+%% FM2: H(PwB, A, B, exp(G,Y),exp(exp(G,P2),Z))
+%% Key: exp(exp(GY,Z),X) = exp(exp(GX,Z),Y)
+%% GX : exp(G,X)
+%% GY: exp(G,Y)
+%% U: xor(exp(G,X),exp(M, PwA))
+%% V: xor(exp(G,Y),exp(N, PwB))
+%% U´: xor(exp(G,YZ),FM1)
+%% V´: xor(exp(G,XZ),FM2)
+%% ?: H(B, A, Key)
+%% ?: H(A, B, Key)
+%% Key: exp(exp(GX,Z),Y) = exp(exp(GY,Z),X)
+%% 1. A ? B : A||U||gp1
+%% 2. B ? S : A||UgP1, B||V ||gP2
+%% 3. S ? B : (U´||gz ||B), (V´||gz ||A)
+%% 4. B ? A : (U´||gz||B||?)
+%% 5. A? B : ?
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% HLPSL:
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+role alice( A, B, S : agent,
+SND, RCV : channel(dy),
+H : hash_func,
+PWA : symmetric_key,
+M, G :text)
+%''Played_ by'' A
+def=
+
+local 
+State : nat,
+X, Z , P1 : text,
+GY, Key :message
+const sec_m_Key : protocol_id
+init State := 0
+
+%transition
+
+%1. State = 0 /\ RCV(start) =|>
+State' := 1 /\ X' := new()
+/\ P1' := new()
+/\ SND(xor(exp(G,X'), exp(M,PWA)). exp(G,P1'))
+2. State = 1 /\ RCV(xor(exp(GY',Z'), H(PWA.A.B.exp(G,X).exp(exp(G,P1),Z')))
+exp(G,Z').H(A.B.Key')) =|>
+State':= 2 /\ Key' := exp(exp(GY',Z'), X)
+/\ SND(H(A.B. Key'))
+/\ witness(A,B,key1,Key')
+/\ request(A,B,key,Key)
+/\ secret(Key,sec_m_Key,A,B)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+

@@ -1,0 +1,89 @@
+role user(
+		U, H, B			: agent,
+		Ku, Kh, Kb		: public_key,
+		Hash			: hash_func,
+		U2h, H2u, U2b, B2u	: channel(dy)
+	)
+	played_by U
+	def=
+	local
+		State			: nat,
+		Rqh			: {{agent.agent.text.text.text.text}_inv(public_key)}_public_key,
+		Rqt			: {{text.text.text}_inv(public_key)}_public_key,
+		O, A, S1, N1, N2, N3	: text
+	init
+		State := 1
+	transition
+	1.	State = 1 /\ B2u(start) =|>
+		State' :=     3	/\ O' := new()
+				/\ A' := new()
+				/\ S1' := new()
+				/\ N1' := new()
+				/\ N2' := new()
+				/\ N3' := new()
+				/\ Rqh' := {{U.H.O'.A'.S1'.N1'}_inv(Ku)}_Kh
+				/\ Rqt' := {{S1'.N2'.N3'}_inv(Ku)}_Kb
+				/\ U2b(Rqh'.Rqt')
+				/\ secret(N2', n2, {U, B})
+end role
+
+role board(
+		U, H, B			: agent,
+		Ku, Kh, Kb		: public_key,
+		Hash			: hash_func,
+		B2h, H2b, U2b, B2u	: channel(dy)
+	)
+	played_by B
+	def=
+	local
+		State			: nat,
+		Rqh			: {{agent.agent.text.text.text.text}_inv(public_key)}_public_key,
+		ID, S1, S2, N2, N3	: text,
+		Rq			: text.text.{{agent.agent.text.text.text.text}_inv(public_key)}_public_key.{{text.text.text}_inv(public_key)}_public_key,
+		Sig			: {hash_func}_inv(public_key)
+	init
+		State := 2
+	transition
+	2.	State = 2 /\ U2b(Rqh'.{{S1'.N2'.N3'}_inv(Ku)}_Kb) =|>
+		State' :=     4	/\ ID' := new()
+				/\ S2' := new()
+				/\ Rq' := ID'.S2'.Rqh'.{{S1'.N2'.N3'}_inv(Ku)}_Kb
+				/\ Sig' := {Hash(Rq')}_inv(Kb)
+				/\ B2u(Rq'.Sig')
+end role
+
+role session(
+		U, H, B				: agent,
+		Ku, Kh, Kb			: public_key,
+		Hash				: hash_func
+	)
+	def=
+	local
+		U2b, B2u, U2h, H2u, H2b, B2h	: channel(dy)		
+	composition
+		user(U, H, B, Ku, Kh, Kb, Hash, U2h, H2u, U2b, B2u) /\
+		board(U, H, B, Ku, Kh, Kb, Hash, B2h, H2b, U2b, B2u)
+end role
+
+role environment()
+	def=	
+	const
+		user_host_s1	:	protocol_id,
+		u, h, b, i	:	agent,
+		hf		:	hash_func,
+		ku, kh, kb, ki	:	public_key
+	intruder_knowledge	=	{u, h, b, i, hf, ku, kh, kb, ki}
+	composition
+		session(u, h, b, hf, ku, kh, kb)
+		/\
+		session(u, i, b, hf, ku, ki, kb) /\
+		session(u, h, i, hf, ku, kh, ki) /\
+		session(i, h, b, hf, ki, kh, kb)
+end role
+
+goal
+	secrecy_of n2
+end goal
+
+
+environment()

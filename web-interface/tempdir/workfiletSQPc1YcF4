@@ -1,0 +1,153 @@
+%%%%mobilenode%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role mobilenode(M,G,A:agent,
+			   KsymMA:symmetric_key,
+			   H: hash_func,
+			   SND,RCV: channel(dy))
+played_by M def=
+
+	local State: nat,
+	      IDMN,PWMN,IDMAG,
+		  N1,N2: message,
+		  C1,C2,C3,C4,C5,AIDMN,AUTHMN,SKMG:message
+		  %C1,C4:{message.message}_hash_func,
+		  %C2:xor({message}_hash_func,  {message.message}_hash_func),
+		  %C3:{message.message}_public_key,
+		  %C5:{message}_hash_func,
+		  %AIDMN: xor(message,{message.message}_hash_func),
+		  %AUTHMN,SKMG:{message.message}_hash_func
+		  
+		  
+    init State := 0
+	transition
+	1. State = 0 /\ RCV(start)	=|>
+	   State':=1 /\ IDMN':= new()
+	             /\ PWMN':= new()
+				 /\ SND(M.A.{IDMN'.PWMN'}_KsymMA) 
+	   
+	2. State = 1 /\ RCV(A.M.{IDMN.C1'.C2'.C3'.C4'.C5'}_KsymMA) =|>
+	   State':=2 /\ N1':= new()
+	             /\ AIDMN':= xor(IDMN,H(C5'.N1))
+				 /\ AUTHMN':= H(C1'.N1)
+				 /\ SND(M.G.AIDMN'.C3'.{AUTHMN'.N1}_C4')
+	             /\ secret(N1,sne,{M,G})
+				 
+	3. State = 2 /\ RCV(G.M.IDMAG'.{xor(N1,1).N2'.H(IDMAG'.N2')}_C4) =|>
+	   State':=3 /\ SKMG':= H(N1.N2')
+	             /\ SND(M.G.{xor(N2',1)}_SKMG')	
+	
+	
+	
+	
+end role
+
+%%%%MAG%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role mag(M,G,A:agent,
+			 IDAAA,IDMAG: message,
+			 PSK:symmetric_key,
+			 H: hash_func,
+			 SND,RCV: channel(dy))
+played_by G def=
+
+	local State: nat,
+		  IDMN,SV,N1,N2,N3,N4: message,
+		  C1,C2,C3,C4,C5,AIDMN,AUTHMN,SKMG,SKGL:message
+		  %C1,C4:{message.message}_hash_func,
+		  %C2:xor({message}_hash_func,  {message.message}_hash_func),
+		  %C3:{message.message}_public_key,
+		  %C5:{message}_hash_func,
+		  %AIDMN:xor(message,{message.message}_hash_func),
+		  %AUTHMN,SKMG,SKGL:{message.message}_hash_func
+
+    init State := 0
+	transition
+	1. State = 0 /\ RCV(M.G.AIDMN'.{IDAAA.SV'}_PSK.{AUTHMN'.N1'}_H(IDAAA.SV')) =|>
+	             %/\ C5':= H(SV')
+	             %/\ IDMN':= xor(AIDMN',H(C5'.N1'))
+				 %/\ equal(AUTHMN',H(H(IDMN'.SV').N1'))=|>
+	   State':=1 /\ N2':= new()
+	             /\ SKMG':= H(N1'.N2')
+				 /\ C4':= H(IDAAA.SV')
+				 /\ SND(G.M.IDMAG.{xor(N1',1).N2'.H(IDMAG.N2')}_C4')
+	2. State = 1 /\ RCV(M.G.{xor(N2,1)}_SKMG) =|>
+	   State':=2 /\ N2':= new()	
+
+
+end role
+
+
+%%%%AAA%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role aaa(M,G,A:agent,
+		 IDAAA,IDMAG,SV: message,
+		 KsymMA,PSK:symmetric_key,
+		 H: hash_func,
+		 SND,RCV: channel(dy))
+played_by A def=
+
+	local State: nat,
+	      IDMN,PWMN: message,
+		  C1,C2,C3,C4,C5:message
+		  %C1,C4:{message.message}_hash_func,
+		  %C2:xor({message}_hash_func,{message.message}_hash_func),
+		  %C3:{message.message}_public_key,
+		  %C5:{message}_hash_func
+		  
+		  
+    init  State := 0
+		  
+	transition
+	1. State = 0 /\ RCV(M.A.{IDMN'.PWMN'}_KsymMA)=|>
+	   State':=1 /\ C1':= H(IDMN'.SV)
+	             /\ C2':= xor(H(PWMN'),C1')
+				 /\ C3':= {IDAAA.SV}_PSK
+				 /\ C4':= H(IDAAA.SV)
+				 /\ C5':= H(SV)
+	             /\ SND(A.M.{IDMN'.C1'.C2'.C3'.C4'.C5'}_KsymMA)
+                 				 
+end role
+
+
+%%%%session%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(M,G,A:agent,
+             IDAAA,IDMAG,SV: message,
+             KsymMA,PSK:symmetric_key,
+             H: hash_func,
+             SND,RCV: channel(dy))
+def=
+	
+	composition
+	   mobilenode(M,G,A,KsymMA,H,SND,RCV)
+	/\ mag(M,G,A,IDAAA,IDMAG,PSK,H,SND,RCV)
+	/\ aaa(M,G,A,IDAAA,IDMAG,SV,KsymMA,PSK,H,SND,RCV)
+	
+end role
+
+
+
+%%%%environment%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+    
+    const 
+	    sne:protocol_id,
+	    m,g,a,i:agent,
+		idaaa,idmag,idi,sv:message,
+		ksymma,psk,psi:symmetric_key,
+		h: hash_func,
+        snd,rcv:channel(dy)
+	intruder_knowledge={m,g,a,i,idaaa,idmag,idi,psi,h,snd,rcv}
+	
+	composition		
+		session(m,g,a,idaaa,idmag,sv,ksymma,psk,h,snd,rcv)
+		%/\ session(i,g,a,idaaa,idmag,sv,ksymma,psk,h,snd,rcv)	
+		%/\ session(m,i,a,idaaa,idi,sv,ksymma,psi,h,snd,rcv)	
+
+end role
+		
+%%%%goal%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%				 
+goal
+
+secrecy_of sne
+end goal
+
+%%%%initial%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

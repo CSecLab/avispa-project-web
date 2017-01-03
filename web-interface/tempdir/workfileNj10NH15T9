@@ -1,0 +1,62 @@
+role alice(
+ A,B : agent,
+ K : symmetric_key,
+ Hash : hash_func,
+ SND,RCV : channel(dy))
+played_by A
+def=
+local(
+State : nat,
+Na,Nb : text,
+K1 : message)
+init 
+State:=0
+transition
+State=0 /\RCV(start) =|>
+State:=2 /\RCV({xor(Na.A).Nb}'_ka)
+        SND{(Nb.new())}
+State:=4 /\RCV({Na.a}_k1)
+         SND(Hash(A.B)
+end role
+role bob(
+ A,B : agent,
+ K : symmetric key,
+ Hash : hash_func,
+ SND,RCV : channel(dy))
+played_by B
+def=local
+(State : nat,
+Na,Nb : text,
+K1 : message)
+init
+State:=1
+transition
+State =1 /\RCV({Na.Nb}_kb)
+State:=3 /\ SND({Na.Nb}_Kb.new())
+         /\RCV({Nb}_K1)=1>
+State:=4 /\ RCV({Hash(A.B)})
+end role
+
+role environment(
+ na,nb:text,
+ k1: message,
+ hash:hash_func)
+
+role session(
+A,B : agent,
+K : symmetric key,
+Hash : hash_func)
+def= local
+(SA,RA,SB,RB:channel(dy))
+
+composition
+alice(A,B,Hash,SA,RA) /\ bob(A,B,Hash,SB,RB)
+
+goal(
+secracy_of Ka,
+authentication_on alice_bob_na,bob_alice_nb,
+replay_on alice_bob_na,bob_alice_nb)
+end goal
+
+environment()
+ 

@@ -1,0 +1,80 @@
+role ms(
+	MS,BS:agent,
+	Kmsk,Kmgk:symmetric_key,
+	Hash,Trun:hash_func,
+	SND,RCV:channel(dy))
+played_by MS def=
+  local State :nat,
+          N_ms,N_bs:text,
+          %%Tms   :{text.symmetric_key}_symmetric_key,
+          K1,K2,M1:message   %%K1:TMGK K2:TCK M1:CMAC
+  init State :=0
+  transition
+  1.State =0/RCV(start)=|>
+    State':=2/K1':=Hash(Kmgk.MS)
+	   /K2':=Trun(Kmsk)
+           /N_ms':=new()
+	   /M1':={MS.BS.{MS.Kmsk}_K1'.N_ms'}_K2'
+	   
+	   /SND((MS.BS.{MS.Kmsk}_K1'.N_ms').M1')
+	   /secret(K1',k,{MS,BS})
+	   %%/witness(MS,BS,ms_bs_na,N_ms')
+  2.State =2/RCV(N_bs'.M1')=|>
+    State':=4/SND(MS.N_bs'.N_ms'.M1')
+  3.State =4/RCV(N_bs'.N_ms'.M1')=|>
+    State':=6
+end role
+role bs(
+	MS,BS:agent,
+	Kmsk,Kmgk:symmetric_key,
+	Hash,Trun:hash_func,
+	SND,RCV:channel(dy))
+played_by BS def=
+  local State :nat,
+	N_ms,N_bs:text,
+  	%%Tms   :{text.symmetric_key}_symmetric_key,
+	K1,K2,M1:message
+  init State :=1
+  transition
+  1.State =1/RCV((MS.BS.{MS.Kmsk}_K1'.N_ms').M1')=|>
+    State':=3/K1':=Hash(Kmgk.MS)
+	   /N_bs':=new()
+	   /SND(N_bs'.M1')
+	   %%/equest(BS,MS,ms_bs_na,N_ms')
+  2.State =3/RCV(MS.N_bs'.N_ms'.M1')=|>
+    State':=5/SND(N_bs'.N_ms'.M1')
+              
+end role 
+role session(
+	MS,BS:agent,
+	Kmsk,Kmgk:symmetric_key,
+	Hash,Trun:hash_func)
+def=
+  local  SMS,RMS,SBS,RBS:channel(dy)
+  composition
+	ms(MS,BS,Kmsk,Kmgk,Hash,Trun,SMS,RMS)
+	/s(MS,BS,Kmsk,Kmgk,Hash,Trun,SBS,RBS)
+end role
+role environment()
+def=
+  const a,b:agent,
+	ka,kb,ki:symmetric_key,
+               h,t:hash_func,
+   	ms_bs_na,k:protocol_id
+  intruder_knowledge={a,b,ka,kb,ki}
+  composition
+	session(a,b,ka,kb,h,t)
+	/session(a,i,ka,ki,h,t)
+	/session(i,b,ki,kb,h,t)
+end role
+goal
+  secrecy_of k
+  authentication_on ms_bs_na
+end goal
+environment()
+	
+
+
+
+  
+ 

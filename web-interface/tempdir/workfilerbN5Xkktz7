@@ -1,0 +1,238 @@
+role role_Ui(
+	Ui,Gw,Sn:agent,
+	Ri:text,Ru:text,PWi:text,
+	SKuigw:symmetric_key,
+	IDi:text,
+	P:public_key,Tu:text,
+	K, Q	: text,
+	H,Mul:function,
+	SND,RCV:channel(dy)
+
+)
+played_by Ui
+def=
+	local
+		State:nat,Rs:text,Sk,Ktmp:symmetric_key,Ts:text,
+		F,R:text,
+		RPWi,C,B,TCi,Y,Xi,Yi,Mi,Mg,MACsk,Ys		:message
+		
+const user_gw_ktmp, sensor_user_macsk,					%linha 32
+		subs1, subs2, subs3,subs4,subs5,subs6,sec_1,sec_2,sec_3					: protocol_id
+
+	init
+		State := 0
+	transition
+		1. State=0
+			/\ RCV(start) =|> 
+		State':=1 
+			/\Ru':=new() 
+			/\RPWi':=H(PWi'.Ru')
+			/\ F' := xor(Ru', H(PWi.IDi))
+			/\ SND({IDi.RPWi'}_SKuigw)
+
+			/\ secret({K,Q},subs1,Gw)
+			/\ secret({PWi, Xi, R', Ri', Ru'}, subs2, Ui)
+			/\ secret({RPWi, SKuigw,Ktmp'}, subs3, {Ui,Gw}) 
+			/\ secret({Sk}, subs4, {Ui,Sn}) %Sk é uma chave secreta entre Ui e Sn
+			
+			%/\ SND({IDi.H(PWi.Ru)}_SKuigw)
+
+			
+
+		2. State=1 
+			/\ RCV({B'.TCi'.Y'}_SKuigw')  =|> 
+			%/\ RCV({xor(H(Gw.Q),H(IDi.RPWi'))}_SKuigw) =|> 
+			
+
+%Fase de login e autenticação
+		State':=2 
+			/\ F' := xor(Ru', H(PWi.IDi))
+			/\ Ru' := xor(F', H(PWi.IDi))
+			/\RPWi':=H(PWi'.Ru')
+			/\ Xi' := xor(TCi',RPWi')
+			/\ Ri':= new()
+			/\ R' := new()
+			/\ Yi' := Mul(Ri',P)
+			/\ Ktmp' := H(xor(Xi',R))  %Verificar
+
+			/\ C' := xor(B',xor(H(IDi.RPWi'),Ktmp'))      
+     			
+			/\ Mi' := {H(IDi.Sn.Yi'.C'.Tu).IDi.Sn.Tu}_Ktmp'
+
+			/\ SND(Mi'.C'.Yi')
+
+			/\ witness(Gw,Ui,user_gw_ktmp,Ktmp')	%Esperasse que o Gw seja capaz de achar o Ktmp
+			
+
+			%/\ SND({H(IDi.Sn.{Ri}_P.xor(xor(xor(H(Gw.Q),H(IDi.RPWi')),H(IDi.RPWi')),Ktmp).Tu).IDi.Sn.Tu}_Ktmp.xor(xor(xor(H(Gw.Q),H(IDi.RPWi')),H(IDi.RPWi')),Ktmp).{Ri}_P)
+
+		5. State=2 
+			%/\ RCV({IDi.Sn.H(IDi.Gw.K').{Ri}_P.{Rs'}_P.Ts'}_Sk) =|> 
+			
+			%/\ request(Ui,Sn,sensor_user_macsk,MACsk')
+			/\ RCV(MACsk'.Ts'.Ys') =|>
+			
+		State':=3
+			/\ Sk' := H(IDi.Sn.Ts.Mul(Ri,Ys))
+			/\ MACsk' := H(IDi.Sn.Xi.Yi.Ys.Ts.Sk')
+			
+			%/\ secret(Sk',sec_1,{})
+			%/\ secret({MACsk'}, subs3, {Ui, Sn})
+end role
+
+role role_Gw(
+	Ui,Gw,Sn:agent,
+	Rg:text,Tgs:text,
+	Kgs,SKuigw:symmetric_key,
+	K, Q	: text,
+	H,Mul:function,
+	P:public_key,
+	SND,RCV:channel(dy))
+
+played_by Gw
+def=
+	local
+		State:nat,Tu,Ts:text,R,Ru:text,PWi:text,IDi:text,Ri:text,
+		RPWi,C,B,TCi,Xi,Y,Yi,Mi,Mg,MACsk,Ys		:message,
+		Sk,Ktmp:symmetric_key
+
+const user_gw_ktmp, sensor_user_macsk,					%linha 32
+		subs1, subs2, subs3,sub4,sec_1,sec_2,sec_3				: protocol_id
+
+	init
+		State := 0
+	transition
+
+%Fase de registro de usuário
+		1. State=0 
+			
+			%/\ RCV({IDi'.H(PWi'.Ru')}_SKuigw') =|> 
+			/\ RCV({IDi'.RPWi'}_SKuigw') =|>
+		State':=1 
+			
+			/\ secret({K,Q},subs1,Gw)
+			/\ secret({PWi, Xi, R', Ri', Ru'}, subs2, Ui)
+			/\ secret({RPWi, SKuigw,Ktmp'}, subs3, {Ui,Gw}) 
+	
+			/\ B' := xor(H(Gw.Q) , H(IDi, RPWi'))
+			/\ Xi' := H(IDi.Gw.K)
+			/\ TCi' := xor(Xi',RPWi')
+			/\ Y' := H(RPWi'.IDi.Xi')
+			/\ SND({B'.TCi'.Y'}_SKuigw') %Verificado 
+
+			%/\ SND({xor(H(Gw.Q),H(IDi'.H(PWi'.Ru')))}_SKuigw')
+
+%Fase de login e autenticação
+		3. State=1
+				
+			%/\ RCV({H(IDi.Sn.{Ri'}_P.xor(xor(xor(H(Gw.Q),H(IDi.H(PWi.Ru))),H(IDi.H(PWi.Ru))),Ktmp).Tu').IDi.Sn.Tu'}_Ktmp.xor(xor(xor(H(Gw.Q),H(IDi.H(PWi.Ru))),H(IDi.H(PWi.Ru))),Ktmp).{Ri'}_P) =|>
+
+			/\ RCV(Mi'.C'.Yi') =|> %Verificado
+
+ 		State':=2 
+			%/\ secret({Xi}, subs5, {Ui,Gw}) %Xi é uma chave secreta entre Ui e Gw
+			/\ Ktmp' := xor(C',H(Gw.Q))
+			%/\ secret(Ktmp,sec_3,{Ui,Gw}) 
+			/\ request(Ui,Gw,user_gw_ktmp,Ktmp')
+			/\ Mg' := {IDi.H(Sn.Yi').Xi'.Tgs'}_Kgs
+			%/\ secret(Kgs',sec_2,{Gw,Sn}) 
+			/\ SND(Mg')
+
+			%/\ secret(Kgs',sec_1,{}) 
+			%/\ SND({IDi.H(Sn.{Ri'}_P).H(IDi.Gw.K).Tgs}_Kgs)
+end role
+
+role role_Sn(
+	Ui,Gw,Sn:agent,
+	Rs:text,
+	K, Q	: text,
+	H,Mul:function,
+	P:public_key,
+	Ts:text,
+	SND,RCV:channel(dy))
+
+
+
+played_by Sn
+def=
+	local
+		State:nat,Kgs:symmetric_key,Tgs:text,Sk,SKuigw,Ktmp:symmetric_key,IDi:text,R,Ru,PWi,Ri:text,
+		Mg,MACsk,Ys,Yi,Xi,RPWi: message
+
+const user_gw_ktmp, sensor_user_macsk,					%linha 32
+		subs1, subs2, subs3,subs4,sec_1,sec_2,sec_3						: protocol_id
+
+	init
+		State := 0
+	transition
+		4. State=0 
+			%/\ RCV({IDi'.H(Sn.{Ri'}_P).H(IDi'.Gw.K').Tgs'}_Kgs') =|> 
+			/\RCV(Mg')=|> 
+		State':=1 
+			/\ secret({K,Q},subs1,Gw)
+			/\ secret({PWi, Xi, R', Ri', Ru'}, subs2, Ui)
+			/\ secret({RPWi, SKuigw,Ktmp'}, subs3, {Ui,Gw}) 
+			/\ secret({Sk}, subs4, {Ui,Sn}) %Sk é uma chave secreta entre Ui e Sn
+
+			/\ Ys' := Mul(Rs',P)
+			/\ Sk' := H(IDi.Sn.Ts.Mul(Rs',Yi'))
+			/\ MACsk' := H(IDi.Sn.Xi'.Yi'.Ys'.Ts'.Sk')
+			%/\ secret(Kgs,sec_2,{Gw,Sn}) 
+			%/\ secret(Sk',sec_1,{})
+		
+			/\ SND(MACsk'.Ts.Ys')
+			%/\ witness(Ui, Sn, sensor_user_macsk, MACsk') %Esperasse que Ui calcule MACsk
+
+			%/\ secret(Kgs',sec_1,{}) 
+			%/\ SND({IDi'.Sn.H(IDi'.Gw.K').{Ri'}_P.{Rs}_P.Ts}_Sk)
+end role
+
+role session(
+		Ui, Gw, Sn	: agent,
+		SKuigw, Kgs,Ktmp: symmetric_key,
+		K,Q:text,
+		P		: public_key,
+		IDi,PWi,Ri,Ru,Rs,Rg,Tu,Tgs,Ts:text,
+		H, Mul		: function)
+def=
+	local
+		SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_Sn(Ui,Gw,Sn,Rs,K,Q,H,Mul,P,Ts,SND3,RCV3) 
+		/\ role_Gw(Ui,Gw,Sn,Rg,Tgs,Kgs,SKuigw,K,Q,H,Mul,P,SND2,RCV2) 
+		/\ role_Ui(Ui,Gw,Sn,Ri,Ru,PWi,SKuigw,IDi,P,Tu,K,Q,H,Mul,SND1,RCV1)
+end role
+
+role environment()
+def=
+const
+	ui, gw, sn	: agent,
+	skuigw, kgs,ktmp: symmetric_key,
+	k,q:text,
+	p		: public_key,
+	idi,pwi,rpwi,ru,r,ri,rg,rs,tu,tgs,ts,f :text,
+	h, mul		: function,
+	c,yi,xi,ys,mi,b,tci,y,mg,macsk	:message,
+	user_gw_ktmp, sensor_user_macsk,
+	subs1, subs2, subs3,subs4: protocol_id
+
+intruder_knowledge = {}
+
+	composition
+		session(ui, gw, sn, skuigw, kgs, ktmp,k,q,p,
+			idi,pwi,ri,ru,rs,rg,tu,tgs,ts,h,mul)
+
+
+	
+end role
+
+goal
+	%secrecy_of subs1
+	%secrecy_of subs2
+	%secrecy_of subs3
+	%secrecy_of subs4
+	authentication_on user_gw_ktmp
+	%authentication_on sensor_user_macsk
+end goal
+
+environment()

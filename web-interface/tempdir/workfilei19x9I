@@ -1,0 +1,61 @@
+role alice (STA, AP: agent,
+            SND_SA, RCV_SA: channel(dy))
+played_by STA
+def=
+    local State : nat,
+ Req, Chal, Suc : text,
+              K : symmetric_key,
+init State := 0
+transition
+1. State = 0 /\ RCV_SA(start) =|>
+   State':= 2 /\ SND_SA(Req)
+2. State = 2 /\ RCV_SA(Chal') =|>
+   State':= 4 /\ K' := new()
+   	      /\ SND_SA({Chal'}_K')
+3. State = 4 /\ RCV_SA(Suc') =|>
+   State':= 6 /\ request(STA,AP,alice_server_k,K)
+end role 
+
+role server (STA, AP: agent,
+             SND_AS, RCV_AS: channel(dy))
+played_by AP
+def=
+    local State : nat,
+ Req, Chal, Suc : text,
+              K : symmetric_key 
+init State := 1
+transition
+1. State = 1 /\ RCV_AS(Req') =|>
+   State':= 3 /\ Chal' := new()
+               /\ SND_AS(Chal')
+2. State = 3 /\ RCV_AS({Chal}_K') =|>
+   State':= 5 /\ Suc' := new()
+               /\ SND_AS(Suc')
+               /\ witness(AP,STA,alice_server_k,K')
+end role 
+
+role session(STA, AP: agent)
+def=
+local
+  SSA, RSA, SAS, RAS : channel (dy)
+composition
+  alice (STA, AP, SSA, RSA)
+  /\ server (STA, AP, SAS, RAS)
+end role 
+
+role environment()
+def=
+      const a, s : agent,
+  alice_server_k : protocol_id 
+intruder_knowledge = {a, s}
+composition
+   session(a,s)
+   /\ session(i,s)
+end role 
+
+goal
+    authentication_on    alice_server_k
+end goal
+
+environment() 
+

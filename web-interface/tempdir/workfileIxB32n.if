@@ -1,0 +1,129 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileIxB32n
+
+section signature:
+
+state_server: agent * agent * hash_func * message * text * text * nat * message * nat -> fact
+state_client: agent * agent * hash_func * message * text * text * nat * message * nat -> fact
+
+
+section types:
+
+m: protocol_id
+11, 10, State, 7, 4, SID, 6, 5, Dummy_State, 3, 2, 1, SID2, SID1, 0: nat
+SUCCESS, SEED, seed2, seed1, success, passwd2, passwd1: text
+M, OTP, Dummy_OTP, Dummy_M, dummy_msg, MGoal, start, Secret: message
+MD4, md4: hash_func
+C, S, A2Goal, A1Goal, c2, s2, c1, s1, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(c1).
+ iknows(s1).
+ iknows(c2).
+ iknows(s2).
+ iknows(md4).
+ iknows(success).
+ iknows(passwd2).
+ iknows(seed2).
+ iknows(i).
+ state_client(c1,s1,md4,apply(md4,pair(passwd1,seed1)),seed1,success,0,dummy_msg,3).
+ state_server(s1,c1,md4,apply(md4,apply(md4,apply(md4,apply(md4,apply(md4,apply(md4,pair(passwd1,seed1))))))),seed1,success,10,dummy_msg,4).
+ state_server(s1,i,md4,apply(md4,apply(md4,apply(md4,apply(md4,apply(md4,apply(md4,pair(passwd2,seed2))))))),seed2,success,10,dummy_msg,7)
+
+
+section rules:
+
+step step_0 (C,S,MD4,Secret,SEED,SUCCESS,M,SID) :=
+ state_client(C,S,MD4,Secret,SEED,SUCCESS,0,M,SID).
+ iknows(start)
+ =>
+ state_client(C,S,MD4,Secret,SEED,SUCCESS,1,M,SID).
+ iknows(C)
+
+step step_1 (C,S,MD4,Secret,SEED,SUCCESS,Dummy_M,SID) :=
+ state_client(C,S,MD4,Secret,SEED,SUCCESS,1,Dummy_M,SID).
+ iknows(SEED)
+ =>
+ state_client(C,S,MD4,Secret,SEED,SUCCESS,2,apply(MD4,apply(MD4,apply(MD4,apply(MD4,Secret)))),SID).
+ iknows(apply(MD4,apply(MD4,apply(MD4,apply(MD4,Secret))))).
+ witness(C,S,m,apply(MD4,apply(MD4,apply(MD4,apply(MD4,Secret)))))
+
+step step_2 (C,S,MD4,Secret,SEED,SUCCESS,M,SID) :=
+ state_client(C,S,MD4,Secret,SEED,SUCCESS,2,M,SID).
+ iknows(SUCCESS)
+ =>
+ state_client(C,S,MD4,Secret,SEED,SUCCESS,3,M,SID).
+ iknows(C)
+
+step step_3 (C,S,MD4,Secret,SEED,SUCCESS,Dummy_M,SID) :=
+ state_client(C,S,MD4,Secret,SEED,SUCCESS,3,Dummy_M,SID).
+ iknows(SEED)
+ =>
+ state_client(C,S,MD4,Secret,SEED,SUCCESS,4,apply(MD4,apply(MD4,apply(MD4,Secret))),SID).
+ iknows(apply(MD4,apply(MD4,apply(MD4,Secret)))).
+ witness(C,S,m,apply(MD4,apply(MD4,apply(MD4,Secret))))
+
+step step_4 (C,S,MD4,Secret,SEED,SUCCESS,M,SID) :=
+ state_client(C,S,MD4,Secret,SEED,SUCCESS,4,M,SID).
+ iknows(SUCCESS)
+ =>
+ state_client(C,S,MD4,Secret,SEED,SUCCESS,5,M,SID).
+ iknows(C)
+
+step step_5 (C,S,MD4,Secret,SEED,SUCCESS,Dummy_M,SID) :=
+ state_client(C,S,MD4,Secret,SEED,SUCCESS,5,Dummy_M,SID).
+ iknows(SEED)
+ =>
+ state_client(C,S,MD4,Secret,SEED,SUCCESS,6,apply(MD4,apply(MD4,Secret)),SID).
+ iknows(apply(MD4,apply(MD4,Secret))).
+ witness(C,S,m,apply(MD4,apply(MD4,Secret)))
+
+step step_6 (C,S,MD4,Secret,SEED,SUCCESS,M,SID) :=
+ state_client(C,S,MD4,Secret,SEED,SUCCESS,6,M,SID).
+ iknows(SUCCESS)
+ =>
+ state_client(C,S,MD4,Secret,SEED,SUCCESS,7,M,SID)
+
+step step_7 (S,C,MD4,OTP,SEED,SUCCESS,M,SID) :=
+ state_server(S,C,MD4,OTP,SEED,SUCCESS,10,M,SID).
+ iknows(C)
+ =>
+ state_server(S,C,MD4,OTP,SEED,SUCCESS,11,M,SID).
+ iknows(SEED)
+
+step step_8 (S,C,MD4,SEED,SUCCESS,Dummy_M,SID,M) :=
+ state_server(S,C,MD4,apply(MD4,M),SEED,SUCCESS,11,Dummy_M,SID).
+ iknows(M)
+ =>
+ state_server(S,C,MD4,M,SEED,SUCCESS,10,M,SID).
+ iknows(SUCCESS).
+ request(S,C,m,M,SID)
+
+
+section properties:
+
+property authentication_on_m (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,m,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,m,MGoal))
+     /\ ((request(A1Goal,A2Goal,m,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,m,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state authentication_on_m (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,m,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,m,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_m (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,m,MGoal,SID1).
+ request(A1Goal,A2Goal,m,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

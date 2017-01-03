@@ -1,0 +1,79 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileY22agZ
+
+section signature:
+
+state_bob: agent * agent * nat * text * text * nat -> fact
+state_alice: agent * agent * nat * text * text * nat -> fact
+
+
+section types:
+
+na, nb, alice_bob_nb, bob_alice_na: protocol_id
+MGoal, start: message
+dummy_nonce, Na, Nb, Dummy_Na: text
+A2Goal, A1Goal, a, b, A, B, i: agent
+SID2, SID1, SID, 3, 1, State, 4, 2, 0, 10, 6, Dummy_State: nat
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(i).
+ state_alice(a,b,0,dummy_nonce,dummy_nonce,3).
+ state_bob(b,a,1,dummy_nonce,dummy_nonce,4).
+ state_alice(a,i,0,dummy_nonce,dummy_nonce,6).
+ state_bob(b,i,1,dummy_nonce,dummy_nonce,10)
+
+
+section rules:
+
+step step_0 (A,B,Dummy_Na,Nb,SID,Na) :=
+ state_alice(A,B,0,Dummy_Na,Nb,SID).
+ iknows(start)
+=[exists Na]=>
+ state_alice(A,B,2,Na,Nb,SID).
+ iknows(pair(Na,A))
+
+step step_1 (A,B,Na,Nb,SID) :=
+ state_alice(A,B,2,Na,Nb,SID).
+ iknows(Na)
+ =>
+ state_alice(A,B,4,Na,Nb,SID).
+ request(A,B,alice_bob_na,Na,SID)
+
+step step_2 (B,A,Dummy_Na,Nb,SID,Na) :=
+ state_bob(B,A,1,Dummy_Na,Nb,SID).
+ iknows(pair(Na,A))
+ =>
+ state_bob(B,A,3,Na,Nb,SID).
+ iknows(Na).
+ witness(B,A,alice_bob_na,Na)
+
+
+section properties:
+
+property authentication_on_alice_bob_na (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,alice_bob_na,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,alice_bob_na,MGoal))
+     /\ ((request(A1Goal,A2Goal,alice_bob_na,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,alice_bob_na,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state authentication_on_alice_bob_na (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,alice_bob_na,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,alice_bob_na,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_alice_bob_na (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,alice_bob_na,MGoal,SID1).
+ request(A1Goal,A2Goal,alice_bob_na,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

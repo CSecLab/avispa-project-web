@@ -1,0 +1,119 @@
+role alice (Alice, Receiver: agent,             
+            Ki: public_key,
+            Kai : symmetric_key,  
+            SND, RCV: channel (dy)) 
+played_by Alice def=
+
+  local State : nat, 
+        Q,A: text
+  const sec_k1 : protocol_id ,
+        sec_k5 : protocol_id
+  init State := 0
+
+  transition  
+   
+    0.  State  = 0 /\ RCV(start) =|> 
+	State':= 2 /\ Q' := new() /\ SND({Q'.Kai}_Ki)
+		   /\ secret(Q',sec_k1,{Alice,Issuer}) 
+		   
+	5.  State  = 4 /\ RCV({A'}_Kai) =|> 
+	State':= 5 /\ secret(A',sec_k5,{Alice,Issuer}) 
+
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role receiver (Alice, Receiver, Issuer: agent,             
+            Ki: public_key,      
+            SND, RCV: channel (dy)) 
+played_by Receiver def=
+
+  local State : nat, 
+        Q,X,A: text,
+		M1,M2 :message
+  const sec_k2 : protocol_id ,
+        sec_k4 : protocol_id
+  init State := 1
+
+  transition 
+
+    1.  State  = 1 /\ RCV({Q'.Kai}_Ki) =|> 
+	State':= 3 /\ X' := new() /\ SND(X',{Q'.Kai}_Ki)
+		   /\ secret(Q',sec_k2,{Alice,Issuer}) 
+		   
+    4.  State  = 3 /\ RCV(X,{A'}_Kai) =|> 
+	State':= 4 /\ M1':={A'}_Kai /\ M2':=X' /\ SND(M1',M2')
+		   /\ secret(A',sec_k4,{Alice,Issuer})  
+
+  
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role issuer (Alice, Receiver, Issuer: agent,             
+            Ki: public_key, 
+            Kai : symmetric_key, 			
+            SND, RCV: channel (dy)) 
+played_by Issuer def=
+
+  local State : nat, 
+        Q,X,A: text
+  const sec_k3 : protocol_id
+  init State := 2
+
+  transition 
+	 
+    2.  State  = 2 /\ RCV(X',{Q'.Kai}_Ki) =|> 
+	State':= 3 /\ A' := new() /\ SND(X,{A'}_Kai)
+		   /\ secret(A',sec_k3,{Alice,Issuer}) 
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(Alice, Receiver, Issuer: agent, Ki: public_key, Kai : symmetric_key) def=
+
+  local SA, RA, SR, RR, SI ,RI: channel (dy)
+
+  composition 
+
+	alice(Alice, Receiver,Ki,Kai,SA,RA)
+     /\ receiver(Alice, Receiver, Issuer,Ki,SR,RR)
+	 /\ issuer  (Receiver, Issuer,Ki,Kai,SI,RI)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+    const alice, receiver, issuer, i       : agent,
+	  ki   : public_key,
+	  kai  : symmetric_key
+
+    intruder_knowledge = {alice, issuer, receiver, ki}
+
+    composition
+
+	session(alice,receiver, issuer,ki,kai)
+     /\ session(alice,receiver, i,ki,kai)
+     /\ session(alice,i, issuer,ki,kai)
+	 /\ session(i,receiver, issuer,ki,kai)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of sec_k1, sec_k2, sec_k3,sec_k4, sec_k5
+
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

@@ -1,0 +1,160 @@
+role client(C,B,M:agent,
+            Kc,Km,Key:symmetric_key,
+			H:hash_func,
+			Pubx,Mpk,Puby:public_key,
+			Snd,Rcv:channel(dy))
+played_by C
+def=
+local State:nat,
+      IMEIx,Dx,TDx,X,Msk,G,SKc,K1,IMEIy,Dy,TDy,Y,SKm,K2,Inv,Amt,Pay,R1,R2,Succ,Bill,Payc:text
+	  
+	  const client_bank_x,bank_client_msk,merchant_bank_y,bank_merchant_msk,subs1,subs2,subs3,subs4:protocol_id
+init State := 0
+transition
+1.State =0 /\Rcv(start)=|>
+  State':=1/\X':=new()
+           /\Msk':=new()
+           /\Dx':=H(X.IMEIx)
+           /\Pubx':=exp(G,X)
+           /\K1':=H(IMEIx.Pubx)
+           /\Snd({IMEIx.Dx.Pubx.K1}_Kc)
+           /\secret({X},subs1,C)
+           
+           /\secret({Msk},subs2,{C,B})	
+           /\witness(C,B,client_bank_x,X')
+		
+2.State =1/\ Rcv({B.TDx.Mpk}_Kc)=|>
+  State':=2/\Inv':=new()
+           /\Amt':=xor(Pay.Inv)
+		   /\R1':=H(IMEIx.Inv.Pubx.Pay)
+		   /\Key':=H(IMEIx.Pubx.Kc.Pay)
+		   /\Snd(IMEIx.Inv.Pubx.Amt.H(IMEIx.Inv.Pubx.Pay).{Pay.TDx}_Key)
+           /\request(B,C,bank_client_msk,Msk')
+
+		   
+end role
+
+
+
+
+
+role bank(C,B,M:agent,
+            Kc,Km,Key:symmetric_key,
+			H:hash_func,
+			Pubx,Mpk,Puby:public_key,
+			Snd,Rcv:channel(dy))  
+played_by B
+def=
+local State:nat,
+      IMEIx,Dx,TDx,X,Msk,G,SKc,K1,IMEIy,Dy,TDy,Y,SKm,K2,Inv,Amt,Pay,R1,R2,Succ,Bill,Payc:text
+	  
+	  const client_bank_x,bank_client_msk,merchant_bank_y,bank_merchant_msk,subs1,subs2,subs3,subs4:protocol_id
+init State := 0
+transition
+1.State =0/\Rcv({IMEIx.Dx.Pubx.K1}_Kc)=|>
+  State':=1/\Msk':=new()
+           /\Mpk':=exp(G,Msk)
+		   /\TDx':=H(Dx.Msk)
+
+
+		   /\SKc':=exp(Pubx,Msk)
+		   /\Kc':=H(SKc.Dx.K1)
+		   /\Snd({B.TDx}_Kc.Mpk)
+		   /\secret({X},subs1,C)
+           
+           /\secret({Msk},subs2,{C,B})	
+           /\witness(B,C,bank_client_msk,Msk')
+
+2.State =1/\Rcv({IMEIy.Dy.Puby.K2}_Km.Pubx.IMEIx.Pay.R1.{Pay.TDx}_Key) =|>
+  State':=2/\TDy':=H(Dy.Msk)
+		  /\SKm':=exp(Puby.Msk)
+		  /\Km':=H(SKm.K2.Dy)
+		  /\Succ':=new()
+		  /\Bill':=new()
+		  /\Snd({Succ.Bill.B}_Km)
+		  /\secret({Y},subs3,M)
+           
+           /\secret({Msk},subs4,{M,B})	
+           /\witness(B,M,bank_merchant_msk,Msk')
+  end role
+  
+  
+ role merchant(C,B,M:agent,
+            Kc,Km,Key:symmetric_key,
+			H:hash_func,
+			Pubx,Mpk,Puby:public_key,
+			Snd,Rcv:channel(dy))  
+played_by M
+def=
+local State:nat,
+      IMEIx,Dx,TDx,X,Msk,G,SKc,K1,IMEIy,Dy,TDy,Y,SKm,K2,Inv,Amt,Pay,R1,R2,Succ,Bill,Payc:text
+	  
+	  const client_bank_x,bank_client_msk,merchant_bank_y,bank_merchant_msk,subs1,subs2,subs3,subs4:protocol_id
+init State := 0
+transition
+1.State =0/\Rcv(IMEIx.Inv.Pubx.Amt.H(IMEIx.Inv.Pubx.Pay).{Pay.TDx}_Key) =|>
+State':= 1/\Y':=new()
+           /\Msk':=new()
+           /\Dy':=H(Y.IMEIy)
+           /\Puby':=exp(G,Y)
+           /\K2':=H(IMEIy.Puby)
+		   /\Payc':=xor(Amt.Inv)
+           /\Snd({IMEIy.Dy.Puby.K2}_Km.Pubx.IMEIx.Pay.R1.{Pay.TDx}_Key)
+           /\secret({Y},subs3,M)
+           
+           /\secret({Msk},subs4,{M,B})	
+           /\witness(M,B,merchant_bank_y,Y')
+		   
+2.State =1/\Rcv({Succ.Bill.B}_Km) =|>
+State':=2/\request(B,M,bank_merchant_msk,Msk')
+end role
+
+
+role session(C,B,M:agent,
+            Kc,Km,Key:symmetric_key,
+			H:hash_func,
+			Pubx,Mpk,Puby:public_key)
+			
+def=
+local SC,SB,SM,RC,RB,RM:channel(dy)	
+composition
+client(C,B,M,Kc,Km,Key,H,Pubx,Mpk,Puby,SC,RC)
+/\bank(C,B,M,Kc,Km,Key,H,Pubx,Mpk,Puby,SB,RB)
+/\merchant(C,B,M,Kc,Km,Key,H,Pubx,Mpk,Puby,SM,RM)
+end role
+
+		
+ role environment()
+def=
+const c,b,m,i:agent,
+      kc,km,key:symmetric_key,
+	  h:hash_func,
+	  pubx,mpk,puby:public_key,
+	  dx,tdx,tdy,x,y,g,skc,skm,k1,k2,r1,succ,bill:text,
+client_bank_x,bank_client_msk,merchant_bank_y,bank_merchant_msk,subs1,subs2,subs3,subs4:protocol_id
+
+
+intruder_knowledge={c,b,m,h,mpk,pubx,puby}
+
+composition
+   session(c,b,m,kc,km,key,h,mpk,pubx,puby)
+ /\session(c,b,m,kc,km,key,h,mpk,pubx,puby) 
+/\session(c,b,m,kc,km,key,h,mpk,pubx,puby) 
+ 
+ 
+ end role
+ 
+ goal
+ secrecy_of subs1
+ secrecy_of subs2
+ secrecy_of subs3
+ secrecy_of subs4
+ authentication_on client_bank_x
+ authentication_on merchant_bank_y
+ authentication_on bank_client_msk
+ authentication_on bank_merchant_msk
+ end goal
+ 
+ environment()
+ 
+ 

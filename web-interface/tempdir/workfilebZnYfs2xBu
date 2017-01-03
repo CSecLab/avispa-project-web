@@ -1,0 +1,286 @@
+role role_MR(
+MR:agent,
+AR1:agent,
+HAAA:agent,
+RVS:agent,
+LRVS1:agent,
+KMRHAAA:symmetric_key,
+SKMRVAAA:symmetric_key,
+SKMRRVS:symmetric_key,
+SKLRVS1MR:symmetric_key,
+GK1:symmetric_key,
+H:function,
+F:function,
+SND,RCV:channel(dy))
+played_by MR
+def=
+	local
+		State:nat,
+    IDHAAA:text,
+    N1:text,
+    IDMR:text,
+    TS:text,
+    IDAR1:text,
+    W:text,
+    Z:text,
+    G:text,
+    PUZZLE:text,
+    HILRVS1:public_key,
+    N2:text,
+    M:text,
+    N:text,
+    K:text,
+    Soln:function,
+    PUZZLE2:text,
+    HIRVS:public_key,
+    HIMR:public_key
+	init
+		State := 0
+	transition
+		0. State=0 /\ RCV(start) =|> 
+     State':=1 /\ N1':=new() 
+               /\ HIMR':=new() 
+               /\ IDMR':=new() 
+               /\ TS':=new() 
+               /\ IDHAAA':=new() 
+               /\ SND(TS'.IDMR'.H(HIMR').IDHAAA'.N1'.{TS'.IDMR'.H(HIMR').N1'}_KMRHAAA)
+               /\ witness(MR,HAAA,auth_1,N1')
+               /\ secret(KMRHAAA,sec_1,{HAAA,MR})
+		7. State=1 /\ RCV(TS.{IDAR1'.SKLRVS1MR}_SKMRVAAA.N2'.IDMR.H(HIMR).{TS.IDMR.H(HIMR).N1.N2'}_KMRHAAA) =|> 
+    State':=2 /\ request(MR,HAAA,auth_2,N2') 
+              /\ HILRVS1':=new() 
+              /\ SND({H(HIMR).H(HILRVS1').N2'}_SKLRVS1MR)
+		9. State=2 /\ RCV({H(HIMR).H(HILRVS1).PUZZLE'.exp(G',W').HILRVS1}_SKLRVS1MR.{H({H(HIMR).H(HILRVS1).PUZZLE'.exp(G',W').HILRVS1}_SKLRVS1MR)}_inv(HILRVS1)) =|> State':=3 /\ Z':=new() 
+                  /\ SND({H(HIMR).H(HILRVS1).Soln(PUZZLE').exp(G',Z')}_SKLRVS1MR.{H({H(HIMR).H(HILRVS1).Soln(PUZZLE').exp(G',Z')}_SKLRVS1MR)}_inv(HIMR))
+		11. State=3 /\ RCV({H(HIMR).H(HILRVS1).GK1}_SKLRVS1MR.{H({H(HIMR).H(HILRVS1).GK1}_SKLRVS1MR)}_inv(HILRVS1)) =|>
+      State':=4 /\ HIRVS':=new()
+                /\ SND({H(HIMR).H(HIRVS').N2}_SKMRRVS)
+		13. State=4 /\ RCV({H(HIMR).H(HIRVS).PUZZLE2'.exp(K',M').HIRVS}_SKMRRVS.{H({H(HIMR).H(HIRVS).PUZZLE2'.exp(K',M').HIRVS}_SKMRRVS)}_inv(HIRVS)) =|> 
+    State':=5 /\ N':=new() 
+              /\ SND({H(HIMR).H(HIRVS).Soln(PUZZLE2').exp(K',N')}_SKMRRVS.{H({H(HIMR).H(HIRVS).Soln(PUZZLE2').exp(K',N')}_SKMRRVS)}_inv(HIMR))
+		15. State=5 /\ RCV({H(HIMR).H(HIRVS)}_SKMRRVS.{H({H(HIMR).H(HIRVS)}_SKMRRVS)}_inv(HIRVS)) =|> 
+        State':=6
+end role
+
+role role_AR1(
+AR1:agent,
+MR:agent,
+LRVS1:agent,
+VAAA:agent,
+KAR1VAAA:symmetric_key,
+GK1:symmetric_key,
+H:function,
+F:function,
+SND,RCV:channel(dy))
+played_by AR1
+def=
+	local
+		State:nat,IDHAAA:text,KMRHAAA:symmetric_key,N1:text,IDMR:text,TS:text,HIMR:public_key,N2:text,SKMRVAAA:symmetric_key,IDAR1:text,SKLRVS1MR:symmetric_key
+	init
+		State := 0
+	transition
+		0. State=0 /\ RCV(TS'.IDMR'.H(HIMR').IDHAAA'.N1'.{TS'.IDMR'.H(HIMR').N1'}_KMRHAAA') =|> 
+     State':=1 /\ IDAR1':=new() 
+               /\ SND(TS'.IDMR'.H(HIMR').IDHAAA'.N1'.{TS'.IDMR'.H(HIMR').N1'}_KMRHAAA'.IDAR1'.{TS'.IDAR1'.N1'}_KAR1VAAA)
+               /\ witness(AR1,VAAA,auth_1,N1')
+               /\ secret(KAR1VAAA,sec_2,{VAAA,AR1})
+		5. State=1 /\ RCV(TS.{IDAR1.SKLRVS1MR'}_SKMRVAAA'.N2'.{TS.IDAR1.N1.N2'}_KAR1VAAA.IDMR.H(HIMR).{TS.IDMR.H(HIMR).N1.N2'}_KMRHAAA) =|> 
+      State':=2 /\ request(AR1,VAAA,auth_2,N2')  
+                /\ SND(TS.{IDAR1.SKLRVS1MR'}_SKMRVAAA'.N2'.IDMR.H(HIMR).{TS.IDMR.H(HIMR).N1.N2'}_KMRHAAA)
+end role
+
+role role_LRVS1(
+LRVS1:agent,
+AR1:agent,
+VAAA:agent,
+KLRVS1VAAA:symmetric_key,
+SKLRVS1MR:symmetric_key,
+GK1:symmetric_key,
+H:function,
+F:function,
+SND,RCV:channel(dy))
+played_by LRVS1
+def=
+	local
+		State:nat,
+    N2:text,
+    W:text,
+    Z:text,
+    G:text,
+    Soln:function,
+    PUZZLE:text,
+    HILRVS1:public_key,
+    HIMR:public_key
+	init
+		State := 0
+	transition
+		6. State=0 /\ RCV({SKLRVS1MR.N2'}_KLRVS1VAAA) =|> State':=1
+		8. State=1 /\ RCV({H(HIMR').H(HILRVS1').N2}_SKLRVS1MR) =|>
+    State':=2 /\ W':=new() 
+              /\ G':=new() 
+              /\ PUZZLE':=new() 
+              /\ SND({H(HIMR').H(HILRVS1').PUZZLE'.exp(G',W').HILRVS1'}_SKLRVS1MR.{H({H(HIMR').H(HILRVS1').PUZZLE'.exp(G',W').HILRVS1'}_SKLRVS1MR)}_inv(HILRVS1'))
+	10. State=2 /\ RCV({H(HIMR).H(HILRVS1).Soln(PUZZLE).exp(G,Z')}_SKLRVS1MR.{H({H(HIMR).H(HILRVS1).Soln(PUZZLE).exp(G,Z')}_SKLRVS1MR)}_inv(HIMR)) =|>
+    State':=3 /\ SND({H(HIMR).H(HILRVS1).GK1}_SKLRVS1MR.{H({H(HIMR).H(HILRVS1).GK1}_SKLRVS1MR)}_inv(HILRVS1))
+end role
+
+role role_VAAA(
+VAAA:agent,
+LRVS1:agent,
+AR1:agent,
+HAAA:agent,
+KAR1VAAA:symmetric_key,
+SKLRVS1MR:symmetric_key,
+SKMRVAAA:symmetric_key,
+KLRVS1VAAA:symmetric_key,
+H:function,
+F:function,
+SND,RCV:channel(dy))
+played_by VAAA
+def=
+	local
+		State:nat,
+    IDHAAA:text,
+    X:text,
+    G:text,
+    Y:text,
+    KMRHAAA:symmetric_key,
+    N1:text,
+    IDMR:text,
+    TS:text,
+    HIMR:public_key,
+    IDAR1:text,
+    N2:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(TS'.IDMR'.H(HIMR').IDHAAA'.N1'.{TS'.IDMR'.H(HIMR').N1'}_KMRHAAA'.IDAR1'.{TS'.IDAR1'.N1'}_KAR1VAAA) =|>
+    State':=1 /\ request(VAAA,AR1,auth_1,N1') 
+              /\ X':=new() 
+              /\ G':=new() 
+              /\ SND(TS'.IDMR'.H(HIMR').IDHAAA'.N1'.{TS'.IDMR'.H(HIMR').N1'}_KMRHAAA'.G'.exp(G',X'))
+		3. State=1 /\ RCV(TS.IDMR.H(HIMR).N2'.exp(G,Y').{SKMRVAAA}_exp(exp(G,X),Y').{TS.IDMR.H(HIMR).N1.N2'}_KMRHAAA) =|> 
+     State':=2 /\ SND(TS.{IDAR1.SKLRVS1MR}_SKMRVAAA.N2'.{TS.IDAR1.N1.N2'}_KAR1VAAA.IDMR.H(HIMR).{TS.IDMR.H(HIMR).N1.N2'}_KMRHAAA)
+               /\ secret(exp(exp(G,Y'),X'),sec_6,{HAAA,VAAA})
+               /\ secret(SKLRVS1MR,sec_7,{VAAA,LRVS1})
+               /\ witness(VAAA,AR1,auth_2,N2')     
+               /\ SND({SKLRVS1MR.N2'}_KLRVS1VAAA)
+               /\ secret(KLRVS1VAAA,sec_3,{VAAA,LRVS1})
+               
+               
+end role
+
+role role_RVS(
+RVS:agent,
+MR:agent,
+LRVS1:agent,
+HAAA:agent,
+H:function,
+F:function,
+KRVSHAAA:symmetric_key,
+SKMRRVS:symmetric_key,
+SND,RCV:channel(dy))
+played_by RVS
+def=
+	local
+		State:nat,
+    N2:text,
+    M:text,
+    N:text,
+    K:text,
+    Soln:function,
+    PUZZLE2:text,
+    HIRVS:public_key,
+    HIMR:public_key
+	init
+		State := 0
+	transition
+		4. State=0 /\ RCV({N2'.SKMRRVS}_KRVSHAAA) =|> State':=1
+		12. State=1 /\ RCV({H(HIMR').H(HIRVS').N2}_SKMRRVS) =|> 
+    State':=2 /\ M':=new() 
+              /\ K':=new() 
+              /\ PUZZLE2':=new() 
+              /\ SND({H(HIMR').H(HIRVS').PUZZLE2'.exp(K',M').HIRVS'}_SKMRRVS.{H({H(HIMR').H(HIRVS').PUZZLE2'.exp(K',M').HIRVS'}_SKMRRVS)}_inv(HIRVS'))
+		14. State=2 /\ RCV({H(HIMR).H(HIRVS).Soln(PUZZLE2).exp(K,N')}_SKMRRVS.{H({H(HIMR).H(HIRVS).Soln(PUZZLE2).exp(K,N')}_SKMRRVS)}_inv(HIMR)) =|>
+      State':=3 /\ SND({H(HIMR).H(HIRVS)}_SKMRRVS.{H({H(HIMR).H(HIRVS)}_SKMRRVS)}_inv(HIRVS))
+end role
+
+role role_HAAA(
+HAAA:agent,
+MR:agent,
+VAAA:agent,
+RVS:agent,
+KMRHAAA:symmetric_key,
+H:function,
+F:function,
+SKMRVAAA:symmetric_key,
+SKMRRVS:symmetric_key,
+KRVSHAAA:symmetric_key,
+SND,RCV:channel(dy))
+played_by HAAA
+def=
+	local
+		State:nat,
+    IDHAAA:text,
+    N1:text,
+    IDMR:text,
+    TS:text,
+    HIMR:public_key,
+    X:text,
+    G:text,
+    Y:text,
+    N2:text
+	init
+		State := 0
+	transition
+		2. State=0 /\ RCV(TS'.IDMR'.H(HIMR').IDHAAA'.N1'.{TS'.IDMR'.H(HIMR').N1'}_KMRHAAA.G'.exp(G',X')) =|>
+    State':=1 /\ request(HAAA,MR,auth_1,N1')
+              /\ N2':=new() 
+              /\ Y':=new() 
+              /\ SND(TS'.IDMR'.H(HIMR').N2'.exp(G',Y').{SKMRVAAA}_exp(exp(G,X),Y').{TS'.IDMR'.H(HIMR').N1'.N2'}_KMRHAAA) 
+              /\ SND({N2'.SKMRRVS}_KRVSHAAA)
+              /\ witness(HAAA,MR,auth_2,N2')
+              /\ secret(KRVSHAAA,sec_4,{HAAA,RVS})
+              /\ secret(SKMRRVS,sec_5,{HAAA,RVS,MR})
+              /\ secret(SKMRVAAA,sec_8,{HAAA,VAAA,MR})
+             
+              
+              
+end role
+
+role session1(LRVS1:agent,GK1:symmetric_key,AR1:agent,KAR1VAAA:symmetric_key,SKLRVS1MR:symmetric_key,KLRVS1VAAA:symmetric_key,HAAA:agent,MR:agent,VAAA:agent,RVS:agent,KMRHAAA:symmetric_key,H:function,F:function,SKMRVAAA:symmetric_key,SKMRRVS:symmetric_key,KRVSHAAA:symmetric_key)
+def=
+	local
+		SND6,RCV6,SND5,RCV5,SND4,RCV4,SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_HAAA(HAAA,MR,VAAA,RVS,KMRHAAA,H,F,SKMRVAAA,SKMRRVS,KRVSHAAA,SND6,RCV6) 
+    /\ role_RVS(RVS,MR,LRVS1,HAAA,H,F,KRVSHAAA,SKMRRVS,SND5,RCV5) 
+    /\ role_VAAA(VAAA,LRVS1,AR1,HAAA,KAR1VAAA,SKLRVS1MR,SKMRVAAA,KLRVS1VAAA,H,F,SND4,RCV4) 
+    /\ role_LRVS1(LRVS1,AR1,VAAA,KLRVS1VAAA,SKLRVS1MR,GK1,H,F,SND3,RCV3)
+    /\ role_AR1(AR1,MR,LRVS1,VAAA,KAR1VAAA,GK1,H,F,SND2,RCV2) 
+    /\ role_MR(MR,AR1,HAAA,RVS,LRVS1,KMRHAAA,SKMRVAAA,SKMRRVS,SKLRVS1MR,GK1,H,F,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		hash_0:function,skmrrvs:symmetric_key,const_1:function,kmrhaaa:symmetric_key,vaaa:agent,haaa:agent,sklrvs1mr:symmetric_key,ar1:agent,lrvs1:agent,gk1:symmetric_key,kar1vaaa:symmetric_key,klrvs1mr:symmetric_key,mr:agent,rvs:agent,skmrvaaa:symmetric_key,krvshaaa:symmetric_key,auth_1:protocol_id,auth_2:protocol_id,sec_1:protocol_id,sec_2:protocol_id,sec_3:protocol_id,sec_4:protocol_id,sec_5:protocol_id,sec_6:protocol_id,sec_7:protocol_id,sec_8:protocol_id
+	intruder_knowledge = {mr,lrvs1,vaaa,rvs,haaa}
+	composition
+		session1(lrvs1,gk1,ar1,kar1vaaa,sklrvs1mr,klrvs1mr,haaa,mr,vaaa,rvs,kmrhaaa,const_1,const_1,skmrvaaa,skmrrvs,krvshaaa)
+end role
+
+goal
+	authentication_on auth_1
+	authentication_on auth_2
+  secrecy_of sec_1
+  secrecy_of sec_2
+  secrecy_of sec_3
+  secrecy_of sec_4
+  secrecy_of sec_5
+  secrecy_of sec_6
+  secrecy_of sec_7
+  secrecy_of sec_8
+end goal
+
+environment()

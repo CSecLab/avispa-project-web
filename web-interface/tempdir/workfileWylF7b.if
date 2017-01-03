@@ -1,0 +1,93 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileWylF7b
+
+section signature:
+
+state_server: agent * agent * nat * text * text * text * symmetric_key * nat -> fact
+state_alice: agent * agent * nat * text * text * text * symmetric_key * nat -> fact
+
+
+section types:
+
+alice_server_k: protocol_id
+SID2, SID1, SID, 5, State, 6, 3, 4, 2, 1, 0, 7, Dummy_State: nat
+K, Dummy_K, dummy_sk: symmetric_key
+A2Goal, A1Goal, a, s, STA, AP, i: agent
+Req, Chal, Suc, Dummy_Req, Dummy_Suc, Dummy_Chal, dummy_nonce: text
+start, MGoal: message
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(s).
+ iknows(i).
+ state_alice(a,s,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,3).
+ state_server(s,a,1,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,4).
+ state_server(s,i,1,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,7)
+
+
+section rules:
+
+step step_0 (STA,AP,Req,Chal,Suc,K,SID) :=
+ state_alice(STA,AP,0,Req,Chal,Suc,K,SID).
+ iknows(start)
+ =>
+ state_alice(STA,AP,2,Req,Chal,Suc,K,SID).
+ iknows(Req)
+
+step step_1 (STA,AP,Req,Dummy_Chal,Suc,Dummy_K,SID,Chal,K) :=
+ state_alice(STA,AP,2,Req,Dummy_Chal,Suc,Dummy_K,SID).
+ iknows(Chal)
+=[exists K]=>
+ state_alice(STA,AP,4,Req,Chal,Suc,K,SID).
+ iknows(scrypt(K,Chal))
+
+step step_2 (STA,AP,Req,Chal,Dummy_Suc,K,SID,Suc) :=
+ state_alice(STA,AP,4,Req,Chal,Dummy_Suc,K,SID).
+ iknows(Suc)
+ =>
+ state_alice(STA,AP,6,Req,Chal,Suc,K,SID).
+ request(STA,AP,alice_server_k,K,SID)
+
+step step_3 (AP,STA,Dummy_Req,Dummy_Chal,Suc,K,SID,Req,Chal) :=
+ state_server(AP,STA,1,Dummy_Req,Dummy_Chal,Suc,K,SID).
+ iknows(Req)
+=[exists Chal]=>
+ state_server(AP,STA,3,Req,Chal,Suc,K,SID).
+ iknows(Chal)
+
+step step_4 (AP,STA,Req,Chal,Dummy_Suc,Dummy_K,SID,Suc,K) :=
+ state_server(AP,STA,3,Req,Chal,Dummy_Suc,Dummy_K,SID).
+ iknows(scrypt(K,Chal))
+=[exists Suc]=>
+ state_server(AP,STA,5,Req,Chal,Suc,K,SID).
+ iknows(Suc).
+ witness(AP,STA,alice_server_k,K)
+
+
+section properties:
+
+property authentication_on_alice_server_k (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,alice_server_k,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,alice_server_k,MGoal))
+     /\ ((request(A1Goal,A2Goal,alice_server_k,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,alice_server_k,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state authentication_on_alice_server_k (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,alice_server_k,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,alice_server_k,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_alice_server_k (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,alice_server_k,MGoal,SID1).
+ request(A1Goal,A2Goal,alice_server_k,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

@@ -1,0 +1,130 @@
+role supplier_host(
+		
+		Sh,Sv,TA 			: agent,
+		PK_Sh,PK_Sv,PK_TA	: public_key,
+		H				: hash_func,
+		Snd,Rcv			: channel(dy)
+
+				)
+
+played_by Sh
+
+def=
+
+local		State								: nat,
+		REQ_Uv,DEC_Sv,Time_Sh,Time_Sv			: text,
+		C_Sh,C_Sv,M_Sh,M_Sv,Sig_Sh,Sig_Sv		: message	
+
+
+init State := 0
+
+transition
+
+1. 	State = 0 /\ Rcv(start) =|>
+	State':= 1 /\ REQ_Uv' := new()
+			/\ C_Sh':= {REQ_Uv'}_(PK_Sv)
+			/\ Time_Sh':= new()
+			/\ M_Sh':= Sv.Sh.C_Sh'.Time_Sh'
+			/\ Sig_Sh':= {H(M_Sh')}_inv(PK_Sh)
+			/\ Snd(PK_Sh.Sh.{PK_Sh.Sh}_inv(PK_TA).M_Sh'.Sig_Sh')
+			/\ secret(REQ_Uv',sh_sv_requv,{Sh,Sv})
+			/\ witness(Sh,Sv,sv_sh_csh,C_Sh')
+
+2.	State = 1 /\ Rcv(PK_Sv.Sv.{PK_Sv.Sv}_inv(PK_TA).M_Sv'.Sig_Sv') =|>
+	State':= 2 /\ request(Sh,Sv,sv_sh_csh,C_Sv')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role supplier_visitor(
+
+		Sh,Sv,TA 			: agent,
+		PK_Sh,PK_Sv,PK_TA	: public_key,
+		H				: hash_func,
+		Snd,Rcv			: channel(dy)
+	
+				)
+
+played_by Sv
+
+def=
+
+local		State								: nat,
+		REQ_Uv,DEC_Sv,Time_Sh,Time_Sv			: text,
+		C_Sh,C_Sv,M_Sh,M_Sv,Sig_Sh,Sig_Sv		: message
+	
+
+init State := 0
+
+transition
+
+1. 	State = 0 /\ Rcv(PK_Sh.Sh.{PK_Sh.Sh}_inv(PK_TA).M_Sh'.Sig_Sh')=|>
+	State':= 1 /\ DEC_Sv' := new()
+			/\ C_Sv':= {DEC_Sv'}_(PK_Sh)
+			/\ Time_Sv':= new()
+			/\ M_Sv':= Sh.Sv.C_Sv'.Time_Sv'
+			/\ Sig_Sv':= {H(M_Sv')}_inv(PK_Sv)
+			/\ Snd(PK_Sv.Sv.{PK_Sv.Sv}_inv(PK_TA).M_Sv'.Sig_Sv')
+			/\ secret(DEC_Sv',sv_sh_decsv,{Sh,Sv})
+			/\ witness(Sv,Sh,sv_sh_csv,C_Sv')
+			/\ request(Sv,Sh,sv_sh_csh,C_Sh')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role session(
+
+		Sh,Sv,TA 			: agent,
+		PK_Sh,PK_Sv,PK_TA	: public_key,
+		H				: hash_func
+	
+               ) 
+
+def=
+
+ local	SndSh,RcvSh,SndSv,RcvSv 	: channel(dy) 
+		
+
+ composition
+   supplier_host(Sh,Sv,TA,PK_Sh,PK_Sv,PK_TA,H,SndSh,RcvSh) 
+/\ supplier_visitor(Sv,Sh,TA,PK_Sv,PK_Sh,PK_TA,H,SndSv,RcvSv)
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() 
+
+def=
+
+  const sh,sv,ta,i			: agent,
+        pk_sh,pk_sv,pk_ta,pk_i	: public_key,
+	   h					: hash_func, 
+	   sh_sv_requv,sv_sh_csh,sv_sh_decsv,sv_sh_csv	: protocol_id
+      
+        
+ intruder_knowledge = {sh,sv,i,pk_sh,pk_sv,pk_ta,pk_i,inv(pk_i),h}
+
+ composition
+  	session(sh,sv,ta,pk_sh,pk_sv,pk_ta,h)
+   /\ session(sh,sv,ta,pk_sh,pk_sv,pk_ta,h)
+   /\ session(i,sv,ta,pk_i,pk_sv,pk_ta,h)
+   /\ session(sh,i,ta,pk_sh,pk_i,pk_ta,h)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+	authentication_on sv_sh_csh
+	authentication_on sv_sh_csv
+	secrecy_of sh_sv_requv
+	secrecy_of sv_sh_decsv
+
+end goal
+
+environment()

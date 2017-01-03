@@ -1,0 +1,120 @@
+role alice ( A,B,S: agent,
+Ka,Kb,Ks: public_key,
+Hash: hash_func,
+Snd, Rcv: channel(dy) ) played_by A def=
+local State: nat,
+M: text,
+K: symmetric_key,
+L,C,NRO,NRR,SubK,ConK: message
+init State:=0
+transition
+1. State=0 / Rcv(start)
+=|>
+State':=1 /
+M':=new() / K':=new() /
+C':={M'}_K' / L':=Hash(M',K') /
+NRO':={fNRO.B.L'.C'}_inv(Ka) /
+Snd(fNRO.B.L'.C'.NRO') /
+% Non-repudiation of Origin
+witness(A,B,bob_alice_nro,NRO')
+2. State=1 / Rcv(fNRR.A.L.NRR') /
+NRR'={fNRR.A.L.C}_inv(Kb)
+=|>
+State':=2 / SubK':={fSUB.B.L.K}_inv(Ka) /
+Snd(fSUB.B.L.K.SubK')
+3. State=2
+=|>
+State':=3 / Snd(fREQ.A.B.L)
+4. State=3 / Rcv(fCON.A.B.L.K.ConK') /
+ConK'={fCON.A.B.L.K}_inv(Ks)
+=|>
+State':=4 /
+% Non-repudiation of Receipt
+wrequest(A,B,alice_bob_nrr,NRR) /
+% Non-repudiation of Delivery
+wrequest(A,S,alice_ttp_con,ConK')
+end role
+% ------------------------------------------------------------------------------------------------------------------
+role bob ( B,A,S: agent,
+Kb,Ka,Ks: public_key,
+Snd,Rcv: channel(dy) ) played_by B def=
+local State: nat,
+M: text,
+K: symmetric_key,
+L,C,NRO,NRR,ConK: message
+init State:=0
+transition
+1. State=0 / Rcv(fNRO.B.L'.C'.NRO') /
+NRO'={fNRO.B.L'.C'}_inv(Ka)
+=|>
+State':=1 /
+NRR':={fNRR.A.L'.C'}_inv(Kb) /
+Snd(fNRR.A.L'.NRR') /
+% Non-repudiation of Receipt
+witness(B,A,alice_bob_nrr,NRR')
+2. State=1
+--|>
+State':=2 / Snd(fREQ.A.B.L)
+3. State=2 / Rcv(fCON.A.B.L.K'.ConK') /
+ConK'={fCON.A.B.L.K'}_inv(Ks) /
+C={M'}_K'
+=|>
+State':=3 /
+% Non-repudiation of Origin
+wrequest(B,A,bob_alice_nro,NRO) /
+% Non-repudiation of Delivery
+wrequest(B,S,bob_ttp_con,ConK')
+end role
+% ------------------------------------------------------------------------------------------------------------------
+role ttp ( S,A,B: agent,
+           Ks,Ka: public_key,
+	   Snd,Rcv: channel(dy) ) played_by S def=
+	   local State: nat,
+	   K: symmetric_key,
+	   L,SubK,ConK : message
+	   init State:=0
+	   transition
+	   1. State=0 / Rcv(fSUB.B.L'.K'.SubK') /
+	   SubK'={fSUB.B.L'.K'}_inv(Ka)
+	   =|>
+	   State':=1
+	   2. State=1 / Rcv(fREQ.A.B.L)
+	   =|>
+	   ConK':={fCON.A.B.L.K}_inv(Ks) /
+	   Snd(fCON.A.B.L.K.ConK') /
+	   % Non-repudiation of Delivery
+	   witness(S,A,alice_ttp_con,ConK') /
+	   witness(S,B,bob_ttp_con,ConK')
+end role
+% ------------------------------------------------------------------------------------------------------------------
+role session ( A,B,S: agent,
+Ka,Kb,Ks: public_key,
+H: hash_func,
+Snd,Rcv: channel(dy) ) def=
+composition
+alice(A,B,S,Ka,Kb,Ks,H,Snd,Rcv)
+/ bob(B,A,S,Kb,Ka,Ks,Snd,Rcv)
+/ ttp(S,A,B,Ks,Ka,Snd,Rcv)
+end role
+% ------------------------------------------------------------------------------------------------------------------
+role environment () def=
+local Snd,Rcv: channel(dy)
+const a,b,s,i: agent,
+ka,kb,ks,ki: public_key,
+h: hash_func,
+bob_alice_nro, alice_bob_nrr,
+alice_ttp_con, bob_ttp_con,
+fNRO,fNRR,fSUB,fREQ,fCON: protocol_id
+intruder_knowledge = {i,a,b,s,ka,kb,ks,ki,inv(ki),fNRO,fNRR,fSUB,fREQ,fCON}
+composition
+session(a,b,s,ka,kb,ks,h,Snd,Rcv)
+/ session(a,i,s,ka,ki,ks,h,Snd,Rcv)
+/ session(i,b,s,ki,kb,ks,h,Snd,Rcv)
+end role
+% ------------------------------------------------------------------------------------------------------------------
+goal
+     authentication_on bob_alice_nro
+end goal
+% ------------------------------------------------------------------------------------------------------------------
+environment()
+% ------------------------------------------------------------------------------------------------------------------ 

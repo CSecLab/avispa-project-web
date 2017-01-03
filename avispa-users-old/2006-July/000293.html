@@ -1,0 +1,227 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Avispa-users] Witness/request question
+   </TITLE>
+   <LINK REL="Index" HREF="index.html" >
+   <LINK REL="made" HREF="mailto:avispa-users%40avispa-project.org?Subject=%5BAvispa-users%5D%20Witness/request%20question&In-Reply-To=">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000292.html">
+   <LINK REL="Next"  HREF="000295.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Avispa-users] Witness/request question</H1>
+    <B>Martin Naedele</B> 
+    <A HREF="mailto:avispa-users%40avispa-project.org?Subject=%5BAvispa-users%5D%20Witness/request%20question&In-Reply-To="
+       TITLE="[Avispa-users] Witness/request question">mna at gmx.ch
+       </A><BR>
+    <I>Mon Jul 10 17:19:24 CEST 2006</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000292.html">[Avispa-users] Why does my transition not fire in typed model?
+</A></li>
+        <LI>Next message: <A HREF="000295.html">[Avispa-users] Witness/request question
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#293">[ date ]</a>
+              <a href="thread.html#293">[ thread ]</a>
+              <a href="subject.html#293">[ subject ]</a>
+              <a href="author.html#293">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi all,
+
+I have another problem with the evaluation of my model:
+
+My understanding of witness/request verification is that a &quot;UNSAFE&quot; is issued if and only if ofmc discovers a request(a,b,c,d) with no previous witness(b,a,c,d). 
+
+With my protocol model
+
+-------------------------------------------------------
+
+[...]
+role client(
+	C,S,A: agent,
+	Kc,Ka: public_key,
+	Hash: hash_func,
+	AC,CA,CS,SC: channel(dy)
+	)
+
+played_by C def=
+	local
+		State				: nat,
+		Ksc				: symmetric_key,  
+		R, T, Ns, Cap, CapSig, Sid	: text,
+		ClientData, ServerData		: text
+
+	const	s_c_ns	 			: protocol_id
+
+[...]
+transition
+[...]
+	rcvsym.	State = 11 /\ SC({Ksc'.Ns'.Sid'}_Kc) =|&gt;
+		State':=12 /\ ClientData' := new()			
+			   /\ CS(C.Sid'.{Ns'.ClientData'}_Ksc')	    
+			   /\ witness(C,S,s_c_ns,Ns')                  
+[...]					   
+end role
+
+role server(
+	C,S,A: agent,
+	Ka: public_key,
+	Hash: hash_func,
+	CS,SC: channel(dy)
+	)
+
+played_by S def=
+	local
+		State				: nat,
+		Ksc				: symmetric_key, 
+		Kc				: public_key,	 
+		R, T, Ns, CapSig, Sid		: text, 
+		ServerData, ClientData		: text
+
+	const	s_c_ns	 			: protocol_id
+
+[...] 
+transition
+	rcvcap.	State = 20 /\ [...] =|&gt;
+		State':=21 /\ Ksc' := new() 			     
+			   /\ Ns' := new()			    
+			   /\ Sid' := new()			    
+			   /\ SC({Ksc'.Ns'.Sid'}_Kc')
+
+	rcvda.	State = 21 /\ CS(C.Sid.{Ns.ClientData'}_Ksc) =|&gt;
+		State':=22 /\ request(S,C,s_c_ns,Ns)
+	                   /\ [...]  
+end role
+-------------------------------------------------------
+
+I don't see how attacker i can get to the request() without passing through the witness().
+
+Specifically, I don't understand the following attack trace:
+In (2) S creates a new nonce Ns (here Ns(5)). In (3) the message containing the nonce is accepted by C. Here witness(Ns(5)) should be called. In (4) a message encrypted with the session key Ksc between S and C is sent back to S. The message contains the nonce Ns(5). In (5) this message is accepted by S and here request(Ns(5)) should be called. Why is this unsafe?   
+
+I assume that in the state/event dump the later events are at the top. Thus I have towards the end
+an event 
+	request(s,c,s_c_ns,Ns(5),3)       
+as expected. What does &quot;,3)&quot; mean?
+
+Going down I also see
+	witness(c,i,s_c_ns,Ns(5))
+which seems to be the corresponding witness event. 
+Is the reason for the UNSAFE result that this witness event contains &quot;i&quot; instead of &quot;s&quot;?
+If so, why did ofmc put an &quot;i&quot; there in step (3) even so the message in reality came from s in step (2) and i can not have learned Ns(5) as the message is encrypted with Kc which i doesn't know. 
+
+Note that I still have to run ofmc in untyped mode, as otherwise step (5) would not fire. 
+
+-------------------------------------------------------
+
+% OFMC
+% Version of 2006/02/13
+SUMMARY
+  UNSAFE
+DETAILS
+  ATTACK_FOUND
+PROTOCOL
+ [...]
+GOAL
+  authentication_on_s_c_ns
+BACKEND
+  OFMC
+COMMENTS
+STATISTICS
+  parseTime: 0.00s
+  searchTime: 57.02s
+  visitedNodes: 4388 nodes
+  depth: 10 plies
+ATTACK TRACE
+		i -&gt; (a,3): start
+		(a,3) -&gt; i: c.s.kc.R(1).T(1).{h(c.s.kc.R(1).T(1))}_inv(ka)
+		i -&gt; (c,3): c.s.kc.x250.x251.x252
+		(c,3) -&gt; i: c.s.kc.x250.x251.x252
+		i -&gt; (c,3): {x270.x290.x272}_kc
+		(c,3) -&gt; i: c.x272.{x290.ClientData(3)}_x270
+		i -&gt; (c,3): s.x272.{x290.ClientData(3)}_x270
+(1) 	i -&gt; (s,3): c.s.kc.R(1).T(1).{h(c.s.kc.R(1).T(1))}_inv(ka)
+(2) 	(s,3) -&gt; i: {Ksc(5).Ns(5).IDsess(5)}_kc
+		i -&gt; (a,7): start
+		(a,7) -&gt; i: c.i.kc.R(6).T(6).{h(c.i.kc.R(6).T(6))}_inv(ka)
+		i -&gt; (a,11): start
+		(a,11) -&gt; i: i.s.kc.R(7).T(7).{h(i.s.kc.R(7).T(7))}_inv(ka)
+		i -&gt; (c,7): c.i.kc.x352.x353.x354
+		(c,7) -&gt; i: c.i.kc.x352.x353.x354
+(3)	i -&gt; (c,7): {Ksc(5).Ns(5).IDsess(5)}_kc
+(4)	(c,7) -&gt; i: c.IDsess(5).{Ns(5).ClientData(9)}_Ksc(5)
+(5)	i -&gt; (s,3): c.IDsess(5).{Ns(5).ClientData(9)}_Ksc(5)
+		(s,3) -&gt; i: s.IDsess(5).{Ns(10).ServerData(10)}_Ksc(5)
+
+
+% Reached State:
+% 
+% request(s,c,s_c_ns,Ns(5),3)
+% secret(ServerData(10),data_from_server,set_136)
+% contains(c,set_136)
+% contains(s,set_136)
+% witness(c,i,s_c_ns,Ns(5))
+% contains(c,set_145)
+% contains(i,set_145)
+% secret(Ksc(5),secret_session_key,set_134)
+% secret(Ns(5),nonce,set_135)
+% contains(c,set_134)
+% contains(s,set_134)
+% contains(c,set_135)
+% contains(s,set_135)
+% witness(c,s,s_c_ns,x290)
+% contains(c,set_124)
+% contains(s,set_124)
+% state_server(s,i,a,ka,h,20,dummy_sk,dummy_pk,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_152,set_153,set_154,13)
+% state_authority(a,i,s,kc,ka,h,1,R(7),T(7),i.s.kc.R(7).T(7),{h(i.s.kc.R(7).T(7))}_inv(ka),11)
+% state_client(c,i,a,kc,ka,h,12,Ksc(5),x352,x353,Ns(5),dummy_nonce,x354,IDsess(5),ClientData(9),dummy_nonce,set_145,7)
+% state_authority(a,c,i,kc,ka,h,1,R(6),T(6),c.i.kc.R(6).T(6),{h(c.i.kc.R(6).T(6))}_inv(ka),7)
+% state_server(s,c,a,ka,h,22,Ksc(5),kc,R(1),T(1),Ns(10),{h(c.s.kc.R(1).T(1))}_inv(ka),IDsess(5),ServerData(10),ClientData(9),set_134,set_135,set_136,3)
+% state_client(c,s,a,kc,ka,h,13,x270,x250,x251,x290,dummy_nonce,x252,x272,ClientData(3),ClientData(3),set_124,3)
+% state_authority(a,c,s,kc,ka,h,1,R(1),T(1),c.s.kc.R(1).T(1),{h(c.s.kc.R(1).T(1))}_inv(ka),3)
+-------------------------------------------------------
+
+
+I would very much appreciate your help!
+
+Best regards,
+Martin 
+
+
+
+
+
+-- 
+
+
+Der GMX SmartSurfer hilft bis zu 70% Ihrer Onlinekosten zu sparen!
+Ideal f&#252;r Modem und ISDN: <A HREF="http://www.gmx.net/de/go/smartsurfer">http://www.gmx.net/de/go/smartsurfer</A>
+</PRE>
+
+
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000292.html">[Avispa-users] Why does my transition not fire in typed model?
+</A></li>
+	<LI>Next message: <A HREF="000295.html">[Avispa-users] Witness/request question
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#293">[ date ]</a>
+              <a href="thread.html#293">[ thread ]</a>
+              <a href="subject.html#293">[ subject ]</a>
+              <a href="author.html#293">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="http://www.avispa-project.org/mailman/listinfo/avispa-users">More information about the Avispa-users
+mailing list</a><br>
+</body></html>

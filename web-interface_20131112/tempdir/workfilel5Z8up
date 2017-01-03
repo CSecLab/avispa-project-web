@@ -1,0 +1,116 @@
+role role_USIM(USIM:agent,MME:agent,HSS:agent,AAAWLAN:agent,KHSS:public_key,CK:symmetric_key,Ki:public_key,AP:agent,SND,RCV:channel(dy))
+played_by USIM
+def=
+	local
+		State:nat,RAND:text,AUTH:text,MAC:text,RES:text,N2:text,N1:text,Nreauth:text
+             const
+                            akaidentity,akachallenge,akanotification,eapolrequestidentity,eapolresponse,eapmethod,eapsuccess,ksderivation:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ SND(akaidentity)
+		2. State=1 /\ RCV(akachallenge(RAND'.AUTH'.MAC')) =|> State':=2 /\ RES':=new() /\ SND(akachallenge(RES'.MAC'))
+		10. State=2 /\ RCV(akanotification({Ki.N1'.N2'.Nreauth'}_CK)) =|> State':=3
+		11. State=3 /\ RCV(eapolrequestidentity(AP.USIM)) =|> State':=4 /\ SND(eapolresponse(USIM.AP)) /\ SND(eapmethod(USIM.AAAWLAN))
+		14. State=4 /\ RCV(eapmethod(AAAWLAN.USIM)) =|> State':=5
+		16. State=5 /\ RCV(eapsuccess(AP.USIM)) =|> State':=6 /\ SND(ksderivation(USIM.AP))
+		18. State=6 /\ RCV(ksderivation(AP.USIM)) =|> State':=7
+end role
+
+role role_MME(MME:agent,USIM:agent,HSS:agent,KHSS:public_key,SND,RCV:channel(dy))
+played_by MME
+def=
+	local
+		State:nat,RAND:text,AUTH:text,MAC:text,RES:text,CK:symmetric_key,N2:text,Ki:public_key,N1:text,Nreauth:text
+              const
+                            akaidentity,akachallenge,akanotification:text	
+init
+		State := 0
+	transition
+		1. State=0 /\ RCV(akaidentity) =|> State':=1 /\ MAC':=new() /\ AUTH':=new() /\ RAND':=new() /\ SND(akachallenge(RAND'.AUTH'.MAC'))
+		3. State=1 /\ RCV(akachallenge(RES'.MAC)) =|> State':=2 /\ SND(akaidentity(MME.HSS))
+		9. State=2 /\ RCV(akanotification({Ki'.N1'.N2'.Nreauth'}_CK') )=|> State':=3 /\ SND(akanotification({Ki'.N1'.N2'.Nreauth'}_CK'))
+end role
+
+role role_HSS(HSS:agent,MME:agent,USIM:agent,HIU:agent,AAAWLAN:agent,KWLAN:public_key,KHSS:public_key,CK:symmetric_key,Ki:public_key,SND,RCV:channel(dy))
+played_by HSS
+def=
+	local
+		State:nat,LID:symmetric_key,LK:symmetric_key,N2:text,N1:text,Nreauth:text
+              const
+                            akaidentity,akanotification:text		
+                init
+		State := 0
+	transition
+		4. State=0 /\ RCV( akaidentity(MME.HSS)) =|> State':=1 /\ N1':=new() /\ SND( akaidentity(N1'))
+		6. State=1 /\ RCV({Ki.N1.N2'}_KHSS) =|> State':=2 /\ request(HSS,HIU,auth_1,N2') /\ Nreauth':=new() /\ LID':=new() /\ LK':=new() /\ SND(HSS.{LK'.LID'.Nreauth'}_KWLAN) /\ SND(akanotification({Ki.N1.N2'.Nreauth'}_CK))
+end role
+
+role role_HIU(HIU:agent,HSS:agent,AAAWLAN:agent,KWLAN:public_key,KHSS:public_key,Ki:public_key,SND,RCV:channel(dy))
+played_by HIU
+def=
+	local
+		State:nat,N1:text,N2:text
+              const
+                            akaidentity:text	
+              init
+		State := 0
+	transition
+		5. State=0 /\ RCV(akaidentity(N1')) =|> State':=1 /\ N2':=new() /\ witness(HIU,HSS,auth_1,N2') /\ SND({Ki.N1'.N2'}_KHSS) /\ SND({Ki.N2'}_KWLAN)
+end role
+
+role role_AAAWLAN(AAAWLAN:agent,HIU:agent,HSS:agent,USIM:agent,AP:agent,KWLAN:public_key,KHSS:public_key,SND,RCV:channel(dy))
+played_by AAAWLAN
+def=
+	local
+		State:nat,Ki:public_key,N2:text,LID:symmetric_key,LK:symmetric_key,Nreauth:text,HK:symmetric_key
+const
+                            eapmethod,accessaccepteapsuccess:text	
+init
+		State := 0
+	transition
+		7. State=0 /\ RCV({Ki'.N2'}_KWLAN) =|> State':=1
+		8. State=1 /\ RCV(HSS.{LK'.LID'.Nreauth'}_KWLAN) =|> State':=2
+		13. State=2 /\ RCV(eapmethod(USIM.AAAWLAN)) =|> State':=3 /\ SND(eapmethod(AAAWLAN.USIM)) /\ HK':=new() /\ SND(accessaccepteapsuccess(AAAWLAN.AP.HK'))
+end role
+
+role role_AP(AP:agent,AAAWLAN:agent,KWLAN:public_key,USIM:agent,SND,RCV:channel(dy))
+played_by AP
+def=
+	local
+		State:nat,HK:symmetric_key
+              const              
+                            eapolrequestidentity,eapolresponse,accessaccepteapsuccess,eapsuccess,ksderivation:text	
+init
+		State := 0
+	transition
+		11. State=0 /\ RCV(start) =|> State':=1 /\ SND(eapolrequestidentity(AP.USIM))
+		12. State=1 /\ RCV(eapolresponse(USIM.AP)) =|> State':=2
+		15. State=2 /\ RCV(accessaccepteapsuccess(AAAWLAN.AP.HK')) =|> State':=3 /\ SND(eapsuccess(AP.USIM))
+		17. State=3 /\ RCV(ksderivation(USIM.AP)) =|> State':=4 /\ SND(ksderivation(AP.USIM))
+end role
+
+role session1(KHSS:public_key,HSS:agent,HIU:agent,CK:symmetric_key,MME:agent,Ki:public_key,AP:agent,AAAWLAN:agent,KWLAN:public_key,USIM:agent)
+def=
+	local
+		SND6,RCV6,SND5,RCV5,SND4,RCV4,SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_AP(AP,AAAWLAN,KWLAN,USIM,SND6,RCV6) /\ role_AAAWLAN(AAAWLAN,HIU,HSS,USIM,AP,KWLAN,KHSS,SND5,RCV5) /\ role_HIU(HIU,HSS,AAAWLAN,KWLAN,KHSS,Ki,SND4,RCV4) /\ role_HSS(HSS,MME,USIM,HIU,AAAWLAN,KWLAN,KHSS,CK,Ki,SND3,RCV3) /\ role_MME(MME,USIM,HSS,KHSS,SND2,RCV2) /\ role_USIM(USIM,MME,HSS,AAAWLAN,KHSS,CK,Ki,AP,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		hash_0:function,kwlan:public_key,ap:agent,mme:agent,hiu:agent,khss:public_key,hss:agent,ck:symmetric_key,ki:public_key,aaawlan:agent,usim:agent,auth_1:protocol_id,auth_2:protocol_id
+	intruder_knowledge = {usim,mme,hss,hiu,aaawlan,ap,khss,kwlan}
+	composition
+		session1(khss,hss,hiu,ck,mme,ki,ap,aaawlan,kwlan,usim)
+end role
+
+goal
+	authentication_on auth_1
+	authentication_on auth_2
+end goal
+
+environment()
+

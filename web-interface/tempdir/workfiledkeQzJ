@@ -1,0 +1,131 @@
+%% PROTOCOL: NSPK: Needham-Schroeder Public-Key Protocol
+%% VARIANT: original version (of 1978) without key server
+%% PURPOSE: Two-party mutual autentication
+%% ALICE_BOB:
+%% 1. A  - {Na.A}_Kb ----> B
+%% 2. A  B
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% définition du rôle alice, initiant le protocole
+role alice (A,S : agent,
+	    	Ka, Ks : public_key,
+		Info, Login : text,
+		H : hash_func,
+	    	SND,RCV : channel(dy))
+
+played_by A def=
+
+	local State : nat,
+		X,Y : message,
+		Validation : text,
+		Refuse : text
+
+init State :=0
+
+transition
+
+tryInscription. 	State = 0 /\ RCV(start)  =|>	
+				State':=1 	/\ SND({{A.Info.Login.X'}_inv(Ka)}_Ks) 
+						/\ X' := H(A.Info.Login) 	
+						/\ secret(Info.Login,nba,{A,S})
+						/\ witness(A,S,serveur_alice_nb,Info.Login) % auth bob_alice (2)
+
+inscription_Ok. 	State = 1 /\ RCV({{S.Validation'.Y'}_inv(Ks)}_Ka) =|>	
+				State' := 2
+
+
+stillIndentified. 	State = 1/\ RCV({{S.Refuse'.Y'}_inv(Ks)}_Ka) 
+			=|>	State' := 3
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% role serveur à écrire
+
+role serveur (A,S : agent,
+	    	Ka,Ks : public_key,
+		H : hash_func,
+		KeyComm : (text) set,
+	    	SND,RCV:channel(dy))
+
+played_by S def=
+	local State : nat,
+	X,Y : message,
+	Info, Login : text,
+	Validation : text,
+	Refuse : text
+
+init State :=0
+
+transition
+
+inscriptionAccepted. 	State = 0 /\ RCV({{A.Info'.Login'.X'}_inv(Ka)}_Ks) /\ not(in(Login',KeyComm)) =|>	
+				State':=1	/\ Validation' := new() 
+						/\ SND({{S.Validation'.Y'}_inv(Ks)}_Ka) 
+						/\ Y':= H(S.Validation')
+						/\ KeyComm' := cons(Login',KeyComm)
+						/\ request(S,A,serveur_alice_nb,Info'.Login')% authen alice_bob(1)
+
+serveurRefuse. 		State = 0 /\ RCV({{A.Info'.Login'.X'}_inv(Ka)}_Ks) /\ in(Login',KeyComm)
+			=|>	State':=2	/\ Refuse':=new() 
+						/\ SND({{S.Refuse'.Y'}_inv(Ks)}_Ka) 
+						/\ Y':= H(S.Refuse')
+
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% définition du rôle caractérisant une session
+role session(A,S : agent, Ka,Ks : public_key,Info : text, Login : text, H : hash_func, KeyMapS : (text) set) def=
+
+	local SA,RA,SS,RS : channel(dy)
+
+	composition
+
+	   alice  (A,S,Ka,Ks,Info,Login,H,SA,RA)
+	/\ serveur(A,S,Ka,Ks,H,KeyMapS,SS,RS)
+	
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% définition du rôle caractérisant le scenario à exécuter
+role environment() def=
+
+	local KeyMapS,KeyMapI : (text) set
+
+	const a, s : agent,
+		pka,pks,pki : public_key,
+		nba : protocol_id,
+		infoAS, infoAI, infoIS : text,
+		loginAS, loginAI, loginIS : text,
+		h : hash_func,
+		serveur_alice_nb : protocol_id
+		
+	init KeyMapS := {}
+		/\ KeyMapI := {}
+
+	intruder_knowledge = { a, s, pka, pks, pki, inv(pki)}
+
+	composition
+
+		   session(a,s,pka,pks,infoAS,loginAS,h,KeyMapS)
+	%	/\ session(a,s,pka,pks,infoAS,loginAS,h,KeyMapS)
+		/\ session(a,i,pka,pki,infoAI,loginAI,h,KeyMapI)
+	%	/\ session(i,s,pki,pks,infoIS,loginIS,h,KeyMapS)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% pas de section goal ici (donc pas de propriété à vérifier)
+goal
+
+	authentication_on serveur_alice_nb
+	secrecy_of nba
+
+end goal
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% lancement du rôle principal
+environment()

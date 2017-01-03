@@ -1,0 +1,145 @@
+%% PROTOCOL: Franklin-Reiter Fair Exchange
+%% DATE: 16 July 2008
+%% UPDATED: 16 July 2008
+%% MODELER: Bailey Basile
+%% DESCRIPTION:
+%%	X -> Y : x1
+%%	Y -> X : y1
+%%	X -> Z : f(Kx).f(Ky).Kx*x1^-1.f(y1)
+%%	Y -> Z : f(Ky).f(Kx).Ky*y1^-1.f(x1)
+%%	Z checks: ax = by = F(cx,dy)
+%%		ay = bx = F(cy,dx)
+%%	Z -> X : Kx*x1^-1
+%%	Z -> Y : Ky*y1^-1
+%%	Knowledge: f, f(Kx), f(Ky)
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role alice ( 	A, B, C		: agent,	% role AKA X
+		Kx		: message,
+		F		: hash_func,
+		Fky		: message,
+		RCV,SND		: channel(dy)) 
+played_by A
+def=
+	local State : nat,
+	X1,Y1	: public_key,
+	
+	Ky : message
+
+					
+init State := 0
+
+transition
+	1.	State = 0 	/\ RCV(start) =|>
+
+		State' := 2	/\ X1' := new()
+				/\ SND(X1')
+
+	2.	State =	2	/\ RCV(Y1') =|>
+		State' := 4	/\ SND(F(Kx).Fky.{Kx}_X1.F(Y1'))
+				/\ witness(A,B,bob_alice_kx,Kx)
+
+	3. 	State = 4	/\ RCV({Ky'}_Y1.{Kx}_X1) =|>
+		State' := 6	/\ wrequest(A,B,alice_bob_Ky,Ky')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob ( 	A, B, C		: agent,	% role AKA Y
+		Ky		: message,
+		F		: hash_func,
+		Fkx		: message,
+		RCV,SND		: channel(dy)) 
+played_by B
+def=
+	local State : nat,
+	X1,Y1	: public_key,
+	Kx : message
+
+					
+init State := 0
+
+transition
+	1.	State = 0 	/\ RCV(start) =|>
+
+		State' := 2	/\ Y1' := new()
+				/\ SND(Y1')
+
+	2.	State =	2	/\ RCV(X1') =|>
+		State' := 4	/\ SND(F(Ky).Fkx.{Ky}_Y1.F(X1'))
+				/\ witness(B,A,alice_bob_ky,Ky)
+
+	3. 	State = 4	/\ RCV({Ky}_Y1.{Kx'}_X1) =|>
+		State' := 6	/\ wrequest(B,A,bob_alice_kx,Kx')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role charlie ( 	A, B, C		: agent,	% role AKA Z
+		F		: hash_func,
+		RCV,SND		: channel(dy)) 
+played_by C
+def=
+	local State : nat,
+		X1, Y1 : public_key,
+		Kx, Ky	: message
+
+					
+init State := 0
+
+transition
+	1.	State = 0 	/\ RCV(X1') /\ RCV(Y1')
+				/\ RCV(F(Ky').F(Kx').{Ky'}_Y1'.F(X1')) 
+				/\ RCV(F(Kx').F(Ky').{Kx'}_X1'.F(Y1'))  =|>
+		State' := 2	/\ SND({Ky'}_Y1'.{Kx'}_X1')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session (	A,B,C :agent,
+		Kx1,Ky1	: message,
+		F	: hash_func)
+
+def=
+	local RA,SA,RB,SB,RC,SC : channel(dy)
+
+composition
+	alice(A,B,C,Kx1,F,F(Ky1),RA,SA)
+	/\bob(A,B,C,Ky1,F,F(Kx1),RB,SB)
+	/\charlie(A,B,C,F,RC,SC)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment ()
+
+def=
+	const alice_bob_ky, bob_alice_kx : protocol_id,
+	a,b,c			:agent,
+	f			: hash_func,
+	kx1,ky1			: message
+
+intruder_knowledge = {a, b, c, f}
+
+composition
+	session(a,b,c,kx1,ky1,f)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+	weak_authentication_on alice_bob_ky
+	weak_authentication_on bob_alice_kx
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+

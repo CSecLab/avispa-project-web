@@ -1,0 +1,81 @@
+role capteur (A,B: agent,H:hash_func,R:nat, Snd,Rcv: channel(dy))
+played_by A
+def=
+
+local State : nat,
+Ri: nat,
+X:text,
+Na:nat,
+Ksession:message
+
+init State := 0 % initialisation
+transition
+
+1. State = 0 /\ Rcv(start)
+=|>State' := 1
+			/\ Ksession' := new()
+			/\ Na':= new()
+			/\ Ri':= new()
+			/\ X' := xor(Ksession',H(Na'))
+			/\ Snd({X'.Na'}_H(R).{Ri'}_H(Ksession'))
+			/\ witness(A,B,capteur_stationdebase_na,Na')     
+			%%/\ secret(Ksession',ksession,{A,B})
+2. State = 1 
+            /\ Rcv({inv(R)}_H(Ksession))
+			
+=|> State' := 2
+             
+			
+		   
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role stationdebase(A,B: agent,H:hash_func,R:nat, Snd,Rcv: channel(dy))
+played_by A
+def=
+
+local State : nat,
+Ri: nat,%%Random number
+X:text,
+Na:nat,%%Random number
+Ksession:message %%Clé de session
+
+init State := 0
+transition
+1. State = 0/\ Rcv({X'.Na'}_H(R).{Ri'}_H(Ksession'))/\ request(B,A,capteur_stationdebase_na,Na')
+=|>
+State' := 1 /\ Snd({inv(R)}_H(Ksession))
+		   
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%ù
+
+role session(A,B: agent,H:hash_func,R:nat)
+def=
+local SA, RA, SB, RB: channel (dy)
+composition
+capteur(A,B,H,R,SA,RA)
+/\ stationdebase(A,B,H,R,SB,RB)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+def=
+const a, b, i : agent,
+h:hash_func,
+r:nat,
+ksession, capteur_stationdebase_na: protocol_id
+intruder_knowledge={a,b,h}
+composition
+session(a,b,h,r)
+%%/\ session(a,i,h,r)%%% intruder impersonates coordinateur
+%%/\session(i,b,h,r)%%% intruder impersonates noeud capteur
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+authentication_on capteur_stationdebase_na
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

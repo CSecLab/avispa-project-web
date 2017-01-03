@@ -1,0 +1,108 @@
+role share_Init ( A, B     : agent, 
+                  Ka, Kb   : public_key,
+                  Snd, Rcv : channel(dy)) played_by A def=
+
+  local  State   : nat,
+         Na, Msg : text,
+         Nb      : text,
+         K       : text.text
+
+  init   State := 0
+  accept State = 3
+
+  transition
+
+   1. State  = 0 /\ Rcv(start) =|> 
+      State':= 1 /\ Na':= new()
+                 /\ Snd({Na'}_Kb)
+
+   2. State  = 1 /\ Rcv({Nb'}_Ka) =|> 
+      State':= 2 /\ Msg':= new()
+                 /\ Snd({zero.Msg'}_(Na.Nb')) 
+                 /\ K':= Na.Nb'
+                 /\ secret(Na.Nb',nanb,{A,B})
+                 /\ witness(A,B,k2,Na.Nb')
+
+   3. State  = 2 /\ Rcv({one.Msg}_K) =|> 
+      State':= 3 /\ wrequest(A,B,k1,K)
+
+end role
+
+
+
+role share_Resp (B, A     : agent,
+                 Kb, Ka   : public_key,
+                 Snd, Rcv : channel (dy)) played_by B def=
+
+  local State   : nat,
+        Nb      : text,
+        Msg, Na : text,
+        K       : text.text
+
+  init   State := 0
+  accept State = 2 
+
+  transition
+
+   1. State  = 0 /\ Rcv({Na'}_Kb) =|> 
+      State':= 1 /\ Nb':= new()
+                 /\ Snd({Nb'}_Ka)
+                 /\ K':= Na'.Nb'
+                 /\ witness(B,A,k1,Na'.Nb')
+                 /\ secret(Na'.Nb',nanb,{A,B})
+
+   2. State  = 1 /\ Rcv({zero.Msg'}_K) =|> 
+      State':= 2 /\ Snd({one.Msg'}_K)
+                 /\ wrequest(B,A,k2,K)
+
+end role
+
+
+
+role session(A, B           : agent,
+             Ka, Kb         : public_key) def=
+
+  local  SA, RA, SB, RB : channel (dy)
+
+  composition
+    share_Init(A,B,Ka,Kb,SA,RA) /\
+    share_Resp(B,A,Kb,Ka,SB,RB)
+
+end role
+
+
+
+role environment() def=
+ 
+ const zero, one    : text,
+       a, b, i      : agent,
+       ka, kb, ki   : public_key,
+       k1, k2, nanb : protocol_id
+
+ intruder_knowledge = {a,b,ka,kb,ki,i,inv(ki),zero,one}
+
+ composition
+
+        session(a,b,ka,kb) 
+    /\  session(a,i,ka,ki) 
+
+end role
+
+
+
+goal
+
+
+    secrecy_of nanb
+
+
+    weak_authentication_on k1
+
+
+    weak_authentication_on k2
+
+end goal
+
+
+
+environment()

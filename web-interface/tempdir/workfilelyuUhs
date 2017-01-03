@@ -1,0 +1,158 @@
+%HLPSL conventions:
+%All variables begin with capital letter.
+%All constants begin with lower-case letter.
+% 1. in transitions are just labels to distinguish them.
+%X': nuevo valor de la variable X
+%Composite messages use "." to separate elements. or a message for a function.
+
+
+% A : user with mobile
+% BS: base station
+% S : sensor 
+
+%K_ABS: key shared between A and BS.
+%K_BSS: key shared between BS and S.
+
+
+%KE_SA: Encode key between S and A
+%KA_SA: Auth   key between S and A
+
+%Snd : send channel for all participants (dy)-> Dolev-Yao intruded model.
+%Rcv : receive channel for all participants (dy).
+
+%Rs  : random salt.
+%St  : State.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%User A
+
+role user (A, BS, S   : agent,
+           Snd, Rcv   : channel (dy),
+           K_ABS : symmetric_key)
+played_by A
+def=
+
+  local St, Rs          : nat,
+        KE_SA, KA_SA    : symmetric_key,
+        Tstart, Texpire : text
+
+ init  St := 1
+
+ transition
+
+  1.  St   = 1  /\ Rcv(start) =|>  
+      St' := 2  /\ Snd({A.S}_K_ABS) 
+      
+  2.  St   = 2 /\ Rcv({KE_SA'.KA_SA'.Rs'.Tstart'.Texpire'}_K_ABS) =|>
+      St' := 3
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%Sensor S
+
+role sensor (A, BS, S : agent,
+             Snd, Rcv   : channel (dy),
+             K_BSS : symmetric_key)
+played_by S
+def=
+
+
+  local St              : nat,
+        MS_S            : symmetric_key
+
+ init  St := 1
+
+ transition
+
+  1.  St   = 1 /\ Rcv({MS_S'}_K_BSS) =|>
+      St' := 3 
+
+end role
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%Base Station BS
+
+role basestation (A, BS, S : agent,
+           Snd, Rcv        : channel (dy),
+           K_ABS, K_BSS    : symmetric_key)
+played_by BS
+def=
+
+  local St, Rs                : nat,
+        KE_SA, KA_SA, MS_S    : symmetric_key,
+        Tstart, Texpire       : text
+
+  init  St := 0 
+
+  transition
+
+  1.    St   = 0  /\ Rcv(start) =|>  
+        St' := 1  /\ Snd({MS_S}_K_BSS)
+        
+
+  2.	St   = 1 /\ Rcv({A.S}_K_ABS) =|>
+	St' := 2 /\ KE_SA'   := new()
+                 /\ KA_SA'   := new()
+                 /\ Rs'      := new()
+		 /\ Tstart'  := new()
+		 /\ Texpire' := new()
+		 /\ Snd({KE_SA'.KA_SA'.Rs'.Tstart'.Texpire'}_K_ABS)
+
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%Session
+
+role session( A, BS, S         : agent,
+	      K_ABS, K_BSS     : symmetric_key)
+
+def=
+     local SA, RA, SBS, RBS, SS, RS: channel (dy)
+
+composition
+	user       (A, BS, S, SA, RA,   K_ABS)
+    /\  basestation(A, BS, S, SBS, RBS, K_ABS, K_BSS) 
+    /\  sensor     (A, BS, S, SS, RS, K_BSS) 
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%Environment
+role environment() 
+
+def=
+
+  const  a, bs, s, i                 : agent,
+	 kabs, kbss, kiabs, kibss    : symmetric_key
+
+  intruder_knowledge = {a,bs,s,kiabs,kibss}
+
+  composition
+	session(a, bs, s, kabs,  kbss)
+ /\	session(i, bs, s, kiabs, kbss)
+ /\	session(a,  i, s, kiabs, kibss)
+ /\	session(a, bs, i, kabs,  kibss)
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+
+ secrecy_of kabs
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()
+
+

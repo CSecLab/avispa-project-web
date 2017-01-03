@@ -1,0 +1,158 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfile3KOqI1
+
+section signature:
+
+state_card: agent * agent * public_key * public_key * symmetric_key * nat * text * text * text * text * set(agent) * set(agent) * nat -> fact
+state_reader: agent * agent * public_key * public_key * symmetric_key * nat * text * text * text * text * set(agent) * nat -> fact
+
+
+section types:
+
+set_97, set_96, set_94, set_93, set_92, set_91, set_86, set_85, set_76: set
+Set_45, Set_43, Dummy_Set_45, Dummy_Set_43, Dummy_Set_22, Set_22, ASGoal: set(agent)
+start, MGoal: message
+sec_4, sec_3, auth1, auth2, randc, sec_1, rands, privx, biocert: protocol_id
+RandS, RandC, PrivX, BioCert, Dummy_RandC, Dummy_RandS, dummy_nonce: text
+10, 9, 4, State, SID, Dummy_State, 3, SID2, SID1, 2, 1, 0: nat
+Ks, Dummy_Ks, ks, kis, kci: symmetric_key
+Ksc, Kcr, kc, ksc, ki: public_key
+Sc, Cr, A2Goal, A1Goal, c, s, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(c).
+ iknows(s).
+ iknows(kc).
+ iknows(ksc).
+ iknows(ki).
+ iknows(inv(ki)).
+ iknows(i).
+ state_reader(c,s,kc,ksc,ks,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_76,3).
+ state_card(c,s,kc,ksc,ks,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_85,set_86,4).
+ state_reader(c,i,kc,ki,kci,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_94,9).
+ state_card(c,i,kc,ki,kci,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_96,set_97,10)
+
+
+section rules:
+
+step step_0 (Cr,Sc,Kcr,Ksc,Ks,RandS,RandC,PrivX,BioCert,Set_22,SID) :=
+ state_reader(Cr,Sc,Kcr,Ksc,Ks,0,RandS,RandC,PrivX,BioCert,Set_22,SID).
+ iknows(start)
+ =>
+ state_reader(Cr,Sc,Kcr,Ksc,Ks,1,RandS,RandC,PrivX,BioCert,Set_22,SID).
+ iknows(Kcr)
+
+step step_1 (Cr,Sc,Kcr,Ksc,Ks,Dummy_RandS,Dummy_RandC,PrivX,BioCert,Dummy_Set_22,SID,RandS,RandC) :=
+ state_reader(Cr,Sc,Kcr,Ksc,Ks,1,Dummy_RandS,Dummy_RandC,PrivX,BioCert,Dummy_Set_22,SID).
+ iknows(pair(Ksc,pair(crypt(Kcr,RandS),crypt(Kcr,PrivX))))
+=[exists RandC]=>
+ state_reader(Cr,Sc,Kcr,Ksc,Ks,2,RandS,RandC,PrivX,BioCert,Dummy_Set_22,SID).
+ iknows(pair(crypt(Ksc,RandC),PrivX)).
+ secret(Dummy_RandS,sec_1,Dummy_Set_22).
+ request(Sc,Cr,auth2,PrivX,SID).
+ contains(Cr,Dummy_Set_22).
+ contains(Sc,Dummy_Set_22)
+
+step step_2 (Cr,Sc,Kcr,Ksc,Dummy_Ks,RandS,Dummy_RandC,PrivX,BioCert,Set_22,SID,Ks,RandC) :=
+ state_reader(Cr,Sc,Kcr,Ksc,Dummy_Ks,2,RandS,Dummy_RandC,PrivX,BioCert,Set_22,SID).
+ iknows(pair(scrypt(Ks,RandC),scrypt(Ks,BioCert)))
+ =>
+ state_reader(Cr,Sc,Kcr,Ksc,Ks,3,RandS,RandC,PrivX,BioCert,Set_22,SID).
+ witness(Cr,Sc,auth1,RandC)
+
+step step_3 (Sc,Cr,Kcr,Ksc,Ks,Dummy_RandS,RandC,PrivX,BioCert,Set_43,Set_45,SID,RandS) :=
+ state_card(Sc,Cr,Kcr,Ksc,Ks,0,Dummy_RandS,RandC,PrivX,BioCert,Set_43,Set_45,SID).
+ iknows(Kcr)
+=[exists RandS]=>
+ state_card(Sc,Cr,Kcr,Ksc,Ks,1,RandS,RandC,PrivX,BioCert,Set_43,Set_45,SID).
+ iknows(pair(Ksc,pair(crypt(Kcr,RandS),crypt(Kcr,PrivX))))
+
+step step_4 (Sc,Cr,Kcr,Ksc,Dummy_Ks,RandS,Dummy_RandC,PrivX,BioCert,Dummy_Set_43,Dummy_Set_45,SID,RandC) :=
+ state_card(Sc,Cr,Kcr,Ksc,Dummy_Ks,1,RandS,Dummy_RandC,PrivX,BioCert,Dummy_Set_43,Dummy_Set_45,SID).
+ iknows(pair(crypt(Ksc,RandC),PrivX))
+ =>
+ state_card(Sc,Cr,Kcr,Ksc,pair(Dummy_RandC,RandS),2,RandS,RandC,PrivX,BioCert,Dummy_Set_43,Dummy_Set_45,SID).
+ iknows(pair(scrypt(pair(Dummy_RandC,RandS),Dummy_RandC),scrypt(pair(Dummy_RandC,RandS),BioCert))).
+ secret(Dummy_RandC,sec_3,Dummy_Set_43).
+ secret(BioCert,sec_4,Dummy_Set_45).
+ request(Cr,Sc,auth1,RandC,SID).
+ witness(Sc,Cr,auth2,PrivX).
+ contains(Cr,Dummy_Set_43).
+ contains(Sc,Dummy_Set_43).
+ contains(Cr,Dummy_Set_45).
+ contains(Sc,Dummy_Set_45)
+
+
+section properties:
+
+property secrecy_of_sec_1 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_1,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_sec_3 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_3,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_sec_4 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_4,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_auth1 (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,auth1,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,auth1,MGoal))
+     /\ ((request(A1Goal,A2Goal,auth1,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,auth1,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_auth2 (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,auth2,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,auth2,MGoal))
+     /\ ((request(A1Goal,A2Goal,auth2,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,auth2,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_sec_1 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_1,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_sec_3 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_3,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_sec_4 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_4,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_auth1 (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,auth1,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,auth1,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_auth1 (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,auth1,MGoal,SID1).
+ request(A1Goal,A2Goal,auth1,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_auth2 (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,auth2,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,auth2,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_auth2 (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,auth2,MGoal,SID1).
+ request(A1Goal,A2Goal,auth2,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

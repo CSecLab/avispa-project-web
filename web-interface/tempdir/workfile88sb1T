@@ -1,0 +1,175 @@
+role node (N,BS: agent,
+
+	   Km: symmetric_key,
+
+	   MAC,H: function,
+	   
+           RCV,SND: channel(dy))
+
+played_by N
+def=
+
+local 	State: nat,
+
+	No: agent,
+	
+        Size1,Size2: nat,
+
+      	AM1,AM2: text,
+
+	Data1, Data2: message
+
+init State:=0 
+ 
+transition
+
+	1. State=0/\
+
+           RCV(N.AM1'.Size1'.Data1'.{MAC(N.AM1'.Size1'.Data1')}_H(Km.N))
+ 	 =|>
+	  
+           State':=1 /\
+	 
+  	   AM2':=new() /\ Size2':=41 /\ Data2':=new()
+	
+   	  /\SND(No'.AM2'.Size2'.Data2'.{MAC(No'.AM2'.Size2'.Data2')}_H(Km.N))
+	
+	  /\ request(N,No',auth_data1,Data1')
+	
+ 	  /\ witness(N,No',auth_data2,Data2')
+	
+	  end role
+
+role basestation(BS: agent,
+
+		 Nodes: (agent) set,
+
+	   	 Km: symmetric_key,
+
+	  	 MAC,H: function,
+
+	   	 RCV,SND: channel(dy)
+
+		)
+
+played_by BS
+
+def=
+
+
+
+local 	State: nat,
+
+	No: agent,
+
+	Size1,Size2: nat,
+
+      	AM1, AM2: text,
+
+	Data1,Data2: message
+
+init State:=0
+
+ 
+
+transition
+	1. State=0
+
+	/\ RCV(start)
+
+        /\in(No',Nodes)
+
+	 =|>
+
+         State':=1 /\
+
+	 AM1':=new() /\ Size1':=41 /\  Data1':=new()
+	   	
+         /\ SND(No'.AM1'.Size1'.Data1'.{MAC(No'.AM1'.Size1'.Data1')}_H(Km.No')) 
+         /\
+ witness(BS,No',auth_data1, Data1')
+
+		
+	  
+	
+	
+	
+        2.  State=1 /\ 
+
+	    RCV(BS.AM2'.Size2'.Data2'.{MAC(BS.AM2'.Size2'.Data2')}_H(Km.No))
+
+	     =|>
+
+	    State':=2
+
+	   /\ request(BS,No,auth_data2, Data2')
+
+
+
+end role
+
+
+role session(BS,N1,N2: agent,
+
+	     C: nat,
+
+	     Km: symmetric_key,
+
+	     MAC,H: function
+
+	    )
+
+def=
+
+local        SND,RCV: channel(dy)
+
+             composition
+
+                   node(N1,BS,Km,MAC,H,RCV,SND)
+
+		/\ node(N2,BS,Km,MAC,H,RCV,SND)
+
+		/\ basestation(BS,{N1,N2},C,Km,MAC,H,RCV,SND)
+
+end role
+
+role environment()
+
+def=
+
+	
+      const  	bs,n1,n2,n3,n4: agent,
+
+		km,ki: symmetric_key,
+
+		mac,h: function,
+
+		auth_data1,auth_data2: protocol_id
+
+	
+	intruder_knowledge={i,bs,n1,n2,ki,mac,h}
+
+
+
+	composition
+
+		session(bs,n1,n2,0,km,mac,h)
+
+		/\ session(bs,n1,n4,4,km,mac,h)
+
+	     	/\ session(bs,n1,i,6,km,mac,h)
+
+
+end role
+
+
+goal
+	authentication_on auth_data1
+	
+authentication_on auth_data2
+	
+
+end goal
+
+
+environment() 

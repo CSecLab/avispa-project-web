@@ -1,0 +1,21 @@
+role alice(A,B:agent,Ka,Ks:public_key,KeyRing:(agent.public_key)set,Snd,Rcv:channel(dy))
+played_by A def= local State : nat,
+Na,Nb:text,
+Kb:public_key
+init State :=0
+transition
+ask.State=0 /\ Rcv(start) /\ not(in(B.Kb',KeyRing))
+=|>State':=1 /\ Snd(A.B)
+
+learn.State = 1 /\ Rcv({B.Kb'}_inv(Ks))
+=|> State":= 0 /\ KeyRing' :=cons(B.Kb',KeyRing)
+knows.State=0 /\ Rcv(start) /\ in(B.Kb',KeyRing)
+=|>State':=4 /\ Na':=new() /\ Snd({Na'.A}_Kb')
+/\ secret(Na',sna,{A,B})
+/\ witness(A,B,bob_alice_na,Na')
+
+cont.State=4 /\ Rcv({Na,Nb'}_Ka)
+=|> State':=6 /\ Snd({Na'}_Kb)
+/\ request(A,B,alice_bob_nb,Nb')
+
+end role

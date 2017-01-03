@@ -1,0 +1,132 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileunkfU7
+
+section signature:
+
+state_authorization: agent * agent * agent * agent * symmetric_key * symmetric_key * symmetric_key * nat * text * text * text * text * text * nat -> fact
+state_server: agent * agent * agent * agent * symmetric_key * symmetric_key * nat * text * text * message * set(agent) * nat -> fact
+state_owner: agent * agent * agent * agent * symmetric_key * symmetric_key * nat * text * text * nat -> fact
+state_client: agent * agent * agent * agent * symmetric_key * symmetric_key * symmetric_key * nat * text * text * text * text * nat -> fact
+
+
+section types:
+
+set_128, set_118: set
+State, 9, 7, 5, 8, 10, 6, 3, 4, 2, SID, 1, 0, Dummy_State: nat
+Ncs1, Ncs2, Na, No, Napp, Dummy_No, Dummy_Ncs2, Dummy_Ncs1, Dummy_Na, Dummy_Napp, dummy_nonce: text
+Set_75, Dummy_Set_75, ASGoal: set(agent)
+T, start, Dummy_T, dummy_msg, MGoal: message
+t: protocol_id
+c, o, a, s, C, A, O, S, i: agent
+kao, kia, kis, kc, Kcs, Kc, Kao, Kca, Dummy_Kc, kcs, kca: symmetric_key
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(c).
+ iknows(a).
+ iknows(o).
+ iknows(s).
+ iknows(kia).
+ iknows(kis).
+ iknows(kc).
+ iknows(i).
+ state_client(c,a,o,s,kc,kcs,kao,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,3).
+ state_owner(o,c,a,s,kca,kao,5,dummy_nonce,dummy_nonce,4).
+ state_server(s,c,a,o,kc,kao,8,dummy_nonce,dummy_nonce,dummy_msg,set_118,5).
+ state_authorization(a,c,o,s,kca,kcs,kao,1,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,6).
+ state_client(o,i,s,a,kc,kia,kao,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,8).
+ state_owner(s,o,i,a,kis,kao,5,dummy_nonce,dummy_nonce,9).
+ state_server(a,o,i,s,kc,kao,8,dummy_nonce,dummy_nonce,dummy_msg,set_128,10)
+
+
+section rules:
+
+step step_0 (C,A,O,S,Kcs,Kca,Kc,Dummy_Napp,Na,Ncs1,Ncs2,SID,Napp) :=
+ state_client(C,A,O,S,Kcs,Kca,Kc,0,Dummy_Napp,Na,Ncs1,Ncs2,SID).
+ iknows(start)
+=[exists Napp]=>
+ state_client(C,A,O,S,Kcs,Kca,Kc,2,Napp,Na,Ncs1,Ncs2,SID).
+ iknows(scrypt(Kca,Napp))
+
+step step_1 (C,A,O,S,Kcs,Kca,Dummy_Kc,Napp,Dummy_Na,Ncs1,Ncs2,SID,Kc,Na) :=
+ state_client(C,A,O,S,Kcs,Kca,Dummy_Kc,2,Napp,Dummy_Na,Ncs1,Ncs2,SID).
+ iknows(scrypt(Kca,Na))
+=[exists Kc]=>
+ state_client(C,A,O,S,Kcs,Kca,Kc,4,Napp,Na,Ncs1,Ncs2,SID).
+ iknows(scrypt(Kca,Na))
+
+step step_2 (C,A,O,S,Kcs,Kca,Kc,Napp,Na,Dummy_Ncs1,Dummy_Ncs2,SID,Ncs1) :=
+ state_client(C,A,O,S,Kcs,Kca,Kc,4,Napp,Na,Dummy_Ncs1,Dummy_Ncs2,SID).
+ iknows(scrypt(Kc,Ncs1))
+ =>
+ state_client(C,A,O,S,Kcs,Kca,Kc,6,Napp,Na,Ncs1,Dummy_Ncs2,SID).
+ iknows(scrypt(Kca,Ncs2))
+
+step step_3 (C,A,O,S,Kcs,Kca,Kc,Napp,Na,Dummy_Ncs1,Dummy_Ncs2,SID,Ncs1) :=
+ state_client(C,A,O,S,Kcs,Kca,Kc,6,Napp,Na,Dummy_Ncs1,Dummy_Ncs2,SID).
+ iknows(scrypt(Kc,Ncs1))
+ =>
+ state_client(C,A,O,S,Kcs,Kca,Kc,8,Napp,Na,Ncs1,Dummy_Ncs2,SID).
+ iknows(scrypt(Kcs,Ncs1))
+
+step step_4 (O,C,A,S,Kao,Dummy_Kc,Dummy_No,Dummy_Napp,SID,No,Napp) :=
+ state_owner(O,C,A,S,Kao,Dummy_Kc,5,Dummy_No,Dummy_Napp,SID).
+ iknows(scrypt(Kao,Napp))
+=[exists No]=>
+ state_owner(O,C,A,S,Kao,Dummy_Kc,7,No,Napp,SID).
+ iknows(scrypt(Kao,No))
+
+step step_5 (S,C,A,O,Kcs,Dummy_Kc,Dummy_Ncs1,Ncs2,Dummy_T,Dummy_Set_75,SID,Ncs1,T) :=
+ state_server(S,C,A,O,Kcs,Dummy_Kc,8,Dummy_Ncs1,Ncs2,Dummy_T,Dummy_Set_75,SID).
+ iknows(scrypt(Kcs,Ncs1))
+=[exists T]=>
+ state_server(S,C,A,O,Kcs,Dummy_Kc,9,Ncs1,Ncs2,T,Dummy_Set_75,SID).
+ iknows(scrypt(Dummy_Kc,T)).
+ contains(C,Dummy_Set_75).
+ contains(S,Dummy_Set_75)
+
+step step_6 (A,C,O,S,Kao,Kca,Kc,Dummy_Na,Ncs1,Ncs2,No,Dummy_Napp,SID,Na,Napp) :=
+ state_authorization(A,C,O,S,Kao,Kca,Kc,1,Dummy_Na,Ncs1,Ncs2,No,Dummy_Napp,SID).
+ iknows(scrypt(Kca,Napp))
+=[exists Na]=>
+ state_authorization(A,C,O,S,Kao,Kca,Kc,3,Na,Ncs1,Ncs2,No,Napp,SID).
+ iknows(scrypt(Kca,Na))
+
+step step_7 (A,C,O,S,Kao,Kca,Dummy_Kc,Dummy_Na,Ncs1,Ncs2,No,Napp,SID,Na) :=
+ state_authorization(A,C,O,S,Kao,Kca,Dummy_Kc,3,Dummy_Na,Ncs1,Ncs2,No,Napp,SID).
+ iknows(scrypt(Kca,Na))
+ =>
+ state_authorization(A,C,O,S,Kao,Kca,Dummy_Kc,5,Na,Ncs1,Ncs2,No,Napp,SID).
+ iknows(scrypt(Kao,Na))
+
+step step_8 (A,C,O,S,Kao,Kca,Kc,Na,Dummy_Ncs1,Dummy_Ncs2,Dummy_No,Napp,SID,Ncs1,Ncs2,No) :=
+ state_authorization(A,C,O,S,Kao,Kca,Kc,5,Na,Dummy_Ncs1,Dummy_Ncs2,Dummy_No,Napp,SID).
+ iknows(scrypt(Kao,No))
+=[exists Ncs2,Ncs1]=>
+ state_authorization(A,C,O,S,Kao,Kca,Kc,7,Na,Ncs1,Ncs2,No,Napp,SID).
+ iknows(scrypt(Kca,Ncs1))
+
+step step_9 (A,C,O,S,Kao,Kca,Kc,Na,Dummy_Ncs1,Dummy_Ncs2,No,Napp,SID,Ncs1,Ncs2) :=
+ state_authorization(A,C,O,S,Kao,Kca,Kc,7,Na,Dummy_Ncs1,Dummy_Ncs2,No,Napp,SID).
+ iknows(scrypt(Kca,Ncs2))
+=[exists Ncs1]=>
+ state_authorization(A,C,O,S,Kao,Kca,Kc,9,Na,Ncs1,Ncs2,No,Napp,SID).
+ iknows(scrypt(Kca,Ncs1))
+
+
+section properties:
+
+property secrecy_of_t (MGoal,ASGoal) :=
+ [] ((secret(MGoal,t,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_t (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,t,ASGoal) &
+ not(contains(i,ASGoal))
+

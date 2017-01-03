@@ -1,0 +1,188 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilen17037
+
+section signature:
+
+state_server: agent * agent * agent * symmetric_key * hash_func * text * text * text * text * nat * text * text * text * set(agent) * nat -> fact
+state_authenticator: agent * agent * agent * symmetric_key * hash_func * text * text * text * text * text * nat * text * text * text * scrypt(symmetric_key,text) * nat -> fact
+state_client: agent * agent * agent * symmetric_key * hash_func * text * text * text * text * nat * text * text * text * set(agent) * nat -> fact
+
+
+section types:
+
+Access_Challenge_Reply, Dummy_Access_Challenge_Reply: scrypt(symmetric_key,text)
+sec_s_Mkey, mkey, sec_c_Mkey: protocol_id
+set_125, set_112: set
+md5, Md5: hash_func
+kcsk, kisk, kcik, Mkey, dummy_sk: symmetric_key
+State, 7, 6, 5, 4, 3, 2, SID, 1, 0, Dummy_State, SID2, SID1: nat
+Set_69, Dummy_Set_69, Set_26, Dummy_Set_26, ASGoal: set(agent)
+start, MGoal: message
+c1, a1, s1, C, A, S, A2Goal, A1Goal, i: agent
+acc_rej, succs, fails, NAS_ID, NAS_Port, Access_Challenge, Success, Failure, Access_Accept, Access_Reject, EAPOL_Success, EAPOL_Start, EAPOL_Request_Identity, Dummy_Access_Challenge, Dummy_NAS_Port, Dummy_NAS_ID, dummy_nonce, eap_succ, eap_start, eap_request_id, acc_acp: text
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(c1).
+ iknows(a1).
+ iknows(s1).
+ iknows(md5).
+ iknows(kisk).
+ iknows(kcik).
+ iknows(succs).
+ iknows(fails).
+ iknows(acc_acp).
+ iknows(acc_rej).
+ iknows(eap_succ).
+ iknows(eap_start).
+ iknows(eap_request_id).
+ iknows(i).
+ state_client(c1,a1,s1,kcsk,md5,eap_succ,eap_start,eap_request_id,succs,0,dummy_nonce,dummy_nonce,dummy_nonce,set_112,3).
+ state_authenticator(a1,c1,s1,kcsk,md5,eap_succ,eap_start,eap_request_id,succs,acc_acp,1,dummy_nonce,dummy_nonce,dummy_nonce,scrypt(dummy_sk,dummy_nonce),4).
+ state_server(s1,c1,a1,kcsk,md5,succs,fails,acc_acp,acc_rej,3,dummy_nonce,dummy_nonce,dummy_nonce,set_125,5)
+
+
+section rules:
+
+step step_0 (C,A,S,Mkey,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Request_Identity,Success,NAS_ID,NAS_Port,Access_Challenge,Set_26,SID) :=
+ state_client(C,A,S,Mkey,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Request_Identity,Success,0,NAS_ID,NAS_Port,Access_Challenge,Set_26,SID).
+ iknows(start)
+ =>
+ state_client(C,A,S,Mkey,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Request_Identity,Success,1,NAS_ID,NAS_Port,Access_Challenge,Set_26,SID).
+ iknows(EAPOL_Start)
+
+step step_1 (C,A,S,Mkey,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Request_Identity,Success,Dummy_NAS_ID,Dummy_NAS_Port,Access_Challenge,Dummy_Set_26,SID,NAS_ID,NAS_Port) :=
+ state_client(C,A,S,Mkey,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Request_Identity,Success,1,Dummy_NAS_ID,Dummy_NAS_Port,Access_Challenge,Dummy_Set_26,SID).
+ iknows(EAPOL_Request_Identity)
+=[exists NAS_ID,NAS_Port]=>
+ state_client(C,A,S,Mkey,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Request_Identity,Success,2,NAS_ID,NAS_Port,Access_Challenge,Dummy_Set_26,SID).
+ iknows(pair(NAS_ID,pair(NAS_Port,apply(Md5,Mkey)))).
+ secret(Mkey,sec_c_Mkey,Dummy_Set_26).
+ contains(C,Dummy_Set_26).
+ contains(S,Dummy_Set_26)
+
+step step_2 (C,A,S,Mkey,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Request_Identity,Success,NAS_ID,NAS_Port,Dummy_Access_Challenge,Set_26,SID,Access_Challenge) :=
+ state_client(C,A,S,Mkey,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Request_Identity,Success,2,NAS_ID,NAS_Port,Dummy_Access_Challenge,Set_26,SID).
+ iknows(pair(NAS_ID,Access_Challenge))
+ =>
+ state_client(C,A,S,Mkey,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Request_Identity,Success,3,NAS_ID,NAS_Port,Access_Challenge,Set_26,SID).
+ iknows(pair(NAS_ID,scrypt(Mkey,Dummy_Access_Challenge))).
+ witness(C,S,mkey,Mkey)
+
+step step_3 (C,A,S,Mkey,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Request_Identity,Success,NAS_ID,NAS_Port,Access_Challenge,Set_26,SID) :=
+ state_client(C,A,S,Mkey,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Request_Identity,Success,3,NAS_ID,NAS_Port,Access_Challenge,Set_26,SID).
+ iknows(pair(NAS_ID,EAPOL_Success))
+ =>
+ state_client(C,A,S,Mkey,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Request_Identity,Success,4,NAS_ID,NAS_Port,Access_Challenge,Set_26,SID).
+ iknows(pair(NAS_ID,Success))
+
+step step_4 (A,C,S,Mkey,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Request_Identity,Success,Access_Accept,NAS_ID,NAS_Port,Access_Challenge,Access_Challenge_Reply,SID) :=
+ state_authenticator(A,C,S,Mkey,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Request_Identity,Success,Access_Accept,1,NAS_ID,NAS_Port,Access_Challenge,Access_Challenge_Reply,SID).
+ iknows(EAPOL_Start)
+ =>
+ state_authenticator(A,C,S,Mkey,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Request_Identity,Success,Access_Accept,2,NAS_ID,NAS_Port,Access_Challenge,Access_Challenge_Reply,SID).
+ iknows(EAPOL_Request_Identity)
+
+step step_5 (A,C,S,Mkey,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Request_Identity,Success,Access_Accept,Dummy_NAS_ID,Dummy_NAS_Port,Access_Challenge,Access_Challenge_Reply,SID,NAS_ID,NAS_Port) :=
+ state_authenticator(A,C,S,Mkey,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Request_Identity,Success,Access_Accept,2,Dummy_NAS_ID,Dummy_NAS_Port,Access_Challenge,Access_Challenge_Reply,SID).
+ iknows(pair(NAS_ID,pair(NAS_Port,apply(Md5,Mkey))))
+ =>
+ state_authenticator(A,C,S,Mkey,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Request_Identity,Success,Access_Accept,3,NAS_ID,NAS_Port,Access_Challenge,Access_Challenge_Reply,SID).
+ iknows(pair(NAS_ID,pair(NAS_Port,apply(Md5,Mkey))))
+
+step step_6 (A,C,S,Mkey,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Request_Identity,Success,Access_Accept,NAS_ID,NAS_Port,Dummy_Access_Challenge,Access_Challenge_Reply,SID,Access_Challenge) :=
+ state_authenticator(A,C,S,Mkey,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Request_Identity,Success,Access_Accept,3,NAS_ID,NAS_Port,Dummy_Access_Challenge,Access_Challenge_Reply,SID).
+ iknows(pair(NAS_ID,Access_Challenge))
+ =>
+ state_authenticator(A,C,S,Mkey,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Request_Identity,Success,Access_Accept,4,NAS_ID,NAS_Port,Access_Challenge,Access_Challenge_Reply,SID).
+ iknows(pair(NAS_ID,Access_Challenge))
+
+step step_7 (A,C,S,Mkey,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Request_Identity,Success,Access_Accept,NAS_ID,NAS_Port,Access_Challenge,Dummy_Access_Challenge_Reply,SID,Access_Challenge_Reply) :=
+ state_authenticator(A,C,S,Mkey,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Request_Identity,Success,Access_Accept,4,NAS_ID,NAS_Port,Access_Challenge,Dummy_Access_Challenge_Reply,SID).
+ iknows(pair(NAS_ID,Access_Challenge_Reply))
+ =>
+ state_authenticator(A,C,S,Mkey,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Request_Identity,Success,Access_Accept,5,NAS_ID,NAS_Port,Access_Challenge,Access_Challenge_Reply,SID).
+ iknows(pair(NAS_ID,Access_Challenge_Reply))
+
+step step_8 (A,C,S,Mkey,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Request_Identity,Success,Access_Accept,NAS_ID,NAS_Port,Access_Challenge,Access_Challenge_Reply,SID) :=
+ state_authenticator(A,C,S,Mkey,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Request_Identity,Success,Access_Accept,5,NAS_ID,NAS_Port,Access_Challenge,Access_Challenge_Reply,SID).
+ iknows(pair(NAS_ID,Access_Accept))
+ =>
+ state_authenticator(A,C,S,Mkey,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Request_Identity,Success,Access_Accept,6,NAS_ID,NAS_Port,Access_Challenge,Access_Challenge_Reply,SID).
+ iknows(EAPOL_Success)
+
+step step_9 (A,C,S,Mkey,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Request_Identity,Success,Access_Accept,NAS_ID,NAS_Port,Access_Challenge,Access_Challenge_Reply,SID) :=
+ state_authenticator(A,C,S,Mkey,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Request_Identity,Success,Access_Accept,6,NAS_ID,NAS_Port,Access_Challenge,Access_Challenge_Reply,SID).
+ iknows(pair(NAS_ID,Success))
+ =>
+ state_authenticator(A,C,S,Mkey,Md5,EAPOL_Success,EAPOL_Start,EAPOL_Request_Identity,Success,Access_Accept,7,NAS_ID,NAS_Port,Access_Challenge,Access_Challenge_Reply,SID)
+
+step step_10 (S,C,A,Mkey,Md5,Success,Failure,Access_Accept,Access_Reject,Dummy_NAS_ID,Dummy_NAS_Port,Dummy_Access_Challenge,Dummy_Set_69,SID,NAS_ID,NAS_Port,Access_Challenge) :=
+ state_server(S,C,A,Mkey,Md5,Success,Failure,Access_Accept,Access_Reject,3,Dummy_NAS_ID,Dummy_NAS_Port,Dummy_Access_Challenge,Dummy_Set_69,SID).
+ iknows(pair(NAS_ID,pair(NAS_Port,apply(Md5,Mkey))))
+=[exists Access_Challenge]=>
+ state_server(S,C,A,Mkey,Md5,Success,Failure,Access_Accept,Access_Reject,4,NAS_ID,NAS_Port,Access_Challenge,Dummy_Set_69,SID).
+ iknows(pair(NAS_ID,Access_Challenge)).
+ secret(Mkey,sec_s_Mkey,Dummy_Set_69).
+ contains(C,Dummy_Set_69).
+ contains(S,Dummy_Set_69)
+
+step step_11 (S,C,A,Mkey,Md5,Success,Failure,Access_Accept,Access_Reject,NAS_ID,NAS_Port,Access_Challenge,Set_69,SID) :=
+ state_server(S,C,A,Mkey,Md5,Success,Failure,Access_Accept,Access_Reject,4,NAS_ID,NAS_Port,Access_Challenge,Set_69,SID).
+ iknows(pair(NAS_ID,scrypt(Mkey,Access_Challenge)))
+ =>
+ state_server(S,C,A,Mkey,Md5,Success,Failure,Access_Accept,Access_Reject,5,NAS_ID,NAS_Port,Access_Challenge,Set_69,SID).
+ iknows(pair(NAS_ID,Access_Accept)).
+ request(S,C,mkey,Mkey,SID)
+
+step step_12 (S,C,A,Mkey,Md5,Success,Failure,Access_Accept,Access_Reject,NAS_ID,NAS_Port,Access_Challenge,Set_69,SID) :=
+ state_server(S,C,A,Mkey,Md5,Success,Failure,Access_Accept,Access_Reject,5,NAS_ID,NAS_Port,Access_Challenge,Set_69,SID).
+ iknows(pair(NAS_ID,Success))
+ =>
+ state_server(S,C,A,Mkey,Md5,Success,Failure,Access_Accept,Access_Reject,6,NAS_ID,NAS_Port,Access_Challenge,Set_69,SID)
+
+
+section properties:
+
+property secrecy_of_sec_c_Mkey (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_c_Mkey,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_sec_s_Mkey (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_s_Mkey,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_mkey (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,mkey,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,mkey,MGoal))
+     /\ ((request(A1Goal,A2Goal,mkey,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,mkey,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_sec_c_Mkey (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_c_Mkey,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_sec_s_Mkey (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_s_Mkey,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_mkey (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,mkey,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,mkey,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_mkey (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,mkey,MGoal,SID1).
+ request(A1Goal,A2Goal,mkey,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

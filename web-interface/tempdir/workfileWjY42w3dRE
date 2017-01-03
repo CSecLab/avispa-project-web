@@ -1,0 +1,121 @@
+role server(
+   U,S: agent,
+   K1: symmetric_key,
+   H,F:hash_func,
+   SND,RCV: channel(dy))
+played_by S
+def=
+local State:nat,
+Rndc,T1,T3,Id,Pwd,Seed,Z,Ai,Bi,Ci,Ri,Cid:text,
+D1,D2,D3,D4,D5,F1:message
+const
+subs1,subs2,subs3,subs4,subs5,password:protcol_id
+
+init State:=2
+transition
+1. State=2  /\ RCV({Id.Pwd'}_K1)=|>
+   State':=3 /\Ri':=new()
+             /\Ai':=H(Id.Seed)
+             /\Bi':= xor(Ai',H(exp((Pwd'.Z),2))
+             /\Ci':= H(Bi'.Pwd')
+             /\Cid':=F(xor(Id,Ri'))
+             /\SND({Ai'.Bi'.Ci'.Cid'.Ri'}_K1)
+             /\witness(S,U,subs1,Cid')
+             /\witness(S,U,subs2,Ci')
+             /\secret(pwd,password,{U,S})
+2.State=3  /\ RCV(Id.T1',D2'.D3'.D4'.D5')=|>
+  State':=5 /\ Rndc':=xor(D3'.Ai)
+            /\ D4':=H(Rndc'.T1')
+            /\ request(S,U,subs4,D4')
+            /\ Bi':=xor(D5',Rndc')
+            /\ D2':=H(Bi'.Pwd.T1')
+            /\ request(S,U,subs3,D2')
+            /\ T3':=new()
+            /\ F1':=H(Id.Rndc'.Pwd.T3')
+            /\ SND(F1'.T3')
+            /\ witness(S,U,subs5,F1')
+end role
+
+role user(
+   U,S: agent,
+   K1: symmetric_key,
+   H,F:hash_func,
+   SND,RCV: channel(dy))
+played_by U
+def=
+local State:nat,
+Rnd,T1,T3,Id,Pwd,Seed,Z,Ai,Bi,Ci,Ri,Cid:text,
+D1,D2,D3,D4,D5:message
+const
+ subs1,subs2,subs3,subs4,subs5,password:protcol_id
+
+init State:=0
+transition
+%registration phase
+1. State=0   /\RCV(strat) =|>
+   State':=1 /\Pwd':=H(Pwd)
+             /\ SND({Id.Pwd'}_K1)
+             /\ secret(Pwd,password,{U,S})
+
+2. State=1   /\ RCV({Ai'.Bi'.Ci'.Cid'.Ri'}_K1) =|>
+   State':=4 /\ Cid':=F(xor(Id,Ri'))
+             /\ Ci':= H(Bi'.Pwd)
+             /\ request(U,S,subs1,Cid')
+             /\ request(U,S,subs2,Ci')
+             /\ D1':=Bi'.Pwd
+             /\ T1':=new()
+             /\ D2':=H(D1'.T1')
+             /\ Rnd':=new()
+             /\ D3':=xor(Ai',H(Rnd'))
+             /\ D4':=H(H(Rnd').T1')
+             /\ D5':=xor(Bi,H(Rnd'))
+             /\ SND(Id.T1',D2'.D3'.D4'.D5')
+             /\ witness(U,S,subs3,D2')
+             /\ witness(U,S,subs4,D4')
+3. State=4   /\ RCV(F1'.T3')=|>
+   State':=6 /\ F1':=H(Id.H(Rnd).Pwd.T3')
+             /\ request(U,S,subs5,F1')
+end role
+
+role session(
+U,S : agent,
+K : symmetric_key,
+Hash,Fun : hash_func)
+def=
+local SU, SS, RU, RS : channel (dy)
+composition
+user(U,S,K,Hash,SS,RS)
+/\ server (U,S,K,Hash,SU,RU)
+end role
+
+role environment()
+def=
+const
+subs1,subs2,subs3,subs4,subs5,password:protcol_id
+kus,kius,kisu : symmetric_key,
+u,s : agent,
+h : hash_func
+intruder_knowledge = {u,s,h,kius,kisu}
+composition
+session(u,s,kus,h)
+/\ session(u,i,kius,h)
+/\ session(s,i,kisu,h)
+end role
+
+goal
+secrecy_of password
+authentication_on subs1
+authentication_on subs2
+authentication_on subs3
+authentication_on subs4
+authentication_on subs5
+end goal
+
+environment()
+
+
+
+
+ 
+
+

@@ -1,0 +1,98 @@
+%% PROTOCOLE: RECUPERATION AUTOMATIQUE D'UN COLIS DANS UN POINT RELAIS (DISTRIBUTEUR D) PAR UN CLIENT C
+%% 1. D  - {D.Nd}_PKc ----> C
+%% 2. D  C
+%% 4. C  - {Info}_SK ------> D
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% DEFINITION DU ROLE DU CLIENT INITIANT LE PROTOCOLE
+role client (C, D: agent,             
+            PKd, PKc: public_key,
+			SKc: symmetric_key,
+            SND, RCV: channel (dy)) 
+played_by C def=
+
+  local State: nat, 
+        Nc, Nd, Info: text
+
+  init State := 0
+
+  transition  
+    0.  State  = 0 /\ RCV({D.Nd'}_PKc) =|> 
+	    State':= 1 /\ Nc' := new() /\ SND({C.Nc'.Nd'}_PKd)
+
+    2.  State  = 1 /\ RCV({Nc}_PKc) =|> 
+	    State':= 2 /\ SND({Info}_SKc)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% ROLE DU DELIVREUR DE COLIS 
+role distrib (D, C: agent,                          
+            PKc, PKd: public_key,
+			SKd: symmetric_key,
+            SND, RCV: channel (dy))
+
+ 	played_by D def=
+
+	local State: nat, 
+        Nd, Nc, Info: text
+        
+    init State := 0
+    
+    transition  
+    0.  State  = 0 /\ RCV(start) =|> 
+	    State':= 1 /\ Nd' := new() /\ SND({D.Nd'}_PKc)
+
+    2.  State  = 1 /\ RCV({C.Nc'.Nd}_PKd) =|> 
+	    State':= 2 /\ SND({Nc'}_PKc)
+	
+
+end role
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% DEFITION DE LA SESSION
+role session(D, C: agent,
+			PKc, PKd: public_key,
+			SKc, SKd: symmetric_key) def=
+
+  local SC, RC, SD, RD: channel (dy)
+
+  composition 
+    distrib(C,D,PKc,PKd,SKd,SD,RD)
+    /\ client(C,D,PKc,PKd,SKc,SC,RC)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% DEFINITION DE L'ENVIRONNEMENT
+role environment() def=
+
+  const c, d, i: agent,
+        pKc, pKd, pKi: public_key,
+		sKc, sKd, sKi: symmetric_key,
+		client_nc: protocol_id,
+		distributeur_nd: protocol_id,
+		info: text
+
+  intruder_knowledge = {c, d, pKc, pKd}
+
+  composition
+    session(c, d, pKc, pKd, sKc, sKd)
+    /\ session(c, i, pKc, pKi, sKc, sKi)
+%%   /\ session(a,i,pka,pki)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% pas de section goal (donc pas de propriétés à vérifier)
+goal
+	authentication_on client_nc
+	authentication_on distributeur_nd
+	secrecy_of info
+end goal
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% lancement du rôle principal
+environment()

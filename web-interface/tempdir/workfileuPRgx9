@@ -1,0 +1,174 @@
+%% PROTOCOL: (MS-)CHAPv2
+%% Challenge/Response Authentication Protocol, version 2
+%% PURPOSE:
+%% Mutual authentication between a server and a client who share a password.
+%% CHAPv2 is the authentication protocol for the Point-to-Point Tunneling Protocol
+%% suite (PPTP).
+%% REFERENCE:
+%% \cite{RFC2759}
+%% MODELER:
+%%\begin{itemize}
+%%\item Haykal Tej, Siemens CT IC 3, 2003
+%%\item Paul Hankes Drielsma, ETH Z\"urich
+%%\end{itemize}
+%%
+%% ALICE_BOB:
+%% We assume that the server \verb!B! and client \verb!A! share 
+%% password \verb!k(A,B)! in advance.  The server and client generate
+%% nonces \verb!Nb! and \verb!Na!, respectively.
+%%\begin{verbatim}
+%%  1. A -> B : A
+%%  2. B -> A : Nb
+%%  3. A -> B : Na,H(k(A,B),(Na,Nb,A))
+%%  4. B -> A : H(k(A,B),Na)
+%%\end{verbatim}
+%%
+%% LIMITATIONS:
+%%
+%%Issues abstracted from:
+%%\begin{itemize}
+%%\item Message structure: As is standard, we abstract away from the concrete details
+%% of message structure such as bit lengths, etc.  What is left after this abstraction
+%% contains several redundancies, however (at least in the Dolev-Yao model).
+%% We therefore eliminate these redundancies, retaining the core of the data
+%% dependencies of the protocol. 
+%%\end{itemize}
+%%
+%% PROBLEMS: 3
+%% CLASSIFICATION: G1, G2, G12
+%% ATTACKS: None
+%%
+%% NOTES:
+%% A cryptanalysis of this protocol in its full complexity can be found
+%% in~\cite{schneier99cryptanalysis}.
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+%%HLPSL:
+role chap_Init (A,S   : agent,
+           	Bi,X,Y,Idi,Ai,Sid,Hoy   : symmetric_key,
+	   	H     : hash_func,
+           	Snd, Rcv: channel(dy))
+played_by A
+def=
+           
+  local State  : nat,
+       Cid,A1i,Fi,Ei,Di,Pi,Ni,Nk,Nj,M1,M2,M3,M4 : text
+
+
+  const sec_kas1 : protocol_id
+
+  init  State := 0
+
+  transition
+   1. State   = 0 /\ Rcv(start) =|>
+      State' := 1 /\ Di':=xor(H(Bi.H(X.Y)).Ai)
+		/\ Ei':=xor(Bi.H(X.Y))
+	          /\ Ni' := new() 
+		/\ Nk' := new() 
+		/\ A1i' := H(Ai.Nk)
+		/\ Pi' := xor(Ei.H(H(Sid.Hoy).Ni)) 
+                /\ Fi' := xor(Di.Ai)
+		/\ Cid' := xor(A1i. H(Fi.Sid.Ni))
+		/\ M1' := H(Pi.Cid.Fi.Ni)
+		 /\Snd(Pi,Cid,Ni,M1) %%/\ Snd(Ni)
+		%%/\ secret(Bi,sec_kas1,{A,S})
+		%%/\ secret(Ai,sec_kas1,{A,S})
+		%%/\ secret(A1i,sec_kas1,{A,S})
+
+
+   2. State   = 2 /\ Rcv(M2',M3') =|> 
+      State' := 3 /\ M4' := H(Fi.A1i.Ni.Sid)
+	          /\ Snd(M4')
+	          %%/\ witness(A,B,na,Na') 
+		  %%/\ secret(Kab,sec_kab1,{A,B})
+
+%%   3. State   = 2 /\ Rcv(H(Kab.Na)) =|> 
+%%      State' := 3 /\ request(A,B,nb,Nb) 
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role chap_Resp (S,A : agent,
+                X,Y,Idi,Ai,Sid,Hoy   : symmetric_key,
+		H: hash_func,
+                Snd, Rcv: channel(dy))
+played_by S
+def=
+           
+  local State  : nat,
+              Bsi,Cid,A1i,Fi,Ei,Di,Pi,Ni,Nk,Nj,M1,M2,M3,M4 : text
+
+
+  const sec_kas2 : protocol_id
+
+  init  State := 0
+
+  transition
+   1. State   = 1 /\ Rcv(Pi,Cid,Ni,M1) =|>
+		 %% /\ Rcv(Ni')   
+      State' := 2 /\ Ei' := xor(Pi.H(H(Sid.Hoy).Ni))
+		  /\ Bsi' := xor(Ei.H(X.Y))
+		  /\ Fi' := H(Bsi.H(X.Y))
+		  /\ A1i' :=xor(Cid.H(Fi.Sid.Ni))
+		  /\M2' := H(Fi.A1i.Ni.Sid)
+		  /\ Nj' := new()
+		 /\ M3' := xor(A1i.Ni.Nj)
+		 /\ Snd(M2,M3)
+	         %% /\ witness(B,A,nb,Nb')
+
+   2. State   = 3 /\ Rcv(M4) =|>
+      State' := 4 /\ Snd(M4)
+%%	          /\ request(B,A,na,Na') 
+%%		  /\ secret(Kab,sec_kab2,{A,B})
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(A,S: agent,
+	     Bi,X,Y,Idi,Ai,Sid,Hoy   : symmetric_key,
+	     H: hash_func)
+def=
+
+  local SA, SS, RA, RS: channel (dy)
+
+  composition
+           chap_Init(A, S, Bi,X,Y,Idi,Ai,Sid,Hoy, H, SA, RA)
+       /\  chap_Resp(S, A, X,Y,Idi,Ai,Sid,Hoy, H, SS, RS)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+
+  const a, s          : agent,
+        bi,x,y,idi,ai,sid,hoy : symmetric_key,
+        h             : hash_func,
+        na, ns        : protocol_id
+
+  intruder_knowledge = {a,s,idi,sid,hoy}
+
+  composition
+	session(a,s,bi,x,y,idi,ai,sid,hoy,h) /\
+	session(a,i,bi,x,y,idi,ai,sid,hoy,h) /\
+        session(s,i,bi,x,y,idi,ai,sid,hoy,h)
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+ %secrecy of the shared key
+ secrecy_of sec_kas1, sec_kas2	% Addresses G12
+                         
+ %CHAP_Init authenticates CHAP_Resp on nb
+ authentication_on ns  % Addresses G1, G2
+ %CHAP_Resp authenticates CHAP_Init on na
+ authentication_on na  % Addresses G1, G2
+  
+end goal
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

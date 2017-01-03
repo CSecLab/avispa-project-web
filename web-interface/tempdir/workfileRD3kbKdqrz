@@ -1,0 +1,190 @@
+role alice(A,B,S:agent,
+            Ka,Kb,Ksa,Ksb,Kab:symmetric_key,
+			Pua,Pub,Qs:public_key,
+			H,Conc,Union,Pred:hash_func,
+			Snd,Rcv:channel(dy))
+			played_by A
+def=
+local State:nat,TIDa,TIDb,IDa,IDb,IDs,
+SKas,SKab,SKbs,Csa,Csb,K:symmetric_key,
+RA,RB,Ha,Hb,Ua,Ub,Ti1,Ti2,Ti3,Va,Vb,Ma,Mb,Za,Zb,Fa,Fb,Wa,Wb,Sigma:message,
+Ra,Rb,Ds,Ns,Xa,Xb,T1,T2,T3,T4,Na,Nb,P:text
+			
+const alice_server_xa,bob_server_xb,subs1,subs2,subs3:protocol_id
+
+init State:=0
+transition
+1. State=0 /\Rcv(start)=|>
+ State':= 1/\Snd(IDa)
+
+ 2. State=1/\Rcv(RA,Ua,IDs,TIDa,Ns)=|> 
+  State':=2/\Xa':=new()
+          /\Na':=new()
+          /\Pua':=Pred(Xa,P)
+		  /\T1':=new()
+		  /\Ti1':=H(T1')
+		  /\Va':=xor(TIDa,H(IDa))
+		  /\Ma':=xor(Va,Ua)
+		  /\Za':=xor(Conc(H(Va),Ua),IDa)
+		  /\Fa':=xor(Va,Xa)
+		  /\Wa':=H(Conc(Xa,IDa))
+		  /\SKas':=H(Conc(TIDa,IDs,RA,Wa,Va))
+		  /\Ka':= H(Conc(TIDa,TIDb,IDs,RA,Ti1))
+		  /\Snd(TIDa.TIDb.IDs.T1.{Va.Ma.Fa.SKas}_Ka)
+		  /\Snd(TIDa.Na)
+2. State=2/\Rcv(IDs.TIDb.Pub.{Rb.Csa}_Ksa)=|>	
+State':=3/\Ksa':=H(Conc(IDs,TIDb,Va,Pub))
+         /\Csa':=H(Conc(TIDa,TIDb,Ra,Rb,Pua,Pub,SKas))	 
+         /\T3':=new()
+         /\Ti3':=H(Conc(T3,Nb))
+         /\Sigma':=Pred(Union(Xa,T3),Pub)	
+         /\Kab':=Pred(Xa,Pub)	
+         /\Snd(TIDa.TIDb.{T3.Sigma.Nb}_Kab)	
+		 /\secret({Xa'},subs1,{A,S})
+		 
+3. State=3/\Rcv(TIDa.TIDb.Ti3.{T4.SKab}_Kab)=|>
+State':=4/\K':=H(Conc(Kab,Na,Nb,Ra,Rb,Sigma))		
+         /\SKab':=H(Conc(TIDa,TIDb,Pua,Pub,RA,RB,K)) 
+		  
+end role
+
+role server(A,B,S:agent,
+            Ka,Kb,Ksa,Ksb,Kab:symmetric_key,
+			Pua,Pub,Qs:public_key,
+			H,Conc,Union,Pred:hash_func,
+			Snd,Rcv:channel(dy))
+			played_by S
+def=
+local State:nat,TIDa,TIDb,IDa,IDb,IDs,
+SKas,SKab,SKbs,Csa,Csb,K:symmetric_key,
+RA,RB,Ha,Hb,Ua,Ub,Ti1,Ti2,Ti3,Va,Vb,Ma,Mb,Za,Zb,Fa,Fb,Wa,Wb,Sigma:message,
+Ra,Rb,Ds,Ns,Xa,Xb,T1,T2,T3,T4,Na,Nb,P:text
+			
+const alice_server_xa,bob_server_xb,subs1,subs2,subs3:protocol_id
+
+init State:=0
+transition
+1. State=0 /\Rcv(IDa)/\Rcv(IDb)=|>
+ State':= 1/\Ds':=new()
+           /\Qs':=Pred(Ds,P)
+		   /\Ns':=new()
+           /\Ra':=new()
+           /\Rb':=new()
+		   /\RA':=Pred(Ra,P)
+           /\RB':=Pred(Rb,P)
+           /\Ha':=H(Conc(IDa,IDs,RA))
+           /\Hb':=H(Conc(IDb,IDs,RB))
+           /\Ua':=Union(Ra,Pred(Ha',Ds))
+           /\Ub':=Union(Rb,Pred(Hb',Ds))
+		   /\TIDa':=xor(H(Ds),H(IDa))
+		   /\TIDb':=xor(H(Ds),H(IDb))
+           /\Snd(IDs.Ua.RA.TIDa.Ns)
+		   /\Snd(IDs.Ub.RB.TIDb.Ns)
+2. State=1/\Rcv(IDs.Ua.RA.TIDa.Ns)/\Rcv(IDs.Ub.RB.TIDb.Ns)=|>	
+State':=	2/\Ti1':=H(T1)
+             /\Ka':= H(Conc(TIDa,TIDb,IDs,RA,Ti1'))
+			 /\Va':=H(Ds)
+			 /\Wa':=xor(Fa,H(Ds))
+			 /\SKas':=H(Conc(TIDa,IDs,RA,Wa',Va'))
+			 /\SKbs':=H(Conc(TIDb,IDs,RB,Wb',Vb'))
+			 /\Csa':=H(Conc(TIDa,TIDb,RA,RB,Pua,Pub,SKas'))
+			 /\Csb':=H(Conc(TIDb,TIDa,RA,RB,Pua,Pub,SKbs'))
+			 /\Ksa':=H(Conc(IDs,TIDb,H(Ds),Pub))
+			 /\Ksb':=H(Conc(IDs,TIDa,H(Ds),Pua))
+			 /\Snd(IDs.TIDb.Pub.{Rb.Csa}_Ksa)
+			 /\Snd(IDs.TIDa.Pua.{Ra.Csb}_Ksb)
+			 /\secret({Ds'},subs2,{S})
+end role		   
+
+
+
+
+
+role bob(A,B,S:agent,
+            Ka,Kb,Ksa,Ksb,Kab:symmetric_key,
+			Pua,Pub,Qs:public_key,
+			H,Conc,Union,Pred:hash_func,
+			Snd,Rcv:channel(dy))
+			played_by B
+def=
+local State:nat,TIDa,TIDb,IDa,IDb,IDs,
+SKas,SKab,SKbs,Csa,Csb,K:symmetric_key,
+RA,RB,Ha,Hb,Ua,Ub,Ti1,Ti2,Ti3,Va,Vb,Ma,Mb,Za,Zb,Fa,Fb,Wa,Wb,Sigma:message,
+Ra,Rb,Ds,Ns,Xa,Xb,T1,T2,T3,T4,Na,Nb,P:text
+			
+const alice_server_xa,bob_server_xb,subs1,subs2,subs3:protocol_id
+
+init State:=0
+transition
+1. State=0 /\Rcv(start)=|>
+ State':= 1/\Snd(IDb)
+
+ 2. State=1/\Rcv(RB,Ub,IDs,TIDb,Ns)=|> 
+  State':=2/\Xb':=new()
+          /\Nb':=new()
+          /\Pub':=Pred(Xb,P)
+		  /\T2':=new()
+		  /\Ti2':=H(T2')
+		  /\Vb':=xor(TIDb,H(IDb))
+		  /\Mb':=xor(Vb,Ub)
+		  /\Zb':=xor(Conc(H(Vb),Ub),IDb)
+		  /\Fb':=xor(Vb,Xb)
+		  /\Wb':=H(Conc(Xb,IDb))
+		  /\SKbs':=H(Conc(TIDb,IDs,RB,Wb,Vb))
+		  /\Kb':= H(Conc(TIDb,TIDa,IDs,RB,Ti2))
+		  /\Snd(TIDb.TIDa.IDs.T2.{Vb.Mb.Fb.SKbs}_Kb)
+		  /\Snd(TIDb.Nb)
+		  
+ 3. State=2/\Rcv(TIDa.TIDb.{T3.Sigma.Nb}_Kab)=|> 
+  State':=3 /\T4':=new()
+           /\Kab':=Pred(Xa,Pua)
+           /\Ti3':=H(Conc(T3,Nb)) 
+           /\Sigma':=Pred(Union(Pua,Pred(Ti3,P)),Xb)
+		   /\K':=H(Conc(Kab',Na,Nb,RA,RB,Sigma))
+           /\SKab':=H(Conc(TIDa,TIDb,Pua,Pub,RA,RB,K))
+		   /\Snd (TIDa.TIDb.Ti3.{T4.SKab}_Kab)
+           /\secret({Xb'},subs3,{B,S})   
+end role		
+
+
+role session(A,B,S:agent,
+            Ka,Kb,Ksa,Ksb,Kab:symmetric_key,
+			Pua,Pub,Qs:public_key,
+			H,Conc,Union,Pred:hash_func)
+def=
+local SAL,SBO,SSE,RAL,RBO,RSE:channel(dy)	
+composition			
+alice(A,B,S,Ka,Kb,Ksa,Ksb,Kab,Pua,Pub,Qs,H,Conc,Union,Pred,SAL,RAL)
+/\server(A,B,S,Ka,Kb,Ksa,Ksb,Kab,Pua,Pub,Qs,H,Conc,Union,Pred,SSE,RSE)	
+/\bob(A,B,S,Ka,Kb,Ksa,Ksb,Kab,Pua,Pub,Qs,H,Conc,Union,Pred,SBO,RBO)	
+end role
+
+		
+ role environment()
+def=
+const a,b,s:agent,
+      ka,kb,ksa,ksb,kab:symmetric_key,
+      pua,pub,qs:public_key,
+       h,conc,union,pred:hash_func,	  
+tida,tidb,ida,idb,ids,skas,skab,skbs,csa,csb,k,ra,rb,ha,hb,ua,ub,ti1,ti2,ti3,va,vb,ma,mb,za,zb,fa,fb,wa,wb,sigma,t1,t2,t3,t4,p:text,
+alice_server_xa,bob_server_xb,subs1,subs2,subs3:protocol_id
+
+intruder_knowledge={a,b,s,pua,pub,qs,h,conc,union,pred}
+composition
+session(a,b,s,ka,kb,ksa,ksb,kab,pua,pub,qs,h,conc,union,pred)
+/\session(a,b,s,ka,kb,ksa,ksb,kab,pua,pub,qs,h,conc,union,pred)
+/\session(a,b,s,ka,kb,ksa,ksb,kab,pua,pub,qs,h,conc,union,pred)
+end role
+
+goal
+ secrecy_of subs1
+ secrecy_of subs2
+ secrecy_of subs3
+
+ authentication_on alice_server_xa
+ 
+ authentication_on bob_server_xb
+ end goal
+ 
+ environment()
+ 

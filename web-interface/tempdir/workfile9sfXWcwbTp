@@ -1,0 +1,117 @@
+role user(
+Ui,Sj:agent,
+SK1:symmetric_key,
+H:hash_func,
+Bilinear,Subtract,Add,Product,Mul,Inc:hash_func,
+Snd,Rcv:channel(dy))
+played_by Ui
+def=
+local State : nat,
+IDi,PWi,HPWi,SIDj,S,Z,Ri,Ai,Bi,Ci,D1,D2,D3,D4,D5,F1,CIDi:text,
+T1,T2:message
+const user_server,server_user, subs1,subs2,subs3,subs4,subs5,subs6:protocol_id
+init State:=0
+transition
+% Start registration phase of the user
+1.State=0/\Rcv(start)=|>
+/\State':=1/\IDi':=new()/\PWi:=new() /\HPWi':= H(PWi)
+/\Snd({IDi'.HPWi'}_SK1)
+%Send registration request to the Satate
+/\secret({IDi}, subs1, {Ui,Sj})
+/\secret({PWi}, subs2, Ui)
+2.State=1/\Rcv({Ai',Bi',Ci',Ri',CIDi'}_SK1)=|>
+%Receives smart card information from RC
+State':=2/\ Ru':=new()/\HRi':=new() /\T1':= new()
+/\D1:=(Bi.HPWi)
+/\D2:=Hash(D1.T1)
+/\D3:=xor(Ai,Hash(HRi'))
+/\D4:=Hash(HRi'.T1)
+/\D5:=xor(Bi,HRi')
+/\Snd(IDi,T1,D2,D3,D4,D5)
+%Send login message to the Sj
+/\witness(Ui,Sj,user_server,HRi')
+/\secret({HRi'},subs3,{Ui})
+/\secret({S,Z},subs4,{Ui,Sj})
+/\request(Ui,Sj,user_server,Ru)
+3.State=2/\Rcv(F1,T3)=|>
+%Receives messages from Sj
+State':=3
+/\request(Ui,Sj,server_user,Rs)
+end role
+
+role server(Ui,Sj:agent,
+SK1: symmetric_key,
+%H is hash function
+H:hash_func,
+Bilinear,Subtract,Add,Product,Mul,Inc:hash_func,
+Snd,Rcv: channel(dy))
+played_by Sj
+def=
+local State : nat,
+IDi,PWi,HPWi,SIDj,S,Z,Ri,Ai,Bi,Ci,D1,D2,D3,D4,D5,F1,CIDi:text,
+T1,T3:message,
+const user_server,server_user,subs1,subs2,subs3,subs4,subs5,subs6:protocol_id
+init State:=0
+transition
+1.State=0/\Rcv(start)=|>
+State':=1
+/\SIDj':=new()/\Ri':=new() 
+2.State=1/\Rcv({IDi.HPWi}_SK1)=|>
+State':=2
+/\CIDi':= Product(xor(IDi,Ri'))
+/\Ai:=Hash(IDi.S)
+/\Bi:=xor(Ai,Hash(exp((HPWi.Z),2)))
+/\Ci:=Hash(Bi.HPWi)
+/\Snd({Ai,Bi,Ci,Ri',CIDi'}_SK1)
+%Send smart card information securely
+3.State=3/\Rcv(IDi,T1,D2,D3,D4,D5)=|>
+%Receives login message from user 
+State':=3/\T3':=new()
+/\Ai':=(IDi.S)/\HRi':=xor(D3,Ai') 
+/\D4':=Hash(HRi'.T1) 
+/\Bi':=xor(D5,HRi')
+/\request(Ui.Sj,user_server,Rs)
+/\F1':= Hash(IDi.HRi'.HPWi'.T3')
+/\Snd(F1',T3')
+%Send message to the sensor node
+/\witness(Sj,Ui,server_user,Rs')
+/\secret({Rs'},subs5,{Sj})
+/\secret({B3'},subs6,{Sj,Ui})
+/\request(Ui.Sj,server_user,Rs)
+ end role
+
+role session(Ui,Sj:agent,
+SK1: symmetric_key,
+H,Bilinear,Subtract,Add,Product,Mul: hash_func)
+def=
+local SI,SJ,RI,RJ,TI,TJ,PI,PJ: channel(dy)
+composition
+user(Ui,Sj,SK1,H,Bilinear,Subtract,Add,Product,Mul,SI,RI)
+/\server(Sj,Ui,SK1,H,Bilinear,Subtract,Add,Product,Mul,SJ,RJ)
+end role
+
+role environment()
+def=
+const ui,sj: agent, sk1: symmetric_key,
+h,bilinear,subtract,add,product,mul:hash_func,
+idi,pwi,bi, ri, pi, pbi,cidi,hpwi, b2, ru,rs,sk:text,
+nidi, a2i, ti,sidj,b1,b3, t1,t3:message,
+user_server_ru,server_user_rs,subs1,subs2,subs3,subs4,subs5,
+subs6,subs7:protocol_id
+%Represents Intruder knowledge
+intruder_knowledge={hpwi,nidi, a1i,a2i, t1,sidj,b1,qd,b3,t3,h(a3i)}
+composition 
+session(ui,sj,sk1,h,bilinear,subtract,add,product,mul)
+/\session(ui,sj,sk1,h,bilinear,subtract,add,product,mul)
+end role
+goal
+%Verifies secrecy of the confidential information 
+secrecy_of subs1	secrecy_of subs2
+secrecy_of subs3	secrecy_of subs4
+secrecy_of subs5	secrecy_of subs6	
+%Verifies authenticity of the random numbers used in the protocol
+authentication_on user_server_ru
+authentication_on server_user_rs
+end goal 
+environment()
+

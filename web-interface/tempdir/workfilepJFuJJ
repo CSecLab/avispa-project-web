@@ -1,0 +1,88 @@
+
+%TOKEN':=(idvlrvs.hitmn.ipg.TIMESTAMP'.TL')
+%/\ DH:=exp(exp(G,N1'),N2')
+role role_MN(MN:agent,VLRVS:agent,RVS:agent,CN:agent,KMN:public_key,KCN:public_key,G:text,SND,RCV:channel(dy))
+played_by MN
+def=
+	local
+		State:nat,NMN:text,TOKEN:(text.text.text.text.text),PUZZLE:text,SPUZZLE:text,TIMESTAMP:text,TL:text,RAND:text,N1:text,N2:text,DH:message,X:message ,Y:message
+        const 
+                i1,r1,i2,r2,ipl,iprvs,hitmn,hitcn,idvlrvs,ipg:text,auth_1:protocol_id,auth_2:protocol_id
+                             
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ TIMESTAMP':=new() /\ TL':=new() /\ TOKEN':=(idvlrvs.hitmn.ipg.TIMESTAMP'.TL') /\ NMN':=new() /\ SND(i1(ipl.ipg.iprvs.hitmn.hitcn.{NMN'.TOKEN'}_inv(KMN)))
+		5. State=1 /\ RCV(r1(ipl,ipcn,NMN'.hitmn.hitcn.{PUZZLE'}_KMN.{X'}_inv(KCN)))   =|> State':=2 /\ request(MN,CN,auth_1,PUZZLE') /\ SPUZZLE':=new() /\ N2':=new() /\ Y':=exp(G,N2') /\ SND(i2(ipl.ipcn.{{SPUZZLE'}_KCN.Y'}_inv(KMN))) /\ witness(MN,CN,auth_2,SPUZZLE') /\ DH':= exp(X',N2')
+		9. State=2 /\ RCV(r2({ipcn.ipg}_inv(KCN))) =|> State':=3
+end role
+
+role role_VLRVS(VLRVS:agent,MN:agent,RVS:agent,CN:agent,KMN:public_key,KCN:public_key,SND,RCV:channel(dy))
+played_by VLRVS
+def=
+	local
+		State:nat,NMN:text,TOKEN:(text.text.text.text.text),PUZZLE:text,SPUZZLE:text,DH:message,G:text,N1:text,N2:text,X:message ,Y:message
+
+        const 
+               i1,r1,i2,r2,ipl,iprvs,hitmn,hitcn,idvlrvs,ipg,ipcn:text    
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(i1(ipl.ipg.iprvs.hitmn.hitcn.{NMN'.TOKEN'}_inv(KMN)))  =|> State':=1 /\ SND(i1(ipg.iprvs.hitmn.hitcn.ipl.{NMN'.TOKEN'}_inv(KMN)))
+		4. State=1 /\ RCV(r1(ipg,ipcn,NMN'.hitmn.hitcn.{PUZZLE'}_KMN.{X'}_inv(KCN))) =|> State':=2 /\ SND(r1(ipl,ipcn,NMN'.hitmn.hitcn.{PUZZLE'}_KMN.{X'}_inv(KCN)))
+		6. State=2 /\ RCV(i2(ipl.ipcn.{{SPUZZLE'}_KCN.Y'}_inv(KMN))) =|> State':=3 /\ SND(i2(ipg.ipcn.{{SPUZZLE'}_KCN.Y'}_inv(KMN)))
+		8. State=3 /\ RCV(r2({ipcn.ipg}_inv(KCN))) =|> State':=4 /\ SND(r2({ipcn.ipg}_inv(KCN)))  %L30
+end role
+
+role role_RVS(RVS:agent,MN:agent,VLRVS:agent,CN:agent,KMN:public_key,KCN:public_key,SND,RCV:channel(dy))
+played_by RVS
+def=
+	local
+		State:nat,NMN:text,TOKEN:(text.text.text.text.text)
+        const 
+               i1,ipg,iprvs,hitmn,hitcn,ipg,ipcn:text
+	init
+		State := 0
+	transition
+		2. State=0 /\ RCV(i1(ipg,iprvs.hitmn.hitcn.ipl.{NMN'.TOKEN'}_inv(KMN))) =|> State':=1 /\ SND(i1(iprvs.ipcn.hitmn.hitcn.{NMN'.TOKEN'}_inv(KMN)))
+end role
+
+role role_CN(CN:agent,MN:agent,VLRVS:agent,RVS:agent,KMN:public_key,KCN:public_key,G:text,SND,RCV:channel(dy))
+played_by CN
+def=
+	local
+		State:nat,NMN:text,TOKEN:(text.text.text.text.text),PUZZLE:text,SPUZZLE:text,RAND:text,N1:text,N2:text,DH:message,X:message ,Y:message
+  %L50
+        const 
+               i1,r1,i2,r2,ipl,iprvs,hitmn,hitcn,idvlrvsipg,ipg:text,auth_1:protocol_id,auth_2:protocol_id
+              
+                       init
+		State := 0
+	transition
+		3. State=0 /\ RCV(i1(iprvs.ipcn.hitmn.hitcn.{NMN'.TOKEN'}_inv(KMN))) =|> State':=1  /\ PUZZLE':=new() /\ N1':=new() /\ X':=exp(G,N1') /\ SND(r1(ipg,ipcn,NMN'.hitmn.hitcn.{PUZZLE'}_KMN.{X'}_inv(KCN))) /\ witness(CN,MN,auth_1,PUZZLE')
+		7. State=1 /\ RCV(i2(ipg.ipcn.{{SPUZZLE'}_KCN.Y'}_inv(KMN)))  =|> State':=2 /\ request(CN,MN,auth_2,SPUZZLE') /\  SND(r2({ipcn.ipg}_inv(KCN))) /\ DH':= exp(Y',N1) %L58
+end role
+
+role session1(CN:agent,MN:agent,VLRVS:agent,RVS:agent,KMN:public_key,KCN:public_key,G:text)
+def=
+	local
+		SND4,RCV4,SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_CN(CN,MN,VLRVS,RVS,KMN,KCN,G,SND4,RCV4) /\ role_RVS(RVS,MN,VLRVS,CN,KMN,KCN,SND3,RCV3) /\ role_VLRVS(VLRVS,MN,RVS,CN,KMN,KCN,SND2,RCV2) /\ role_MN(MN,VLRVS,RVS,CN,KMN,KCN,G,SND1,RCV1)
+end role
+%L68
+role environment()
+def=
+	const
+		kmn:public_key,vlrvs:agent,cn:agent,mn:agent,rvs:agent,kcn:public_key,g:text,auth_1:protocol_id,auth_2:protocol_id
+	intruder_knowledge = {mn,vlrvs,rvs,cn,kmn,kcn}
+	composition
+		session1(cn,mn,vlrvs,rvs,kmn,kcn,g)
+end role
+
+goal
+	authentication_on auth_1
+	authentication_on auth_2
+end goal
+
+environment()

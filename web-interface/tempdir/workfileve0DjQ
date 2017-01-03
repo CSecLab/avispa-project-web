@@ -1,0 +1,119 @@
+role client(A, B : agent,
+			H1, H2 : hash_func,
+			Kab : symmetric_key,
+			Snd_BA, Rcv_BA : channel (dy))
+played_by A
+def=
+	local CtoS, StoC : text,
+		State : nat
+	
+	init  State := 0
+	
+	transition
+	
+1.	State = 0
+	/\ Rcv_BA(start.StoC')
+	=|>
+	State' := 2
+	/\ CtoS' := new()
+	/\ Snd_BA(CtoS')
+	/\ witness(A,B,ctos,CtoS')
+	
+2.	State = 2
+	/\ Rcv_BA(H1(StoC.CtoS.Kab))
+	=|>
+	State' := 4
+	/\ Snd_BA(H2(StoC.CtoS.Kab))
+	/\ secret(Kab,sec_kAB1,{A,B})	
+	/\ request(A,B,stoc,StoC)
+	
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role server(A, B : agent,
+			H1, H2 : hash_func,
+			Kab : symmetric_key,
+			Snd_AB, Rcv_AB : channel (dy))
+played_by B
+def=
+	local CtoS, StoC : text,
+		State : nat
+	
+	init  State := 1
+	
+	transition
+
+1.	State = 1
+	/\ StoC' := new()
+	/\ Snd_AB(start.StoC')
+	/\ witness(B,A,stoc,StoC')
+	State' := 3
+	
+2.	State = 3
+	/\ Rcv_AB(CtoS'))
+	=|>
+	State' := 5
+	/\ Snd_AB(H1(StoC.CtoS'.Kab))
+	/\ request(B,A,ctos,CtoS)
+	/\ secret(Kab,sec_kAB2,{A,B})	
+
+3.	State = 5
+	/\ Rcv_AB(H2(StoC.CtoS.Kab))
+	=|>
+	State' := 7
+	/\ witness(A,B,ctos,CtoS')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(A, B : agent,
+			H : hash_func,
+			Kab : symmetric_key)
+			
+def=
+
+   local  
+   
+   SND_BA, RCV_BA, SND_AB, RCV_AB: channel (dy)
+                  
+   composition
+                client(A, B, H1, H2, Kab, SND_BA, RCV_BA)
+           /\   server(A, B, H1, H2, Kab, SND_AB, RCV_AB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+
+def=
+
+   const h1, h2 : hash_func,
+         a, b : agent,
+         kab, kai, kib : symmetric_key
+
+   intruder_knowledge = { a, b, h1, h2, kai, kib }  
+
+   composition
+        session(a,b,h1,h2,kab)
+    /\  session(a,i,h1,h2,kai)
+    /\  session(i,b,h1,h2,kib)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+	secrecy_of sec_kAB1, sec_kAB2
+	
+	authentication_on stoc
+	authentication_on ctos
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

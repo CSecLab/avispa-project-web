@@ -1,0 +1,147 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilegcqvWT
+
+section signature:
+
+state_roleappb: agent * agent * agent * agent * agent * public_key * public_key * nat * nat * message * message * public_key * public_key * nat -> fact
+state_rolepca: agent * agent * agent * agent * agent * public_key * public_key * nat * nat * symmetric_key * public_key * set(agent) * nat -> fact
+state_rolems: agent * agent * agent * agent * agent * public_key * public_key * nat * message * nat -> fact
+state_roletpma: agent * agent * agent * agent * agent * public_key * public_key * nat * nat * public_key * public_key * message * message * set(agent) * nat -> fact
+state_roleappa: agent * agent * agent * agent * agent * public_key * public_key * nat * nat * message * message * message * public_key * nat -> fact
+
+
+section types:
+
+Session, Dummy_Session, dummy_sk: symmetric_key
+set_121, set_114: set
+Alpha, State, 6, 5, 4, SID, 3, 2, 1, Dummy_State, dummy_nat: nat
+Set_75, Dummy_Set_75, Set_24, Dummy_Set_24, ASGoal: set(agent)
+appa, appb, tpma, ms, pca, APPA, APPB, TPMA, PCA, MS, i: agent
+Msg, SignedBreak, start, Break, tpmsign, request, Dummy_SignedBreak, Dummy_Break, Dummy_Msg, dummy_msg, MGoal: message
+kca, AiK, SignKey, EK, Kca, Dummy_EK, Dummy_SignKey, Dummy_AiK, dummy_pk, ek: public_key
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(appa).
+ iknows(appb).
+ iknows(tpma).
+ iknows(ms).
+ iknows(pca).
+ iknows(ek).
+ iknows(kca).
+ iknows(i).
+ state_roleappa(appa,appb,tpma,pca,ms,ek,kca,1,dummy_nat,dummy_msg,dummy_msg,dummy_msg,dummy_pk,2).
+ state_roletpma(tpma,appa,appb,pca,ms,ek,kca,1,dummy_nat,dummy_pk,dummy_pk,dummy_msg,dummy_msg,set_114,3).
+ state_rolems(ms,appa,appb,tpma,pca,ek,kca,1,dummy_msg,4).
+ state_rolepca(pca,appa,appb,tpma,ms,ek,kca,dummy_nat,1,dummy_sk,dummy_pk,set_121,5).
+ state_roleappb(appb,appa,tpma,pca,ms,ek,kca,dummy_nat,1,dummy_msg,dummy_msg,dummy_pk,dummy_pk,6)
+
+
+section rules:
+
+step step_0 (APPA,APPB,TPMA,PCA,MS,EK,Kca,Alpha,SignedBreak,Break,Msg,AiK,SID) :=
+ state_roleappa(APPA,APPB,TPMA,PCA,MS,EK,Kca,1,Alpha,SignedBreak,Break,Msg,AiK,SID).
+ iknows(start)
+ =>
+ state_roleappa(APPA,APPB,TPMA,PCA,MS,EK,Kca,2,Alpha,SignedBreak,Break,Msg,AiK,SID).
+ iknows(request)
+
+step step_1 (APPA,APPB,TPMA,PCA,MS,EK,Kca,Alpha,SignedBreak,Break,Msg,Dummy_AiK,SID,AiK) :=
+ state_roleappa(APPA,APPB,TPMA,PCA,MS,EK,Kca,2,Alpha,SignedBreak,Break,Msg,Dummy_AiK,SID).
+ iknows(crypt(Kca,pair(AiK,EK)))
+ =>
+ state_roleappa(APPA,APPB,TPMA,PCA,MS,EK,Kca,3,Alpha,SignedBreak,Break,Msg,AiK,SID).
+ iknows(crypt(Kca,pair(AiK,EK)))
+
+step step_2 (APPA,APPB,TPMA,PCA,MS,EK,Kca,Alpha,SignedBreak,Break,Dummy_Msg,AiK,SID,Msg) :=
+ state_roleappa(APPA,APPB,TPMA,PCA,MS,EK,Kca,3,Alpha,SignedBreak,Break,Dummy_Msg,AiK,SID).
+ iknows(Msg)
+ =>
+ state_roleappa(APPA,APPB,TPMA,PCA,MS,EK,Kca,4,Alpha,SignedBreak,Break,Msg,AiK,SID).
+ iknows(Msg)
+
+step step_3 (APPA,APPB,TPMA,PCA,MS,EK,Kca,Alpha,SignedBreak,Dummy_Break,Msg,AiK,SID,Break) :=
+ state_roleappa(APPA,APPB,TPMA,PCA,MS,EK,Kca,4,Alpha,SignedBreak,Dummy_Break,Msg,AiK,SID)
+=[exists Break]=>
+ state_roleappa(APPA,APPB,TPMA,PCA,MS,EK,Kca,5,Alpha,SignedBreak,Break,Msg,AiK,SID).
+ iknows(pair(tpmsign,Break))
+
+step step_4 (APPA,APPB,TPMA,PCA,MS,EK,Kca,Alpha,Dummy_SignedBreak,Break,Msg,AiK,SID,SignedBreak) :=
+ state_roleappa(APPA,APPB,TPMA,PCA,MS,EK,Kca,5,Alpha,Dummy_SignedBreak,Break,Msg,AiK,SID).
+ iknows(SignedBreak)
+ =>
+ state_roleappa(APPA,APPB,TPMA,PCA,MS,EK,Kca,6,Alpha,SignedBreak,Break,Msg,AiK,SID).
+ iknows(SignedBreak)
+
+step step_5 (TPMA,APPA,APPB,PCA,MS,EK,Kca,Alpha,Dummy_AiK,SignKey,Msg,Break,Dummy_Set_24,SID,AiK) :=
+ state_roletpma(TPMA,APPA,APPB,PCA,MS,EK,Kca,1,Alpha,Dummy_AiK,SignKey,Msg,Break,Dummy_Set_24,SID).
+ iknows(request)
+=[exists AiK]=>
+ state_roletpma(TPMA,APPA,APPB,PCA,MS,EK,Kca,2,Alpha,AiK,SignKey,Msg,Break,Dummy_Set_24,SID).
+ iknows(crypt(Kca,pair(AiK,EK))).
+ secret(AiK,sec_AiK,Dummy_Set_24).
+ contains(TPMA,Dummy_Set_24).
+ contains(PCA,Dummy_Set_24)
+
+step step_6 (TPMA,APPA,APPB,PCA,MS,EK,Kca,Alpha,AiK,SignKey,Dummy_Msg,Break,Set_24,SID,Msg) :=
+ state_roletpma(TPMA,APPA,APPB,PCA,MS,EK,Kca,2,Alpha,AiK,SignKey,Dummy_Msg,Break,Set_24,SID).
+ iknows(Msg)
+ =>
+ state_roletpma(TPMA,APPA,APPB,PCA,MS,EK,Kca,3,Alpha,AiK,SignKey,Msg,Break,Set_24,SID)
+
+step step_7 (TPMA,APPA,APPB,PCA,MS,EK,Kca,Alpha,AiK,Dummy_SignKey,Msg,Dummy_Break,Set_24,SID,SignKey,Break) :=
+ state_roletpma(TPMA,APPA,APPB,PCA,MS,EK,Kca,3,Alpha,AiK,Dummy_SignKey,Msg,Dummy_Break,Set_24,SID).
+ iknows(pair(tpmsign,Break))
+=[exists SignKey]=>
+ state_roletpma(TPMA,APPA,APPB,PCA,MS,EK,Kca,4,Alpha,AiK,SignKey,Msg,Break,Set_24,SID).
+ iknows(pair(crypt(SignKey,Break),pair(crypt(inv(AiK),SignKey),crypt(inv(Kca),pair(AiK,Alpha)))))
+
+step step_8 (MS,APPA,APPB,TPMA,PCA,EK,Kca,Dummy_Msg,SID,Msg) :=
+ state_rolems(MS,APPA,APPB,TPMA,PCA,EK,Kca,1,Dummy_Msg,SID).
+ iknows(Msg)
+ =>
+ state_rolems(MS,APPA,APPB,TPMA,PCA,EK,Kca,1,Msg,SID).
+ iknows(Msg)
+
+step step_9 (PCA,APPA,APPB,TPMA,MS,Dummy_EK,Kca,Alpha,Dummy_Session,Dummy_AiK,Dummy_Set_75,SID,EK,Session,AiK) :=
+ state_rolepca(PCA,APPA,APPB,TPMA,MS,Dummy_EK,Kca,Alpha,1,Dummy_Session,Dummy_AiK,Dummy_Set_75,SID).
+ iknows(crypt(Kca,pair(AiK,EK)))
+=[exists Session]=>
+ state_rolepca(PCA,APPA,APPB,TPMA,MS,EK,Kca,Alpha,2,Session,AiK,Dummy_Set_75,SID).
+ iknows(pair(scrypt(Session,crypt(inv(Kca),pair(AiK,Alpha))),crypt(EK,pair(Session,AiK)))).
+ secret(Session,sec_session,Dummy_Set_75).
+ contains(PCA,Dummy_Set_75).
+ contains(TPMA,Dummy_Set_75)
+
+step step_10 (APPB,APPA,TPMA,PCA,MS,EK,Kca,Alpha,Msg,Dummy_SignedBreak,AiK,SignKey,SID,SignedBreak) :=
+ state_roleappb(APPB,APPA,TPMA,PCA,MS,EK,Kca,Alpha,1,Msg,Dummy_SignedBreak,AiK,SignKey,SID).
+ iknows(SignedBreak)
+ =>
+ state_roleappb(APPB,APPA,TPMA,PCA,MS,EK,Kca,Alpha,2,Msg,SignedBreak,AiK,SignKey,SID)
+
+
+section properties:
+
+property secrecy_of_sec_session (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_session,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_sec_AiK (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_AiK,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_sec_session (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_session,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_sec_AiK (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_AiK,ASGoal) &
+ not(contains(i,ASGoal))
+

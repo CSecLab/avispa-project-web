@@ -1,0 +1,236 @@
+role provider (S, Pj, Ui : agent,
+% symmetric key between SCPC and Pj
+        SKspj : symmetric_key,
+% symmetric key between SCPC and Ui
+        SKsui : symmetric_key,
+% H is hash function
+         H : hash_func,
+% BH is BioHashing function
+         BH : hash_func,
+         Snd, Rcv: channel(dy))
+played_by Pj
+def=
+ local State : nat,
+     Tj, Qj, G, IDj, K1, P, C1, Ks, IDs, IDi, Bi,
+     Ri, Req, N1, Yj, Xi, N2, K2, K3, C2, Rep, Si, Conf,
+     K4, PWi, PWRi, RBi, Auth, Zi : text,
+     F : hash_func
+ const alice_bob_n1, bob_alice_n2, alice_bob_tj,
+     subs1, subs2, subs3, subs4, subs5 : protocol_id
+init State := 0
+transition
+% Registration phase
+ 1. State = 0 /\ Rcv(start) =|>
+   State' := 1 /\ Tj' := new()
+             /\ Qj' := F(Tj'.F(H(Ks.IDs).G))
+             /\ Snd({IDj.Qj'}_SKspj)
+             /\ secret({Tj'}, subs5, Pj)
+% Pj has freshly generated the value N2' for Pj
+             /\ witness(Pj, S, alice_bob_tj, Tj')
+% Login phase
+ 2. State = 1 /\ Rcv({IDi.F(H(Ks.IDs.IDi.H(IDi.
+              BH(Bi).Ri')).G).F(Si.F(Xi'.F(Tj.
+              F(H(Ks.IDs).G))).Tj.
+              F(H(Ks.IDs).G)).N1'}_(F(Xi'.
+              F(Tj.F(H(Ks.IDs).G)))).F(Xi'.F(H(Ks.IDs).
+              G))) =|>
+  State' := 2 /\ secret({Ks}, subs3, S)
+% Authentication and key establishment phase
+           /\ Yj' := new()
+           /\ N2' := new()
+           /\ K2' := F(Tj.Xi'.Ks.IDs.G) 
+           /\ K3' := F(Yj'.F(Xi'.F(H(Ks.IDs).G)))
+           /\ Zi' := F(Si.F(Xi'.F(Tj.F(H(Ks.IDs).G)))
+                     .Tj.F(H(Ks.IDs).G))
+           /\ C1' := {IDi.F(H(Ks.IDs.IDi.H(IDi.
+              BH(Bi).Ri')).G).Zi'.N1'}_(F(Xi'.F(Tj.
+              F(H(Ks.IDs).G))))
+           /\ C2' := {N1'.N2'}_K3'
+           /\ Rep' := H(IDi.IDj.F(Yj'.Tj.K2'.
+               H(F(H(Ks).G). F(H(Ks.IDs).G).IDi.
+               F(H(Ks.IDs.IDi.H(IDi.BH(Bi).Ri')).G)).
+               F(Si.F(Xi'.F(Tj.F(H(Ks.IDs).G))).
+               F(Tj.F(H(Ks.IDs).G)))).C1'.C2'.N1'.N2'.
+               K2'.K3')
+           /\ Snd(Rep'.C2'.F(Yj'.Tj.K2'.
+               H(F(H(Ks).G). F(H(Ks.IDs).G).IDi.
+               F(H(Ks.IDs.IDi.H(IDi.BH(Bi).Ri')).G)).
+               F(Si.F(Xi'.F(Tj.F(H(Ks.IDs).G))).
+               F(Tj.F(H(Ks.IDs).G)))) )
+% Pj has freshly generated the value N2' for Ui
+          /\ witness(Pj, Ui, bob_alice_n2, N2')
+ 3. State =2 /\ Rcv(H(IDi.IDj.N1'.N2'.
+               F(Si'.H(F(H(Ks).G).F(H(Ks.IDs).G).IDi.
+               F(H(Ks.IDs.IDi.H(IDi.BH(Bi).Ri')).G)).Xi'.
+               F(Yj'.Tj.K2'.
+               H(F(H(Ks).G). F(H(Ks.IDs).G).IDi.
+               F(H(Ks.IDs.IDi.H(IDi.BH(Bi).Ri')).G)))))) =|>
+ State' := 3 /\ Conf' := H(IDi.IDj.F(Tj.Xi'.Ks.IDs.G).
+                 F(Yj'.F(Xi'.F(H(Ks.IDs).G))))
+             /\ Snd(Conf')
+% Pj's acceptance of the value N1' generated for Pj by Ui
+           /\ request(Ui, Pj, alice_bob_n1, N1')
+end role
+
+
+role scpc (S, Pj, Ui : agent,
+% symmetric key between SCPC and Pj
+        SKspj : symmetric_key,
+% symmetric key between SCPC and Ui
+        SKsui : symmetric_key,
+% H is hash function
+         H : hash_func,
+% BH is BioHashing function
+         BH : hash_func,
+         Snd, Rcv: channel(dy))
+played_by S
+def=
+ local State : nat,
+     Tj, Qj, G, IDj, K1, P, C1, Ks, IDs, IDi,
+     Ri, Req, N1, Yj, Xi, N2, K3, C2, Rep, Si, Conf,
+     K4, PWi, PWRi, RBi, Auth, Zi, Bi : text,
+     F : hash_func
+ const alice_bob_n1, bob_alice_n2, alice_bob_tj,
+     subs1, subs2, subs3, subs4, subs5 : protocol_id
+init State := 0
+transition
+% Registration phase
+ 1. State = 0 /\ Rcv({IDj.F(Tj'.F(H(Ks.IDs).G))}_SKspj) =|>
+   State' := 1 /\ secret({PWi, Bi}, subs1, Ui)
+ 2. State = 1 /\ Rcv({IDi.H(IDi.BH(Bi).Ri').
+               H(IDi.PWi.Ri')}_SKsui) =|>
+   State' := 2 /\ secret({Ri'}, subs2, Ui)
+           /\ secret({Si}, subs4, S)
+           /\ Snd({xor(Si, H(IDi.H(IDi.BH(Bi).Ri').
+               H(IDi.PWi.Ri'))).
+               H(Si.H(IDi.BH(Bi).Ri').H(IDi.PWi.Ri')).
+               F(H(Ks.IDs.IDi.H(IDi.BH(Bi).Ri')).G).
+               H(IDi.BH(Bi).Ri').
+               F(H(Ks.IDs).G).H.BH.P}_SKsui)
+% SCPC’s acceptance of the value tj generated for SCPC by Pj
+           /\ request(Pj, S, alice_bob_tj, Tj)
+end role
+
+
+role user (S, Pj, Ui : agent,
+% symmetric key between SCPC and Pj
+         SKspj : symmetric_key,
+% symmetric key between SCPC and Ui
+         SKsui : symmetric_key,
+% H is hash function
+          H : hash_func,
+% BH is BioHashing function
+          BH : hash_func,
+          Snd, Rcv: channel(dy))
+played_by Ui
+def=
+ local State : nat,
+      Tj, Qj, G, IDj, K1, P, C1, Ks, IDs, IDi,
+      Ri, Req, N1, Yj, Xi, N2, K3, C2, Rep,
+      Si, Conf, K4, PWi, PWRi, RBi, 
+      Auth, Zi, Bi : text,
+      F : hash_func
+ const alice_bob_n1, bob_alice_n2, alice_bob_tj,
+      subs1, subs2, subs3, subs4, subs5 : protocol_id
+init State := 0
+ transition
+% Registration phase
+1. State = 0 /\ Rcv(start) =|>
+  State' := 1 /\ Ri' := new()
+           /\ RBi' := BH(IDi.Bi.Ri')
+           /\ PWRi' := H(IDi.PWi.Ri')
+           /\ secret({PWi, Bi}, subs1, Ui)
+           /\ Snd({IDi.RBi'.PWRi'}_SKsui)
+2. State = 1 /\ Rcv({xor(Si, H(IDi.H(IDi.BH(Bi).Ri').
+                H(IDi.PWi.Ri'))).
+                H(Si.H(IDi.BH(Bi).Ri').H(IDi.PWi.Ri')).
+                F(H(Ks.IDs.IDi.H(IDi.BH(Bi).Ri')).G).
+                H(IDi.BH(Bi).Ri').
+                F(H(Ks.IDs).G).H.BH.P}_SKsui) =|>
+   State' := 2 /\ secret({Ri'}, subs2, Ui)
+               /\ secret({Si}, subs4, S)
+% Login phase
+     /\ N1' := new()
+     /\ Xi' := new()
+     /\ K1' := F(Xi'.F(Tj.F(H(Ks.IDs).G)))
+     /\ Zi' := F(Si.K1'.Tj.F(H(Ks.IDs).G))
+     /\ C1' := {IDi.F(H(Ks.IDs.IDi.H(IDi.
+              BH(Bi).Ri')).G).Zi'.N1'}_K1'
+     /\ Snd(C1'.F(Xi'.F(H(Ks.IDs).G)))
+     /\ secret({Ks}, subs3, S)
+% Ui has freshly generated the value N1' for Pj
+     /\ witness(Ui, Pj, alice_bob_n1, N1')
+% Authentication and key establishment phase
+3. State = 2 /\ Rcv(H(IDi.IDj.F(Yj'.Tj.F(Tj'.Xi'.Ks.IDs.G).
+               H(F(H(Ks).G). F(H(Ks.IDs).G).IDi.
+               F(H(Ks.IDs.IDi.H(IDi.BH(Bi).Ri')).G)).
+               F(Si'.F(Xi'.F(Tj.F(H(Ks.IDs).G))).
+               F(Tj.F(H(Ks.IDs).G)))).{IDi.F(H(Ks.IDs.IDi.H(IDi.
+               BH(Bi).Ri')).G).F(Si.F(Xi'.F(Tj.F(H(Ks.IDs).G))).
+               Tj.F(H(Ks.IDs).G)).N1'}_(F(Xi'.F(Tj.
+               F(H(Ks.IDs).G)))).
+               {N2'}_(F(Yj'.F(Xi'.F(H(Ks.IDs).G)))).
+               N1'.N2'.
+               F(Tj'.Xi'.Ks.IDs.G).K3').
+               {N1'.N2'}_(F(Yj'.F(Xi'.F(H(Ks.IDs).G)))).
+               F(Yj'.Tj.F(Tj'.Xi'.Ks.IDs.G).
+               H(F(H(Ks).G). F(H(Ks.IDs).G).IDi.
+               F(H(Ks.IDs.IDi.H(IDi.BH(Bi).Ri')).G)).
+               F(Si'.F(Xi'.F(Tj.F(H(Ks.IDs).G))).
+               F(Tj.F(H(Ks.IDs).G))))) =|>
+State' := 3 /\ K4' := F(Si'.H(F(H(Ks).G).F(H(Ks.IDs).G).IDi.
+               F(H(Ks.IDs.IDi.H(IDi.BH(Bi).Ri')).G)).Xi'.
+               F(Yj'.Tj.F(Tj.Xi'.Ks.IDs.G).
+               H(F(H(Ks).G). F(H(Ks.IDs).G).IDi.
+               F(H(Ks.IDs.IDi.H(IDi.BH(Bi).Ri')).G))))
+           /\ Auth' := H(IDi.IDj.N1'.N2'.K4')
+           /\ Snd(Auth')
+4. State = 3 /\ Rcv(H(IDi.IDj.F(Tj.Xi'.Ks.IDs.G).
+                 F(Yj'.F(Xi'.F(H(Ks.IDs).G))))) =|>
+% Ui's acceptance of the value N2' generated for Ui by Pj
+State' := 4   /\ request(Pj, Ui, bob_alice_n2, N2')
+end role
+
+role session(S, Pj, Ui : agent,
+        SKspj : symmetric_key,
+        SKsui : symmetric_key,
+        H : hash_func,
+        BH : hash_func)
+def=
+  local S1, S2, S3, R1, R2, R3: channel (dy)
+composition
+provider(S, Pj, Ui, SKspj, SKsui, H, BH, S1, R1)
+/\ scpc(S, Pj, Ui, SKspj, SKsui, H, BH, S2, R2)
+/\ user(S, Pj, Ui, SKspj, SKsui, H, BH, S3, R3)
+end role
+
+role environment()
+def=
+  const s, pj, ui: agent, skspj : symmetric_key,
+      sksui : symmetric_key, h : hash_func,
+      bh : hash_func, tj, qj, g, idj, k1, p,
+      c1, ks, ids, idi, ri, req, n1, yj, xi,
+      n2, k3, c2, rep, si, conf, k4, pwi, pwri,
+      rbi, auth, zi, bi : text, f : hash_func,
+      alice_bob_n1, bob_alice_n2, subs1, subs2,
+      subs3, subs4, subs5 : protocol_id
+intruder_knowledge = {s, pj, ui, h, bh, f, g, p}
+composition
+   session(s, pj, ui, skspj, sksui, h, bh)
+/\ session(s, pj, ui, skspj, sksui, h, bh)
+/\ session(s, pj, ui, skspj, sksui, h, bh)
+end role
+goal
+  secrecy_of subs1
+  secrecy_of subs2
+  secrecy_of subs3
+  secrecy_of subs4
+  secrecy_of subs5
+  authentication_on alice_bob_tj
+  authentication_on alice_bob_n1
+  authentication_on bob_alice_n2
+end goal
+environment()
+
+
+

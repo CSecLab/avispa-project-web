@@ -1,0 +1,127 @@
+role auc(M,V,A : agent,
+            Snd, Rcv: channel(dy),
+            K: symmetric_key,
+            A3,A8: hash_func)
+played_by A
+def=
+
+  local State : nat,
+   R     : text,
+IMSI:message
+
+init  State := 0 
+
+  transition
+
+    0.  State   = 0 /\ Rcv(IMSI)
+        =|> 
+        State' := 1  /\ R' := new()
+                    /\ Snd(R'.A3(K.R').A8(K,R')) 
+  
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role vlr(M,V,A : agent,
+            Snd, Rcv: channel(dy),
+		A3,A8: hash_func)
+played_by V
+def=
+
+  local State : nat,
+	R     : text,
+	Sa3,CK:hash(symmetric_key.text),
+       MESSAGE:message,
+		IMSI:message
+const  r1 ,sec_ck2: protocol_id
+init  State := 0 
+
+  transition
+
+	0.   State   = 0 /\ Rcv(start)    =|> 
+          State' := 1  /\ Snd(IMSI)
+	1.	State =1/\ Rcv(R'.Sa3'.CK')=|> 
+		State' := 2  /\Snd(R')
+		/\secret(CK',sec_ck2,{M,V})
+		/\witness(V,M,r1,R')
+	
+	2.	State=2  /\ Rcv(Sa3') =|>
+         State':= 3/\ Snd(MESSAGE)
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role ms(M,V,A :agent,
+            Snd, Rcv: channel(dy),
+            K: symmetric_key,
+            A3,A8: hash_func)
+played_by M
+def=
+
+  local State :nat, 
+        R     :text,
+	CK:hash(symmetric_key.text)
+	
+
+  const  r1,sec_ck1 : protocol_id
+
+  init  State := 1
+
+  transition
+
+    1.  State = 1 /\ Rcv(R') =|> 
+        State':=3 			/\ Snd(A3(K.R'))  
+			/\request(M,V,r1,R')
+			/\CK':=A8(K.R')
+			/\secret(CK',sec_ck1,{M,V})
+
+               
+ 
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+role session(M,V,A: agent,
+	     K: symmetric_key,
+	       A3,A8: hash_func,
+            Ms,Mr,Vs,Vr,As,Ar: channel(dy)) def=
+   composition
+       auc(M,V,A,As,Ar,K,A3,A8) 
+      /\ vlr(M,V,A,Vs,Vr,A3,A8)
+	/\ms(M,V,A,Ms,Mr,K,A3,A8)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role environment()def=
+ local As,Ar,Vs,Vr,Ms,Mr : channel (dy)
+ const r1                : protocol_id,
+       m,v,a,i              : agent,
+       k_ma, k_ia, k_mi        : symmetric_key,
+       a3,a8          : hash_func
+      
+ intruder_knowledge={m,v,a,i,a3,a8}
+
+ composition
+ 
+        session(m,v,a,k_ma,a3,a8,Ms,Mr,Vs,Vr,As,Ar) 
+/\    session(i,v,a,k_ia,a3,a8,is,ir,vs,vr,as,ar) 
+/\   session(m,v,i,k_mi,a3,a8,ms,mr,vs,vr,is,ir) 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+goal
+secrecy_of sec_ck1,sec_ck2
+authentication_on r1
+
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()
+   

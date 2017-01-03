@@ -1,0 +1,191 @@
+%%%%% Role of the CA %%%%%%%%%%%%%%%%%%%%%
+role certificationauthority (CA, CHi, Vehj: agent,
+           H : hash_func,
+           TX, RX: channel(dy))
+played_by CA 
+def=
+  local State: nat,
+        X, Xx, Y, G, Xca, A, B, Zca, TSca, TSi: text,
+        IDi, GIDi, PWi, MKi, MKj, K : text,
+        F: hash_func
+   const sec1, sec2, sec3, sec4, sec5, ca_chi_tsca, ca_chi_x,
+         chi_ca_tsi : protocol_id
+% Initialize state State to 0
+init State := 0
+transition
+% Verification of CH phase
+1. State = 0 /\ RX(start) =|>
+State' := 1 /\ Xx' := new() /\ TSca' := new()
+            /\ X' := F(Xx'.G)
+            /\ Y' := F(H(Idi.MKi.K).G)
+            /\ Xca' := F(Xx'.Y')
+            /\ A' := xor(Xca', IDi)
+            /\ B' := xor(Xca', Pwi)
+            /\ Zca' := xor(H(IDi.PWi.TSca'), H(IDi.PWi.X'.Xca'))
+            /\ secret({IDi,PWi}, sec1, {CHi,CA})
+            /\ secret({MKi}, sec2, {CHi})
+            /\ secret({MKj}, sec3, {Vehj})
+            /\ secret({K}, sec4, {CA})
+            /\ secret({IDj,PWj}, sec5, {Vehj,CA})
+% Send the message  to CHi via open channel
+            /\ TX(X'.A'.B'.Zca'.TSca')
+% CA has freshly generated the values x and TSca for CHi
+            /\ witness (CA, CHi, ca_chi_x, Xx')
+            /\ witness (CA, CHi, ca_chi_tsca, TSca')
+% Receive the message  from CHi via open channel
+2. State = 1 /\ RX(H(IDi.PWi.F(Xx'.G).F(H(IDi.MKi.G).F(Xx'.G))
+                   .H(IDi.PWi.H(Xx'.G).TSca').TSi').TSi')=|>
+% CA's acceptance of the value TSi generated for CA by CHi  
+State' := 2  /\ request(CHi, CA, chi_ca_tsi, TSi')
+end role
+
+
+
+%%%%% Role of CHi %%%%%%%%%%%%%%%%%%%%%
+role clusterhead (CA, CHi, Vehj: agent,
+           H : hash_func,
+           TX, RX: channel(dy))
+played_by CHi
+def=
+  local State: nat,
+        X, Xx, Y, G, Xca, A, B, Zca, TSca, TSi: text,
+        IDi, GIDi, PWi, MKi, MKj, K, Vch, Ych : text,
+        Vi, Wi, SKij, Xi, Yi, TSchi: text
+        F: hash_func
+   const sec1, sec2, sec3, sec4, sec5, ca_chi_tsca, ca_chi_x,
+         chi_ca_tsi, chi_vehj_tschi, vehj_chi_tsj: protocol_id
+% Initialize state State to 0
+init State := 0
+transition
+% Verification of CH phase
+% Receive the message  from CA via open channel
+1. State = 0 /\ RX(F(Xx'.G). xor(F(Xx'.F(H(Idi.MKi.K).G)), IDi).
+                   xor(F(Xx'.F(H(Idi.MKi.K).G)), Pwi).
+                   xor(H(IDi.PWi.TSca'), H(IDi.PWi.X'.Xca'))
+                   .TSca') =|>
+State' := 2 /\ secret({IDi,PWi}, sec1, {CHi,CA})
+            /\ secret({MKi}, sec2, {CHi})
+            /\ secret({MKj}, sec3, {Vehj})
+            /\ secret({K}, sec4, {CA})
+            /\ secret({IDj,PWj}, sec5, {Vehj,CA})
+% Send the message  to the CA via open channel
+            /\ TSi' := new()
+            /\ Vch' := H(IDi.PWi.H(Xx'.G).TSca')
+            /\ Ych' := H(IDi.PWi.F(Xx'.G).
+                       F(H(IDi.MKi.G).F(Xx'.G)).Vch'.TSi') 
+            /\ TX(Ych'.TSi') 
+% CHi has freshly generated the value TSi for CA
+            /\ witness (CHi, CA, chi_ca_tsi, TSi')
+% Authentication and key agreement of vehicles phase
+% Receive the message  from Vehj via open channel
+2. State = 2 /\ RX(F(H(IDj.MKj.K).G)) =|>
+% Send the message  to Vehj via open channel
+State' := 4 /\ TSchi' := new()
+            /\ Vi' := F(H(IDi.MKi.K).G)
+            /\ Wi' := F(H(IDi.MKi.K).F(H(IDj.MKj.K).G))
+            /\ SKij' := H(Wi'.TSchi')
+            /\ Xi' := xor(H(SKij'),GIDi)
+            /\ Yi' := H(GIDi.SKij'.F(H(IDj.MKj.K).G).TSchi')
+            /\ TX(Vi'.Xi'.Yi'.TSchi')
+% CHi has freshly generated the value TSchi for Vehj
+            /\ witness (CHi, Vehj, chi_vehj_tschi, TSchi')
+% Receive the message  from Vehj via open channel
+3. State = 4 /\ RX(H(H(F(H(IDj.MKj.K).F(H(IDi.MKi.K).G)).
+                   TSchi').GIDi.TSj') .TSj') =|>
+% CHi's acceptance of the values x, TSca and TSj generated 
+% for CHi by CA and Vehj  
+State' := 6 /\ request(CA, CHi, ca_chi_x, Xx')
+            /\ request(CA, CHi, ca_chi_tsca, TSca')
+            /\ request(Vehj, CHi, vehj_chi_tsj, TSj')
+end role
+
+
+%%%%% Role of Vehj %%%%%%%%%%%%%%%%%%%%%
+role vehicle (CA, CHi, Vehj: agent,
+           H : hash_func,
+           TX, RX: channel(dy))
+played_by Vehj
+def=
+  local State: nat,
+        X, Xx, Y, G, Xca, A, B, Zca, TSca, TSi, TSchi: : text, 
+        IDi, IDj, GIDi, PWi, MKi, MKj, K, Uj, Dj: text,
+        SK1ij, TSj, Ej: text,
+        F: hash_func
+   const sec1, sec2, sec3, sec4, sec5, ca_chi_tsca,
+         chi_vehj_tschi, vehj_chi_tsj: protocol_id
+
+% Initialize state State to 0
+init State := 0
+transition
+% Authentication and key agreement of vehicles phase
+1. State = 0 RX(start) =|>
+% Send the message  to CHi via open channel
+State' := 5 /\ secret({IDi,PWi}, sec1, {CHi,CA})
+            /\ secret({MKi}, sec2, {CHi})
+            /\ secret({MKj}, sec3, {Vehj})
+            /\ secret({K}, sec4, {CA})
+            /\ secret({IDj,PWj}, sec5, {Vehj,CA})
+            /\ Uj' := F(H(IDj.MKj.K).G)
+            /\ TX(Uj')
+% Receive the message  from CHi via open channel
+2. State = 5 /\ RX(F(H(IDi.MKi.K).G).xor(H(H(F(H(IDi.MKi.K).
+                   F(H(IDj.MKj.K).G)).TSchi')),GIDi).
+                   H(GIDi.H(F(H(IDi.MKi.K).F(H(IDj.MKj.K).G)).
+                   TSchi').F(H(IDj.MKj.K).G).TSchi').TSchi')  =|>
+% Send the message  to CHi via open channel
+State' := 7 /\ TSj' := new()
+            /\ Dj' := F(H(IDj.MKj.K).F(H(IDi.MKi.K).G))
+            /\ SK1ij' := H(Dj'.TSchi')
+            /\ Ej' := H(SK1ij'.GIDi.TSj')  
+            /\ TX(Ej'.TSj')
+% Vehj has freshly generated the value TSj for CHi
+            /\ witness (Vehj, CHi, vehj_chi_tsj, TSj')
+% Vehj's acceptance of the value TSchi generated for Vehj by CHi  
+            /\ request(CHi, Vehj, chi_vehj_tschi, TSchi')
+end role
+
+
+
+%%%%%%% Role specification for the session %%%%%%%%
+role session(CA, CHi, Vehj: agent,
+             H : hash_func)
+def=
+  local T1, R1, T2, R2, T3, R3: channel (dy)
+  composition
+    certificationauthority(CA, CHi, Vehj, H, T1, R1)
+ /\ clusterhead(CA, CHi, Vehj, H, T2, R2) 
+ /\ vehicle(CA, CHi, Vehj, H, T3, R3)     
+end role
+
+
+%%%%%%% Role specification for the goal and environment %%%%%%%%
+role environment()
+def=
+  const ca, chi, vehj : agent,
+      h, f : hash_func, 
+      g, tsca, tschi, tsj : text,
+      sec1, sec2, sec3, sec4, sec5, ca_chi_tsca, ca_chi_x,
+      chi_ca_tsi, chi_vehj_tschi, vehj_chi_tsj: protocol_id
+intruder_knowledge = {h, f, g, tsca, tschi, tsj}
+composition
+   session(ca, chi, vehj, h) 
+/\ session(i, chi, vehj, h) 
+/\ session(ca, i, vehj, h) 
+/\ session(ca, chi, i, h) 
+end role
+
+goal
+secrecy_of sec1
+secrecy_of sec2
+secrecy_of sec3
+secrecy_of sec4
+secrecy_of sec5
+
+authentication_on ca_chi_tsca
+authentication_on ca_chi_x
+authentication_on chi_ca_tsi
+authentication_on chi_vehj_tschi
+authentication_on vehj_chi_tsj
+end goal
+environment()
+

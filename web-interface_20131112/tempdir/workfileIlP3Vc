@@ -1,0 +1,146 @@
+%% PROTOCOL: AAA Mobile IP
+%%
+%% PURPOSE:
+%%   This document specifies a Diameter application that allows a Diameter
+%%   server to authenticate, authorise and collect accounting information
+%%   for Mobile IPv4 services rendered to a mobile node.
+%%
+%% REFERENCE:
+%%   \begin{itemize}
+%%   \item \cite{mip4-rfc3012bis,aaa-diameter-mobileip}
+%%   \end{itemize}
+%%
+%% MODELER:
+%%   \begin{itemize}
+%%   \item Haykal Tej, Siemens CT IC 3, 2003
+%%   \item Paul Hankes Drielsma, Information Security Group,  ETH Z\"{u}rich, December 2003
+%%   \item Sebastian M\"odersheim, Information Security Group, ETH Z\"{u}rich, January 2004
+%%   \item Luca Compagna, AI-Lab DIST, University of Genova, December 2004
+%%   \end{itemize}
+%% ALICE_BOB:
+%% \begin{verbatim}
+%% 1. FA   -> MN:   FA,N_FA
+%% 2. MN   -> FA:   N_FA,MN,AAAH,
+%%                  {N_FA,MN,AAAH}_K_MnAAAH
+%% 3. FA   -> AAAL: N_FA,MN,AAAH,
+%%                  {N_FA,MN,AAAH}_K_MnAAAH
+%% 4. AAAL -> AAAH: N_FA,MN,AAAH,
+%%                  {N_FA,MN,AAAH}_K_MnAAAH      
+%% 5. AAAH -> HA:   MN,
+%%                  {K_MnHa,K_FaHa}_KAAAHHa,
+%%                  {K_MnFa,K_MnHa}_K_MnAAAH,
+%%                  {MN,
+%%                   {K_MnHa,K_FaHa}_KAAAHHa,
+%%                   {K_MnFa,K_MnHa}_K_MnAAAH
+%%                  }_K_AAAHHa
+%% 6. HA   -> AAAH: {K_MnFa,K_MnHa}_K_MnAAAH,
+%%                  {{K_MnFa,K_MnHa}_K_MnAAAH}_K_MnHa,
+%%                  {{K_MnFa,K_MnHa}_K_MnAAAH,
+%%                   {{K_MnFa,K_MnHa}_K_MnAAAH}_K_MnHa
+%%                  }_K_AAAHHa
+%% 7. AAAH -> AAAL: N_FA,
+%%                  {K_MnFa,K_FaHa}_K_AAAHAAAL,
+%%                  {K_MnFa,K_MnHa}_K_MnAAAH,
+%%                  {{K_MnFa,K_MnHa}_K_MnAAAH}_K_MnHa,
+%%                  {N_FA,
+%%                   {K_MnFa,K_FaHa}_K_AAAHAAAL,
+%%                   {K_MnFa,K_MnHa}_K_MnAAAH,
+%%                   {{K_MnFa,K_MnHa}_K_MnAAAH}_K_MnHa
+%%                  }_K_AAAHAAAL
+%% 8. AAAL -> FA:   N_FA,
+%%                  {K_MnFa,K_FaHa}_K_FaAAAL,
+%%                  {K_MnFa,K_MnHa}_K_MnAAAH,
+%%                  {{K_MnFa,K_MnHa}_K_MnAAAH}_K_MnHa,
+%%                  {N_FA,
+%%                   {K_MnFa,K_FaHa}_K_FaAAAL,
+%%                   {K_MnFa,K_MnHa}_K_MnAAAH,
+%%                   {{K_MnFa,K_MnHa}_K_MnAAAH}_K_MnHa
+%%                  }_K_FaAAAL
+%% 9. FA   -> MN:   {K_MnFa,K_FaHa}_K_FaAAAL,
+%%                  {K_MnFa,K_MnHa}_K_MnAAAH,
+%%                  {{K_MnFa,K_MnHa}_K_MnAAAH}_K_MnHa
+%% \end{verbatim}
+%% PROBLEMS: 7
+%% CLASSIFICATION: G1, G7, G10, G12
+%% ATTACKS:
+%% \begin{verbatim}
+%% i      -> (mn,3): fa,fa
+%% (mn,3) -> i:      fa,mn,aaah,{fa,mn,aaah}k_mn_aaah
+%% i      -> (mn,3): {fa,mn,aaah}k_mn_aaah,{{fa,mn,aaah}k_mn_aaah}(mn,aaah)
+%% \end{verbatim}
+%% In this type-flaw attack, the intruder replays the message 
+%% \verb+{fa,mn,aaah}k_mn_aaah+  to the mobile node, which expects to receive
+%% a message of the form \verb+{fa,NewKey}k_mn_aaah+ where NewKey is the
+%% new key, which is thus matched with the pair of agent names \verb+mn,aah+. 
+%% Since the intruder knows these two agent names, he can also produce a 
+%% message encrypted with this new key as required.
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+%%  HLPSL:
+
+role alice (A, B: agent,
+K : symmetric_key,
+Hash: hash_func,
+SND_BA, RCV_BA: channel(dy))
+played_by A
+def=
+local State : nat,
+Na, Ns : text,
+Ka : symmetric_key,
+
+init State := 0
+transition
+1. State = 0 /\ RCV_BA(start) =|>
+State’:= 2 /\ Na’ := new() /\
+/\ SND_BA(A.B.Na.Hash(xor(xor(Ka, Na), B), Na))
+2. State = 2 /\ RCV_BA(A.B.Ns.Nb. Hash(xor(Ka, Ns)).xor(Hash(Ka.Ns), Hash(Rc.Ra).Hash(Kb.Ns))) /\ request(A,B,alice_bob_na,Na)
+end role
+
+role bob (A, B: agent,
+K : symmetric_key,
+Hash: hash_func,
+SND_AB, RCV_AB, SND_SB, RCV_SB: channel(dy))
+played_by B
+def=
+local State : nat,
+Na, Nb : text,
+Kb : symmetric_key
+
+init State := 1
+transition
+1. State = 1 /\ RCV_AB(A.B.Na.Hash(xor(xor(Ka, Na), B), Na)) =|>
+State’:= 3 /\ Nb’ := new() /\ SND_SB(A.B.Na.Nb.Hash(xor(xor(Kb, Nb), Nb)))
+/\ witness(B,A,alice_bob_na,Na’)
+end role
+
+role session(A, B : agent,
+Ka, Kb : symmetric_key)
+def=
+local
+SBA, RBA,
+SAB, RAB : channel (dy)
+composition
+alice (A, B, Ka, SBA, RBA)
+/\ bob (A, B, Kb, SAB, RAB)
+end role
+
+role environment()
+def=
+const a, b,: agent,
+ka, kb, ki : symmetric_key,
+alice_bob_na, k: protocol_id
+intruder_knowledge = {a, b, ki}
+
+composition
+session(a, b,ka,kb)
+/\ session(a, i,ka,ki)
+/\ session(i, b,ki,kb)
+end role
+
+goal
+secrecy_of k
+authentication_on alice_bob_na
+end goal
+
+environment()
+ 

@@ -1,0 +1,143 @@
+role user (Ui, GWN, SNj : agent,
+SKj : symmetric_key,
+H: hash_func, 
+Snd, Rcv: channel(dy))
+played_by Ui
+def=
+local State : nat,
+IDi, PWi, RPWi, Ni, N2, N3, Bi : text,
+Yi, Hi, Ai, Vi, N1, Ji, C1, D1, C4, C3, D4, SK: message,
+Inc : hash_func
+const user_gateway, gateway_sensor, 
+sensor_user, subs1, subs2, subs3, 
+subs4, subs5, subs6 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(start) =|>
+State' := 1 /\ Ni' :=new()
+/\ RPWi' := H(Ni'.PWi)
+/\ Snd({IDi.RPWi'}_SKj)
+/\ secret({PWi,Ni'}, subs1, Ui)
+/\ secret({IDi}, subs2, {Ui,GWN})
+2. State = 1 /\ Rcv({Yi'.Hi'}_SKj) =|>
+State' := 2 /\ Ai' := xor(Ni', H(IDi.H(Bi).PWi))
+/\ Vi' := H(IDi.Ni'.H(Bi).PWi)
+/\ N1' := new()
+/\ Ji' := xor(Hi,H(RPWi.IDi))
+/\ C1' := xor(H(IDi.Ji),N1')
+/\ D1' := H(Yi.Ji'.N1'.IDi)
+/\ Snd(D1'.C1'.Yi) 
+/\ witness(Ui, GWN, user_gateway, N1')
+3. State = 2 /\ Rcv(C4'.C3. D4') =|>
+State' := 3 /\ N2' := xor(C4, H(Ji.IDi.N1))
+/\ N3' := xor(C3, H(N1.N2'))
+/\ SK' := H(N1.N3'.N2') 
+end role
+role gatway (GWN, Ui, SNj  : agent,
+SKj : symmetric_key,  
+H : hash_func,
+Snd, Rcv: channel(dy) )
+played_by GWN
+def=
+local State : nat,
+IDi, PWi, RPWi, Ni, N2, N3, Bi, SKj, X, Nj : text,
+Yi, Hi, Ai, Vi, N1, Ji, C1, D1, C4, C3, D4, SK, Ki, M1, C2, D2, D4: message,
+Inc : hash_func
+const user_gateway, gateway_sensor, 
+sensor_user, subs1, subs2, subs3, 
+subs4, subs5, subs6 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv({IDi.RPWi'}_SKj) =|>
+State' := 1 /\ Yi' := new()
+/\ Ji' := H(IDi.X.Yi')
+/\ Hi' := xor(H(RPW.IDi), Ji')
+/\ Snd({Yi'.Hi'}_SKj)
+/\ Ki' := xor(IDi,H(xor(X,Yi')))
+/\secret({X},subs3,{GWN})
+2. State = 1 /\ Rcv(D1'.C1'.Yi) =|> 
+State' := 2 /\ IDi' := xor(Ki, H(xor(X,Yi)))
+/\ N2' := new()
+/\ Nj' := new()
+/\ M1' := xor(N2',H(SIDj.SKj.Nj'))
+/\ N1' := xor(C1',H(IDi'.H(IDi'.X.Yi)))
+/\ C2' := xor(N1', H(SKj.N2'))
+/\ D2' := H(N1'.SKj.N2'.SIDj)
+/\ Snd(M1'.C2'.D2'.Nj')
+/\ secret({SKj'}, subs4, {SNj, GWN})
+/\ witness(GWN, SNj, gateway_sensor, N2')
+/\ request(SNj, GWN, gateway_sensor, N2')
+2. State = 1 /\ Rcv(C3'.D3') =|> 
+State' := 2 /\ N3' := xor(C3,H(N1.N2))
+/\ C4' := xor(N2, H(H(IDi.X.Y).IDi.N1))
+/\ D4' := H(H(IDi.X.Yi).N3'.IDi.N1)
+/\ Snd(C4'.C3. D4')
+end role
+role sensor (SNj, Ui, GWN : agent,
+SKj : symmetric_key,
+% H is hash function
+H : hash_func,
+Snd, Rcv: channel(dy) )
+played_by SNj
+def=
+local State : nat,
+IDi, PWi, RPWi, N1, Ni, N2, N3, Nj, Bi, SKj, SIDj : text,
+Yi, Hi, Ai, Vi, Ji, C1, D1, C4, C3, D3, SK: message,
+Inc : hash_func
+const user_gateway, gateway_sensor, 
+sensor_user, subs1, subs2, subs3, 
+subs4, subs5, subs6 : protocol_id
+init State :=0
+transition
+% Receive authentication message CMS during mutual 
+authentication phase
+1. State = 0 /\ Rcv(M1'.C2'.D2'.Nj') =|>
+State' := 1 /\ N2' := xor(M1,H(SIDj.SKj.Nj))
+/\ N1' := xor(C2, H(SKj.N2'))
+/\ N3' := new()
+/\ C3' := xor(H(N1'.N2'), N3')
+/\ D3' := H(N1'.SKj'.N3'.SIDj.N2')
+/\ SK' := H(N1'.N3'.N2')
+/\ Snd(C3'.D3')
+/\ witness(SNj,Ui, sensor_user, N3')
+/\ request(Ui, SNj, sensor_user, N3')
+/\ secret({SK'}, subs5, {Ui, SNj})
+/\ secret({N1,N2,N3}, subs6, {Ui, SNj})
+end role
+role session(Ui, GWN, SNj: agent,
+SKj : symmetric_key,
+H : hash_func)
+def=
+local SI, SJ, RI, RJ, PI, PJ: channel (dy)
+composition
+user(Ui, GWN, SNj, SKj, H, SI, RI)
+/\ gateway(Ui, GWN, SNj, SKj, H, SJ, RJ)
+/\ sensor(Ui, GWN, SNj, SKj, H, PI, PJ)
+end role
+role environment()
+def=
+const ui, gwn, snj: agent,
+skj : symmetric_key,
+h : hash_func,
+idi, pwi, rpwi, n1, n2, n3, x, yi, hi, d1, c1, c3, d3, c4, d4, c2, d2, nj, m1 : text,
+user_gateway, gateway_sensor, 
+sensor_user, subs1, subs2, subs3, 
+subs4, subs5, subs6 : protocol_id
+intruder_knowledge = {ui, gwn, snj, h, yi, hi, d1, c1, c3, d3, c4, d4, c2, d2, nj, m1}
+composition
+session( gwn, ui, snj, skj, h)
+/\ session(ui, gwn, snj, skj, h)
+/\ session(snj, ui, gwn, skj, h)
+end role
+goal
+secrecy_of subs1
+secrecy_of subs2
+secrecy_of subs3
+secrecy_of subs4
+secrecy_of subs5
+secrecy_of subs6
+authentication_on user_gateway_n1
+authentication_on gateway_sensor_n2
+authentication_on sensor_user_n3
+end goal
+environment()

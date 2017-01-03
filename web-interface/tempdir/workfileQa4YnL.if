@@ -1,0 +1,120 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileQa4YnL
+
+section signature:
+
+state_share_Resp: agent * agent * public_key * public_key * nat * text * text * text * pair(text,text) * set(agent) * nat -> fact
+state_share_Init: agent * agent * public_key * public_key * nat * text * text * text * pair(text,text) * set(agent) * nat -> fact
+
+
+section types:
+
+k1, k2, nanb: protocol_id
+K, Dummy_K: pair(text,text)
+set_79, set_77, set_73, set_63: set
+Msg, Na, Nb, one, zero, Dummy_Nb, Dummy_Msg, Dummy_Na, dummy_nonce: text
+State, 6, 4, SID, 2, 1, 3, Dummy_State, 0: nat
+Set_42, Dummy_Set_42, Set_23, Dummy_Set_23, ASGoal: set(agent)
+start, MGoal: message
+Kb, Ka, ka, kb, ki: public_key
+B, A, A2Goal, A1Goal, a, b, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(ka).
+ iknows(kb).
+ iknows(ki).
+ iknows(inv(ki)).
+ iknows(zero).
+ iknows(one).
+ iknows(i).
+ state_share_Init(a,b,ka,kb,0,dummy_nonce,dummy_nonce,dummy_nonce,pair(dummy_nonce,dummy_nonce),set_63,3).
+ state_share_Resp(b,a,kb,ka,0,dummy_nonce,dummy_nonce,dummy_nonce,pair(dummy_nonce,dummy_nonce),set_73,4).
+ state_share_Init(a,i,ka,ki,0,dummy_nonce,dummy_nonce,dummy_nonce,pair(dummy_nonce,dummy_nonce),set_77,6)
+
+
+section rules:
+
+step step_0 (A,B,Ka,Kb,Dummy_Na,Msg,Nb,K,Set_23,SID,Na) :=
+ state_share_Init(A,B,Ka,Kb,0,Dummy_Na,Msg,Nb,K,Set_23,SID).
+ iknows(start)
+=[exists Na]=>
+ state_share_Init(A,B,Ka,Kb,1,Na,Msg,Nb,K,Set_23,SID).
+ iknows(crypt(Kb,Na))
+
+step step_1 (A,B,Ka,Kb,Na,Dummy_Msg,Dummy_Nb,Dummy_K,Dummy_Set_23,SID,Msg,Nb) :=
+ state_share_Init(A,B,Ka,Kb,1,Na,Dummy_Msg,Dummy_Nb,Dummy_K,Dummy_Set_23,SID).
+ iknows(crypt(Ka,Nb))
+=[exists Msg]=>
+ state_share_Init(A,B,Ka,Kb,2,Na,Msg,Nb,pair(Na,Nb),Dummy_Set_23,SID).
+ iknows(scrypt(pair(Na,Nb),pair(zero,Msg))).
+ secret(pair(Na,Nb),nanb,Dummy_Set_23).
+ witness(A,B,k2,pair(Na,Nb)).
+ contains(A,Dummy_Set_23).
+ contains(B,Dummy_Set_23)
+
+step step_2 (A,B,Ka,Kb,Na,Msg,Nb,K,Set_23,SID) :=
+ state_share_Init(A,B,Ka,Kb,2,Na,Msg,Nb,K,Set_23,SID).
+ iknows(scrypt(K,pair(one,Msg)))
+ =>
+ state_share_Init(A,B,Ka,Kb,3,Na,Msg,Nb,K,Set_23,SID).
+ wrequest(A,B,k1,K,SID)
+
+step step_3 (B,A,Kb,Ka,Dummy_Nb,Msg,Dummy_Na,Dummy_K,Dummy_Set_42,SID,Nb,Na) :=
+ state_share_Resp(B,A,Kb,Ka,0,Dummy_Nb,Msg,Dummy_Na,Dummy_K,Dummy_Set_42,SID).
+ iknows(crypt(Kb,Na))
+=[exists Nb]=>
+ state_share_Resp(B,A,Kb,Ka,1,Nb,Msg,Na,pair(Na,Nb),Dummy_Set_42,SID).
+ iknows(crypt(Ka,Nb)).
+ witness(B,A,k1,pair(Na,Nb)).
+ secret(pair(Na,Nb),nanb,Dummy_Set_42).
+ contains(A,Dummy_Set_42).
+ contains(B,Dummy_Set_42)
+
+step step_4 (B,A,Kb,Ka,Nb,Dummy_Msg,Na,K,Set_42,SID,Msg) :=
+ state_share_Resp(B,A,Kb,Ka,1,Nb,Dummy_Msg,Na,K,Set_42,SID).
+ iknows(scrypt(K,pair(zero,Msg)))
+ =>
+ state_share_Resp(B,A,Kb,Ka,2,Nb,Msg,Na,K,Set_42,SID).
+ iknows(scrypt(K,pair(one,Msg))).
+ wrequest(B,A,k2,K,SID)
+
+
+section properties:
+
+property secrecy_of_nanb (MGoal,ASGoal) :=
+ [] ((secret(MGoal,nanb,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property weak_authentication_on_k1 (A1Goal,A2Goal,MGoal,SID) :=
+ [] ((wrequest(A1Goal,A2Goal,k1,MGoal,SID)
+      /\ ~ equal(A2Goal,i))
+     => witness(A2Goal,A1Goal,k1,MGoal))
+
+property weak_authentication_on_k2 (A1Goal,A2Goal,MGoal,SID) :=
+ [] ((wrequest(A1Goal,A2Goal,k2,MGoal,SID)
+      /\ ~ equal(A2Goal,i))
+     => witness(A2Goal,A1Goal,k2,MGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_nanb (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,nanb,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state weak_authentication_on_k1 (A1Goal,A2Goal,MGoal,SID) :=
+ wrequest(A1Goal,A2Goal,k1,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,k1,MGoal)) &
+ not(equal(A2Goal,i))
+
+attack_state weak_authentication_on_k2 (A1Goal,A2Goal,MGoal,SID) :=
+ wrequest(A1Goal,A2Goal,k2,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,k2,MGoal)) &
+ not(equal(A2Goal,i))
+

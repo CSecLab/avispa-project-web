@@ -1,0 +1,136 @@
+%%HLPSL:
+role user (USER, GATEWAY: agent,             
+            Kug: symmetric_key,
+            IDu: text,
+            Hash: hash_func,
+            SND, RCV: channel (dy)) 
+
+played_by USER def=
+
+  local State : nat, 
+        Nu, Nx: text,
+        SK, SK3: symmetric_key
+
+  init State := 0
+
+  transition  
+   
+  1.  State  = 0 /\ RCV(start) =|> 
+	State':= 4 
+  /\ Nu' := new()
+  /\ Nx' := xor(Kug,Nu')
+  /\ SND(Nx')
+
+  2.  State  = 4 /\ RCV(SK3') =|> 
+	State':= 5
+  /\ SK' := xor(Hash(Kug.IDu.Nu),SK3')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role gateway(GATEWAY, USER, SENSOR: agent, 
+         IDu, SNid: text,     
+         Kug, Kgs: symmetric_key,      
+         Add, Hash: hash_func,
+         SND, RCV, SND2, RCV2: channel (dy)) 
+played_by GATEWAY def=
+
+  local State : nat, 
+  Nx, Nu: text,
+  SK, SK2, SK3: symmetric_key,
+
+  init State := 1
+
+  transition 
+
+  1.  State  = 1 /\ RCV(Nx') =|> 
+  State':= 3 
+  /\ SK' := new() 
+  /\ Nu' := xor(Kug,Nx')
+  /\ SK2' := xor(Hash(Kgs),SK')
+  /\ SND2(SK2')
+  /\ secret(SK',sk,{USER,GATEWAY,SENSOR})
+
+  2.  State  = 3 /\ RCV2(SNid) =|> 
+  State':= 7
+  /\ SK3' := xor(Hash(Kug.IDu.Nu),SK)
+  /\ SND(SK3')
+  
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role sensor(SENSOR, USER, GATEWAY: agent,      
+         Kgs: symmetric_key,  
+         SNid: text,  
+         Hash: hash_func,  
+         SND, RCV: channel (dy)) 
+played_by SENSOR def=
+
+  local State : nat, 
+  SK, SK2: symmetric_key,
+
+  init State := 2
+
+  transition 
+
+  1.  State  = 2 /\ RCV(SK2') =|> 
+	State':= 6
+  /\ SK' := xor(Hash(Kgs),SK2')
+  /\ Kgs' := Hash(Kgs.SNid)
+  /\ SND(SNid)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(
+  USER, GATEWAY, SENSOR: agent,
+  Kug, Kgs: symmetric_key,
+  Add, Hash: hash_func) 
+
+  def=
+  local SUG, RUG, SGU, RGU, SSG, RSG, SGS, RGS: channel (dy),
+  Kug2: symmetric_key,
+  IDu, PSWu, SNid, TSug, M: text
+
+  composition 
+
+	user(USER,GATEWAY,Kug,IDu,Hash,SUG,RUG)
+  /\ gateway(GATEWAY,USER,SENSOR,IDu,SNid,Kug,Kgs,Add,Hash,SGU,RGU,SGS,RGS)
+  /\ sensor(SENSOR,USER,GATEWAY,Kgs,SNid,Hash,SSG,RSG)
+  
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+    const user, gateway, sensor: agent,
+	  kug, kgs                   : symmetric_key,
+	  hashh, addh                  : hash_func,
+    user_gateway_kug, gateway_sensor_kgs, user_sensor_sk, sk: protocol_id
+
+    intruder_knowledge = {}
+
+    composition
+
+	session(user,gateway,sensor,kug,kgs,addh,hashh)
+  /\session(i,gateway,sensor,kug,kgs,addh,hashh)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of sk
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

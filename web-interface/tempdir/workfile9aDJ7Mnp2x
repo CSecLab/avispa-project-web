@@ -1,0 +1,179 @@
+role participant1(
+		P1 : agent,
+		SND,RCV : channel(dy),
+		G : nat,
+		K : symmetric_key)
+	
+	played_by P1 def=
+	local
+		State, Nonce : nat,
+		MSG : message
+
+	init
+		State := 0
+
+	transition
+	step1. State=0 /\ RCV(start) =|> 
+		State':=4 /\ Nonce':=new() /\ SND(G.exp(G,Nonce'))
+
+	step2. State=4 /\ RCV(MSG') =|>
+			State':=5 
+
+end role
+
+role participant2adv(
+		P2adv : agent,
+		SND,RCV : channel(dy),
+		G : nat,
+		K : symmetric_key)
+	
+	played_by P2adv def=
+	local
+		State, Nonce, Part1, Part2 : nat,
+		MSG, PreKey : message
+
+	init
+		State := 1
+
+	transition
+	step1. State=1 /\ RCV(MSG') /\ MSG'=Part1'.Part2' =|> 
+		State':=4 /\ Nonce':=new() /\ SND(exp(Part1',Nonce').Part2'.exp(Part2',Nonce')) 
+
+	step2. State=4 /\ RCV(PreKey') =|>
+			State':=5 
+
+end role
+
+role participant2(
+		P2 : agent,
+		SND,RCV : channel(dy),
+		G : nat,
+		K : symmetric_key)
+	
+	played_by P2 def=
+	local
+		State, Nonce, Part1, Part2, PreKey1,PreKey2 : nat,
+		MSG, PreKey : message
+
+	init
+		State := 1
+
+	transition
+	step1. State=1 /\ RCV(MSG') /\ MSG'=Part1'.Part2' =|> 
+		State':=4 /\ Nonce':=new() /\ SND(exp(Part1',Nonce').Part2'.exp(Part2',Nonce')) 
+
+	step2. State=4 /\ RCV(PreKey') /\ PreKey'=PreKey1'.PreKey2' =|>
+			State':=5 /\ SND({MSG}_exp(exp(inv(K)),PreKey2')) /\ secret(MSG, msgsecret, {})
+
+end role
+
+role participant3adv(
+		P3adv : agent,
+		SND,RCV : channel(dy),
+		G : nat,
+		K : symmetric_key)
+	
+	played_by P3adv def=
+	local
+		State, Part1, Part2, Part3, Nonce : nat,
+		MSG, PreKey : message
+
+	init
+		State := 2
+
+	transition
+	step1. State=2 /\ RCV(MSG') /\ MSG'=Part1'.Part2'.Part3' =|> 
+		State':=4 /\ Nonce':=new() /\ SND(exp(Part1',Nonce').exp(Part2',Nonce').Part3'.exp(Part3',Nonce')) 
+
+	step2. State=4 /\ RCV(PreKey') =|>
+			State':=5 
+end role
+
+role participant4adv(
+		P4adv : agent,
+		SND,RCV : channel(dy),
+		G : nat,
+		K1,K2,K3 : symmetric_key)
+	
+	played_by P4adv def=
+	local
+		State, Nonce, Part1, Part2, Part3, Part4 : nat,
+		MSG, PreKey : message
+
+	init
+		State := 3
+
+	transition
+	step1. State=3 /\ RCV(MSG') /\ MSG'=Part1'.Part2'.Part3'.Part4' =|> 
+		State':=4 /\ Nonce':=new() /\ SND(exp(exp(Part1',Nonce'),K1).exp(exp(Part2',Nonce'),K2).exp(Part3'.exp(Part3',Nonce'),K3)) 
+
+
+end role
+
+role participant4(
+		P4 : agent,
+		SND,RCV : channel(dy),
+		G : nat,
+		K1,K2 : symmetric_key)
+	
+	played_by P4 def=
+	local
+		State, Nonce, Part1, Part2, Part3 : nat,
+		MSG, PreKey : message
+
+	init
+		State := 2
+
+	transition
+	step1. State=2 /\ RCV(MSG') /\ MSG'=Part1'.Part2'.Part3' =|> 
+		State':=3 /\ Nonce':=new() /\ SND(exp(exp(Part1',Nonce'),K1).exp(exp(Part2',Nonce'),K2))  
+
+end role
+
+
+role session1(
+		P1,P2adv,P3adv,P4adv: agent,
+		G : nat,
+		K1,K2,K3 : symmetric_key)
+
+	def=
+	local 
+		S,R : channel (dy)
+
+	composition
+		participant1(P1,S,R,G,K1)/\participant2adv(P2adv,S,R,G,K2)/\participant3adv(P3adv,S,R,G,K3)/\participant4adv(P4adv,S,R,G,K1,K2,K3)
+end role
+
+role session2(
+		P1,P2,P4: agent,
+		G : nat,
+		K1,K2 : symmetric_key)
+
+	def=
+	local 
+		S,R : channel (dy)
+
+	composition
+		participant1(P1,S,R,G,K1)/\participant2(P2,S,R,G,K2)/\participant4(P4,S,R,G,K1,K2)
+end role
+
+
+role environment()
+	def=
+	const
+		msgsecret : protocol_id,
+		p1,p2,p4,p2adv,p4adv :agent,
+		g : nat,
+		k1,k2,k3: symmetric_key
+
+	intruder_knowledge = {p1,p2,p4,p2adv,p4adv,g,k3}
+
+	composition
+		session1(p1,p2adv,i,p4adv,g,k1,k2,k3) /\ session2(p1,p2,p4,g,k1,k2) 
+end role
+
+goal
+	secrecy_of msgsecret
+end goal
+
+environment()

@@ -1,0 +1,119 @@
+%% Two Party EEC-based AKE Protocol using SC-PKC
+%% A : Initiator
+%% B : Responder
+%% Ra is selected by A and Rb is selected by B
+
+role alice(
+A, B : agent,
+SND, RCV : channel(dy),
+H, Union, Pred : hash_fun,
+Ka, Kb, P :  symmetric_key)
+
+played_by A
+def=
+local State : nat, IDa, IDb,
+Pa, Pb : public_key,
+Da, Db, Sk : symmetric_key,
+Ra, Rb : text,
+Ta, Tb, Sa, Sb : message
+const aliceid : protocol_id
+
+init State:=0
+
+transition
+1.State=0/\RCV(start)=|>
+State' :=2
+/\Ra' :=new()
+/\Ta' :=Pred(Pred(Ra, Da), P) 
+/\Ka' :=Pred(Da, Pb)
+/\Sa' :=H(Union(Ta, Ka))
+/\SND(IDa.Ta.Sa)
+
+2.State=2/\RCV(IDb.Tb'.Sb')/\Sb'=H(Union(Tb, Ka))=|>
+
+State':=4
+/\Sk':=H(Union(Ta, Union(Tb, Union(Sa, Union(Sb, Pred(Pred(Ra, Da), Tb))))))
+/\secret(Da, aliceid, {a, b})
+/\request(A, B, x1, Da)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob(
+B, A : agent,
+SND, RCV : channel(dy),
+H, Union, Pred: hash_function,
+Kb, Ka, P :  symmetric_key)
+
+
+played_by B
+
+def=
+local State : nat, IDa, IDb,
+Pa, Pb : public_key,
+Da, Db, Sk : symmetric_key,
+Ra, Rb : text,
+Tb,Ta, Sb, Sa : message
+const bobid: protocol_id
+
+init State:=1
+
+transition
+1.State=1/\RCV(IDa.Ta'.Sa')/\Sa'=H(Union(Ta, Kb))=|>
+
+State':=3
+/\Rb':=new()
+/\Tb' :=Pred(Pred(Rb, Db), P)
+/\Kb':=Pred(Db, Pa)
+/\Sb':=H(Union(Tb, Kb))
+/\Sk' :=H(Union(Ta, Union(Tb, Union(Sa, Union(Sb, Pred(Pred(Rb, Db), Ta))))))
+/\SND(IDb.Tb.Sb)
+/\secret(Db, bobid, {b, a})
+/\request(B, A, x2, Db)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(
+A, B : agent,
+H, Union, Pred : hash_fun,
+Ka, Kb, P :  symmetric_key)
+
+def=
+local 
+SA, RA, SB, RB : channel(dy)
+
+composition
+
+alice(A, B, SA, RA, H, Union, Pred, Ka, Kb, P)
+/\bob(B, A, SB,RB, H, Union, Pred, Ka, Kb, P)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+const
+x1 : protocol_id,
+x2 : protocol_id,
+kb, ka, ki, p : symmetric_key,
+a, b, i : agent,
+h, union, pred : hash_fun
+intruder_knowledge={a, b, ki, h, union, pred, p}
+
+composition
+
+session(a, b, h, union, pred, ka, kb, p)
+/\session(a, i, h, union, pred, ka, ki, p)
+/\session(i, b, h, union, pred, ki, kb, p)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+secrecy_of  aliceid, bobid
+authentication_on x1
+authentication_on x2
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+
+ 

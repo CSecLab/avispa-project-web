@@ -1,0 +1,100 @@
+%% HXs = H(ID.Xs')
+role role_C(C:agent,S:agent,ID:text, HXs:text,H:hash_func,SND,RCV:channel(dy))
+played_by C
+def=
+	local
+		State:nat,Rs:text,Rc:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) 
+		=|> 
+		State':=1 	/\ Rc':=new() 
+					/\ SND(xor(HXs,Rc').xor((HXs.Rc'),ID).H(HXs.Rc'))
+					/\ secret(Rc',sec_5,{C,S}) 
+					/\ witness(C,S,auth_1,Rc') 					
+					/\ secret(HXs,sec_4,{C,S}) 
+					/\ secret(ID,sec_3,{C,S}) 
+		2. State=1 	/\ RCV(H((xor(HXs,Rc)).Rc).xor(HXs,Rs').H(HXs.Rs')) 
+		=|> 
+		State':=2 	/\ SND(H(HXs.Rc.Rs'))
+					/\ secret(Rs',sec_6,{C,S}) 
+					/\ secret(HXs,sec_4,{C,S}) 
+					/\ secret(Rc',sec_5,{C,S}) 
+
+end role
+
+role role_S(S:agent,C:agent,HXs:text,H:hash_func,SND,RCV:channel(dy))
+played_by S
+def=
+	local
+		State:nat,Rs:text,ID:text,Rc:text
+	init
+		State := 0
+	transition
+		1. State=0	/\ RCV(xor(HXs,Rc').xor((HXs.Rc'),ID').H(HXs.Rc')) 
+		=|> 
+		State':=1 	/\ Rs':=new() 
+					/\ SND(H(xor(HXs,Rc').Rc').xor(HXs,Rs').H(HXs.Rs'))		
+					/\ request(S,C,auth_1,Rc') 
+					/\ secret(Rc',sec_5,{C,S}) 
+					/\ secret(HXs,sec_4,{C,S}) 
+					/\ secret(ID',sec_3,{C,S}) 
+					/\ secret(Rs',sec_6,{C,S}) 
+					/\ witness(S,C,auth_2,Rs') 
+		3. State=1 	/\ RCV(H(HXs.Rc.Rs)) 
+		=|> 
+		State':=2 	/\ secret(Rs,sec_6,{C,S}) 
+					/\ secret(Rc,sec_5,{C,S}) 
+					/\ secret(HXs,sec_4,{C,S}) 
+end role
+
+role session1(ID:text,S:agent,C:agent,HXs:text,H:hash_func)
+def=
+	local
+		SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_S(S,C,HXs,H,SND2,RCV2) /\ role_C(C,S,ID,HXs,H,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		hash_0:hash_func,
+		smartCard:agent,
+		id_0:text,
+		serveur:agent,
+		i:agent,
+		sec1:text,
+		auth_1:protocol_id,
+		auth_2:protocol_id,
+		sec_3:protocol_id,
+		sec_4:protocol_id,
+		sec_5:protocol_id,
+		sec_6:protocol_id,
+		sec_7:protocol_id,
+		sec_8:protocol_id,
+		sec_9:protocol_id,
+		sec_10:protocol_id
+	
+	intruder_knowledge = {smartCard,serveur, hash_0}
+	composition
+		session1(id_0,serveur,smartCard,sec1,hash_0)
+		%/\session1(id_0,i,smartCard,sec1,hash_0)
+		%/\session1(id_0,serveur,i,sec1,hash_0)
+end role
+
+goal
+	authentication_on auth_1
+	authentication_on auth_2
+	secrecy_of sec_3
+	secrecy_of sec_4
+	secrecy_of sec_5
+	secrecy_of sec_6
+	secrecy_of sec_7
+	secrecy_of sec_8
+	secrecy_of sec_9
+	secrecy_of sec_10
+end goal
+
+environment()

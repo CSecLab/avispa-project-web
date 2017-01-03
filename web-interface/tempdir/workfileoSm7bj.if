@@ -1,0 +1,110 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileoSm7bj
+
+section signature:
+
+state_mtcd: agent * agent * symmetric_key * hash_func * hash_func * hash_func * text * text * text * text * text * nat * nat -> fact
+state_mme: agent * agent * symmetric_key * hash_func * hash_func * hash_func * text * text * text * text * text * nat * nat -> fact
+
+
+section types:
+
+mme_mtcd, mtcd_mme: protocol_id
+start, MGoal: message
+Sqn, Amf, Rhss, Rg, Rmme, Dummy_Rmme, dummy_nonce: text
+3, State, 4, 2, 1, SID, 0, Dummy_State, SID2, SID1: nat
+GK, gkmm, gkim: symmetric_key
+F2, F3, F4, f2, f3, f4: hash_func
+MTCD, MME, mtcd, A2Goal, A1Goal, mme, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(mme).
+ iknows(mtcd).
+ iknows(f2).
+ iknows(f3).
+ iknows(f4).
+ iknows(i).
+ state_mme(mme,mtcd,gkmm,f2,f3,f4,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,0,3).
+ state_mtcd(mme,mtcd,gkmm,f2,f3,f4,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,1,4)
+
+
+section rules:
+
+step step_0 (MME,MTCD,GK,F2,F3,F4,Dummy_Rmme,Sqn,Amf,Rhss,Rg,SID,Rmme) :=
+ state_mme(MME,MTCD,GK,F2,F3,F4,Dummy_Rmme,Sqn,Amf,Rhss,Rg,0,SID).
+ iknows(MTCD)
+=[exists Rmme]=>
+ state_mme(MME,MTCD,GK,F2,F3,F4,Rmme,Sqn,Amf,Rhss,Rg,2,SID).
+ iknows(pair(Rhss,pair(Rg,pair(Rmme,pair(scrypt(apply(F4,pair(GK,pair(Rg,pair(Rhss,Amf)))),apply(F2,pair(Sqn,Rmme))),Amf))))).
+ witness(MME,MTCD,mtcd_mme,Rmme)
+
+step step_1 (MME,MTCD,GK,F2,F3,F4,Dummy_Rmme,Sqn,Amf,Rhss,Rg,SID,Rmme) :=
+ state_mme(MME,MTCD,GK,F2,F3,F4,Dummy_Rmme,Sqn,Amf,Rhss,Rg,2,SID).
+ iknows(scrypt(apply(F4,pair(GK,pair(Rg,pair(Rhss,Amf)))),apply(F3,pair(Sqn,Rg))))
+=[exists Rmme]=>
+ state_mme(MME,MTCD,GK,F2,F3,F4,Rmme,Sqn,Amf,Rhss,Rg,4,SID).
+ request(MME,MTCD,mme_mtcd,Rmme,SID)
+
+step step_2 (MTCD,MME,GK,F2,F3,F4,Rmme,Sqn,Amf,Rhss,Rg,SID) :=
+ state_mtcd(MTCD,MME,GK,F2,F3,F4,Rmme,Sqn,Amf,Rhss,Rg,1,SID).
+ iknows(start)
+ =>
+ state_mtcd(MTCD,MME,GK,F2,F3,F4,Rmme,Sqn,Amf,Rhss,Rg,2,SID).
+ iknows(MTCD)
+
+step step_3 (MTCD,MME,GK,F2,F3,F4,Dummy_Rmme,Sqn,Amf,Rhss,Rg,SID,Rmme) :=
+ state_mtcd(MTCD,MME,GK,F2,F3,F4,Dummy_Rmme,Sqn,Amf,Rhss,Rg,2,SID).
+ iknows(pair(Rhss,pair(Rg,pair(Rmme,pair(scrypt(apply(F4,pair(GK,pair(Rg,pair(Rhss,Amf)))),apply(F2,pair(Sqn,Rmme))),Amf)))))
+ =>
+ state_mtcd(MTCD,MME,GK,F2,F3,F4,Rmme,Sqn,Amf,Rhss,Rg,3,SID).
+ iknows(scrypt(apply(F4,pair(GK,pair(Rg,pair(Rhss,Amf)))),apply(F3,pair(Sqn,Rg)))).
+ request(MTCD,MME,mtcd_mme,Rmme,SID).
+ witness(MTCD,MME,mme_mtcd,Rmme)
+
+
+section properties:
+
+property authentication_on_mme_mtcd (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,mme_mtcd,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,mme_mtcd,MGoal))
+     /\ ((request(A1Goal,A2Goal,mme_mtcd,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,mme_mtcd,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_mtcd_mme (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,mtcd_mme,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,mtcd_mme,MGoal))
+     /\ ((request(A1Goal,A2Goal,mtcd_mme,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,mtcd_mme,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state authentication_on_mme_mtcd (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,mme_mtcd,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,mme_mtcd,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_mme_mtcd (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,mme_mtcd,MGoal,SID1).
+ request(A1Goal,A2Goal,mme_mtcd,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_mtcd_mme (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,mtcd_mme,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,mtcd_mme,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_mtcd_mme (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,mtcd_mme,MGoal,SID1).
+ request(A1Goal,A2Goal,mtcd_mme,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

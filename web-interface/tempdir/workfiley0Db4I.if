@@ -1,0 +1,96 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfiley0Db4I
+
+section signature:
+
+state_authenticator: agent * agent * symmetric_key * hash_func * nat * nat * text * text * text * text * text * text * set(agent) * nat -> fact
+state_peer: agent * agent * symmetric_key * hash_func * nat * nat * text * text * text * text * text * text * text * text * set(agent) * nat -> fact
+
+
+section types:
+
+set_92, set_91, set_90, set_88, set_80, set_72: set
+Set_46, Dummy_Set_46, Dummy_Set_25, Set_25, ASGoal: set(agent)
+start, MGoal: message
+P_id, Reauth_key, Rv_c, Ack, Hs, NAI, Dummy_NAI, Dummy_Ack, Dummy_Reauth_key, Dummy_P_id, Dummy_Hs, dummy_nonce, Ek, Func_id: text
+bob_alice_na, k1, alice_bob_nb: protocol_id
+3, 1, 10, 6, State, T, 4, SID, Dummy_State, 2, dummy_nat, 0, SID2, SID1: nat
+SHA224, sha224: hash_func
+Ks, kab, kai, kib: symmetric_key
+A, B, A2Goal, A1Goal, a, b, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(sha224).
+ iknows(kai).
+ iknows(kib).
+ iknows(i).
+ state_peer(a,b,kab,sha224,0,dummy_nat,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_72,3).
+ state_authenticator(b,a,kab,sha224,1,dummy_nat,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_80,4).
+ state_peer(a,i,kai,sha224,0,dummy_nat,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_88,6).
+ state_authenticator(b,i,kib,sha224,1,dummy_nat,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_92,10)
+
+
+section rules:
+
+step step_0 (A,B,Ks,SHA224,T,Dummy_Hs,Ek,P_id,Reauth_key,Rv_c,NAI,Func_id,Ack,Dummy_Set_25,SID) :=
+ state_peer(A,B,Ks,SHA224,0,T,Dummy_Hs,Ek,P_id,Reauth_key,Rv_c,NAI,Func_id,Ack,Dummy_Set_25,SID).
+ iknows(start)
+ =>
+ state_peer(A,B,Ks,SHA224,2,T,apply(SHA224,pair(P_id,pair(Func_id,pair(Rv_c,NAI)))),Ek,P_id,Reauth_key,Rv_c,NAI,Func_id,Ack,Dummy_Set_25,SID).
+ iknows(scrypt(Ks,pair(P_id,pair(Reauth_key,pair(Rv_c,NAI))))).
+ iknows(apply(SHA224,pair(P_id,pair(Func_id,pair(Rv_c,NAI))))).
+ iknows(T).
+ secret(Ks,k1,Dummy_Set_25).
+ witness(A,B,bob_alice_na,Reauth_key).
+ contains(A,Dummy_Set_25).
+ contains(B,Dummy_Set_25)
+
+step step_1 (B,A,Ks,SHA224,T,Dummy_P_id,Dummy_Reauth_key,Rv_c,Dummy_Ack,Dummy_Hs,Dummy_NAI,Dummy_Set_46,SID,P_id,Reauth_key,Ack,NAI) :=
+ state_authenticator(B,A,Ks,SHA224,1,T,Dummy_P_id,Dummy_Reauth_key,Rv_c,Dummy_Ack,Dummy_Hs,Dummy_NAI,Dummy_Set_46,SID).
+ iknows(scrypt(Ks,pair(P_id,pair(Reauth_key,pair(Rv_c,NAI)))))
+=[exists Ack]=>
+ state_authenticator(B,A,Ks,SHA224,3,T,P_id,Reauth_key,Rv_c,Ack,Dummy_Hs,NAI,Dummy_Set_46,SID).
+ iknows(Ack).
+ secret(Ks,k1,Dummy_Set_46).
+ contains(A,Dummy_Set_46).
+ contains(B,Dummy_Set_46)
+
+
+section properties:
+
+property secrecy_of_k1 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,k1,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_bob_alice_na (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,bob_alice_na,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,bob_alice_na,MGoal))
+     /\ ((request(A1Goal,A2Goal,bob_alice_na,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,bob_alice_na,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_k1 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,k1,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_bob_alice_na (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,bob_alice_na,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,bob_alice_na,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_bob_alice_na (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,bob_alice_na,MGoal,SID1).
+ request(A1Goal,A2Goal,bob_alice_na,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

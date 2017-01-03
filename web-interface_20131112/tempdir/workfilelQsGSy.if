@@ -1,0 +1,136 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilelQsGSy
+
+section signature:
+
+state_auc: agent * agent * agent * symmetric_key * hash_func * hash_func * nat * text * message * set(agent) * nat -> fact
+state_vlr: agent * agent * agent * hash_func * hash_func * nat * text * apply(hash_func,pair(symmetric_key,text)) * apply(hash_func,pair(symmetric_key,text)) * message * message * nat -> fact
+state_ms: agent * agent * agent * symmetric_key * hash_func * hash_func * nat * text * message * apply(hash_func,pair(symmetric_key,text)) * set(agent) * nat -> fact
+
+
+section types:
+
+sec_k1, r1, sec_k2: protocol_id
+dummy_msg, MGoal, IMSI, start, MESSAGE: message
+a3, a8, A3, A8: hash_func
+k_ma, k_ia, k_mi, K: symmetric_key
+set_98, set_120, set_118, set_116, set_114, set_110: set
+Sa3, CK, Dummy_CK, Dummy_Sa3: apply(hash_func,pair(symmetric_key,text))
+ASGoal, Set_55, Set_21, Dummy_Set_55, Dummy_Set_21: set(agent)
+dummy_nonce, R, Dummy_R: text
+A2Goal, A1Goal, m, v, a, M, V, A, i: agent
+SID2, SID1, SID, State, 3, 2, 1, 13, 0, 11, 9, 8, 5, 4, Dummy_State: nat
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(m).
+ iknows(v).
+ iknows(a).
+ iknows(a3).
+ iknows(a8).
+ iknows(i).
+ state_ms(m,v,a,k_ma,a3,a8,0,dummy_nonce,dummy_msg,dummy_msg,set_98,3).
+ state_vlr(v,m,a,a3,a8,0,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,dummy_msg,4).
+ state_auc(a,m,v,k_ma,a3,a8,0,dummy_nonce,dummy_msg,set_110,5).
+ state_vlr(v,i,a,a3,a8,0,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,dummy_msg,8).
+ state_auc(a,i,v,k_ia,a3,a8,0,dummy_nonce,dummy_msg,set_116,9).
+ state_ms(m,i,a,k_mi,a3,a8,0,dummy_nonce,dummy_msg,dummy_msg,set_118,11).
+ state_auc(a,m,i,k_mi,a3,a8,0,dummy_nonce,dummy_msg,set_120,13)
+
+
+section rules:
+
+step step_0 (M,V,A,K,A3,A8,Dummy_R,MESSAGE,CK,Dummy_Set_21,SID,R) :=
+ state_ms(M,V,A,K,A3,A8,0,Dummy_R,MESSAGE,CK,Dummy_Set_21,SID).
+ iknows(R)
+ =>
+ state_ms(M,V,A,K,A3,A8,1,R,MESSAGE,CK,Dummy_Set_21,SID).
+ iknows(apply(A3,pair(K,R))).
+ secret(K,sec_k2,Dummy_Set_21).
+ contains(A,Dummy_Set_21).
+ contains(M,Dummy_Set_21)
+
+step step_1 (M,V,A,K,A3,A8,R,MESSAGE,CK,Set_21,SID) :=
+ state_ms(M,V,A,K,A3,A8,1,R,MESSAGE,CK,Set_21,SID).
+ iknows(MESSAGE)
+ =>
+ state_ms(M,V,A,K,A3,A8,2,R,MESSAGE,CK,Set_21,SID).
+ request(M,V,r1,R,SID)
+
+step step_2 (V,M,A,A3,A8,R,Sa3,CK,MESSAGE,IMSI,SID) :=
+ state_vlr(V,M,A,A3,A8,0,R,Sa3,CK,MESSAGE,IMSI,SID).
+ iknows(start)
+ =>
+ state_vlr(V,M,A,A3,A8,1,R,Sa3,CK,MESSAGE,IMSI,SID).
+ iknows(IMSI)
+
+step step_3 (V,M,A,A3,A8,Dummy_R,Dummy_Sa3,Dummy_CK,MESSAGE,IMSI,SID,R,Sa3,CK) :=
+ state_vlr(V,M,A,A3,A8,1,Dummy_R,Dummy_Sa3,Dummy_CK,MESSAGE,IMSI,SID).
+ iknows(pair(R,pair(Sa3,CK)))
+ =>
+ state_vlr(V,M,A,A3,A8,2,R,Sa3,CK,MESSAGE,IMSI,SID).
+ iknows(R).
+ witness(V,M,r1,R)
+
+step step_4 (V,M,A,A3,A8,R,Dummy_Sa3,CK,MESSAGE,IMSI,SID,Sa3) :=
+ state_vlr(V,M,A,A3,A8,2,R,Dummy_Sa3,CK,MESSAGE,IMSI,SID).
+ iknows(Sa3)
+ =>
+ state_vlr(V,M,A,A3,A8,3,R,Sa3,CK,MESSAGE,IMSI,SID).
+ iknows(MESSAGE)
+
+step step_5 (A,M,V,K,A3,A8,Dummy_R,IMSI,Dummy_Set_55,SID,R) :=
+ state_auc(A,M,V,K,A3,A8,0,Dummy_R,IMSI,Dummy_Set_55,SID).
+ iknows(IMSI)
+=[exists R]=>
+ state_auc(A,M,V,K,A3,A8,1,R,IMSI,Dummy_Set_55,SID).
+ secret(K,sec_k1,Dummy_Set_55).
+ iknows(pair(R,pair(apply(A3,pair(K,R)),apply(A8,pair(K,R))))).
+ contains(A,Dummy_Set_55).
+ contains(M,Dummy_Set_55)
+
+
+section properties:
+
+property secrecy_of_sec_k1 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_k1,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_sec_k2 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_k2,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_r1 (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,r1,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,r1,MGoal))
+     /\ ((request(A1Goal,A2Goal,r1,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,r1,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_sec_k1 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_k1,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_sec_k2 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_k2,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_r1 (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,r1,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,r1,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_r1 (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,r1,MGoal,SID1).
+ request(A1Goal,A2Goal,r1,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

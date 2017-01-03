@@ -1,0 +1,140 @@
+%% PROTOCOL: 
+%% PURPOSE:
+%% REFERENCE:
+%% \begin{itemize}
+%% \item 
+%% \end{itemize}
+%% MODELER:
+%% \begin{itemize}
+%% \item Paul Hankes Drielsma, ETH Z\"urich, September 2005
+%%\end{itemize}
+%% ALICE_BOB:
+%%
+%% LIMITATIONS:
+%%
+%%
+%% PROBLEMS: ?
+%% ATTACKS: None
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role alice (A, B, S: agent,             
+            Es: public_key,      
+            P: text, F: function,
+            SND, RCV: channel (dy)) 
+played_by A def=
+
+  local State : nat, 
+        KUa, KUb: public_key,
+        Kas, KsAS, Kab: symmetric_key,
+        Rs, Ra: text
+        
+
+  init State := 0
+
+  transition  
+
+    %% Steps 0 and 2 represent the Authentication
+    %% and Key Exchange phase  
+    0.  State  = 0 /\ RCV(start) =|> 
+	State':= 2 /\ KUa' := new()
+	           /\ Kas' := new()
+                   /\ SND(A.{Kas'}_Es.
+                          {KUa'.F(P)}_Kas')
+                   /\ secret(Kas',skas,{A,S})
+                   /\ witness(A,S,kas,Kas')
+                   /\ witness(A,S,kua,KUa')
+
+ 
+    2.  State  = 2 /\ RCV({Rs'}_KUa.{F(P)}_Kas) =|> 
+	State':= 4 /\ KsAS' := F(Kas.Rs')
+	           /\ SND(F(Rs')) 
+		   /\ request(A,S,rs,Rs') 
+                   
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role server(S: agent,             
+            Es: public_key,      
+            F: function,
+            Agents: (agent.text) set,
+            SND, RCV: channel (dy)) 
+played_by S def=
+
+
+  local State : nat,
+	Rs, P: text,
+        Kas: symmetric_key,
+        KUa: public_key,
+        A: agent
+ 
+  init State := 1
+
+  transition 
+
+    1.  State  = 1 /\ RCV(A'.{Kas'}_Es.
+                          {KUa'.F(P')}_Kas') 
+                   /\ in(A'.P', Agents) =|> 
+	State':= 3 /\ Rs' := new() /\ SND({Rs'}_KUa'.{F(P')}_Kas')
+		   /\ witness(S,A',rs,Rs')
+
+    3.  State  = 3 /\ RCV(F(Rs)) =|> 
+	State':= 5 /\ request(S,A,kas,Kas) /\
+                      request(S,A,kua,KUa)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(A, B, S: agent, 
+             Es: public_key,
+             P: text, F: function,
+             Agents: (agent.text) set) def=
+
+  local SA, RA, SB, RB: channel (dy)
+
+  composition 
+
+	alice(A,B,S,Es,P,F,SA,RA)
+     /\ server(S,Es,F,Agents,SB,RB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+    local Agents: (agent.text) set
+
+    const a, b, s      : agent,
+          f: function,
+	  es, ei   : public_key,
+	  pa, pi, pb    : text,
+	  rs, kas, kua, skas : protocol_id
+
+    init Agents := { a.pa, i.pi, b.pb }
+    intruder_knowledge = {i, f, a, b, s, es, ei, inv(ei), pi}
+
+    composition
+
+	session(a,b,s,es,pa,f,Agents)
+     % /\ session(b,a,s,es,pb,f,Agents)
+     /\ session(a,b,s,es,pa,f,Agents)
+     /\ session(i,b,s,es,pi,f,Agents)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of skas
+  authentication_on kua
+  authentication_on kas
+  authentication_on rs
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

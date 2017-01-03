@@ -1,0 +1,60 @@
+role alice (A, B : agent,
+Kab : symmetric_key,
+SND, RCV : channel(dy))
+played_by A
+def=
+local State : nat,
+Na,Nb : text
+init State := 0
+transition
+0. State = 0 /\ RCV(start) =|>
+State':= 2 /\ Na' := new()
+/\ SND({Na'}_Kab)
+2. State = 2 /\ RCV({Na'.Nb'}_Kab) =|>
+State':= 4 /\ SND({Nb'}_Kab)
+end role
+role bob (A, B : agent,
+Kab : symmetric_key,
+SND, RCV : channel(dy))
+played_by B
+def=
+local State : nat,
+Na,Nb : text
+init State := 1
+transition
+3. State = 1 /\ RCV({Na'}_Kab) =|>
+State':= 3 /\ Nb' := new()
+/\ SND({Na'.Nb'}_Kab)
+4. State = 3 /\ RCV({Nb'}_Kab)
+)end role
+role session(A, B : agent,
+Kab : symmetric_key)
+def=
+local SAB, RAB,
+SBA, RBA : channel (dy)
+composition
+alice(A, B, Kab, SAB, RAB)
+/\ bob (A, B, Kab, SBA, RBA)
+end role
+
+role environment()
+def=
+
+a, b : agent,
+kab, kai, kib : symmetric_key,
+
+intruder_knowledge = {a, b, kai, kib}
+composition
+session(a,b,kab)
+/\ session(a,i,kai)
+/\ session(i,b,kib)
+end role
+
+environment()
+
+
+ 
+
+
+
+        

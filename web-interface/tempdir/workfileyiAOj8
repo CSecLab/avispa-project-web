@@ -1,0 +1,159 @@
+role client(
+A,G,S				:agent,
+SND,RCV 			:channel(dy),
+H				:hash_func)
+
+
+played_by A 
+def=
+local State 			:nat,
+PWi,Di				:symmetric_key,
+T1,Ki,IDi,Gi,Ri,M1,M2,M3,M6,T3,T4: text,
+Kas	:text
+const sec_kas1,sec_a,sec_pw,sec_d1	:protocol_id
+
+init State:=0
+transition
+1.State=0/RCV(start)=|>
+State':=1
+ /T1':=new()
+ /Ki':=new()
+ /M1':=xor(IDi,H(xor(Gi,H(H(Ri,PWi),Di)),T1))
+ /M2':=xor(Ki,H(Di,T1))
+ /M3':=H(M1,M2,Ki,T1)
+ /SND(M1',M2',M3',T1')
+ /secret(Ki',sec_a,A)
+ /secret(PWi,sec_pw,A)
+
+2.State=1 /RCV(M6.H(M6,Di,T3).H(H(xor(Ki,xor(M6,H(Di,T3)))),M6,H(M6,Di,T3),T3,T4).T3.T4)=|>
+State':=2
+ /Kas':=H(xor(Ki,xor(M6,H(Di,T3))))
+ /secret(Kas',sec_kas1,{A,S})
+/secret(Di,sec_d1,{A,G})
+/equest(A,S,ns,Ra)
+ end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role sensor(
+S,G,A				:agent,
+SND,RCV 			:channel(dy),
+H				:hash_func,
+Xsg				:symmetric_key)
+
+
+played_by S
+
+def=
+local State 			:nat,
+Xj				:symmetric_key,
+M1,M2,M3,M4,M5,M6,M7,M8,M10,
+SIDj,T1,T2,T3,T4,Kj,ESIDj,Kas	:text,
+Constant				:message
+const sec_kas2,sec_sg1,sec_k	:protocol_id
+
+init State:=0
+
+transition
+1.State=0/RCV(M1,M2,M3,T1)=|>
+State':=1
+/Kj':=new()
+/T2':=new()
+/ESIDj':=xor(SIDj,H(Xsg,T2'))
+/M4':=xor(H(Xj,T1,T2'),Kj')
+/M5':=H(SIDj,M4',T1,T2',Kj')
+/SND(M1,M2,M3,T1,T2',M4',M5',ESIDj')
+/secret(Kj,sec_k,S)
+%/equest(S,A,na,Kj)
+2.State=2 /RCV(M6.M7.M8.h(M7,Xj,T3),T3)=|>
+State':=3
+/T4':=new()
+/Kas':=H(xor(xor(M7,H(Xj,T3)),Kj'))
+/M10':=H(Kas',M6,M8,T3,T4')
+/SND(M6,M8,M10',T3,T4')
+/secret(Kas',sec_kas2,{A,S})
+/secret(Xj,sec_sg1,{S,G})
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role gwn(
+S,G,A				:agent,
+SND,RCV 			:channel(dy),
+H				:hash_func)
+
+
+played_by G
+
+def=
+local State 			:nat,
+Di,Xj,Xsg				:symmetric_key,
+M1,M2,M4,M6,M7,M8,M9,T1,T2,T3,
+ESIDj,SIDj				:text,
+Constant				:message
+const sec_sg2,sec_d2			:protocol_id
+
+init State:=0
+
+transition
+1.State=0/RCV(M1,M2,H(M1,M2,xor(M2,H(Di,T1)),T1),T1,T2,M4,H(xor(ESIDj,H(Xsg,T2)),M4,T1,T2,xor(H(Xj,T1,T2),M4)),ESIDj)=|>
+State':=1
+/M6':=xor(xor(H(Xj,T1,T2),M4),H(Di,T3))
+/M7':=xor(xor(M2,H(Di,T1)),H(Xj,T3))
+/M8':=H(M6,Di,T3)
+/M9':=H(M7,Xj,T3)
+/SND(M6,M7,M8,M9,T3)
+/secret(Xj,sec_sg2,{S,G})
+/secret(Di,sec_d2,{A,G})
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(
+A,G,S			:agent,
+H			:hash_func)
+
+
+def=
+local 
+SendA,RecieveA :channel(dy),
+SendS,RecieveS :channel(dy),
+SendG,RecieveG :channel(dy)
+
+
+composition
+
+client(A,S,G,SendA,RecieveA,H)
+%/sensor(S,A,G,SendS,RecieveS,H)
+/gwn(G,S,A,SendG,RecieveG,H)
+%/sensor(A,G,S,SendS,RecieveS,H)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+const 
+na,ns,ng: protocol_id,
+a,s,g,i: agent,
+h: hash_func
+
+
+intruder_knowledge={a,g,s,h}
+
+composition
+
+session(a,s,i,h)
+/session(s,g,i,h)
+/session(g,s,i,h)
+/session(s,a,i,h)
+%/session(g,s,h)
+%/session(g,i,h)
+%/session(s,g,h1,h2,minus,union,pred,p)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+secrecy_of  sec_kas1,sec_kas2,sec_a,sec_sg1,sec_sg2,sec_pw,sec_d1,sec_d2,sec_k
+authentication_on ns
+%authentication_on ng
+%authentication_on ns
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()
+ 

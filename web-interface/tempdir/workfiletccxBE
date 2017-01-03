@@ -1,0 +1,268 @@
+%%\begin{verbatim}
+%% Redistribution exchange in GSAM
+%% 1. GM -> Q: HDR, SK{REJ,AUTH}
+%% 2. Q -> GM: HDR, SK{S_REQ, AUTH}
+%% 3. GM -> Q: HDR, SK{SPI_LIST,AUTH}
+%% 4. Q -> GM: HDR, SK{SAtf,KDtf,AUTH}
+%%   
+%%\end{verbatim}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+%%HLPSL:
+role group_member(GM,Q,GW,R: agent,
+	   M_id_1, M_id_2, M_id_3: nat, % Message ID in HDR
+	   Func: hash_func,
+           SK_u_a: symmetric_key,
+	   SK_u_e: symmetric_key,
+	   SK_g_a: public_key,
+	   SK_g_e: symmetric_key,
+	   SND_GM, RCV_GM: channel (dy))
+played_by GM
+def=
+
+  local SAts, KDts	: text,
+	SAtf,KDtf	: text, 
+	REJ		: text,
+	S_REQ		: text,
+	SPI_LIST	: text,
+	State		: nat
+
+  init  State := 1
+
+  transition
+
+  %% The IKE_SA_INIT exchange:
+  1. State = 1 	/\ RCV_GM(	{M_id_1.SAts'.KDts'.Func({M_id_1.SAts'.KDts'}_inv(SK_g_a))}_SK_g_e	) =|>
+     State':= 3 /\ request ( GM, Q, m_id_q_gm_1, M_id_1 )
+     		/\ REJ' := new()
+		/\ SND_GM(	{M_id_1.REJ'.Func(SK_u_a. M_id_1. REJ')}_SK_u_e	)
+		/\ witness ( GM, Q, m_id_gm_q_1, M_id_1 )
+		/\ secret  ( SK_u_e, sk_ue_gm_q, {GM,Q} )
+		/\ secret  ( SK_u_a, sk_ua_gm_q, {GM,Q} )
+
+  2. State = 3 	/\ RCV_GM(	{M_id_2.S_REQ'.Func({M_id_2.S_REQ'}_inv(SK_g_a))}_SK_g_e	) =|>
+     State':= 5 /\ request ( GM, Q, m_id_q_gm_2, M_id_2 )
+		/\ SPI_LIST' := new()
+		/\ SND_GM(	{M_id_2.SPI_LIST'.Func(SK_u_a.M_id_2.SPI_LIST')}_SK_u_e	)
+		/\ witness ( GM, Q, m_id_gm_q_2, M_id_2 ) 
+  
+  3. State = 5 	/\ RCV_GM(	{M_id_3.SAtf'.KDtf'.Func({M_id_3.SAtf'.KDtf'}_inv(SK_g_a))}_SK_g_e	) =|>
+     State':= 7	/\ request ( GM, Q, m_id_q_gm_3, M_id_3 )
+  
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role querier(Q,GM,GW,R:agent,
+	     M_id_1, M_id_2, M_id_3: nat, %Message ID in HDR
+	     Func: hash_func,
+	     SK_u_a: symmetric_key,
+	     SK_u_e: symmetric_key,
+	     SK_g_a: public_key,
+	     SK_g_e: symmetric_key,
+	     SND_Q, RCV_Q: channel (dy))
+played_by Q
+def=
+
+  local SAts, KDts	: text,
+	SAtf, KDtf	: text, 
+	REJ		: text,
+	S_REQ		: text,
+	SPI_LIST	: text,
+	State		: nat
+	
+  init  State := 0
+
+  transition
+  1. State = 0 	/\ RCV_Q( start ) =|>
+     State':=2 	/\ SAts' := new()
+               	/\ KDts' := new()
+              	/\ SND_Q(	{M_id_1.SAts'.KDts'.Func({M_id_1.SAts'.KDts'}_inv(SK_g_a))}_SK_g_e	)
+		/\ witness( Q, GM, m_id_q_gm_1, M_id_1 )
+		/\ secret ( KDts', kd_ts_q_gm, {Q,GM} )
+		/\ secret ( SAts', sa_ts_q_gm, {Q,GM} )
+		/\ secret ( SK_g_e, sk_ge_q_gm, {Q,GM} )
+
+  2. State = 2 	/\ RCV_Q( 	{M_id_1.REJ'.Func(SK_u_a. M_id_1.REJ')}_SK_u_e	) =|>
+     State':=4 	/\ S_REQ' := new()
+              	/\ SND_Q(	{M_id_2.S_REQ'.Func({M_id_2.S_REQ'}_inv(SK_g_a))}_SK_g_e	)
+		/\ request(Q,GM,m_id_gm_q_1,M_id_1)
+		/\ witness (Q, GM, m_id_q_gm_2, M_id_2)
+
+  3. State = 4 	/\ RCV_Q( 	{M_id_2. SPI_LIST'.Func(SK_u_a.M_id_2.SPI_LIST')}_SK_u_e ) =|>
+     State':= 6 /\ request(Q,GM,m_id_gm_q_2,M_id_2)
+		/\ SAtf' := new()
+		/\ KDtf' := new()
+	
+		/\ SND_Q(	{M_id_3.SAtf'.KDtf'.Func({M_id_3.SAtf'.KDtf'}_inv(SK_g_a))}_SK_g_e	)
+		/\ witness (Q,GM,m_id_q_gm_3,M_id_3)
+		/\ secret (KDtf',kd_tf_q_gm,{Q,GM})
+		/\ secret (SAtf',sa_tf_q_gm,{Q,GM})
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+role gateway(GW,R,Q,GM:agent,
+	     M_id_1, M_id_2, M_id_3: nat, %Message ID in HDR
+	     Func: hash_func,
+	     SK_u_a: symmetric_key,
+	     SK_u_e: symmetric_key,
+	     SK_g_a: public_key,
+	     SK_g_e: symmetric_key,
+	     SND_GW, RCV_GW: channel (dy))
+played_by GW
+def=
+
+  local SAts, KDts	: text,
+	SAtf, KDtf	: text, 
+	REJ		: text,
+	S_REQ		: text,
+	SPI_LIST	: text,
+	State		: nat
+	
+  init  State := 10
+
+  transition
+  1. State = 10 	/\ RCV_GW(	{M_id_1.SAts'.KDts'.Func({M_id_1.SAts'.KDts'}_inv(SK_g_a))}_SK_g_e	) =|>
+     State':=12 	/\ SND_GW(	{M_id_1.SAts'.KDts'.Func({M_id_1.SAts'.KDts'}_inv(SK_g_a))}_SK_g_e	)
+
+  2. State = 12 	/\ RCV_GW(	{M_id_1.REJ'.Func(SK_u_a. M_id_1. REJ')}_SK_u_e	) =|>
+     State':=14 	/\ SND_GW(	{M_id_1.REJ'.Func(SK_u_a. M_id_1. REJ')}_SK_u_e	)
+		
+
+  3. State = 14 	/\ RCV_GW(	{M_id_2.S_REQ'.Func({M_id_2.S_REQ'}_inv(SK_g_a))}_SK_g_e	) =|>
+     State':=16         /\ SND_GW(	{M_id_2.S_REQ'.Func({M_id_2.S_REQ'}_inv(SK_g_a))}_SK_g_e        )	 
+		
+  4. State = 16         /\ RCV_GW(	{M_id_2.SPI_LIST'.Func(SK_u_a.M_id_2.SPI_LIST')}_SK_u_e	) =|>	
+     State':=18         /\ SND_GW(	{M_id_2.SPI_LIST'.Func(SK_u_a.M_id_2.SPI_LIST')}_SK_u_e	)
+
+  5. State = 18         /\ RCV_GW(	{M_id_3.SAtf'.KDtf'.Func({M_id_3.SAtf'.KDtf'}_inv(SK_g_a))}_SK_g_e	) =|>	
+     State':=20         /\ SND_GW(	{M_id_3.SAtf'.KDtf'.Func({M_id_3.SAtf'.KDtf'}_inv(SK_g_a))}_SK_g_e	)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role relay(R,GW,Q,GM:agent,
+	     M_id_1, M_id_2, M_id_3: nat, %Message ID in HDR
+	     Func: hash_func,
+	     SK_u_a: symmetric_key,
+	     SK_u_e: symmetric_key,
+	     SK_g_a: public_key,
+	     SK_g_e: symmetric_key,
+	     SND_R, RCV_R: channel (dy))
+played_by R
+def=
+
+  local SAts, KDts	: text,
+	SAtf, KDtf	: text, 
+	REJ		: text,
+	S_REQ		: text,
+	SPI_LIST	: text,
+	State		: nat
+	
+  init  State := 11
+
+  transition
+  1. State = 11 	/\ RCV_R(	{M_id_1.SAts'.KDts'.Func({M_id_1.SAts'.KDts'}_inv(SK_g_a))}_SK_g_e	) =|>
+     State':=13 	/\ SND_R(	{M_id_1.SAts'.KDts'.Func({M_id_1.SAts'.KDts'}_inv(SK_g_a))}_SK_g_e	)
+
+  2. State = 13 	/\ RCV_R(	{M_id_1.REJ'.Func(SK_u_a. M_id_1. REJ')}_SK_u_e	) =|>
+     State':=15 	/\ SND_R(	{M_id_1.REJ'.Func(SK_u_a. M_id_1. REJ')}_SK_u_e	)
+		
+
+  3. State = 15 	/\ RCV_R(	{M_id_2.S_REQ'.Func({M_id_2.S_REQ'}_inv(SK_g_a))}_SK_g_e	) =|>
+     State':=17         /\ SND_R(	{M_id_2.S_REQ'.Func({M_id_2.S_REQ'}_inv(SK_g_a))}_SK_g_e	) 
+		
+  4. State = 17         /\ RCV_R(	{M_id_2.SPI_LIST'.Func(SK_u_a.M_id_2.SPI_LIST')}_SK_u_e	) =|>	
+     State':=19         /\ SND_R(	{M_id_2.SPI_LIST'.Func(SK_u_a.M_id_2.SPI_LIST')}_SK_u_e	)
+
+  5. State = 19         /\ RCV_R(	{M_id_3.SAtf'.KDtf'.Func({M_id_3.SAtf'.KDtf'}_inv(SK_g_a))}_SK_g_e	) =|>	
+     State':=21         /\ SND_R(	{M_id_3.SAtf'.KDtf'.Func({M_id_3.SAtf'.KDtf'}_inv(SK_g_a))}_SK_g_e	)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%	
+
+role session(GM, Q, GW, R: agent,
+	     M_id, M_id_2, M_id_3: nat,
+	     Func: hash_func,
+	     SK_g_a: public_key,
+	     SK_u_a,SK_u_e,SK_g_e: symmetric_key
+             )
+def=
+
+  local SND_GM, RCV_GM, SND_Q, RCV_Q, SND_GW, RCV_GW, SND_R, RCV_R: channel (dy)
+
+  composition
+
+	   group_member(GM,Q,GW,R,M_id,M_id_2,M_id_3,Func,
+		SK_u_a, SK_u_e, SK_g_a, SK_g_e, SND_GM,RCV_GM)
+        /\ gateway(GW,Q,GM,R,M_id,M_id_2,M_id_3,Func, 
+		SK_u_a, SK_u_e, SK_g_a, SK_g_e, SND_GW,RCV_GW)
+        /\ relay(R,GW,Q,GM,M_id,M_id_2,M_id_3,Func, 
+		SK_u_a, SK_u_e, SK_g_a, SK_g_e, SND_R,RCV_R)
+        /\ querier(Q,GM,GW,R,M_id,M_id_2,M_id_3,Func, 
+		SK_u_a, SK_u_e, SK_g_a, SK_g_e, SND_Q,RCV_Q)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role environment()
+def=
+ 
+  const m_id_q_gm_1,m_id_gm_q_1		: protocol_id, 	
+	m_id_gm_q_2,m_id_q_gm_2		: protocol_id,
+	m_id_q_gm_3      		: protocol_id,
+	sa_ts_q_gm,kd_ts_q_gm			: protocol_id,
+	sa_tf_q_gm,kd_tf_q_gm			: protocol_id,
+	sk_ua_gm_q,sk_ue_gm_q,sk_ge_q_gm: protocol_id,	
+        gm, q          			: agent,
+	m_id_1,m_id_2, m_id_3		: nat, %Message ID in HDR, m_id_3 = m_id_2+1 = m_id_1+2
+	func           			: hash_func,
+	sk_g_a				: public_key,
+        sk_u_a,sk_u_e,sk_g_e		: symmetric_key,
+        sk_u_a_i_gm, sk_u_e_i_gm, sk_g_e_i_gm	: symmetric_key,
+	sk_u_a_i_q,  sk_u_e_i_q,  sk_g_e_i_q	: symmetric_key
+	
+	
+
+  intruder_knowledge = {gm, q, gw, r, i, m_id_1,m_id_2,m_id_3, func, sk_g_a}
+
+  composition
+
+	session(gm,q,gw,r,m_id_1, m_id_2, m_id_3, func, sk_g_a,	sk_u_a,		
+		sk_u_e,		sk_g_e)
+      % /\ session(gm,i,gw,r,m_id_1, m_id_2, m_id_3, func, sk_g_a,	sk_u_a_i_gm,	
+	%	sk_u_e_i_gm,	sk_g_e_i_gm)
+  %   /\	session(i,q,gw,r,m_id_1, m_id_2, m_id_3, func, sk_g_a,	sk_u_a_i_q,	
+%		sk_u_e_i_q,	sk_g_e_i_q)
+     %/\	session(gm,q,i,r,m_id_1, m_id_2, m_id_3, func, sk_g_a,	sk_u_a_i_q,	
+%		sk_u_e_i_q,	sk_g_e_i_q)
+     /\	session(gm,q,gw,i,m_id_1, m_id_2, m_id_3, func, sk_g_a,	sk_u_a_i_q,	
+		sk_u_e_i_q,	sk_g_e_i_q)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+goal  	
+  %secrecy
+
+	secrecy_of sa_ts_q_gm,kd_ts_q_gm 		% secrecy of SAtf and KDtf
+  	secrecy_of sa_tf_q_gm,kd_tf_q_gm 		% secrecy of SAtf and KDtf
+  	secrecy_of sk_ua_gm_q,sk_ue_gm_q 	% secrecy of SK_u_a and SK_u_e
+  	secrecy_of sk_ge_q_gm			%secrecy of SK_g_e
+
+
+  %authentication
+	authentication_on m_id_q_gm_1	%GM authenticates Q on M_id_1
+	authentication_on m_id_q_gm_2 	%GM authenticates Q on M_id_2
+	authentication_on m_id_q_gm_3 	%GM authenticates Q on M_id_3
+	authentication_on m_id_gm_q_1 	%Q authenticates GM on M_id_1
+	authentication_on m_id_gm_q_2 	%Q authenticates GM on M_id_2
+ 
+ 
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+environment()

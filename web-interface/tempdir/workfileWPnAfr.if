@@ -1,0 +1,140 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileWPnAfr
+
+section signature:
+
+state_role_MR: agent * hash_func * agent * agent * symmetric_key * text * agent * symmetric_key * nat * text * text * text * message * message * nat -> fact
+state_role_MAG1: agent * hash_func * agent * agent * symmetric_key * text * agent * nat * symmetric_key * message * text * text * text * message * nat -> fact
+state_role_MAG2: agent * hash_func * agent * agent * agent * symmetric_key * text * nat * message * text * text * text * symmetric_key * nat -> fact
+state_role_LAAA: agent * hash_func * symmetric_key * agent * agent * agent * symmetric_key * symmetric_key * symmetric_key * nat * text * text * text * message * text * message * nat -> fact
+
+
+section types:
+
+auth_1: protocol_id
+KmrMAG1, K1, Dummy_KmrMAG1, Dummy_K1, dummy_msg, MGoal, start: message
+State, 6, SID, 5, 4, Dummy_State, 3, 2, SID2, SID1, 1, 0: nat
+NID, N2, IDMR, N1, Dummy_NID, Dummy_N2, Dummy_IDMR, Dummy_N1, dummy_nonce, idMR, nid: text
+KaaaMAG2, KmrMAG2, KaaaMAG1, K0, Dummy_K0, Dummy_KmrMAG2, dummy_sk, kaaaMAG2, kmrMAG2, kaaamag1, k0: symmetric_key
+H, const_1, hash_0: hash_func
+MR, MAG2, MAG1, LAAA, A2Goal, A1Goal, mag2, laaa, mag1, mr, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(mag1).
+ iknows(mr).
+ iknows(laaa).
+ iknows(i).
+ state_role_LAAA(laaa,const_1,k0,mag1,mag2,mr,kaaamag1,kmrMAG2,kaaaMAG2,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_nonce,dummy_msg,3).
+ state_role_MAG2(mag2,const_1,mag1,laaa,mr,kaaaMAG2,nid,0,dummy_msg,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,4).
+ state_role_MAG1(mag1,const_1,laaa,mr,kaaamag1,nid,mag2,0,dummy_sk,dummy_msg,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,5).
+ state_role_MR(mr,const_1,mag1,laaa,k0,idMR,mag2,kmrMAG2,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,6)
+
+
+section rules:
+
+step step_0 (LAAA,H,K0,MAG1,MAG2,MR,KaaaMAG1,KmrMAG2,KaaaMAG2,Dummy_N1,Dummy_IDMR,N2,Dummy_K1,NID,KmrMAG1,SID,N1,IDMR) :=
+ state_role_LAAA(LAAA,H,K0,MAG1,MAG2,MR,KaaaMAG1,KmrMAG2,KaaaMAG2,0,Dummy_N1,Dummy_IDMR,N2,Dummy_K1,NID,KmrMAG1,SID).
+ iknows(pair(MAG1,pair(LAAA,pair(apply(H,pair(N1,pair(K0,IDMR))),scrypt(K0,pair(N1,IDMR)))))).
+ request(LAAA,MR,auth_1,Dummy_N1,SID)
+ =>
+ state_role_LAAA(LAAA,H,K0,MAG1,MAG2,MR,KaaaMAG1,KmrMAG2,KaaaMAG2,1,N1,IDMR,N2,apply(H,pair(K0,pair(N1,pair(IDMR,NID)))),NID,KmrMAG1,SID).
+ iknows(pair(LAAA,pair(MAG1,scrypt(KaaaMAG1,KmrMAG1))))
+
+step step_1 (LAAA,H,K0,MAG1,MAG2,MR,KaaaMAG1,KmrMAG2,KaaaMAG2,N1,IDMR,Dummy_N2,K1,NID,KmrMAG1,SID,N2) :=
+ state_role_LAAA(LAAA,H,K0,MAG1,MAG2,MR,KaaaMAG1,KmrMAG2,KaaaMAG2,1,N1,IDMR,Dummy_N2,K1,NID,KmrMAG1,SID).
+ iknows(pair(MAG2,pair(LAAA,pair(apply(H,pair(N2,pair(K1,IDMR))),scrypt(K1,pair(N1,IDMR))))))
+ =>
+ state_role_LAAA(LAAA,H,K0,MAG1,MAG2,MR,KaaaMAG1,KmrMAG2,KaaaMAG2,2,N1,IDMR,N2,K1,NID,KmrMAG1,SID).
+ iknows(pair(LAAA,pair(MAG1,scrypt(KaaaMAG2,KmrMAG2))))
+
+step step_2 (MAG2,H,MAG1,LAAA,MR,KaaaMAG2,NID,Dummy_K1,Dummy_N1,Dummy_IDMR,Dummy_N2,KmrMAG2,SID,K1,N1,IDMR,N2) :=
+ state_role_MAG2(MAG2,H,MAG1,LAAA,MR,KaaaMAG2,NID,0,Dummy_K1,Dummy_N1,Dummy_IDMR,Dummy_N2,KmrMAG2,SID).
+ iknows(pair(MAG1,pair(MAG2,pair(apply(H,pair(N2,pair(K1,IDMR))),scrypt(K1,pair(N1,IDMR))))))
+ =>
+ state_role_MAG2(MAG2,H,MAG1,LAAA,MR,KaaaMAG2,NID,1,K1,N1,IDMR,N2,KmrMAG2,SID).
+ iknows(pair(MAG2,pair(LAAA,pair(apply(H,pair(N2,pair(K1,IDMR))),scrypt(K1,pair(N1,IDMR))))))
+
+step step_3 (MAG2,H,MAG1,LAAA,MR,KaaaMAG2,NID,K1,N1,IDMR,N2,Dummy_KmrMAG2,SID,KmrMAG2) :=
+ state_role_MAG2(MAG2,H,MAG1,LAAA,MR,KaaaMAG2,NID,1,K1,N1,IDMR,N2,Dummy_KmrMAG2,SID).
+ iknows(pair(LAAA,pair(MAG1,scrypt(KaaaMAG2,KmrMAG2))))
+ =>
+ state_role_MAG2(MAG2,H,MAG1,LAAA,MR,KaaaMAG2,NID,2,K1,N1,IDMR,N2,KmrMAG2,SID).
+ iknows(pair(MAG2,MAG1)).
+ iknows(pair(NID,pair(MAG2,pair(MR,apply(H,pair(KmrMAG2,NID))))))
+
+step step_4 (MAG1,H,LAAA,MR,KaaaMAG1,NID,MAG2,Dummy_K0,KmrMAG1,Dummy_N1,Dummy_IDMR,N2,K1,SID,K0,N1,IDMR) :=
+ state_role_MAG1(MAG1,H,LAAA,MR,KaaaMAG1,NID,MAG2,0,Dummy_K0,KmrMAG1,Dummy_N1,Dummy_IDMR,N2,K1,SID).
+ iknows(pair(MR,pair(MAG1,pair(apply(H,pair(N1,pair(K0,IDMR))),scrypt(K0,pair(N1,IDMR))))))
+ =>
+ state_role_MAG1(MAG1,H,LAAA,MR,KaaaMAG1,NID,MAG2,1,K0,KmrMAG1,N1,IDMR,N2,K1,SID).
+ iknows(pair(MAG1,pair(LAAA,pair(apply(H,pair(N1,pair(K0,IDMR))),scrypt(K0,pair(N1,IDMR))))))
+
+step step_5 (MAG1,H,LAAA,MR,KaaaMAG1,NID,MAG2,K0,Dummy_KmrMAG1,N1,IDMR,N2,K1,SID,KmrMAG1) :=
+ state_role_MAG1(MAG1,H,LAAA,MR,KaaaMAG1,NID,MAG2,1,K0,Dummy_KmrMAG1,N1,IDMR,N2,K1,SID).
+ iknows(pair(LAAA,pair(MAG1,scrypt(KaaaMAG1,KmrMAG1))))
+ =>
+ state_role_MAG1(MAG1,H,LAAA,MR,KaaaMAG1,NID,MAG2,2,K0,KmrMAG1,N1,IDMR,N2,K1,SID).
+ iknows(pair(NID,pair(MAG1,pair(MR,apply(H,pair(KmrMAG1,NID))))))
+
+step step_6 (MAG1,H,LAAA,MR,KaaaMAG1,NID,MAG2,K0,KmrMAG1,N1,IDMR,Dummy_N2,Dummy_K1,SID,N2,K1) :=
+ state_role_MAG1(MAG1,H,LAAA,MR,KaaaMAG1,NID,MAG2,2,K0,KmrMAG1,N1,IDMR,Dummy_N2,Dummy_K1,SID).
+ iknows(pair(MR,pair(MAG1,pair(apply(H,pair(N2,pair(K1,IDMR))),scrypt(K1,pair(N2,IDMR))))))
+ =>
+ state_role_MAG1(MAG1,H,LAAA,MR,KaaaMAG1,NID,MAG2,3,K0,KmrMAG1,N1,IDMR,N2,K1,SID).
+ iknows(pair(MAG1,pair(MAG2,pair(apply(H,pair(N2,pair(K1,IDMR))),scrypt(K1,pair(N1,IDMR))))))
+
+step step_7 (MAG1,H,LAAA,MR,KaaaMAG1,NID,MAG2,K0,KmrMAG1,N1,IDMR,N2,K1,SID) :=
+ state_role_MAG1(MAG1,H,LAAA,MR,KaaaMAG1,NID,MAG2,3,K0,KmrMAG1,N1,IDMR,N2,K1,SID).
+ iknows(pair(MAG2,MAG1))
+ =>
+ state_role_MAG1(MAG1,H,LAAA,MR,KaaaMAG1,NID,MAG2,4,K0,KmrMAG1,N1,IDMR,N2,K1,SID)
+
+step step_8 (MR,H,MAG1,LAAA,K0,IDMR,MAG2,KmrMAG2,Dummy_N1,N2,NID,Dummy_K1,Dummy_KmrMAG1,SID,N1) :=
+ state_role_MR(MR,H,MAG1,LAAA,K0,IDMR,MAG2,KmrMAG2,0,Dummy_N1,N2,NID,Dummy_K1,Dummy_KmrMAG1,SID).
+ iknows(start)
+=[exists N1]=>
+ state_role_MR(MR,H,MAG1,LAAA,K0,IDMR,MAG2,KmrMAG2,1,N1,N2,NID,apply(H,pair(K0,pair(N1,pair(IDMR,NID)))),apply(H,pair(K0,pair(N1,NID))),SID).
+ iknows(pair(MR,pair(MAG1,pair(apply(H,pair(N1,pair(K0,IDMR))),scrypt(K0,pair(N1,IDMR)))))).
+ witness(MR,LAAA,auth_1,Dummy_N1)
+
+step step_9 (MR,H,MAG1,LAAA,K0,IDMR,MAG2,KmrMAG2,N1,Dummy_N2,Dummy_NID,K1,Dummy_KmrMAG1,SID,N2,NID,KmrMAG1) :=
+ state_role_MR(MR,H,MAG1,LAAA,K0,IDMR,MAG2,KmrMAG2,1,N1,Dummy_N2,Dummy_NID,K1,Dummy_KmrMAG1,SID).
+ iknows(pair(NID,pair(MAG1,pair(MR,apply(H,pair(KmrMAG1,NID))))))
+=[exists N2]=>
+ state_role_MR(MR,H,MAG1,LAAA,K0,IDMR,MAG2,KmrMAG2,2,N1,N2,NID,K1,KmrMAG1,SID).
+ iknows(pair(MR,pair(MAG1,pair(apply(H,pair(N2,pair(K1,IDMR))),scrypt(K1,pair(N2,IDMR))))))
+
+step step_10 (MR,H,MAG1,LAAA,K0,IDMR,MAG2,KmrMAG2,N1,N2,NID,K1,KmrMAG1,SID) :=
+ state_role_MR(MR,H,MAG1,LAAA,K0,IDMR,MAG2,KmrMAG2,2,N1,N2,NID,K1,KmrMAG1,SID).
+ iknows(pair(NID,pair(MAG2,pair(MR,apply(H,pair(KmrMAG2,NID))))))
+ =>
+ state_role_MR(MR,H,MAG1,LAAA,K0,IDMR,MAG2,KmrMAG2,3,N1,N2,NID,K1,KmrMAG1,SID)
+
+
+section properties:
+
+property authentication_on_auth_1 (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,auth_1,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,auth_1,MGoal))
+     /\ ((request(A1Goal,A2Goal,auth_1,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,auth_1,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state authentication_on_auth_1 (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,auth_1,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,auth_1,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_auth_1 (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,auth_1,MGoal,SID1).
+ request(A1Goal,A2Goal,auth_1,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

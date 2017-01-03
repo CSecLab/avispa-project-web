@@ -1,0 +1,104 @@
+%% PROTOCOL: EKE: Encrypted Key Exchange
+%% VARIANT: basic
+%% PURPOSE: Encrypted key exchange
+%% REFERENCE:
+%% url{http://citeseer.ist.psu.edu/bellovin92encrypted.html}
+%% MODELER:
+%% egin{itemize}
+%%   item Haykal Tej, Siemens CT IC 3, 2003
+%%   item Sebastian M{"o}dersheim, ETH Z{"u}rich, December 2003
+%% end{itemize}
+%%
+%% ALICE_BOB:
+%% egin{verbatim}
+%% A -> B : {Ea}_Kab        |    Key exchange part
+%% B -> A : {{K}_Ea}_Kab    |
+%% A -> B : {Ca}_K          |
+%% B -> A : {Ca,Cb}_K       |    Challenge/Response
+%% A -> B : {Cb}_K          |    Authentication part
+%% end{verbatim}
+%%
+%% LIMITATIONS: None
+%%
+%% PROBLEMS: 3
+%%
+%% CLASSIFICATION: G2 G12
+%%
+%% ATTACKS: 
+%% egin{verbatim}
+%% i -> (a,3): start
+%% (a,3) -> i: {Ea(1)}_kab
+%% i -> (a,6): {Ea(1)}_kab
+%% (a,6) -> i: {{K(2)}_Ea(1)}_kab 
+%% i -> (a,3): {{K(2)}_Ea(1)}_kab
+%% (a,3) -> i: {Na(3)}_K(2) witness(a,b,na,Na(3))
+%% i -> (a,6): {Na(3)}_K(2)
+%% (a,6) -> i: {Na(3),Nb(4)}_K(2) witness(a,b,nb,Nb(4))
+%% i -> (a,3): {Na(3),Nb(4)}_K(2)
+%% (a,3) -> i: {Nb(4)}_K(2)  request(a,b,nb,Nb(4))
+%% end{verbatim}
+%%
+%% Parallel session attack, man-in-the-middle
+%% between A as initiator and A as responder, attacker
+%% masquerades as B, but no secret nonces are exposed.
+%%
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%HLPSL:
+
+role alice (Ui, S : agent,
+ SKus : symmetric_key,
+ %H is the ome&#8722;way hash function
+ % BH is the BioHashing function
+ H : hash_func,
+ BH : hash_func,
+ Snd, Rcv: channel(dy))
+played_by Ui
+def=
+ local State : nat,
+ R, PWi, N, Bi, RPWi, P : text,
+ Username, T1, T3, U, MK : text,
+ F : hash_func,
+ Xi, Yi : text
+ const alice_bob_t1, bob_alice_t3, alice_bob_r,
+ alice_bob_u, subs1, subs2, subs3 : protocol_id
+init State := 0
+transition
+% User registration phase
+ 1. State = 0 / Rcv(start) =|>
+ State’ := 1 / R’ := new()
+% Send the registration request message to server S
+ / RPWi’ := H(R’.PWi.Username)
+ / secret({PWi, Bi, R’}, subs2, Ui)
+ / secret({Username}, subs3, {Ui,S})
+ / Snd({Username.RPWi’}_SKus)
+% Ui has freshly generated the value r for S
+ / witness(Ui, S, alice_bob_r, R’)
+% Receive the registration acknowledgment message from S
+ 2. State = 1 / Rcv({xor(H(MK.Username.N),H(R’.PWi.Username)).
+ F(MK.P).H}_SKus) =|>
+% Login phase
+ State’ := 2
+% Send the REQUEST message < DIDi, D1, uP, T1 > to S
+ / U’ := new()
+ / T1’ := new()
+ / Snd(xor(Username, H(F(U’.MK.P))).H(Username.
+ H(MK.Username.N).F(U’.MK.P).F(U’.P).T1’).
+ F(U’.P).T1’)
+% Ui has freshly generated the value u for S
+ / witness(Ui, S, alice_bob_u, U’)
+% Ui has freshly generated the value T1 for S
+ / witness(Ui, S, alice_bob_t1, T1’)
+%Authentication phase
+% Receive the CHALLENGE message  from S
+3. State = 2 / Rcv(H(H(Username.H(MK.Username.N).
+ F(MK.U’.P).T1’.T3’).T1’.T3’.
+ F(MK.U’.P)).T3’) =|>
+% Ui’s acceptance of the value T3 generated for Ui by S
+State’ := 3 / request(S, Ui, bob_alice_t3, T3’)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+ 

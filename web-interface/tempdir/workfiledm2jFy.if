@@ -1,0 +1,157 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfiledm2jFy
+
+section signature:
+
+state_role_MN: agent * agent * agent * agent * public_key * public_key * text * nat * text * pair(text,pair(text,pair(text,pair(text,text)))) * text * text * text * text * text * text * text * message * nat -> fact
+state_role_VLRVS: agent * agent * agent * agent * public_key * public_key * nat * text * pair(text,pair(text,pair(text,pair(text,text)))) * text * text * message * text * text * text * nat -> fact
+state_role_RVS: agent * agent * agent * agent * public_key * public_key * nat * text * pair(text,pair(text,pair(text,pair(text,text)))) * nat -> fact
+state_role_CN: agent * agent * agent * agent * public_key * public_key * text * nat * text * pair(text,pair(text,pair(text,pair(text,text)))) * text * text * text * text * text * message * nat -> fact
+
+
+section types:
+
+auth_2, auth_1: protocol_id
+DH, Dummy_DH, start, dummy_msg, MGoal: message
+TOKEN, Dummy_TOKEN: pair(text,pair(text,pair(text,pair(text,text))))
+State, 4, 6, SID, 3, 5, 2, 1, 0, Dummy_State, SID2, SID1: nat
+idvlrvsipg, N2, N1, RAND, SPUZZLE, PUZZLE, NMN, G, Dummy_TL, Dummy_TIMESTAMP, Dummy_G, ipcn, Dummy_N2, Dummy_SPUZZLE, Dummy_N1, Dummy_PUZZLE, Dummy_NMN, i1, r1, i2, r2, ipl, dummy_nonce, iprvs, hitmn, hitcn, idvlrvs, ipg, g, TL, TIMESTAMP: text
+KCN, KMN, kcn, kmn: public_key
+RVS, VLRVS, MN, CN, A2Goal, A1Goal, rvs, mn, cn, vlrvs, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(mn).
+ iknows(vlrvs).
+ iknows(rvs).
+ iknows(cn).
+ iknows(kmn).
+ iknows(kcn).
+ iknows(i).
+ state_role_CN(cn,mn,vlrvs,rvs,kmn,kcn,g,0,dummy_nonce,pair(dummy_nonce,pair(dummy_nonce,pair(dummy_nonce,pair(dummy_nonce,dummy_nonce)))),dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,3).
+ state_role_RVS(rvs,mn,vlrvs,cn,kmn,kcn,0,dummy_nonce,pair(dummy_nonce,pair(dummy_nonce,pair(dummy_nonce,pair(dummy_nonce,dummy_nonce)))),4).
+ state_role_VLRVS(vlrvs,mn,rvs,cn,kmn,kcn,0,dummy_nonce,pair(dummy_nonce,pair(dummy_nonce,pair(dummy_nonce,pair(dummy_nonce,dummy_nonce)))),dummy_nonce,dummy_nonce,dummy_msg,dummy_nonce,dummy_nonce,dummy_nonce,5).
+ state_role_MN(mn,vlrvs,rvs,cn,kmn,kcn,g,0,dummy_nonce,pair(dummy_nonce,pair(dummy_nonce,pair(dummy_nonce,pair(dummy_nonce,dummy_nonce)))),dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,6)
+
+
+section rules:
+
+step step_0 (CN,MN,VLRVS,RVS,KMN,KCN,G,Dummy_NMN,Dummy_TOKEN,Dummy_PUZZLE,SPUZZLE,RAND,Dummy_N1,N2,DH,SID,NMN,TOKEN,PUZZLE,N1) :=
+ state_role_CN(CN,MN,VLRVS,RVS,KMN,KCN,G,0,Dummy_NMN,Dummy_TOKEN,Dummy_PUZZLE,SPUZZLE,RAND,Dummy_N1,N2,DH,SID).
+ iknows(apply(i1,pair(iprvs,pair(ipcn,pair(hitmn,pair(hitcn,crypt(inv(KMN),pair(NMN,TOKEN))))))))
+=[exists N1,PUZZLE]=>
+ state_role_CN(CN,MN,VLRVS,RVS,KMN,KCN,G,1,NMN,TOKEN,PUZZLE,SPUZZLE,RAND,N1,N2,DH,SID).
+ iknows(apply(r1,pair(ipg,pair(ipcn,pair(NMN,pair(hitmn,pair(hitcn,pair(crypt(KMN,PUZZLE),crypt(inv(KCN),exp(G,N1)))))))))).
+ witness(CN,MN,auth_1,PUZZLE)
+
+step step_1 (CN,MN,VLRVS,RVS,KMN,KCN,G,NMN,TOKEN,PUZZLE,Dummy_SPUZZLE,RAND,N1,Dummy_N2,Dummy_DH,SID,SPUZZLE,N2) :=
+ state_role_CN(CN,MN,VLRVS,RVS,KMN,KCN,G,1,NMN,TOKEN,PUZZLE,Dummy_SPUZZLE,RAND,N1,Dummy_N2,Dummy_DH,SID).
+ iknows(apply(i2,pair(ipg,pair(ipcn,crypt(inv(KMN),pair(crypt(KCN,SPUZZLE),exp(G,N2)))))))
+ =>
+ state_role_CN(CN,MN,VLRVS,RVS,KMN,KCN,G,2,NMN,TOKEN,PUZZLE,SPUZZLE,RAND,N1,N2,exp(exp(G,N2),N1),SID).
+ request(CN,MN,auth_2,SPUZZLE,SID).
+ iknows(apply(r2,crypt(inv(KCN),pair(ipcn,ipg))))
+
+step step_2 (RVS,MN,VLRVS,CN,KMN,KCN,Dummy_NMN,Dummy_TOKEN,SID,NMN,TOKEN) :=
+ state_role_RVS(RVS,MN,VLRVS,CN,KMN,KCN,0,Dummy_NMN,Dummy_TOKEN,SID).
+ iknows(apply(i1,pair(ipg,pair(iprvs,pair(hitmn,pair(hitcn,pair(ipl,crypt(inv(KMN),pair(NMN,TOKEN)))))))))
+ =>
+ state_role_RVS(RVS,MN,VLRVS,CN,KMN,KCN,1,NMN,TOKEN,SID).
+ iknows(apply(i1,pair(iprvs,pair(ipcn,pair(hitmn,pair(hitcn,crypt(inv(KMN),pair(NMN,TOKEN))))))))
+
+step step_3 (VLRVS,MN,RVS,CN,KMN,KCN,Dummy_NMN,Dummy_TOKEN,PUZZLE,SPUZZLE,DH,G,N1,N2,SID,NMN,TOKEN) :=
+ state_role_VLRVS(VLRVS,MN,RVS,CN,KMN,KCN,0,Dummy_NMN,Dummy_TOKEN,PUZZLE,SPUZZLE,DH,G,N1,N2,SID).
+ iknows(apply(i1,pair(ipl,pair(ipg,pair(iprvs,pair(hitmn,pair(hitcn,crypt(inv(KMN),pair(NMN,TOKEN)))))))))
+ =>
+ state_role_VLRVS(VLRVS,MN,RVS,CN,KMN,KCN,1,NMN,TOKEN,PUZZLE,SPUZZLE,DH,G,N1,N2,SID).
+ iknows(apply(i1,pair(ipg,pair(iprvs,pair(hitmn,pair(hitcn,pair(ipl,crypt(inv(KMN),pair(NMN,TOKEN)))))))))
+
+step step_4 (VLRVS,MN,RVS,CN,KMN,KCN,Dummy_NMN,TOKEN,Dummy_PUZZLE,SPUZZLE,DH,Dummy_G,Dummy_N1,N2,SID,NMN,PUZZLE,G,N1) :=
+ state_role_VLRVS(VLRVS,MN,RVS,CN,KMN,KCN,1,Dummy_NMN,TOKEN,Dummy_PUZZLE,SPUZZLE,DH,Dummy_G,Dummy_N1,N2,SID).
+ iknows(apply(r1,pair(ipg,pair(ipcn,pair(NMN,pair(hitmn,pair(hitcn,pair(crypt(KMN,PUZZLE),crypt(inv(KCN),exp(G,N1))))))))))
+ =>
+ state_role_VLRVS(VLRVS,MN,RVS,CN,KMN,KCN,2,NMN,TOKEN,PUZZLE,SPUZZLE,DH,G,N1,N2,SID).
+ iknows(apply(r1,pair(ipl,pair(ipcn,pair(NMN,pair(hitmn,pair(hitcn,pair(crypt(KMN,PUZZLE),crypt(inv(KCN),exp(G,N1))))))))))
+
+step step_5 (VLRVS,MN,RVS,CN,KMN,KCN,NMN,TOKEN,PUZZLE,Dummy_SPUZZLE,DH,Dummy_G,N1,Dummy_N2,SID,SPUZZLE,G,N2) :=
+ state_role_VLRVS(VLRVS,MN,RVS,CN,KMN,KCN,2,NMN,TOKEN,PUZZLE,Dummy_SPUZZLE,DH,Dummy_G,N1,Dummy_N2,SID).
+ iknows(apply(i2,pair(ipl,pair(ipcn,crypt(inv(KMN),pair(crypt(KCN,SPUZZLE),exp(G,N2)))))))
+ =>
+ state_role_VLRVS(VLRVS,MN,RVS,CN,KMN,KCN,3,NMN,TOKEN,PUZZLE,SPUZZLE,DH,G,N1,N2,SID).
+ iknows(apply(i2,pair(ipg,pair(ipcn,crypt(inv(KMN),pair(crypt(KCN,SPUZZLE),exp(G,N2)))))))
+
+step step_6 (VLRVS,MN,RVS,CN,KMN,KCN,NMN,TOKEN,PUZZLE,SPUZZLE,DH,G,N1,N2,SID) :=
+ state_role_VLRVS(VLRVS,MN,RVS,CN,KMN,KCN,3,NMN,TOKEN,PUZZLE,SPUZZLE,DH,G,N1,N2,SID).
+ iknows(apply(r2,crypt(inv(KCN),pair(ipcn,ipg))))
+ =>
+ state_role_VLRVS(VLRVS,MN,RVS,CN,KMN,KCN,4,NMN,TOKEN,PUZZLE,SPUZZLE,DH,G,N1,N2,SID).
+ iknows(apply(r2,crypt(inv(KCN),pair(ipcn,ipg))))
+
+step step_7 (MN,VLRVS,RVS,CN,KMN,KCN,G,Dummy_NMN,Dummy_TOKEN,PUZZLE,SPUZZLE,Dummy_TIMESTAMP,Dummy_TL,RAND,N1,N2,DH,SID,NMN,TIMESTAMP,TL) :=
+ state_role_MN(MN,VLRVS,RVS,CN,KMN,KCN,G,0,Dummy_NMN,Dummy_TOKEN,PUZZLE,SPUZZLE,Dummy_TIMESTAMP,Dummy_TL,RAND,N1,N2,DH,SID).
+ iknows(start)
+=[exists NMN,TL,TIMESTAMP]=>
+ state_role_MN(MN,VLRVS,RVS,CN,KMN,KCN,G,1,NMN,pair(idvlrvs,pair(hitmn,pair(ipg,pair(TIMESTAMP,TL)))),PUZZLE,SPUZZLE,TIMESTAMP,TL,RAND,N1,N2,DH,SID).
+ iknows(apply(i1,pair(ipl,pair(ipg,pair(iprvs,pair(hitmn,pair(hitcn,crypt(inv(KMN),pair(NMN,pair(idvlrvs,pair(hitmn,pair(ipg,pair(TIMESTAMP,TL)))))))))))))
+
+step step_8 (MN,VLRVS,RVS,CN,KMN,KCN,G,Dummy_NMN,TOKEN,Dummy_PUZZLE,Dummy_SPUZZLE,TIMESTAMP,TL,RAND,Dummy_N1,Dummy_N2,Dummy_DH,SID,NMN,PUZZLE,SPUZZLE,N1,N2) :=
+ state_role_MN(MN,VLRVS,RVS,CN,KMN,KCN,G,1,Dummy_NMN,TOKEN,Dummy_PUZZLE,Dummy_SPUZZLE,TIMESTAMP,TL,RAND,Dummy_N1,Dummy_N2,Dummy_DH,SID).
+ iknows(apply(r1,pair(ipl,pair(ipcn,pair(NMN,pair(hitmn,pair(hitcn,pair(crypt(KMN,PUZZLE),crypt(inv(KCN),exp(G,N1))))))))))
+=[exists N2,SPUZZLE]=>
+ state_role_MN(MN,VLRVS,RVS,CN,KMN,KCN,G,2,NMN,TOKEN,PUZZLE,SPUZZLE,TIMESTAMP,TL,RAND,N1,N2,exp(exp(G,N1),N2),SID).
+ request(MN,CN,auth_1,PUZZLE,SID).
+ iknows(apply(i2,pair(ipl,pair(ipcn,crypt(inv(KMN),pair(crypt(KCN,SPUZZLE),exp(G,N2))))))).
+ witness(MN,CN,auth_2,SPUZZLE)
+
+step step_9 (MN,VLRVS,RVS,CN,KMN,KCN,G,NMN,TOKEN,PUZZLE,SPUZZLE,TIMESTAMP,TL,RAND,N1,N2,DH,SID) :=
+ state_role_MN(MN,VLRVS,RVS,CN,KMN,KCN,G,2,NMN,TOKEN,PUZZLE,SPUZZLE,TIMESTAMP,TL,RAND,N1,N2,DH,SID).
+ iknows(apply(r2,crypt(inv(KCN),pair(ipcn,ipg))))
+ =>
+ state_role_MN(MN,VLRVS,RVS,CN,KMN,KCN,G,3,NMN,TOKEN,PUZZLE,SPUZZLE,TIMESTAMP,TL,RAND,N1,N2,DH,SID)
+
+
+section properties:
+
+property authentication_on_auth_1 (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,auth_1,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,auth_1,MGoal))
+     /\ ((request(A1Goal,A2Goal,auth_1,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,auth_1,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_auth_2 (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,auth_2,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,auth_2,MGoal))
+     /\ ((request(A1Goal,A2Goal,auth_2,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,auth_2,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state authentication_on_auth_1 (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,auth_1,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,auth_1,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_auth_1 (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,auth_1,MGoal,SID1).
+ request(A1Goal,A2Goal,auth_1,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_auth_2 (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,auth_2,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,auth_2,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_auth_2 (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,auth_2,MGoal,SID1).
+ request(A1Goal,A2Goal,auth_2,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

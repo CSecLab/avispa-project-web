@@ -1,0 +1,138 @@
+%% PROTOCOL: 4-way handshake
+%% PURPOSE: Encrypted key exchange
+%% MP_MA:
+%% B -> A : (AA,ANonce,sn,msg1)    
+%% A -> B : (SPA,SNonce,sn,msg2,MIC{SNonce,sn,msg2,PTK})
+%% B -> A : (AA,ANonce,sn+1,msg3,MIC{ANonce,sn+1,msg3,PTK})
+%% A -> B : (SPA,sn+1,msg4,MIC{sn+1,msg4})
+%%
+%%
+%% 
+%%HLPSL:
+
+role bob(A,B: agent,
+		 PMK: symmetric_key,
+		 AA: text,
+         Hash: hash_func,
+         Snd,Rcv: channel(dy))
+played_by B
+def=
+
+  local State   : nat,
+        AA,SPA,sn,msg1,msg2,msg3,msg4,ANonce,SNonce,PTK : text,
+		MIC : message,
+
+  init  State := 0
+
+  transition
+
+   1. State = 0
+      /\ Rcv(start)
+      =|> 
+      State' := 2
+	  /\ ANonce:=new()
+      /\ Snd(AA,ANonce,sn,msg1) 
+
+   2. State = 2
+      /\ Rcv(SPA,SNonce,sn,msg2,MIC)
+	  /\ PTK:=Hash(AA.SPA.ANonce.SNonce.PMK)
+	  /\ MIC':=Hash(SNonce.sn.msg2.PTK)
+	  /\ MIC' = MIC
+      =|> 
+      State' := 4
+	  /\ MIC':=Hash(ANonce,sn+1,msg3,PTK)
+      /\ Snd(AA,ANonce,sn+1,msg3,MIC') 
+
+   3. State = 4
+      /\ Rcv(SPA,sn+1,msg4,MIC} 
+      /\ MIC':=Hash(sn+1,msg4)
+      /\ MIC' = MIC
+	  =|> 
+      State' := 6
+	  /\ request(B,A)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role alice(A,B: agent,
+		 PMK: symmetric_key,
+		 SPA: text,
+         Hash: hash_func,
+         Snd,Rcv: channel(dy))
+played_by A
+def=
+
+  local State   : nat,
+        sn,msg1,msg2,msg3,msg4,ANonce,SNonce,PTK : text,
+		MIC : message,
+
+  init  State := 1
+
+  transition
+
+   1. State = 1
+      /\ Rcv(AA,ANonce',sn,msg1)
+	  /\ SNonce:=new()
+	  /\ PTK:=Hash(AA.SPA.ANonce.SNonce.PMK)
+	  /\ MIC:=Hash(SNonce.sn.msg2.PTK)
+      =|> 
+      State' := 3
+      /\ Snd(SPA,SNonce,sn,msg2,MIC) 
+
+   2. State = 3
+      /\ Rcv(AA,ANonce,sn+1,msg3,MIC)
+	  /\ MIC':=Hash(ANonce,sn+1,msg3,PTK)
+	  /\ MIC' = MIC
+      =|> 
+      State' := 5
+	  /\ MIC':=Hash(sn+1,msg4)
+      /\ Snd(SPA,sn+1,msg4,MIC') 
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(A,B: agent,
+		 PMK: symmetric_key,
+		 SPA: text,
+		 AA: text,
+         Hash: hash_func)
+def=
+
+  local SA, RA, SB, RB: channel (dy)
+
+  composition
+     MA(B,A,PMK,AA,Hash,SB,RB)
+  /\ MP(A,B,PMK,SPA,Hash,SA,RA)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role environment()
+def=
+
+  const a, b   : agent,
+
+  intruder_knowledge={a,b}
+
+  composition
+      session(a,b)
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+ secrecy_of PTK,PMK
+
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

@@ -1,0 +1,168 @@
+%client
+role client (C, As, S			:	agent,
+			 Snd_CAs, Rcv_CAs	:	channel(dy),
+			 Snd_CS, Rcv_CS		:	channel(dy),
+			 Succ 				: 	hash_func,
+			 Input				:	symmetric_key) played_by C def=
+
+
+
+
+	local	St			:nat,
+			Nonce		:text,
+			Nonce1		:text,
+			Nonce2		:text,
+			PK_c		:message,
+			SK_c		:message,
+			PK_as		:message,
+			PK_s		:message,
+			Timestamp	:text,
+			Life		:text,
+			Pk_s		:public_key,
+			Pk_as		:public_key
+			
+init State := 0
+transition
+
+0.	State=		0 /\ Rcv(start)=|>
+	State':=	2 /\ Nonce':=new()
+				  /\ Snd_CAs(C.{C.AS.Nonce'}_Input)
+				  
+			  
+2.	State=		2 /\ Rcv_CAs(As.{As.C.Nonce.Pk_s.SK_c.PK_as}_Input)=|>
+	State':=	4 /\ Nonce1':=new()
+				  /\ Snd_CAs(C.S.Nonce1')
+				 
+
+4.	State=		4 /\ Rcv_CAs(As.{As.C.Nonce1.PK_s}_inv(PK_as))=|>
+	State':=	6 /\ Nonce2':=new()
+				  /\ Timestamp':=new()
+				  /\ Life':=new()
+				  /\ Snd_CS(C.S.{{C.Timestamp'.Life'.Nonce2'}_PK_s}_inv(PK_as))
+				  
+				  
+6.	State=		6 /\ Rcv_CS(S.C.{S.Succ(Nonce2)}_PK_c)
+				  /\ secret(Nonce2',nonce2,{C,S})
+				  /\ secret(Nonce',nonce,{C,AS})
+				  /\ request(C,S,client_server,nonce2)
+				  
+end role
+
+%================================================================================
+%Authentication_Server
+role authenticationerver(	C,As,S			:	agent,
+							Input			:	symmetric_key,
+							PK_c			:	public_key,
+							PK_as			:	public_key,
+							PK_s			:	public_key,
+							Snd_AsC,Rcv_AsC	:	channel(dy),
+							Snd_AsS,Rcv_AsS	:	channel(dy)) played_by As def=
+
+	local	St			:	nat,
+			Nonce		:	text,
+			Nonce1		:	text,
+			Nonce3		:	text,
+			Life		:	text,
+			Timestamp	:	text
+			
+init State:=1
+transition
+
+1.	State=		1 /\ Rcv_AsC(C.{C.As.Nonce'}_Input')=|>
+	State':=	3 /\ Snd_AsC(As.{C.As.Nonce'.PK_c.inv(PK_c).PK_as}_Input)
+
+3.	State=		3 /\ Rcv_AsC(C.S.Nonce1')=|>
+	State':=	5 /\ Snd_AsC(As.{As.C.Nonce1'.PK_s}_inv(PK_as))
+	
+5.	State=		5 /\ Rcv_AsS(S.C.Nonce3')=|>
+				8 /\ Snd_AsS(As.{As.S.Nonce3'.PK_c}_inv(PK_as))
+				  /\ secret(inv(PK_c),private_key,{As,C})
+	
+end role
+
+%================================================================================
+%server
+role server(	C,As,S			:	agent,
+				PK_as			:	public_key,
+				PK_s			:	public_key,
+				Succ 			: 	hash_func,
+				Snd_SAs,Rcv_SAs	:	channel(dy),
+				Snd_SC,Rcv_SC	:	channel(dy)) played_by S def=
+				
+	local	St			:	nat,
+			Nonce2		:	text,
+			Timestamp	:	text,
+			Life		:	text,
+			Nonce3		:	text,
+			PK_c		:	public_key
+			
+init State:=7
+transition
+
+7.	State=		7 /\ Rcv_SC(C.S.{C.Timestamp'.Life'.{Nonce2'}_PK_s}_inv(PK_as))=|>
+	State':=	9 /\ Nonce3':=new() 
+				  /\ Snd_SAs(S.C.Nonce3')
+
+9.	State=		9 /\ Rcv_SAs(As.{As.S.Nonce3'.PK_c}_inv(PK_as))=|>
+	State':=	11/\ Snd_SC(S.C.{S.Succ(Nonce2')}_PK_c)
+				  /\ witness(S,C,client_server,Nonce2')
+
+end role				
+%================================================================================
+%session
+role session(	C,As,S	:	agent,
+				Input	:	symmetric_key,
+				Succ	:	hash_func,
+				PK_s	:	public_key,
+				PK_as	:	public_key,
+				PK_c	:	public_key)
+def=
+
+	local
+				SAsC,RAsC,
+				SAsS,RAsS,
+				SSC,RSC,
+				SCAs,RCAs,
+				SSAS,RSAs,
+				SCS,RCS		:	channel(dy)
+				
+	composition
+				client(C,As,S,SCAs,RCAs,SCS,RCS,Succ,Input)
+			/\	authenticationserver(C,As,S,Input,PK_c,PK_as,PK_s,SAsC,RAsC,SAsS,RAsC)
+			/\	server(C,As,S,PK_as,PK_s,Succ,SSAs,RSAs,SSC,RSC)
+			
+end role
+%================================================================================
+%enviroment
+role enviroment()
+def=
+
+					const	C,As,S			:	agent,
+							Input			:	symmetric_key,
+							Succ			:	hash_func,
+							PK_s			:	public_key,
+							PK_as			:	public_key,
+							PK_c			:	public_key,
+							PK_i			:	public_key,
+							client_server	:	protocol_id,
+							nonce			:	protocol_id,
+							nonce2			:	protocol_id,
+							private_key		:	protocol,id
+							
+
+					intruder_knowledge = {C,As,S,Succ}
+					composition
+									session(i,As,S,Input,Succ,PK_s,PK_as,PK_i)
+								/\	session(C,i,S,Input,Succ,PK_s,PK_i,PK_c)
+								/\	session(C,As,i,Input,Succ,PK_i,PK_as,PK_c)
+end role
+%================================================================================
+goal
+			secrecy_of nonce
+			secrecy_of nonce2
+			secrecy_of private_key
+			authentication_on client_server
+			
+end goal
+%================================================================================
+enviroment()

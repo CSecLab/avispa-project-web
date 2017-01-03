@@ -1,0 +1,237 @@
+%% PROTOCOL: TEPA-SIP: Tri-element Peer Authentication with SIP
+%% MODELER: Shi-Chao Lv, lvshichao@iie.ac.cn, May 2014
+%% ALICE_BOB:
+%%\begin{verbatim}
+%% SIPIPC     : SIP IPC
+%% SIPNVR     : SIP NVR
+%% SIPClient  : SIP NVR Client
+%% SIPServer  : SIP Server
+%% AS         : Authentication Server
+%% sip401     : sip(http)unauthorized response
+%% sip200     : sip(http)authorized response
+%%\end{verbatim} 
+
+%% CLASSIFICATION: G1, G3, G12
+
+%% Authentication Steps:
+%%\begin{verbatim}
+%% 1. SIPNVR(SN)   -> SIPServer(SS) :    sipregister.SN	
+%% 2. SIPServer(SS)-> SIPNVR(SN)    :	   sip401.AuthActive                           AuthActive---Nss.AuthID.{SS.Kss}_(inv(Kas)).{sip401.Nss.AuthID.{SS.Kss}_(inv(Kas))}_(inv(Kss)) 
+%% 3. SIPNVR(SN)   -> SIPServer(SS) :    sipregister.AccessAuthRequest               AccessAuthRequest---AuthID.Nsn.Nss.Keydata_sn.{SN.Ksn}_(inv(Kas)).{AuthID.Nsn.Nss.Keydata_sn.{SN.Ksn}_(inv(Kas))}_(inv(Ksn))
+%% 4. SIPServer(SS)-> AS            :    AccessRequest.CertAuthRequest               CertAuthRequest---Nsn.Nss.{SN.Ksn}_(inv(Kas)).{SS.Kss}_(inv(Kas)).{Nsn.Nss.{SN.Ksn}_(inv(Kas)).{SS.Kss}_(inv(Kas))}_(inv(Kss))
+%% 5. AS           -> SIPServer(SS) :    AccessAccept.CertAuthResponse               CertAuthResponse---CertVerRes.{CertVerRes}_(inv(Kas)).{CertVerRes.{CertVerRes}_(inv(Kas))}_(inv(Kas))
+%% 6. SIPServer(SS)-> SIPNVR(SN)    :    sip200.AccessAuthResponse                   AccessAuthResponse---Nsn.Keydata_sn.Keydata_ss.AccessRes.CertVerRes.{CertVerRes}_inv((Kas)).{Nsn.Keydata_sn.Keydata_ss.AccessRes.CertVerRes.{CertVerRes}_(inv(Kas))}_(inv(Kss))
+%% 7. SIPServer(SS)-> SIPNVR(SN)    :    sipmessage.UnicastKeyNegotiationRequest     UnicastKeyNegotiationRequest---MKID.Nss.{MKID.Nss}_inv(Ksn)
+%% 8. SIPNVR(SN)   -> SIPServer(SS) :    sipmessage.UnicastKeyNegotiationResponse    UnicastKeyNegotiationResponse---MKID.Nsn.Nss.HMAC-SHA256(IK,(MKID.Nsn.Nss))
+%% 9. SIPServer    -> SIPNVR(SN)    :    sipmessage.UnicastKeyNegotiationConfirm     UnicastKeyNegotiationConfirm---MKID.Nsn.KeyNegRes.HMAC-SHA256(IK,(MKID.Nsn.KeyNegRes))
+%% 10.SIPNVR(SN)   -> SIPServer(SS) :    sip200
+%%\end{verbatim}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%HLPSL:
+
+role sip_nvr(SS, SN                                 : agent,
+						Ksn, Kas                                : public_key,
+						F1,F2,F5                                : function,
+						
+						Password                                : text,
+						CH_SIPServer_SIPNVR, CH_SIPNVR_SIPServer: channel(dy))
+played_by SN def=
+
+local State                 : nat,
+      Kss                   : public_key,
+			Nss, Nsn              : text
+			Keydata_sn, Keydata_ss: text
+      AccessRes, CertVerRes : text
+
+init State := 1
+
+transition
+
+	1. State   = 1 /\ CH_SIPServer_SIPNVR(start) 
+	   =|>
+  	 State' := 2 
+  	             /\ CH_SIPNVR_SIPServer(sipregister.SN)
+  2. State   = 2 /\ CH_SIPServer_SIPNVR(sip401.
+                                        Nss'.
+                                        AuthID'.
+                                        {SS.Kss'}_(inv(Kas)).
+                                        {sip401.Nss'.AuthID'.{SS.Kss'}_(inv(Kas))}_(inv(Kss)))      %AuthActive
+    
+     =|>  
+     State' := 3 
+                 /\ AuthID'      := SHA256(Nss'.Password)
+                 /\ Nsn'         := new()
+                 /\ Keydata_sn'  := new()
+                 /\ CH_SIPNVR_SIPServer(AuthID'.
+                                        Nsn'.
+                                        Nss.
+                                        Keydata_sn'.
+                                        {SN.Ksn'}_(inv(Kas)).
+                                        {AuthID'.Nsn'.Nss.Keydata_sn'.{SN.Ksn}_(inv(Kas))}_(inv(Ksn))) % AccessAuthRequest
+                 /\ witness(SN,SS,ss_sn_Nsn,Nsn')
+  3. State   = 3 /\ CH_SIPServer_SIPNVR(Nsn.
+                                        Keydata_sn.
+                                        Keydata_ss'.
+                                        AccessRes'.
+                                        CertVerRes'.
+                                        {CertVerRes}_inv((Kas)).
+                                        {Nsn.Keydata_sn.Keydata_ss'.AccessRes'.CertVerRes'.{CertVerRes}_(inv(Kas)).}_(inv(Kss)))    % AccessAuthResponse    
+			=|>
+			State' := 4 
+                 /\ request(SN,SS,sn_ss_Nss,Nss')
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role sip_server(
+							SS, SN, AS                                                                : agent,
+						  Kss, Kas                                                                  : public_key,
+							SHA256, HMAC_SHA256                                                       : function,
+							Password                                                                  : text,
+							CH_SIPNVR_SIPServer, CH_SIPServer_SIPNVR, CH_AS_SIPServer, CH_SIPServer_AS: channel(dy))
+played_by SS def=
+
+local State                 : nat,
+      Ksn                   : public_key,
+			Nss, Nsn              : text
+			Keydata_sn, Keydata_ss: text
+      AccessRes, CertVerRes : text
+
+
+init State := 1
+
+transition
+
+	1. State   = 1 /\ CH_SIPNVR_SIPServer(sipregister.SN') 
+	   =|>
+	   State' := 2 
+  	             /\ Nss'         := new() 
+  	             /\ AuthID'      := SHA256(Nss'.Password)  
+  	             /\ CH_SIPServer_SIPNVR(sip401.
+                                        Nss'.
+                                        AuthID'.
+                                        {SS.Kss}_(inv(Kas)).
+                                        {sip401.Nss'.AuthID'.{SS.Kss}_(inv(Kas))}_(inv(Kss)))           % AuthActive
+  2. State   = 2 /\ CH_SIPNVR_SIPServer(AuthID'.
+                                        Nsn'.
+                                        Nss.
+                                        Keydata_sn'.
+                                        {SN.Ksn'}_(inv(Kas)).
+                                        {AuthID'.Nsn'.Nss.Keydata_sn'.{SN.Ksn'}_(inv(Kas))}_(inv(Ksn))) % AccessAuthRequest
+                 /\ request(SS,SN,ss_sn_Nsn,Nsn')
+                 /\ witness(SS,SN,sn_ss_Nss,Nss')
+                 /\ AuthID'      := SHA256(Nss'.Password)
+                 /\ Nsn'         := new()
+                 /\ Keydata_sn'  := new()  
+     =|>  
+     State' := 3 
+                 /\ CH_SIPServer_AS(Nsn.
+                                    Nss.
+                                    {SN.Ksn}_(inv(Kas)).
+                                    {SS.Kss}_(inv(Kas)).
+                                    {Nsn.Nss.{SN.Ksn}_(inv(Kas)).{SS.Kss}_(inv(Kas))}_(inv(Kss)))       % CertAuthRequest
+          
+  3. State   = 3 /\ CH_AS_SIPServer(CertVerRes'.
+                                    {CertVerRes}_(inv(Kas)).
+                                    {CertVerRes.{CertVerRes}_inv(Kas)}_(inv(Kas)))                     % CertAuthResponse
+                 /\ request(SS,AS,certverres,CertVerRes') 
+     =|>  
+     State' := 4 
+                 /\ Keydata_ss' := new()
+                 /\ AccessRes'  := new()
+                 /\ CertVerRes' := new()
+                 /\ CH_SIPServer_SIPNVR(Nsn.
+                                        Keydata_sn.
+                                        Keydata_ss'.
+                                        AccessRes'.
+                                        CertVerRes'.
+                                        {CertVerRes'}_inv((Kas)).
+                                        {Nsn.Keydata_sn.Keydata_ss'.AccessRes'.CertVerRes'.{CertVerRes'}_(inv(Kas))}_(inv(Kss)))   % AccessAuthResponse
+  
+  
+   
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role authentication_server(
+							SS, SN, AS                                                                : agent,
+						  Kas                                                                       : public_key,
+							CH_SIPServer_AS, CH_AS_SIPServer                                          : channel(dy))
+played_by AS def=
+   
+   local State              : nat,
+      Kss                   : public_key,
+			Nss, Nsn              : text
+      AccessRes, CertVerRes : text
+      certverres            : protocol_id
+      
+ init State := 1
+
+transition
+
+	1. State   = 1 /\ CH_SIPServer_AS(Nsn.
+                                    Nss.
+                                    {SN.Ksn}_(inv(Kas)).
+                                    {SS.Kss}_(inv(Kas)).
+                                    {Nsn.Nss.{SN.Ksn}_(inv(Kas)).{SS.Kss}_(inv(Kas))}_(inv(Kss)))       % CertAuthRequest 
+	   =|>
+	   State' := 2 
+                 /\ CertVerRes'  := new()     
+  	             /\ CH_AS_SIPServer(CertVerRes'.
+                                    {CertVerRes}_(inv(Kas)).
+                                    {CertVerRes.{CertVerRes}_inv(Kas)}_(inv(Kas)))                      % CertAuthResponse  
+                 /\ witness(AS,SS,certverres,CertVerRes')  
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(SN, SS, AS                 : agent, 
+						Ksn, Kss, Kas               : public_key,
+						SHA256, HMAC_SHA256         : function) 
+def=
+
+  local SND_SIPNVR, RCV_SIPNVR                                                    : channel (dy)
+        SND_SIPServerA, RCV_SIPServerB, SND_SIPServerB, RCV_SIPServerB            : channel (dy)
+        SND_AS, RCV_AS                                                            : channel (dy)
+  composition 
+
+	sip_nvr(SN,SS,Ksn,Kss,Kas,SHA256,,SND_SIPNVR,RCV_SIPNVR)
+  /\ sip_server(SS,SN,AS,Ksn,Kss,Kas,SHA256,SND_SIPServerA,RCV_SIPServerB,SND_SIPServerB,RCV_SIPServerB)
+  /\ authentication_server(AS,SS,Ksn,Kss,Kas,SND_AS,RCV_AS)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+def=
+
+	const  sn_ss_Nss, ss_sn_Nsn  : protocol_id,
+	       certverres            : protocol_id,
+         sha256, hmac_sha256   : function,
+         sn, ss, as            : agent,
+         ksn, kss, kas         : public_key
+
+   intruder_knowledge = { sn, ss, as, ksn, kss, kas, ki, inv(ki), {i.ki}_(inv(kas)) }  
+
+   composition
+	session(sn,ss,ksn,kss,kas,sha256)
+    /\	session(sn,i,ksn,ki,kas,sha256)
+    /\	session(i,ss,ki,kss,kas,sha256)
+    /\	session(i,as,ki,kas,sha256)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+	%SN authenticates SS on sn_ss_Nsn
+	authentication_on sn_ss_Nsn
+	%SS authenticates SN on ss_sn_Nss
+	authentication_on ss_sn_Nss
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

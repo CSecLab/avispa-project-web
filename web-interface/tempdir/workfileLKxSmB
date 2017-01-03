@@ -1,0 +1,192 @@
+ role source(
+S, R1, R2, D : agent,
+K1, K2, Kd : symmetric_key,
+S_SR1, R_SR1, S_SD, R_SD : channel(dy))
+
+played_by S def=
+
+%exists PVF: (message) list
+local
+State : nat,
+P, Datahash, Ov1, Ov2, OvD, Pvf0, PVF, Pvfd, Accept : message,
+H : hash_func,
+OV: (message) set
+
+init
+OV := {} &
+State := 0
+
+transition
+1. State = 0 & R_SD(start) =|>
+State':= 2 & Datahash' := H(P) 
+	     & Ov1' := {H(Datahash')}_K1
+	     & OV' := cons(Ov1', OV) 
+	     & Ov2' := {H(Datahash')}_K2
+	     & OV' := cons(Ov2', OV)  
+	     & OvD' := {H(Datahash')}_Kd
+	     & OV' := cons(OvD', OV)
+	     & Pvf0' := {H(Datahash')}_Kd
+	     & PVF' := Pvf0'  
+	     & S_SR1(Datahash'.PVF')
+	     & S_SR1(OV')
+	     & secret(K1,a1,{S,R1})
+	     & secret(K2,a2,{S,R2})
+	     & secret(Kd,a3,{S,D})
+
+2. State = 7 & R_SD({Pvfd.Datahash}_Kd) & PVF' = {H(Datahash.{H(Datahash.{H(Datahash)}_Kd)}_K1)}_K2 & PVF' = Pvfd =|>
+S_SD(Accept)
+    
+end role
+
+
+role router1(
+S, R1, R2, D : agent,
+K1, K2, Kd : symmetric_key,
+S_R1R2, R_R1R2, S_R1S, R_R1S : channel(dy))
+
+played_by R1 def=
+
+local
+State : nat,
+Datahash : message, 
+%Ov1, Ov2, OvD : {hash_func(hash_func(message))}_symmetric_key,
+Ovr1, Pvf1, PVF : message,
+%Pvf0 : {hash_func(hash_func(message))}_symmetric_key,
+H : hash_func,
+OV: (message) set
+
+
+init
+State := 1
+
+transition
+1. State = 1 & R_R1S(Datahash'.PVF') =|>
+State':=3 & Ovr1' := {H(Datahash')}_K1
+	    & Pvf1' := {H(Datahash'.PVF')}_K1
+	    & PVF' := Pvf1'
+	    & secret(K1,a4,{R1,D})  
+
+2. State = 2 & R_R1S(OV') & in(Ovr1', OV') =|>
+State':=4 & S_R1R2(Datahash'.PVF') & S_R1R2(OV')
+
+                                      
+end role
+
+role router2(
+S, R1, R2, D : agent,
+K1, K2, Kd : symmetric_key,
+S_R2R1, R_R2R1, S_R2D, R_R2D : channel(dy))
+
+
+played_by R2 def=
+
+local
+State : nat,
+Datahash : message, 
+%Ov1, Ov2, OvD : {hash_func(hash_func(message))}_symmetric_key,
+Ovr2, Pvf2, PVF : message,
+H : hash_func,
+OV: (message) set
+
+
+init
+State := 3
+
+transition
+1. State = 3 & R_R2R1(Datahash'.PVF') =|>
+State':=5 & Ovr2' := {H(Datahash')}_K2
+	    & Pvf2' := {H(Datahash'.PVF')}_K2
+	    & PVF' := Pvf2'
+	    & secret(K2,a5,{R2,D})
+
+2. State = 4 & R_R2R1(OV') & in(Ovr2', OV') =|>
+State' := 6 & S_R2D(Datahash'.PVF') & S_R2D(OV')
+
+
+                                      
+end role	
+	
+role dest(
+S, R1, R2, D : agent,
+K1, K2, Kd : symmetric_key,
+S_DR2, R_DR2, S_DS, R_Ds : channel(dy))
+
+played_by D def=
+
+local
+State : nat,
+Datahash : message, 
+%Ov1, Ov2, OvD : {hash_func(hash_func(message))}_symmetric_key,
+Ovdest, Pvfd, PVF : message,
+H : hash_func,
+OV: (message) set
+
+
+init
+State := 5
+
+transition
+1. State = 5 & R_DR2(Datahash'.PVF') =|>
+State':=7 & Ovdest' := {H(Datahash')}_Kd
+	& Pvfd' := {H(Datahash'.{H(Datahash'.{H(Datahash')}_Kd)}_K1)}_K2
+
+2. State = 6 & R_DR2(OV') & in(Ovdest', OV') & Pvfd' = PVF' =|>
+State':=8 & S_DS({Pvfd'.Datahash'}_Kd)
+
+
+                                      
+end role
+
+role session(
+S, R1, R2, D : agent,
+K1, K2, Kd: symmetric_key)
+
+def=
+local 
+S_SR1, R_SR1, 
+S_SD, R_SD,
+S_R1R2, R_R1R2,
+S_R1S, R_R1S,
+S_R2R1, R_R2R1,
+S_R2D, R_R2D,
+S_DR2, R_DR2,
+S_DS, R_Ds : channel (dy)
+
+composition
+	source(S, R1, R2, D, K1, K2, Kd, S_SR1, R_SR1, S_SD, R_SD)
+& router1(S, R1, R2, D, K1, K2, Kd, S_R1R2, R_R1R2, S_R1S, R_R1S)
+& router2(S, R1, R2, D, K1, K2, Kd, S_R2R1, R_R2R1, S_R2D, R_R2D)
+& dest(S, R1, R2, D, K1, K2, kd, S_DR2, R_DR2, S_DS, R_Ds)
+
+end role
+
+
+role environment()
+def=
+const s, r1, r2, d : agent,
+a1, a2, a3, a4, a5 : protocol_id,
+k1, k2, kd : symmetric_key
+
+intruder_knowledge = {s, r1, r2, d}
+
+composition
+session(s, r1, r2, d, k1, k2, kd)
+ & session(i, r1, r2, d, k1, k2, kd)
+%& session(s, i, r2, d, k1, k2, kd)
+%& session(s, r1, i, d, k1, k2, kd)
+%& session(s, r1, r2, i, k1, k2, kd)
+     
+end role
+
+goal
+secrecy_of a1
+secrecy_of a2
+secrecy_of a3
+secrecy_of a4
+secrecy_of a5
+
+end goal
+environment()
+           
+
+    

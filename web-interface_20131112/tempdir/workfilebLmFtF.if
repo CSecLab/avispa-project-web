@@ -1,0 +1,125 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilebLmFtF
+
+section signature:
+
+state_tag: agent * agent * text * hash_func * nat * text * text * text * set(agent) * set(agent) * nat -> fact
+state_reader: agent * text * text * hash_func * nat * text * text * agent * set(agent) * nat -> fact
+
+
+section types:
+
+set_87, set_86, set_84, set_78, set_77, set_67: set
+5, 7, 3, 6, State, 4, SID, Dummy_State, 2, 1, SID2, 0, SID1: nat
+Set_40, Set_38, Dummy_Set_40, Dummy_Set_38, Dummy_Set_21, Set_21, ASGoal: set(agent)
+start, MGoal: message
+H, h: hash_func
+Nr, Nt, U2, Dummy_U2, U1, Dummy_Nt, Dummy_Nr, dummy_nonce, u1, u2: text
+uid1, tid, tr, uid2, rt: protocol_id
+T, R, Dummy_T, dummy_agent, A2Goal, A1Goal, r, t, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(h).
+ iknows(r).
+ iknows(i).
+ state_reader(r,u1,u2,h,0,dummy_nonce,dummy_nonce,dummy_agent,set_67,3).
+ state_tag(t,r,u1,h,1,dummy_nonce,dummy_nonce,dummy_nonce,set_77,set_78,4).
+ state_reader(r,u1,u2,h,0,dummy_nonce,dummy_nonce,dummy_agent,set_84,6).
+ state_tag(t,r,u1,h,1,dummy_nonce,dummy_nonce,dummy_nonce,set_86,set_87,7)
+
+
+section rules:
+
+step step_0 (R,U1,U2,H,Dummy_Nr,Nt,T,Set_21,SID,Nr) :=
+ state_reader(R,U1,U2,H,0,Dummy_Nr,Nt,T,Set_21,SID).
+ iknows(start)
+=[exists Nr]=>
+ state_reader(R,U1,U2,H,2,Nr,Nt,T,Set_21,SID).
+ iknows(Dummy_Nr)
+
+step step_1 (R,U1,U2,H,Nr,Dummy_Nt,Dummy_T,Dummy_Set_21,SID,Nt,T) :=
+ state_reader(R,U1,U2,H,2,Nr,Dummy_Nt,Dummy_T,Dummy_Set_21,SID).
+ iknows(pair(Nt,pair(xor(T,apply(H,pair(Nr,U1))),apply(H,pair(Nr,pair(U1,T))))))
+ =>
+ state_reader(R,U1,U2,H,4,Nr,Nt,T,Dummy_Set_21,SID).
+ iknows(pair(xor(U2,apply(H,pair(Nr,T))),apply(H,pair(Nr,pair(T,U2))))).
+ secret(U2,uid2,Dummy_Set_21).
+ witness(R,T,tr,T).
+ contains(R,Dummy_Set_21).
+ contains(T,Dummy_Set_21)
+
+step step_2 (T,R,U1,H,Dummy_Nr,Dummy_Nt,U2,Dummy_Set_38,Dummy_Set_40,SID,Nr,Nt) :=
+ state_tag(T,R,U1,H,1,Dummy_Nr,Dummy_Nt,U2,Dummy_Set_38,Dummy_Set_40,SID).
+ iknows(Nr)
+=[exists Nt]=>
+ state_tag(T,R,U1,H,3,Nr,Nt,U2,Dummy_Set_38,Dummy_Set_40,SID).
+ iknows(pair(Nt,pair(xor(T,apply(H,pair(Nr,U1))),apply(H,pair(Nr,pair(U1,T)))))).
+ secret(T,tid,Dummy_Set_38).
+ secret(U1,uid1,Dummy_Set_40).
+ contains(T,Dummy_Set_38).
+ contains(R,Dummy_Set_38).
+ contains(T,Dummy_Set_40).
+ contains(R,Dummy_Set_40)
+
+step step_3 (T,R,U1,H,Nr,Nt,Dummy_U2,Set_38,Set_40,SID,U2) :=
+ state_tag(T,R,U1,H,3,Nr,Nt,Dummy_U2,Set_38,Set_40,SID).
+ iknows(pair(xor(U2,apply(H,pair(Nr,T))),apply(H,pair(Nr,pair(T,U2)))))
+ =>
+ state_tag(T,R,U1,H,5,Nr,Nt,U2,Set_38,Set_40,SID).
+ request(T,R,tr,T,SID)
+
+
+section properties:
+
+property secrecy_of_uid1 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,uid1,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_uid2 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,uid2,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_tid (MGoal,ASGoal) :=
+ [] ((secret(MGoal,tid,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_tr (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,tr,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,tr,MGoal))
+     /\ ((request(A1Goal,A2Goal,tr,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,tr,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_uid1 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,uid1,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_uid2 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,uid2,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_tid (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,tid,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_tr (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,tr,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,tr,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_tr (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,tr,MGoal,SID1).
+ request(A1Goal,A2Goal,tr,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

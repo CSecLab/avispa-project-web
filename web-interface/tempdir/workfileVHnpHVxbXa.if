@@ -1,0 +1,120 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileVHnpHVxbXa
+
+section signature:
+
+state_issuer: agent * agent * agent * public_key * symmetric_key * nat * text * text * text * message * message * set(agent) * nat -> fact
+state_receiver: agent * agent * agent * public_key * nat * text * text * text * message * message * message * nat -> fact
+state_alice: agent * agent * agent * public_key * symmetric_key * nat * text * text * message * message * set(agent) * set(agent) * nat -> fact
+
+
+section types:
+
+Dummy_Set_59, Dummy_Set_26, Dummy_Set_22, ASGoal, Set_59, Set_26, Set_22: set(agent)
+sec_k3, sec_k4, sec_k2, sec_k1: protocol_id
+Dummy_M, Dummy_G, Dummy_H, dummy_msg, MGoal, M, G, H, start: message
+Dummy_A, Dummy_X, Dummy_Q, dummy_nonce, Q, X, A: text
+kai, Kai: symmetric_key
+ki, Ki: public_key
+Alice, Receiver, Issuer, issuer, receiver, alice, i: agent
+set_99, set_98, set_92, set_78, set_77, set_111, set_109, set_108, set_106, set_104, set_103, set_102: set
+7, 5, SID, 4, Dummy_State, 3, State, 2, 1, 0, 17, 15, 13, 12, 8: nat
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(alice).
+ iknows(issuer).
+ iknows(receiver).
+ iknows(ki).
+ iknows(i).
+ state_alice(alice,receiver,issuer,ki,kai,0,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,set_77,set_78,3).
+ state_receiver(receiver,alice,issuer,ki,1,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,4).
+ state_issuer(issuer,alice,receiver,ki,kai,2,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,set_92,5).
+ state_alice(alice,receiver,i,ki,kai,0,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,set_98,set_99,7).
+ state_receiver(receiver,alice,i,ki,1,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,8).
+ state_receiver(receiver,i,issuer,ki,1,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,12).
+ state_issuer(issuer,i,receiver,ki,kai,2,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,set_106,13).
+ state_alice(alice,i,issuer,ki,kai,0,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,set_108,set_109,15).
+ state_issuer(issuer,alice,i,ki,kai,2,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,set_111,17)
+
+
+section rules:
+
+step step_0 (Alice,Receiver,Issuer,Ki,Kai,Dummy_Q,A,G,Dummy_H,Dummy_Set_22,Set_26,SID,Q) :=
+ state_alice(Alice,Receiver,Issuer,Ki,Kai,0,Dummy_Q,A,G,Dummy_H,Dummy_Set_22,Set_26,SID).
+ iknows(start)
+=[exists Q]=>
+ state_alice(Alice,Receiver,Issuer,Ki,Kai,1,Q,A,G,crypt(Ki,pair(Q,Kai)),Dummy_Set_22,Set_26,SID).
+ iknows(crypt(Ki,pair(Q,Kai))).
+ secret(Q,sec_k1,Dummy_Set_22).
+ contains(Alice,Dummy_Set_22).
+ contains(Issuer,Dummy_Set_22)
+
+step step_1 (Alice,Receiver,Issuer,Ki,Kai,Q,A,Dummy_G,H,Set_22,Dummy_Set_26,SID,G) :=
+ state_alice(Alice,Receiver,Issuer,Ki,Kai,4,Q,A,Dummy_G,H,Set_22,Dummy_Set_26,SID).
+ iknows(G)
+ =>
+ state_alice(Alice,Receiver,Issuer,Ki,Kai,5,Q,A,G,H,Set_22,Dummy_Set_26,SID).
+ secret(G,sec_k2,Dummy_Set_26).
+ contains(Alice,Dummy_Set_26).
+ contains(Issuer,Dummy_Set_26)
+
+step step_2 (Receiver,Alice,Issuer,Ki,Q,Dummy_X,A,M,G,Dummy_H,SID,X,H) :=
+ state_receiver(Receiver,Alice,Issuer,Ki,1,Q,Dummy_X,A,M,G,Dummy_H,SID).
+ iknows(H)
+=[exists X]=>
+ state_receiver(Receiver,Alice,Issuer,Ki,2,Q,X,A,M,G,H,SID).
+ iknows(pair(X,H))
+
+step step_3 (Receiver,Alice,Issuer,Ki,Q,X,A,M,Dummy_G,H,SID,G) :=
+ state_receiver(Receiver,Alice,Issuer,Ki,3,Q,X,A,M,Dummy_G,H,SID).
+ iknows(pair(X,G))
+ =>
+ state_receiver(Receiver,Alice,Issuer,Ki,4,Q,X,A,M,G,H,SID).
+ iknows(G)
+
+step step_4 (Issuer,Alice,Receiver,Ki,Kai,Q,Dummy_X,Dummy_A,Dummy_M,Dummy_G,Dummy_Set_59,SID,X,A,M) :=
+ state_issuer(Issuer,Alice,Receiver,Ki,Kai,2,Q,Dummy_X,Dummy_A,Dummy_M,Dummy_G,Dummy_Set_59,SID).
+ iknows(pair(X,M))
+=[exists A]=>
+ state_issuer(Issuer,Alice,Receiver,Ki,Kai,3,Q,X,A,M,scrypt(Kai,A),Dummy_Set_59,SID).
+ iknows(pair(Dummy_X,scrypt(Kai,A))).
+ secret(A,sec_k3,Dummy_Set_59).
+ contains(Alice,Dummy_Set_59).
+ contains(Issuer,Dummy_Set_59)
+
+
+section properties:
+
+property secrecy_of_sec_k1 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_k1,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_sec_k3 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_k3,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_sec_k2 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_k2,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_sec_k1 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_k1,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_sec_k3 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_k3,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_sec_k2 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_k2,ASGoal) &
+ not(contains(i,ASGoal))
+

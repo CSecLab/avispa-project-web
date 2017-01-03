@@ -1,0 +1,123 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilelVVXUI
+
+section signature:
+
+state_receiver: agent * agent * hash_func * public_key * nat * message * message * message * message * message * message * message * message * message * message * bool * message * message * nat -> fact
+state_sender: agent * hash_func * public_key * nat * message * message * message * message * text * nat -> fact
+
+
+section types:
+
+Dummy_Compare, true, false, dummy_bool, Compare: bool
+k_N: symmetric_key
+Dummy_M, dummy_nonce, t_0, M, loss: text
+K_S, k_S: public_key
+F, f, hash_: hash_func
+zero, 4, SID, Dummy_State, 3, State, SID2, SID1, 1, 0, 5: nat
+A2Goal, A1Goal, R, S, s, r, i: agent
+sender_msgstream, buffered, compared_and_buffered: protocol_id
+Dummy_Gap, Dummy_K_prev_prev, Gap, Gap2, Hash_prev, Dummy_K, Hash, Dummy_K_prev, M_prev, Dummy_N, M1, Dummy_Time, K_prev_prev, K_prev, K_prev2, T_prev, Time, dummy_msg, N, MGoal, start, K, Dummy_Hash_prev, Dummy_M_prev, Dummy_T_prev, Dummy_Gap2, Dummy_Hash, Dummy_M1, Dummy_K_prev2: message
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(s).
+ iknows(r).
+ iknows(hash_).
+ iknows(loss).
+ iknows(f).
+ iknows(k_S).
+ iknows(i).
+ state_sender(s,f,k_S,0,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_nonce,3).
+ state_receiver(r,s,f,k_S,3,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_bool,dummy_msg,dummy_msg,4)
+
+
+section rules:
+
+step step_0 (S,F,K_S,Dummy_Time,Dummy_N,Dummy_K_prev,K,M,SID) :=
+ state_sender(S,F,K_S,0,Dummy_Time,Dummy_N,Dummy_K_prev,K,M,SID).
+ iknows(start)
+ =>
+ state_sender(S,F,K_S,1,t_0,apply(tick,apply(tick,apply(tick,t_0))),apply(F,apply(F,apply(F,k_N))),K,M,SID).
+ iknows(crypt(inv(K_S),pair(apply(tick,apply(tick,apply(tick,apply(tick,t_0)))),apply(F,apply(F,apply(F,apply(F,k_N)))))))
+
+step step_1 (S,F,K_S,Dummy_Time,N,Dummy_K,Dummy_M,SID,K,M) :=
+ state_sender(S,F,K_S,1,Dummy_Time,N,apply(F,K),Dummy_K,Dummy_M,SID).
+ iknows(Dummy_Time) &
+ not(equal(Dummy_Time,N))
+=[exists M]=>
+ state_sender(S,F,K_S,1,apply(tick,Dummy_Time),N,K,K,M,SID).
+ iknows(pair(M,pair(apply(hash_,pair(K,M)),apply(F,K)))).
+ witness(S,S,sender_msgstream,M)
+
+step step_2 (R,S,F,K_S,Dummy_Time,Dummy_N,T_prev,Dummy_K_prev_prev,K_prev,K_prev2,M_prev,M1,Hash_prev,Hash,Dummy_Compare,Dummy_Gap,Gap2,SID,N,K_prev_prev) :=
+ state_receiver(R,S,F,K_S,3,Dummy_Time,Dummy_N,T_prev,Dummy_K_prev_prev,K_prev,K_prev2,M_prev,M1,Hash_prev,Hash,Dummy_Compare,Dummy_Gap,Gap2,SID).
+ iknows(crypt(inv(K_S),pair(apply(tick,N),K_prev_prev)))
+ =>
+ state_receiver(R,S,F,K_S,4,t_0,N,T_prev,K_prev_prev,K_prev,K_prev2,M_prev,M1,Hash_prev,Hash,false,zero,Gap2,SID).
+ iknows(t_0)
+
+step step_3 (R,S,F,K_S,Time,N,T_prev,K_prev_prev,Dummy_K_prev,Dummy_K_prev2,M_prev,Dummy_M1,Hash_prev,Dummy_Hash,Compare,Gap,Dummy_Gap2,SID,K_prev,M1,Hash) :=
+ state_receiver(R,S,F,K_S,4,Time,N,T_prev,K_prev_prev,Dummy_K_prev,Dummy_K_prev2,M_prev,Dummy_M1,Hash_prev,Dummy_Hash,Compare,Gap,Dummy_Gap2,SID).
+ iknows(pair(M1,pair(Hash,K_prev))) &
+ not(equal(Time,N))
+ =>
+ state_receiver(R,S,F,K_S,5,Time,N,T_prev,K_prev_prev,K_prev,K_prev,M_prev,M1,Hash_prev,Hash,Compare,Gap,zero,SID)
+
+step step_4 (R,S,F,K_S,Time,N,T_prev,K_prev_prev,K_prev,Dummy_K_prev2,M_prev,M1,Hash_prev,Hash,Compare,Gap,Dummy_Gap2,SID) :=
+ state_receiver(R,S,F,K_S,5,Time,N,T_prev,K_prev_prev,K_prev,Dummy_K_prev2,M_prev,M1,Hash_prev,Hash,Compare,Gap,Dummy_Gap2,SID).
+ iknows(start) &
+ not(equal(Dummy_Gap2,Gap))
+ =>
+ state_receiver(R,S,F,K_S,5,Time,N,T_prev,K_prev_prev,K_prev,apply(F,Dummy_K_prev2),M_prev,M1,Hash_prev,Hash,Compare,Gap,apply(succ,Dummy_Gap2),SID)
+
+step step_5 (R,S,F,K_S,Dummy_Time,N,Dummy_T_prev,K_prev,K_prev2,Dummy_M_prev,M1,Dummy_Hash_prev,Hash,Dummy_Gap,SID) :=
+ state_receiver(R,S,F,K_S,5,Dummy_Time,N,Dummy_T_prev,apply(F,K_prev2),K_prev,K_prev2,Dummy_M_prev,M1,Dummy_Hash_prev,Hash,false,Dummy_Gap,Dummy_Gap,SID).
+ iknows(start)
+ =>
+ state_receiver(R,S,F,K_S,4,apply(tick,Dummy_Time),N,apply(tick,Dummy_Time),K_prev,K_prev,K_prev2,M1,M1,Hash,Hash,true,zero,Dummy_Gap,SID).
+ iknows(pair(apply(tick,Dummy_Time),buffered))
+
+step step_6 (R,S,F,K_S,Dummy_Time,N,Dummy_T_prev,K_prev,K_prev2,Dummy_M_prev,M1,Hash,Dummy_Gap,SID) :=
+ state_receiver(R,S,F,K_S,5,Dummy_Time,N,Dummy_T_prev,apply(F,K_prev2),K_prev,K_prev2,Dummy_M_prev,M1,apply(hash_,pair(K_prev2,Dummy_M_prev)),Hash,true,Dummy_Gap,Dummy_Gap,SID).
+ iknows(start)
+ =>
+ state_receiver(R,S,F,K_S,4,apply(tick,Dummy_Time),N,apply(tick,Dummy_Time),K_prev,K_prev,K_prev2,M1,M1,Hash,Hash,true,zero,Dummy_Gap,SID).
+ iknows(pair(apply(tick,Dummy_Time),compared_and_buffered)).
+ request(S,S,sender_msgstream,Dummy_M_prev,SID)
+
+step step_7 (R,S,F,K_S,Dummy_Time,N,T_prev,K_prev_prev,K_prev,K_prev2,M_prev,M1,Hash_prev,Hash,Compare,Dummy_Gap,Gap2,SID) :=
+ state_receiver(R,S,F,K_S,4,Dummy_Time,N,T_prev,K_prev_prev,K_prev,K_prev2,M_prev,M1,Hash_prev,Hash,Compare,Dummy_Gap,Gap2,SID).
+ iknows(loss) &
+ not(equal(Dummy_Time,N))
+ =>
+ state_receiver(R,S,F,K_S,4,apply(tick,Dummy_Time),N,T_prev,K_prev_prev,K_prev,K_prev2,M_prev,M1,Hash_prev,Hash,Compare,apply(succ,Dummy_Gap),Gap2,SID).
+ iknows(apply(tick,Dummy_Time))
+
+
+section properties:
+
+property authentication_on_sender_msgstream (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,sender_msgstream,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,sender_msgstream,MGoal))
+     /\ ((request(A1Goal,A2Goal,sender_msgstream,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,sender_msgstream,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state authentication_on_sender_msgstream (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,sender_msgstream,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,sender_msgstream,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_sender_msgstream (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,sender_msgstream,MGoal,SID1).
+ request(A1Goal,A2Goal,sender_msgstream,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

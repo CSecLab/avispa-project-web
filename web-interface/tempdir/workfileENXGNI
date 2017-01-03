@@ -1,0 +1,124 @@
+%The user Party role of the OpenID Connect protocol
+role operator(O, C, R : agent, %operator, a client third-party, and root domain
+		SND_RO, SND_CO, RCV_RO, RCV_CO : channel(dy),
+		Ko: public_key,
+		Kca: public_key, %certificate authority
+		Kroo,Kco: symmetric_key, %imitate SSL
+		Certificate: message)
+	played_by O	def=
+	local State : nat, 
+		X : nat,
+		Y : message,
+		Na : text, % The nonce variable in the OpenID protocol.
+		Kcert : public_key %public key used by any party
+	init State := 0
+	transition
+	% first transition, send message:
+	1. State = 0 /\ RCV_CO(start) =|>
+		% Contact the relying party
+	State' := 2 /\ SND_CO({O.X}_Kco)
+	%Receive redirect from the client 
+	2. State = 2 /\ RCV_CO({O.C.R.X'.Na'}_Kco)  =|>
+		% Send the redirect message to the OpenID provider with 
+		% authentication information included
+	State' := 4 /\ SND_RO({R.O.C.Na'.X'.Certificate}_Kroo)  /\ 
+	witness(O,R,op_user_authentication, Certificate)
+	% Send the redirect information from the OpenID provider to the Relying Party
+	3. State = 4 /\ RCV_RO({O.R.C.Na'.Ko'.Y'}_Kco) =|>
+	State' := 6 /\ SND_CO({O.R.C.Na'.Ko'.Y'}_Kco) /\
+	witness(O, C, authenticate_user, Y')
+end role
+	
+%The client Party role of the OpenID Connect protocol
+role client(C, R : agent, 
+		SND_RC, RCV_RC : channel(dy),
+		Kc, Kca: public_key, %certificate of the client and CA
+		Kcr: symmetric_key,
+		Certificate: message,
+		RedirectionURI: nat)
+	played_by C	def=
+	local State : nat ,
+		U : agent, %the user wanting access to the third party
+		Na : text, % The nonce variable in the OpenID protocol.
+		Kcert : public_key, %public key used by any party
+		X: nat
+	init State := 1
+	transition
+	% first transition: message requiring authentication
+ 	1. State = 1 /\ RCV_RC({U'.X}_Kcr) =|>
+		%redirect with auth request
+	State' := 3 /\ 
+	SND_RC({U'.C.R.RedirectionURI.Na}_Kcr)
+	% Receives the positive assertion message from the OpenID provider 
+	% redirected from the user
+	2. State = 3 /\ RCV_RC({U.R.C.Na'.Kcert'.X'}_Kcr) /\ 
+	{X'}_Kca = U.Kcert' /\ Na = Na'  =|>
+	State' := 5 /\	request(C, U, authenticate_user, X')
+end role
+
+%The Root Domain Party role of the OpenID Connect protocol
+role root(R : agent, 
+		SND_OR, RCV_OR : channel(dy),
+		Kca: public_key,
+		Kroo: symmetric_key,
+		URIMap: (agent.nat) set)
+	played_by R	def=
+	local State : nat,
+		O, U : agent, %the requesting operator, the Operator to return 
+				    % incase of redirectURI and a User to authenticate
+		Na : text, % The nonce variable in the OpenID protocol.
+		Kcert : public_key, %public key used by any party
+		RedirectionURI: nat,
+		Z: message
+	init State := 11
+	transition
+	% first transition:
+	% authentication request (with auth)
+	1. State = 11 /\ RCV_OR({R.U'.O'.Na'.RedirectionURI'.Z'}_Kroo) /\ 	 in(O'.RedirectionURI', URIMap) /\ Z' = {U'.Kcert'}_inv(Kca)
+	=|>
+	State' := 11 /\ SND_OR({U'.R.O'.Na'.Kca.{U'.R.O'.Na'}_inv(Kca)}_Kroo) /\ 
+	request(R, U', op_user_authentication, Z')
+end role
+
+%The session role binds the different parts of the OpenID protocol together
+role session(R, C, O : agent,
+	Kroo, Koc : symmetric_key,
+	Kca, Ko, Kc : public_key,
+	RedirectionURI : nat)
+def=
+local SND_OR, RCV_OR,	
+	SND_CO, SND_RO, RCV_CO, RCV_RO,
+	SND_RC, RCV_RC : channel(dy),
+	URIMap: (agent.nat) set
+init URIMap := {C.RedirectionURI}
+
+composition
+%The different roles binds together.
+operator(O, C, R, SND_RO, SND_CO, RCV_RO, RCV_CO, Ko, Kca, Kroo, Koc,{O.Ko}_inv(Ko))
+/\ root(R, SND_OR, RCV_OR, Kca, Kroo, URIMap)
+/\ client(C, R, SND_RC, RCV_RC, Kc, Kca, Koc, {C.Kc}_inv(Kc), RedirectionURI)
+end role
+
+role environment()
+def=
+const o,r,c : agent,
+authenticate_user,  op_user_authentication : protocol_id,
+kroo, koc, kiro, koi : symmetric_key,
+redirectionURI: nat,
+kca, ko, kc, ki : public_key,
+fakeNa: text
+intruder_knowledge = {o,r,c,kca,ko,kc,ki,i,redirectionURI,fakeNa, koc}
+composition
+session(r, c, o, kroo, koc, kca, ko, kc, redirectionURI)
+%/\ session(root, c, i, kroo, koc, kca, ki, kc, redirectionURI)
+%/\ session(r, i, o, kroo, koc, kca, ko, kc, redirectionURI)
+end role
+
+goal
+% The authentication goal of the authentication procedure - user to client
+authentication_on authenticate_user
+% The authentication goal of the OpenID protocol - user to IdP
+authentication_on op_user_authentication
+end goal
+
+environment()

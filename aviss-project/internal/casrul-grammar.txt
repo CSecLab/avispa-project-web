@@ -1,0 +1,387 @@
+BNF OF THE OUTPUT OF CASRUL (11.5.01)
+===========================
+
+Msg ::  c(Msg,Msg)            % couple (not AC)
+      | crypt(PKey,Msg) 
+      | scrypt(SKey,Msg)
+      | A(Ident)
+      | PKey
+      | funct(fn(Ident),Msg)  % hashing function
+      | X                     % var
+
+A = mr | nonce | sk | fn  
+
+[there are some problems with A(Ident), which should be split -- maybe have
+Agent]
+
+PKey ::  pk(Ident)   % public
+       | pk(Ident)'  % private
+       | X           
+       | X'          
+
+SKey ::  sk(Ident)
+       | X
+
+nonce(xTime)
+
+nonce(s(xTime)
+
+Ident ::  idf
+        | xTime                % for
+        | s(... s(xTime) ...)  % keys, nonces, ...
+
+ 
+Rule ::  List => List
+
+List ::  Term
+       | Term.List  % with . AC
+
+Term ::  HTerm
+       | MTerm
+       | WTerm
+       | SecretTerm
+
+HTerm ::  h(xTime)
+        | h(s(xTime))
+
+MTerm :: m(Int, RealSender, OfficialSender, Receiver, Msg, ?SessionNumber?)
+
+[but maybe SessionNumber is not there anymore]
+
+WTerm :: w(Int, Sender, Receiver, Msg, Msg, ?bool?, SessionNumber)
+
+[where first Msg is acquired + generated knowledge and second Msg is
+initial knowledge (couples), and maybe bool is not there anymore] 
+
+SecretTerm :: secret(..., f(SessionNumber))
+
+[with ... nonce(xTime), pk(xTime), pk(xTime)', sk(xTime), etc. (including, 
+e.g., names of principals]
+
+
+Intruder's rules (--intruder):
+- memorise :
+
+h(s(xTime).m(xStep,xr,XOfficialSender,I,xmsg,xsession) =>
+h(xTime).i(xmsg).i(xOfficialSender)
+
+- divert :
+
+h(s(xTime)).m(xStep,xr,XOfficialSender,xRecv,xmsg,xsession) =>
+h(xTime).i(xmsg).i(xOfficialSender).i(xRecv)
+
+- eaves_dropping :
+
+h(s(xTime).m(xStep,xr,XOfficialSender,xRecv,xmsg,xsession) =>
+h(xTime).m(xStep,xr,XOfficialSender,xRecv,xmsg,xsession).i(xmsg).i(xOfficialSender).i(xRecv)
+
+- impersonate (lots of rules !):
+h(s(xTime)).w(Int,xSender,xRecv,Msg,Msg,xbool,xsession).i(x1). ... . i(xn) =>
+h(xTime).m(Int,mr(I),xSender,xRecv,ComposeMsg(x1,...,xn),0).w(Int,xSender,xRecv,Msg,Msg,false,xsession).i(x1). ... . i(xn)
+
+
+comment :
+ComposeMsg : We try to figure out the different ways to build the message awaited by the principal,
+and for each message in the protocol, we give one rule for each way found to build this message
+
+
+Initial Term (--init):
+h(xTime).Princ(1). ... . Princ(n)
+
+
+Princ(j) : term that represents an honest principal j in a session of the protocol.
+It is a w-shaped term, that represents the initial state of the principal.
+For the initiator of a session it is :
+
+w(0,...)
+
+For the other principals it is a term of the shape :
+w(FirstRecvdMsgStep,xSender,PrincName,etc2,InitialKnowledge,true,SessionNumber)
+
+etc2 : represents an empty list (for the acquired+generated knowledge)
+
+
+The goals (--goal):
+- secrecy goal :
+i(x).secret(x,f(xc))
+
+- correspondence goal between A:a and B:b :
+
+w(FirstRecvdMsgStepA,xSenderA,mr(a),x1,x2,x3,SessionNumber).
+w(FirstRecvdMsgStepB,xSenderB,mr(b),x4,x5,x6,s(SessionNumber))
+
+
+%
+%
+
+Goal A Authenticate B; ?
+(for non-commutative correspondence flaw)
+from CAPSL (not yet in Casrul):
+PRECEDES A,B |V1,...
+When B finishes his part of a session, we check there is at least one
+instance of A that gave the same values to a set V1,... of variables.
+
+- parallel (--para) :
+it returns a term of the shape :
+message(xMsgRecvd,xMsgSent,ii)
+
+
+EXAMPLE OF SPECIFICATION AND CASRUL OUTPUT (nspk)
+=================================================
+
+PROTOCOL NSPK;                            PROTOCOL name
+Identifiers                               Identifiers
+  A, B: user;                                X1, X2, ... : user
+  Na, Nb: number;                            N1, N2, ... : user
+  Ka, Kb: public_key;                        K1, K2, ... : public_keys (and then also other keys,...) 
+Knowledge                                 Knowledge
+  A: B,Ka,Ka',Kb;                              <Initial knowledge of roles>
+  B: Ka,Kb,Kb';					liste  = Role : liste_ID ;
+Messages
+  1.  A -> B:  {Na,A}Kb				A sends to B a Msg / B receives from A a msg
+  2.  B -> A:  {Na,Nb}Ka			B sends to A a msg / ...
+  3.  A -> B:  {Nb}Kb
+Session_instances
+[ A:a, B:b, Ka:ka, Kb:kb ]
+[ A:a, B:I, Ka:ka, Kb:ki ];
+Intruder divert, impersonate;
+Intruder_knowledge I, b, ka, kb, ki;
+Goal correspondence_between A B;
+# Step 0
+h(s(xTime)).w(0,xSe0,xA,etc2,c(xA,c(xB,c(xKa,c(xKa',c(xKb,xetc))))),xbool,xc)
+=>
+h(xTime).m(1,xA,xA,xB,crypt(xKb,c(nonce(xTime),xA)),xc).w(2,xB,xA,c(nonce(xTime),xetc),c(xA,c(xB,c(xKa,c(xKa',c(xKb,xetc))))),true,xc)
+
+# Step 1
+h(s(xTime)).m(1,xr,xA,xB,crypt(xKb,c(xNa,xA)),xc2).w(1,xA,xB,etc2,c(xB,c(xKa,c(xKb,c(xKb',xetc)))),xbool,xc)
+=>
+h(xTime).m(2,xB,xB,xA,crypt(xKa,c(xNa,nonce(xTime))),xc2).w(3,xA,xB,c(xA,c(crypt(xKb,c(xNa,xA)),c(nonce(xTime),xetc))),c(xB,c(xKa,c(xKb,c(xKb',xetc)))),true,xc)
+
+# Step 2
+h(s(xTime)).m(2,xr,xB,xA,crypt(xKa,c(xNa,xNb)),xc2).w(2,xB,xA,c(xNa,xetc),c(xA,c(xB,c(xKa,c(xKa',c(xKb,xetc))))),xbool,xc)
+=>
+h(xTime).m(3,xA,xA,xB,crypt(xKb,xNb),xc2).w(0,xSe0,xA,etc2,c(xA,c(xB,c(xKa,c(xKa',c(xKb,xetc))))),true,s(xc))
+
+# Step 3 
+h(s(xTime)).m(3,xr,xA,xB,crypt(xKb,xNb),xc2).w(3,xA,xB,c(xA,c(crypt(xKb,c(xNa,xA)),c(xNb,xetc))),c(xB,c(xKa,c(xKb,c(xKb',xetc)))),xbool,xc)
+=>
+h(xTime).w(1,xA,xB,etc2,c(xB,c(xKa,c(xKb,c(xKb',xetc)))),true,s(xc))
+
+
+
+COMPLETE OUTPUT OF CASRUL 
+=========================
+(after reading the specification nspk, via the command `casrul --all NSPK_corr.cas')
+`(--...)' are comments
+
+ ()
+# Knowledge:
+#  I knows I
+#  A knows A, B, Ka, Ka', Kb
+#  B knows B, Ka, Kb, Kb'
+
+# List of messages:
+#  1.  A -> B:  {Na,A}Kb
+#  2.  B -> A:  {Na,Nb}Ka
+#  3.  A -> B:  {Nb}Kb
+
+### This protocol is correct ! ###
+(--rules)
+# Step 0
+h(s(xTime)).w(0,xSe0,xA,etc2,c(xA,c(xB,c(xKa,c(xKa',c(xKb,xetc))))),xbool,xc)
+=>
+h(xTime).m(1,xA,xA,xB,crypt(xKb,c(nonce(xTime),xA)),xc).w(2,xB,xA,c(nonce(xTime),xetc),c(xA,c(xB,c(xKa,c(xKa',c(xKb,xetc))))),true,xc)
+
+# Step 1
+h(s(xTime)).m(1,xr,xA,xB,crypt(xKb,c(xNa,xA)),xc2).w(1,xA,xB,etc2,c(xB,c(xKa,c(xKb,c(xKb',xetc)))),xbool,xc)
+=>
+h(xTime).m(2,xB,xB,xA,crypt(xKa,c(xNa,nonce(xTime))),xc2).w(3,xA,xB,c(xA,c(crypt(xKb,c(xNa,xA)),c(nonce(xTime),xetc))),c(xB,c(xKa,c(xKb,c(xKb',xetc)))),true,xc)
+
+# Step 2
+h(s(xTime)).m(2,xr,xB,xA,crypt(xKa,c(xNa,xNb)),xc2).w(2,xB,xA,c(xNa,xetc),c(xA,c(xB,c(xKa,c(xKa',c(xKb,xetc))))),xbool,xc)
+=>
+h(xTime).m(3,xA,xA,xB,crypt(xKb,xNb),xc2).w(0,xSe0,xA,etc2,c(xA,c(xB,c(xKa,c(xKa',c(xKb,xetc))))),true,s(xc))
+
+# Step 3
+h(s(xTime)).m(3,xr,xA,xB,crypt(xKb,xNb),xc2).w(3,xA,xB,c(xA,c(crypt(xKb,c(xNa,xA)),c(xNb,xetc))),c(xB,c(xKa,c(xKb,c(xKb',xetc)))),xbool,xc)
+=>
+h(xTime).w(1,xA,xB,etc2,c(xB,c(xKa,c(xKb,c(xKb',xetc)))),true,s(xc))
+
+(--simpl)
+# Idempotence
+x1.x1
+=>
+x1
+
+# for Secrecy goal
+f(s(x1))
+=>
+f(x1)
+
+
+# Decompose
+i(c(x1,x2))
+=>
+i(x1).i(x2)
+
+# Decrypt_public_key
+i(crypt(x1,x2)).i(x1')
+=>
+i(x2).i(x1')
+
+# Decrypt_private_key
+i(crypt(x1',x2)).i(x1)
+=>
+i(x2).i(x1)
+
+# Decrypt_symmetric_key
+i(scrypt(x1,x2)).i(x1)
+=>
+i(x2).i(x1)
+v
+
+(--intruder)
+# Memorize
+h(s(xTime)).m(x1,x2,x3,I,x5,x6)
+=>
+h(xTime).i(x2).i(x5)
+
+# Divert
+h(s(xTime)).m(x1,a,x3,x4,x5,x6)
+=>
+h(xTime).i(a).i(x3).i(x4).i(x5)
+
+# Divert
+h(s(xTime)).m(x1,b,x3,x4,x5,x6)
+=>
+h(xTime).i(b).i(x3).i(x4).i(x5)
+
+
+
+# Impersonate 3
+h(s(xTime)).w(3,xi9,xi7,c(xA,c(crypt(pk(xi4),c(xNa,xi9)),c(nonce(xi2),xetc))),c(xi7,c(xKa,c(pk(xi4),c(xprim,xetc)))),true,xc).i(xi9).i(xi7).i(pk(xi4)).i(nonce(xi2))
+=>
+h(xTime).m(3,I,xi9,xi7,crypt(pk(xi4),nonce(xi2)),0).w(3,xi9,xi7,c(xA,c(crypt(pk(xi4),c(xNa,xi9)),c(nonce(xi2),xetc))),c(xi7,c(xKa,c(pk(xi4),c(xprim,xetc)))),false,xc).i(xi9).i(xi7).i(pk(xi4)).i(nonce(xi2))
+
+# Impersonate 3
+h(s(xTime)).w(3,xi9,xi7,c(xA,c(crypt(pk(xi4),c(xNa,xi9)),c(nonce(xi2),xetc))),c(xi7,c(xKa,c(pk(xi4),c(xprim,xetc)))),true,xc).i(xi9).i(xi7).i(crypt(pk(xi4),nonce(xi2)))
+=>
+h(xTime).m(3,I,xi9,xi7,crypt(pk(xi4),nonce(xi2)),0).w(3,xi9,xi7,c(xA,c(crypt(pk(xi4),c(xNa,xi9)),c(nonce(xi2),xetc))),c(xi7,c(xKa,c(pk(xi4),c(xprim,xetc)))),false,xc).i(xi9).i(xi7).i(crypt(pk(xi4),nonce(xi2)))
+
+# Impersonate 2
+h(s(xTime)).w(2,xi12,xi10,c(nonce(xi4),xetc),c(xi10,c(xi12,c(pk(xi6),c(xprim,c(xKb,xetc))))),true,xc).i(xi12).i(xi10).i(pk(xi6)).i(nonce(xi4))
+=>
+h(xTime).m(2,I,xi12,xi10,crypt(pk(xi6),c(nonce(xi4),nonce(xTime))),0).w(2,xi12,xi10,c(nonce(xi4),xetc),c(xi10,c(xi12,c(pk(xi6),c(xprim,c(xKb,xetc))))),false,xc).i(xi12).i(xi10).i(pk(xi6)).i(nonce(xi4))
+
+# Impersonate 2
+h(s(xTime)).w(2,xi12,xi10,c(nonce(xi4),xetc),c(xi10,c(xi12,c(pk(xi6),c(xprim,c(xKb,xetc))))),true,xc).i(xi12).i(xi10).i(pk(xi6)).i(nonce(xi4)).i(nonce(xi2))
+=>
+h(xTime).m(2,I,xi12,xi10,crypt(pk(xi6),c(nonce(xi4),nonce(xi2))),0).w(2,xi12,xi10,c(nonce(xi4),xetc),c(xi10,c(xi12,c(pk(xi6),c(xprim,c(xKb,xetc))))),false,xc).i(xi12).i(xi10).i(pk(xi6)).i(nonce(xi4)).i(nonce(xi2))
+
+# Impersonate 2
+h(s(xTime)).w(2,xi12,xi10,c(nonce(xi4),xetc),c(xi10,c(xi12,c(pk(xi6),c(xprim,c(xKb,xetc))))),true,xc).i(xi12).i(xi10).i(crypt(pk(xi6),xi8))
+=>
+h(xTime).m(2,I,xi12,xi10,crypt(pk(xi6),xi8),0).w(2,xi12,xi10,c(nonce(xi4),xetc),c(xi10,c(xi12,c(pk(xi6),c(xprim,c(xKb,xetc))))),false,xc).i(xi12).i(xi10).i(crypt(pk(xi6),xi8))
+
+# Impersonate 1
+h(s(xTime)).w(1,xi2,xi10,etc2,c(xi10,c(xKa,c(pk(xi6),c(xprim,xetc)))),true,xc).i(xi10).i(pk(xi6)).i(xi2)
+=>
+h(xTime).m(1,I,xi2,xi10,crypt(pk(xi6),c(nonce(xTime),xi2)),0).w(1,xi2,xi10,etc2,c(xi10,c(xKa,c(pk(xi6),c(xprim,xetc)))),false,xc).i(xi10).i(pk(xi6)).i(xi2)
+
+# Impersonate 1
+h(s(xTime)).w(1,xi2,xi10,etc2,c(xi10,c(xKa,c(pk(xi6),c(xprim,xetc)))),true,xc).i(xi10).i(pk(xi6)).i(nonce(xi4)).i(xi2)
+=>
+h(xTime).m(1,I,xi2,xi10,crypt(pk(xi6),c(nonce(xi4),xi2)),0).w(1,xi2,xi10,etc2,c(xi10,c(xKa,c(pk(xi6),c(xprim,xetc)))),false,xc).i(xi10).i(pk(xi6)).i(nonce(xi4)).i(xi2)
+
+# Impersonate 1
+h(s(xTime)).w(1,xi2,xi10,etc2,c(xi10,c(xKa,c(pk(xi6),c(xprim,xetc)))),true,xc).i(xi2).i(xi10).i(crypt(pk(xi6),xi8))
+=>
+h(xTime).m(1,I,xi2,xi10,crypt(pk(xi6),xi8),0).w(1,xi2,xi10,etc2,c(xi10,c(xKa,c(pk(xi6),c(xprim,xetc)))),false,xc).i(xi2).i(xi10).i(crypt(pk(xi6),xi8))
+
+(--init)
+# Initial state
+h(xTime).w(0,xSe02,a,etc2,c(a,c(I,c(pk(ka),c(pk(ka)',c(pk(ki),xetc))))),true,2).w(1,a,b,etc2,c(b,c(pk(ka),c(pk(kb),c(pk(kb)',xetc)))),true,1).w(0,xSe01,a,etc2,c(a,c(b,c(pk(ka),c(pk(ka)',c(pk(kb),xetc))))),true,1).i(I).i(b).i(pk(ka)).i(pk(kb)).i(pk(ki))
+(--goal)
+# Correspondence Goal
+w(0,x1,a,xl1,xetc1,xT1,xc).w(1,x2,I,xl2,xetc2,xT2,s(xc))
+
+# Correspondence Goal
+w(0,x1,a,xl1,xetc1,xT1,s(xc)).w(1,x2,I,xl2,xetc2,xT2,xc)
+
+# Correspondence Goal
+w(0,x1,a,xl1,xetc1,xT1,xc).w(1,x2,b,xl2,xetc2,xT2,s(xc))
+
+# Correspondence Goal
+w(0,x1,a,xl1,xetc1,xT1,s(xc)).w(1,x2,b,xl2,xetc2,xT2,xc)
+
+
+
+QUESTIONS ABOUT SESSIONS:
+========================
+
+maybe the way sessions are specified now 
+
+Session_instances
+[ A:a, B:b, Ka:ka, Kb:kb ]
+[ A:a, B:I, Ka:ka, Kb:ki ];
+Intruder divert, impersonate;
+
+is not general enough (or maybe not particular enough):
+
+a more general possibility would be to specify the names (and numbers) of users
+and the number of possible sessions
+
+	AGENTS a, b, I 
+	SESSIONS 1 (or 2 or 3 or ...)
+
+or we could be more particular (as David and Grit) and say something like
+
+	[ A:I(a), B:b, Ka:ka, Kb:kb ]
+	[ A:a, B:I, Ka:ka, Kb:ki ];
+
+or
+
+	[ A:I, B:b, Ka:ka, Kb:kb ]
+	[ A:a, B:I or b, Ka:ka, Kb:ki ];
+
+
+Another possibility would be to have a predicate `instantiate' for the intruder,
+where the difference would then be:
+
+I impersonates a  ==>  A:I(a), B:b, Ka:ka, Kb:kb  and Ka':ka' is unknown to I
+I instantiates A  ==>  A:I,    B:b, Ka:Ki, Kb:kb  and Ka':ki'
+
+that is the difference is in the keys, or, in other words, impersonate works on
+identifiers (small letters!) while instantiate works on roles (capital letters)
+
+Or we specify roles e.g.
+
+	Role A: I = [B:b, Ka:ka, Ka':ki', Kb:kb]
+
+
+ 
+Maybe the prolem is that the description of the protocol is parametric in the
+roles (or keys)
+
+	P(A,B,C)
+
+and then specify the different instances that we want to consider. An idea would
+be to use the following syntax:
+
+	[ A:{a,b}, B:{c}, C:{a,c} ]
+
+	amounting to
+
+	A  B  C
+        -------
+        a  c  a
+        a  c  c
+        b  c  a
+        b  c  c
+
+where impersonates extends this implicitly.  In general we would have a list
+(sequence) of specifications like
+
+	[ A:{a,b}, B:{c}, C:{a,c} ]
+
+amounting to their union.

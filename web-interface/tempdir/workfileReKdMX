@@ -1,0 +1,65 @@
+role keyowner(
+	A,B :agent,
+	SND,RCV : channel(dy))
+played_by A def=
+       local
+	State : nat,
+	KP,KEY,TCODE,ACODE: text,
+	SEND  : message,
+	SEMP  : message
+init
+	State :=0
+transition
+sendpolicies. State=0 /\ RSV(stat)=|>
+	      State':=1 /\ KP':=new() /\ SND(KP)
+receivecode. State=1 /\ RSV(TCODE)=|>
+	 State':=2 /\ KEY':=new() /\ SND(KEY)
+receiveacode. State=2 /\ RSV(ACODE)=|>
+	State':=3 /\ witness(A,B,access_code,ACODE)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role keymanager(
+	A,B :agent,
+	SND,RCV :channel(dy))
+played_by B def=
+ local
+ 	State :nat,
+ 	KP,KEY,TCODE,ACODE: text,
+		SEND  : message,
+		SEMP  : message
+ init
+	State :=0
+ transition
+ receivekpolicies. State=0 /\ RSV(KP)=\>
+ 		   State':=1 /\ TCODE':=new() /\ SND(TCODE)
+ receivekey.	State=1 /\ RSV(KEY)=\>
+ 		State':=2 /\ ACODE':=new() /\ SND(ACODE)/\ secret(B,A,acccess_code,ACODE)
+end role
+
+role session(
+	A,B :agent)
+def=
+ local SA, SB, RA, RB : channel(dy)
+ composition
+  keyowner(A,B,SA,RA)
+ /\ keymanager(A,B,SB,RB)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+const
+keymanager_keyowner_nb,
+a,b : agent,
+intruder_knowledge = {a,b}
+composition
+session(a,b)
+/\ session(a,i)
+/\ session(i,b,kib,h)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+secrecy_of k1
+authentication_on keymanager_keyowner_nb
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

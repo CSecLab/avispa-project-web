@@ -1,0 +1,136 @@
+%% PROTOCOL: User Authentication in Wireless Sensor Network.
+%% PURPOSE:
+%% Mutual authentication between two sensor nodes U & V with challenge response protocol.
+%% ALICE_BOB:
+%%\begin{verbatim}
+%%  1. U -> V : U.Nu.Qu.Vru.Sru.Cu.Tu.IDu.{ Vr.Sru.Cu.Tu.Iu}_privatekeyCA
+%%  2. V -> U : V.Nv.Nu.Qv.Vrv.Srv.Cv.Tv.IDv.{ Vrv.Srv.Cv.Tv.IDv}_privatekeyCA.H(Kv.P.Nv).{P}_Kvu.H(Kvu.P.Nv),  where Kvu = H(IDu.IDv.Nu.Nv.Tu.Tv.Qu)
+%%  3. U -> V : U.V.Nv.H(Kuv.P'.Nv), where Kuv = H(IDv.IDu.Nv.Nu.Tv.Tu.Qv)
+%%\end{verbatim}
+%%
+%% LIMITATIONS:
+%%
+%% ATTACKS: None
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+%%HLPSL:
+role alice (U,V   : agent,
+        Kca : public_key,
+        % inv(Kca) = private key of CA  
+        % H is hash function                                                         
+   	H    : hash_func,
+        F    : hash_func,
+        IDu, Vru, Cu, Sru, Tu: text,
+        Snd, Rcv: channel(dy))
+played_by U
+def=     
+  local State  : nat,
+        IDv, Vrv, Cv, Srv,Tv, Qu,  Qv, P, Nv, Nu, G,
+        Ru, Rv :  text
+  const alice_bob_nv,  bob_alice_nu, subs1, subs2 : protocol_id
+  init  State := 0
+
+  transition
+   1. State   = 0  /\ Rcv(start) =|>
+      State' := 1  /\ Nu' := new()
+                   /\ Ru' := new()
+		   /\ Qu' := F(Ru'.G)
+                   /\ secret({Ru'}, subs1, U)
+                   /\ Snd(U. Nu'.Qu'.Vru.Sru.Cu.Tu.IDu.
+                          {Vru.Sru.Cu.Tu.IDu}_inv(Kca))
+                   /\ witness(U, V, bob_alice_nu, Nu')
+  2. State   = 1 /\ Rcv(V.Nv'.Nu'.Qv'.Vrv.Srv.Cv.Tv.IDv
+                   .{ Vrv.Srv.Cv.Tv.IDv}_inv(Kca).
+                    {P'}_H(IDu.IDv.Nu'.Nv'.Tu.Tv.Qu').
+                    H(H(IDu.IDv.Nu'.Nv'.Tu.Tv.Qu').P'.Nu')) =|> 
+  State' := 2 /\ Snd(U.V.Nv'.H(H(IDv.IDu.Nv'.Nu'.Tv.Tu.Qv).P'.Nv'))
+              /\ request(U,V,bob_alice_nu,Nu') 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role bob (V,U : agent,
+          Kca : public_key,
+          % inv(Kca) = private key of CA
+          % H is hash function
+	  H: hash_func,
+          F: hash_func,
+          IDv, Vrv, Cv, Srv,Tv : text,
+          Snd, Rcv: channel(dy))
+played_by V
+def=   
+  local State  : nat,
+        IDu, Vru, Cu, Sru, Tu, Qv, Qu, P, Nv, Nu,
+        G, Ru, Rv : text
+  const  bob_alice_nu,  alice_bob_nv,
+         subs1, subs2  : protocol_id
+  init  State := 0
+
+  transition
+   1. State   = 0 /\ Rcv(U.Nu'.Qu'.Vru.Sru.Cu.Tu.IDu.
+                     {Vru.Sru.Cu.Tu.IDu}_inv(Kca)) =|>  
+      State' := 1/\ Nv' := new()
+                 /\ Rv' := new()
+                 /\ Qv' := F(Rv'.G)
+	         /\ P' := new()
+                 /\ secret({Rv'}, subs2, V)
+                 /\ Snd(V.Nv'.Nu'.Qv'.Vrv.Srv.Cv.Tv.IDv.
+                       { Vrv.Srv.Cv.Tv.IDv}_inv(Kca)
+                       .{P'}_ H(IDu.IDv.Nu'.Nv'.Tu.Tv.Qu')
+                   .H(H(IDu.IDv.Nu'.Nv'.Tu.Tv.Qu').P'.Nu'))
+	         /\ witness(V, U, alice_bob_nv, Nv')
+   2. State   = 1 /\ Rcv(U.V.Nv'.H(H(IDv.IDu.Nv'.Nu'.Tv.Tu.Qv')
+                        .P.Nv')) =|>
+      State' := 2 /\ request(V,U,alice_bob_nv,Nv')  		  
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(U,V: agent,
+	     Ku, Kv : public_key,
+           IDu, IDv, Vru, Vrv, Cu, Cv, Sru,  Srv, Tu, Tv :text,
+	     H: hash_func, F: hash_func)
+def=
+
+  local  SU, SV, RU, RV: channel (dy)
+  
+  composition
+           alice(U, V, Ku, H, F, IDu,  Vru, Cu, Sru, Tu, SU, RU)
+       /\  bob(V,U,  Kv, H, F, IDv, Vrv,  Cv, Srv,  Tv, SV, RV)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+
+  const u, v          : agent,
+        ku, kv : public_key,
+        h             : hash_func,
+        f             : hash_func,
+       iu, iv, vru, vrv, cu, cv, sru, srv, tu, tv : text,
+       alice_bob_nv,  bob_alice_nu, subs1, subs2 : protocol_id
+
+  intruder_knowledge = {u, v, h, f, ku, kv}
+
+  composition
+	session(u, v, ku, kv, iu, iv, vru, vrv, cu, cv, sru, srv, tu, tv, h, f) /\
+	session(v, u, ku, kv, iu, iv, vru, vrv, cu, cv, sru, srv, tu, tv, h, f) 
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+  secrecy_of subs1
+  secrecy_of subs2
+  authentication_on alice_bob_nv
+  authentication_on bob_alice_nu
+  
+end goal
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+        
+
+
+ 
+ 

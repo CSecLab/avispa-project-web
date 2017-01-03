@@ -1,0 +1,207 @@
+role role_MR(MR:agent,MAP1:agent,CAAA:agent,HAAA:agent,MAP2:agent,AR3:agent,H:hash_func,NAAA:agent,LK:symmetric_key,Ki:symmetric_key,MRid:text,BitI:text,BitR:text,SIDD:text,NID:text,SND,RCV:channel(dy))
+played_by MR
+def=
+	local
+		State:nat,N2:text,NRCOA:text,NLCOA:text,ACK2:text,N5:text,MAP1id:text,ACK3:text,AR3id:text,N3:text,N1:text,NLK:message,NSK:message
+	
+	const
+		irtsolpr  : text,
+		iprtadv  : text,
+		fna      : text,
+		lbu : text,
+		flback:text
+		
+		init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ N1':=new() /\ N2':=new() /\ N3':=new() /\ secret(N3,sec_n3, {MR,NAAA,CAAA,AR3 })
+		/\ SND(irtsolpr(MR.MAP1.N1'.N2'.SIDD.NID.BitI.BitR.H(BitI.BitR.SIDD.LK).{SIDD.N3'}_LK.H(MRid.SIDD.N2'.Ki).H(MRid.SIDD.N1'.LK)))
+		/\ witness(MR,CAAA,auth_1,H(MRid.SIDD.N1'.LK))
+		7. State=1 /\ RCV(iprtadv (MAP1.MR.SIDD.NID.NLCOA'.NRCOA'.N5'.H(H(MRid.MAP1id'.SIDD.N5'.LK).NLCOA'.NRCOA')))
+			/\ request(MR,CAAA,auth_2,H(MRid.MAP1id'.SIDD.N5'.LK)) =|> State':=2
+		12. State=2 /\ RCV(flback(MAP1.MR.SIDD.NID.{SIDD.AR3id'.N3}_NSK'.H(SIDD.H(MRid.MAP1id.SIDD.N5.LK).ACK2')))
+		
+			/\ request(MR,AR3,auth_3,{SIDD.AR3id'.N3}_NSK)  
+			=|> State':=3        %MAP2.MR.H(SIDD.H(SIDD.LK'.N3'.N1').ACK3))
+		16. State=3       /\ RCV(flback(MAP2.MR.H(SIDD.H(SIDD.LK.N3.N1).ACK3')) )
+		=|> State':=4  /\ SND(fna(MR.AR3.{SIDD.AR3id.MRid.N3}_NSK) )
+		/\ witness(MR,AR3,auth_4,{SIDD.AR3id.MRid.N3}_NSK) 
+		/\ SND(lbu(MR.MAP2.H(H(SIDD.LK.N3.N1).MR)))
+end role
+
+role role_MAP1(MAP1:agent,MR:agent,CAAA:agent,HAAA:agent,MAP2:agent,AR3:agent,H:hash_func,NAAA:agent,KCAMAP1:symmetric_key,MAP1id:text,NLCOA:text,NRCOA:text,ACK2:text,SND,RCV:channel(dy))
+played_by MAP1
+def=
+	local
+		State:nat,N1:text,BitI:text,BitR:text,N2:text,Ki:symmetric_key,TK:message,ACK1:text,N5:text,MRid:text,LK:symmetric_key,N3:text,AR3id:text,NSK:message,SIDD:text,N6:text,NID:text
+	
+	const	
+		irtsolpr  : text,
+		iprtadv  : text,
+		aaa_auth_req :text,
+		lbu : text,
+		aaa_auth_rep : text,
+		hi :text,
+		hack :text,
+		flback:text,
+		flbu:text
+		
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(irtsolpr(MR.MAP1.N1'.N2'.SIDD'.NID'.BitI'.BitR'.H(BitI'.BitR'.SIDD'.LK').{SIDD'.N3'}_LK'.H(MRid'.SIDD'.N2'.Ki').H(MRid'.SIDD'.N1'.LK'))) /\ request(CAAA,MR,auth_1,H(MRid'.SIDD'.N1'.LK'))=|> State':=1 /\ SND(aaa_auth_req(MAP1.CAAA.N1'.N2'.SIDD'.NID'.BitI'.BitR'.H(BitI'.BitR'.SIDD'.LK').{SIDD'.N3'}_LK'.H(MRid'.SIDD'.N2'.Ki').H(MRid'.SIDD'.N1'.LK')))
+		6. State=1 /\ RCV(aaa_auth_rep(CAAA.MAP1.SIDD.NID.N5'.{SIDD.H(MRid.MAP1id.SIDD.N5'.LK).TK}_KCAMAP1))
+		=|> State':=2 /\ SND(iprtadv(MAP1.MR.SIDD.NID.NLCOA.NRCOA.N5'.H(H(MRid.MAP1id.SIDD.N5'.LK).NLCOA.NRCOA)))
+		/\ witness(CAAA,MR,auth_2,H(MRid.MAP1id.SIDD.N5'.LK)) /\ N6':=new() /\ secret(N6,sec_n6, {MAP1,NAAA,CAAA })
+		/\ SND(hi(MAP1.AR3.SIDD.NID.NLCOA.H(NLCOA.TK).{SIDD.N6'}_TK))
+		11. State=2 /\ RCV(hack(AR3.MAP1.SIDD.NID.{SIDD.N3.AR3id'}_NSK'.H(SIDD.H(SIDD.N6.TK).ACK1'))) 
+					
+		=|> State':=3 
+		/\ SND(flback(MAP1.MR.SIDD.NID.{SIDD.AR3id'.N3}_NSK.H(SIDD.H(MRid.MAP1id.SIDD.N5.LK).ACK2)))
+		/\ SND(flbu(MAP1.MAP2.SIDD.NID.NRCOA.H(NRCOA.TK).{SIDD.N6}_TK))
+end role
+
+role role_MAP2(MAP2:agent,MAP1:agent,MR:agent,CAAA:agent,HAAA:agent,AR3:agent,H:hash_func,NAAA:agent,KNAMAP2:symmetric_key,ACK3:text,SND,RCV:channel(dy))
+played_by MAP2
+def=
+	local
+		State:nat,TK:message,N6:text,NRCOA:text,NID:text,N3:text,SIDD:text,LK:symmetric_key,N1:text
+	
+	const
+		
+		aaa_auth_req : text	,
+		aaa_auth_rep : text,
+		flbu:text,
+		flback:text,
+		lbu:text
+		
+	init
+		State := 0
+	transition
+		13. State=0 /\ RCV(flbu(MAP1.MAP2.SIDD'.NID'.NRCOA'.H(NRCOA'.TK').{SIDD'.N6'}_TK'))
+		=|> State':=1  /\ SND(aaa_auth_req(MAP2.NAAA.SIDD'.NID'.NRCOA'.H(NRCOA'.TK').{SIDD'.N6'}_TK'))
+		15. State=1 /\ RCV(aaa_auth_rep(NAAA.MAP2.SIDD.NID.{SIDD.H(SIDD.LK'.N3'.N1')}_KNAMAP2))
+		=|> State':=2 /\ SND(flback(MAP2.MR.H(SIDD.H(SIDD.LK'.N3'.N1').ACK3)))
+		18. State=2 /\ RCV(lbu(MR.MAP2.H(H(SIDD.LK.N3.N1).MR))) =|> State':=3
+end role
+
+role role_CAAA(CAAA:agent,MAP1:agent,MR:agent,HAAA:agent,H:hash_func,NAAA:agent,LK:symmetric_key,KCNAAA:symmetric_key,KCAMAP1:symmetric_key,MAP1id:text,SND,RCV:channel(dy))
+played_by CAAA
+def=
+	local
+		State:nat,TK:message,BitI:text,BitR:text,N3:text,N1:text,N2:text,Ki:symmetric_key,SIDD:text,MRid:text,N5:text,N4:text,NID:text
+	
+	const
+		
+		aaa_auth_req : text	,
+		aaa_auth_rep : text
+		
+	init
+		State := 0
+	transition
+		2. State=0 /\ RCV(aaa_auth_req(MAP1.CAAA.N1'.N2'.SIDD'.NID'.BitI'.BitR'.H(BitI'.BitR'.SIDD'.LK).{SIDD'.N3'}_LK.H(MRid'.SIDD'.N2'.Ki').H(MRid'.SIDD'.N1'.LK)))
+		=|> State':=1 /\ witness(CAAA,MR,auth_2,N1') /\ N5':=new() /\ N4':=new()/\ TK':=H(LK.N4'.SIDD)/\secret(TK,sec_tk,{MAP1,CAAA,NAAA}) 
+		/\SND(aaa_auth_req(CAAA.NAAA.SIDD'.NID'.N2'.N5'.H(MRid'.SIDD'.N2'.Ki').{H(SIDD'.LK.N3'.N1').N3'.TK'}_KCNAAA))
+		/\ SND(aaa_auth_rep(CAAA.MAP1.SIDD'.NID'.N5'.{SIDD'.H(MRid'.MAP1id.SIDD'.N5'.LK).TK}_KCAMAP1))
+end role
+
+role role_NAAA(NAAA:agent,MAP1:agent,MR:agent,CAAA:agent,HAAA:agent,MAP2:agent,AR3:agent,H:hash_func,KNHAAA:symmetric_key,KCNAAA:symmetric_key,KNAAR3:symmetric_key,KNAMAP2:symmetric_key,SND,RCV:channel(dy))
+played_by NAAA
+def=
+	local
+		State:nat,Ki:symmetric_key,MRid:text,N2:text,N5:text,NLK:message,NLCOA:text,N6:text,NRCOA:text,N3:text,SIDD:text,LK:symmetric_key,N1:text,NID:text,TK:message,NSK:message
+	
+	const
+		
+		aaa_auth_req : text	,
+		aaa_auth_rep : text
+		
+	init
+		State := 0
+	transition
+		3. State=0 /\ RCV(aaa_auth_req(CAAA.NAAA.SIDD'.NID'.N2'.N5'.H(MRid'.SIDD'.N2'.Ki').{H(SIDD'.LK'.N3'.N1').N3'.TK'}_KCNAAA) )
+		=|> State':=1 /\ SND(aaa_auth_req(NAAA.HAAA.SIDD'.NID'.N1'.N2'.N5'.H(MRid'.SIDD'.N2'.Ki')))
+		5. State=1 /\ RCV(aaa_auth_rep(HAAA.NAAA.SIDD.NID.{SIDD.NLK'}_KNHAAA)) =|> State':=2 /\ NSK':=H(NLK'.N3'.SIDD)
+		9. State=2 /\ RCV(aaa_auth_req(AR3.NAAA.SIDD.NID.NLCOA'.H(NLCOA'.TK').{SIDD.N6'}_TK'))
+		=|> State':=3  
+		/\ SND(aaa_auth_rep(NAAA.AR3.SIDD.NID.{SIDD.NSK.N3.H(SIDD.N6'.TK)}_KNAAR3))
+		/\ secret(NSK,sec_nsk, {MR,NAAA,AR3 })
+		14. State=3 
+		/\ RCV(aaa_auth_req(MAP2.NAAA.SIDD.NID.NRCOA'.H(NRCOA'.TK).{SIDD.N6}_TK)) 
+		=|> State':=4 
+		/\ SND(aaa_auth_rep(NAAA.MAP2.SIDD.NID.{SIDD.H(SIDD.LK.N3.N1)}_KNAMAP2))
+end role
+
+role role_HAAA(HAAA:agent,MAP1:agent,MR:agent,CAAA:agent,MAP2:agent,AR3:agent,H:hash_func,NAAA:agent,KNHAAA:symmetric_key,Ki:symmetric_key,SND,RCV:channel(dy))
+played_by HAAA
+def=
+	local
+		State:nat,MRid:text,N2:text,N1:text,N5:text,SIDD:text,NID:text,NLK:message,TK:message
+	
+	
+	const
+		aaa_auth_req : text	,
+		aaa_auth_rep : text
+	
+	init
+		State := 0
+	transition
+		4. State=0 /\ RCV(aaa_auth_req(NAAA.HAAA.SIDD'.NID'.N1'.N2'.N5'.H(MRid'.SIDD'.N2'.Ki)) )
+		=|> State':=1 /\NLK':= H(SIDD.Ki.N5)/\ SND(aaa_auth_rep(HAAA.NAAA.SIDD'.NID'.{SIDD'.NLK'}_KNHAAA))
+		/\ secret(NLK',sec_nlk, {HAAA,NAAA,MR})
+end role
+
+role role_AR3(AR3:agent,MAP1:agent,MR:agent,CAAA:agent,MAP2:agent,H:hash_func,NAAA:agent,KNAAR3:symmetric_key,AR3id:text,ACK1:text,SND,RCV:channel(dy))
+played_by AR3
+def=
+	local
+		State:nat,NLCOA:text,N6:text,TK:message,NID:text,NSK:message,MRid:text,SIDD:text,N3:text
+	init
+		State := 0
+	transition
+		8. State=0 /\ RCV(hi(MAP1.AR3.SIDD'.NID'.NLCOA'.H(NLCOA'.TK').{SIDD'.N6'}_TK')) =|> State':=1 
+		/\ SND(aaa_auth_req(AR3.NAAA.SIDD'.NID'.NLCOA'.H(NLCOA'.TK).{SIDD'.N6'}_TK))
+		10. State=1 /\ RCV(aaa_auth_rep(NAAA.AR3.SIDD.NID.{SIDD.NSK'.N3'.H(SIDD.N6.TK)}_KNAAR3))
+		=|> State':=2 /\ 
+		SND(hack(AR3.MAP1.SIDD.NID.{SIDD.N3'.AR3id}_NSK'.H(SIDD.H(SIDD.N6.TK).ACK1)))
+		/\ witness(AR3,MR,auth_3,{SIDD.N3'.AR3id}_NSK')
+		17. State=2 /\ RCV(fna(MR.AR3.{SIDD.AR3id.MRid'.N3}_NSK))
+		/\ request(AR3,MR,auth_4,{SIDD.AR3id.MRid'.N3}_NSK)
+		=|> State':=3 
+end role
+
+role session1(ACK1:text,AR3id:text,KNAAR3:symmetric_key,Ki:symmetric_key,ACK2:text,NRCOA:text,NLCOA:text,MRid:text,BitI:text,BitR:text,SIDD:text,NID:text,LK:symmetric_key,KCAMAP1:symmetric_key,MAP1id:text,KNHAAA:symmetric_key,KCNAAA:symmetric_key,MAP2:agent,MAP1:agent,MR:agent,CAAA:agent,HAAA:agent,AR3:agent,H:hash_func,NAAA:agent,KNAMAP2:symmetric_key,ACK3:text)
+def=
+	local
+		SND7,RCV7,SND6,RCV6,SND5,RCV5,SND4,RCV4,SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_MAP2(MAP2,MAP1,MR,CAAA,HAAA,AR3,H,NAAA,KNAMAP2,ACK3,SND7,RCV7) /\ role_AR3(AR3,MAP1,MR,CAAA,MAP2,H,NAAA,KNAAR3,AR3id,ACK1,SND6,RCV6) /\ role_NAAA(NAAA,MAP1,MR,CAAA,HAAA,MAP2,AR3,H,KNHAAA,KCNAAA,KNAAR3,KNAMAP2,SND5,RCV5) /\ role_HAAA(HAAA,MAP1,MR,CAAA,MAP2,AR3,H,NAAA,KNHAAA,Ki,SND4,RCV4) /\ role_CAAA(CAAA,MAP1,MR,HAAA,H,NAAA,LK,KCNAAA,KCAMAP1,MAP1id,SND3,RCV3) /\ role_MAP1(MAP1,MR,CAAA,HAAA,MAP2,AR3,H,NAAA,KCAMAP1,MAP1id,NLCOA,NRCOA,ACK2,SND2,RCV2) /\ role_MR(MR,MAP1,CAAA,HAAA,MAP2,AR3,H,NAAA,LK,Ki,MRid,BitI,BitR,SIDD,NID,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		hash_0:hash_func,knamap2:symmetric_key,h:hash_func,haaa:agent,mr:agent,map2:agent,
+		knhaaa:symmetric_key,kcamap1:symmetric_key,nid:text,bitR:text,mrID:text,nrcoa:text,ki:symmetric_key,
+		knaar3:symmetric_key,ack1:text,ar3ID:text,ack2:text,nlcoa:text,bitI:text,sid:text,lk:symmetric_key,
+		mapID:text,kcnaaa:symmetric_key,map1:agent,caaa:agent,ar3:agent,naaa:agent,ack3:text
+		,auth_1:protocol_id,auth_2:protocol_id,auth_3:protocol_id,auth_4:protocol_id,sec_nlk:protocol_id,sec_tk:protocol_id,
+		sec_nsk:protocol_id,sec_n3:protocol_id,sec_n6:protocol_id
+	intruder_knowledge = {mr,map1,map2,ar3,naaa}
+	composition
+		session1(ack1,ar3ID,knaar3,ki,ack2,nrcoa,nlcoa,mrID,bitI,bitR,sid,nid,lk,kcamap1,mapID,knhaaa,kcnaaa,map2,map1,mr,caaa,haaa,ar3,h,naaa,knamap2,ack3)
+end role
+
+goal
+	authentication_on auth_1
+	authentication_on auth_2
+	authentication_on auth_3
+	authentication_on auth_4
+	secrecy_of sec_nsk
+	secrecy_of sec_tk
+	secrecy_of sec_nlk
+	secrecy_of sec_n3
+	secrecy_of sec_n6
+end goal
+
+environment()

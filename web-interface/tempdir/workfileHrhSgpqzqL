@@ -1,0 +1,164 @@
+%%HLPSL:
+role user (USER, GATEWAY: agent,             
+            Kug, Kug2: symmetric_key,
+            IDu, SNid, TSug, PSWu: text,
+            Hash: hash_func,
+            SND, RCV: channel (dy)) 
+
+played_by USER def=
+
+  local State : nat, 
+        Nu, Nx, TSugnew, TS: text,
+        AIDu, V1, V4: message,
+        Kugnew, SK, SK3: symmetric_key
+
+
+  init State := 0
+
+  transition  
+   
+  0.  State  = 0 /\ RCV(start) =|> 
+	State':= 4 
+  /\ Nu' := new()
+  /\ Kug' := xor(Kug2,Hash(IDu.PSWu))
+  /\ Nx' := xor(Kug,Nu)
+  /\ AIDu' := Hash(IDu.Kug.Nu.TSug)
+  /\ V1' := Hash(AIDu.Kug.Nx.SNid)
+  /\ SND(AIDu.Nx.TSug.SNid.V1)
+
+  2.  State  = 4 /\ RCV(SK3'.V4'.TS') =|> 
+	State':= 5
+  /\ SK' := xor(Hash(Kug.IDu.Nu),SK3)
+  /\ TSugnew' := xor(Hash(Kug.IDu.Nu),TS)
+  /\ Kugnew' := Hash(Kug.IDu.TSugnew)
+  /\ TSug' := TSugnew
+  /\ Kug' := Kugnew
+	/\ request(USER,GATEWAY,user_gateway_nu,Nu')
+  /\ request(USER,SENSOR,user_sensor_sk,SK')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role sensor(SENSOR, GATEWAY: agent,      
+         Kgs: symmetric_key,  
+         SNid: text,  
+         Hash: hash_func,  
+         SND, RCV: channel (dy)) 
+played_by SENSOR def=
+
+  local State : nat, 
+	T, T2: text,
+  SK, SK2, Kgsnew: symmetric_key,
+  V3, V2, AIDu : message
+
+  init State := 2
+
+  transition 
+
+  1.  State  = 2 /\ RCV(AIDu'.SK2'.T'.V2') =|> 
+	State':= 3 
+  /\ T2' := new() 
+  /\ SK' := xor(Hash(Kgs),SK2)
+  /\ V3' := Hash(SK.Kgs.SNid.T2)
+  /\ Kgs' := Hash(Kgs.SNid)
+  /\ SND(T2.SNid.V3)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role gateway(GATEWAY, USER, SENSOR: agent, 
+         TSug, M, IDu, SNid: text,     
+         Kug, Kgs: symmetric_key,      
+         Add, Hash: hash_func,
+         SND, RCV, SND2, RCV2: channel (dy)) 
+played_by GATEWAY def=
+
+  local State : nat, 
+  TSugnew, TS, Nx, Nu, T, T2 : text,
+  SK, SK3, Kugnew, Kgsnew : symmetric_key,
+  V4, V1, V3, AIDu : message
+
+  init State := 1
+
+  transition 
+
+  1.  State  = 1 /\ RCV(AIDu'.Nx'.TSug.SNid.V1') =|> 
+  State':= 3 
+  /\ SK' := new() 
+  /\ T' := new()
+  /\ Nu' := xor(Kug,Nx)
+  /\ SK2' := xor(Hash(Kgs),SK)
+  /\ V2' := Hash(AIDu.SK2.T.Kgs)
+  /\ SND2(AIDu.SK2.T.V2)
+
+  3.  State  = 3 /\ RCV2(T2'.SNid.V3') =|> 
+  State':= 5 
+  /\ M' := Add(M)
+  /\ TSugnew' := M
+  /\ TS' := xor(Hash(Kug.IDu.Nu),TSugnew)
+  /\ SK3' := xor(Hash(Kug.IDu.Nu),SK)
+  /\ V4' := Hash(SK3.Nu.TS.Kug)
+  /\ Kugnew' := Hash(Kug.IDu.TSugnew)
+  /\ Kug' := Kugnew
+  /\ Kgsnew' := Hash(Kgs.SNid)
+  /\ Kgs' := Kgsnew
+  /\ TSug' := TSugnew
+  /\ SND(SK3.V4.TSug)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(
+  USER, GATEWAY, SENSOR: agent,
+  Kug, Kgs: symmetric_key,
+  Add, Hash: hash_func) 
+
+  def=
+  local UG, GU, SG, GS: channel (dy),
+  Kug2: symmetric_key,
+  IDu, PSWu, TSid, TSug, M: text
+
+  init
+  Kug2 := xor(Hash(IDu.PSWu),Kug)
+
+  composition 
+
+	user(USER,GATEWAY,Kug,Kug2,IDu,SNid,TSug,PSWu,Hash,UG,GU)
+  /\ sensor(SENSOR,GATEWAY,Kgs,SNid,Hash,SG,GS)
+  /\ gateway(GATEWAY,USER,SENSOR,TSug,M,IDu,SNid,Kug,Kgs,Add,Hash,GU,UG,GS,SG)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+    const user, gateway, sensor: agent,
+	  kug, kgs                   : symmetric_key,
+	  hashh, addh                  : hash_func,
+    user_gateway_nu, user_sensor_sk, sk: protocol_id
+
+    intruder_knowledge = {}
+
+    composition
+
+	session(user,gateway,sensor,kug,kgs,addh,hashh)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of Kug, Kgs
+  authentication_on user_sensor_sk
+  authentication_on sensor_user_sk
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

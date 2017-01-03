@@ -1,0 +1,144 @@
+role alice (Ui, S   : agent,
+            SKus : symmetric_key,
+            %H is the ome-way hash function
+            % BH is the BioHashing function
+            H  : hash_func,
+            BH : hash_func,
+            Snd, Rcv: channel(dy))
+% Player by the initiator: the user Ui
+played_by Ui
+def=
+ local State  : nat,
+       R, PWi, N, Bi, RPWi, P : text,
+       Username, T1, T3, N, U : text,
+       F : hash_func,
+       Xi, Yi : text
+ const alice_bob_t1, bob_alice_t3, alice_bob_r, 
+       alice_bob_u, subs1, subs2, subs3 : protocol_id
+init  State := 0
+transition
+% User registration phase
+ 1. State = 0   /\ Rcv(start) =|>
+    State' := 1 /\ R' := new()
+% Send the registration request message to server S
+                /\ RPWi' :=  H(R'.PWi.Username)
+                /\ secret({PWi, Bi, R'}, subs2, Ui)
+                /\ secret({Username}, subs3, {Ui,S})
+                /\ Snd({Username.RPWi'}_SKus)
+% Ui has freshly generated the value r for S
+                /\ witness(Ui, S, alice_bob_r, R')
+% Receive the registration acknowledgment message from S
+ 2. State = 1 /\ Rcv({xor(H(MK.Username.N),H(R'.PWi.Username)).
+                 F(MK.P).H}_SKus) =|>
+% Login phase
+    State' := 2 
+% Send the REQUEST message < DIDi, D1, uP, T1 > to S
+                /\ U' := new()
+                /\ T1' := new()
+                /\ Snd(xor(Username, H(F(U'.MK.P))).H(Username.
+                   H(MK.Username.N).F(U'.MK.P).F(U'.P).T1').
+                   F(U'.P).T1')
+% Ui has freshly generated the value u for S
+                /\ witness(Ui, S, alice_bob_u, U')
+% Ui has freshly generated the value T1 for S
+                /\ witness(Ui, S, alice_bob_t1, T1')
+%Authentication phase
+% Receive the CHALLENGE message  from S
+3. State = 2  /\ Rcv(H(H(Username.H(MK.Username.N).
+                     F(MK.U'.P).T1'.T3').T1'.T3'.
+                     F(MK.U'.P)).T3')  =|> 
+% Ui's acceptance of the value T3 generated for Ui by S 
+State' := 3 /\ request(S, Ui, bob_alice_t3, T3')               
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%% 
+role  bob ( Ui, S   : agent,
+            SKus : symmetric_key,
+            %H is the ome-way hash function
+            % BH is the BioHashing function
+            H  : hash_func,
+            BH : hash_func,
+            Snd, Rcv: channel(dy))
+% Player by the responder: the server S
+played_by S
+def=
+ local State  : nat,
+       R, PWi, N, Bi, RPWi, P, SK : text,
+       Username, T1, T3, MK, N, U : text,
+       F : hash_func,
+       Xi, Yi : text
+ const alice_bob_t1, bob_alice_t3, alice_bob_r, 
+       alice_bob_u, subs1, subs2, subs3 : protocol_id
+init  State := 0
+ transition
+% User registration phase
+% Receive the registration request message from Ui
+1. State  = 0 /\ Rcv({Username.H(R'.PWi.
+                     Username)}_SKus) =|>  
+% S's acceptance of the value r generated for S by Ui
+  State' := 1 /\ request(Ui, S, alice_bob_r, R')
+              /\ secret({PWi, Bi, R'}, subs2, Ui)
+              /\ secret({Username}, subs3, {Ui,S})
+              /\ secret(MK, subs1, S)
+% Send the registration acknowledgment message to Ui
+              /\ Xi' := H(MK.Username.N)
+              /\ Yi' := xor(Xi',H(R'.PWi.Username))
+              /\ Snd({Yi'.F(MK.P).H}_SKus)
+% Login phase
+% Receive the REQUEST message 
+% < DIDi, D1, uP, T1 > from Ui
+2. State = 1 /\ Rcv(xor(Username, H(F(U'.MK.P))).H(Username.
+                   H(MK.Username.N).F(U'.MK.P).F(U'.P).T1').
+                   F(U'.P).T1') =|> 
+% Authentication phase
+ State' := 2 /\  T3' := new()
+% Send the CHALLENGE message  to Ui
+             /\ Snd (H(H(Username.H(MK.Username.N).
+                     F(MK.U'.P).T1'.T3').T1'.T3'.
+                     F(MK.U'.P)).T3')
+% S has freshly generated the value T3 for Ui
+             /\ witness(S, Ui, bob_alice_t3, T3')
+% S's acceptance of the value T1 generated for S by Ui
+             /\ request(Ui, S, alice_bob_t1, T1')
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(Ui, S: agent,
+             SKus : symmetric_key,
+             H : hash_func,
+             BH : hash_func)
+def=
+  local  SI, SJ, RI, RJ: channel (dy)
+  composition
+     alice(Ui, S, SKus, H, BH, SI, RI)
+ /\  bob  (Ui, S, SKus, H, BH, SJ, RJ)
+end role 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role environment()
+def=
+  const ui, s: agent,
+        skus : symmetric_key,
+        h    : hash_func,
+        bh   : hash_func,
+        alice_bob_t1, bob_alice_t3, alice_bob_r, 
+        alice_bob_u, subs1, subs2, subs3 : protocol_id
+  intruder_knowledge = {ui, s, bh, h}
+  composition
+	   session(ui, s, skus, h, bh) 
+	/\ session(ui, s, skus, h, bh) 
+end role
+
+goal
+  secrecy_of subs1
+  secrecy_of subs2
+  secrecy_of subs3
+ 
+  authentication_on alice_bob_t1  
+  authentication_on bob_alice_t3   
+end goal
+environment()

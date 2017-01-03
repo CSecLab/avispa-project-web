@@ -1,0 +1,148 @@
+role ca (CA, S, R, P1, P2 : agent,
+	K1, K2, K3, K4 : symmetric_key,
+	Snd, Rcv : channel(dy))
+played_by CA def=
+
+	local
+		State : nat,
+		IDs, IDp1, IDp2, IDr, M1, M2, M3 : text,
+		K, K12, K23, K34 : symmetric_key
+
+		const sub1, sub2, sub3, sub4 : protocol_id
+
+	init State := 0
+
+	transition
+	1. State   = 0 /\ Rcv(start) =|>
+	   State' := 1 /\ M3' := {IDr.K34.K}_K4
+		       /\ M2' := {IDp2.K23.K34.M3'}_K3
+		       /\ M1' := {IDp1.K12.K23.M2'}_K2
+		       /\ Snd({IDs.K12.K.M1'}_K1)
+		       /\ secret({K}, sub1, {CA, S, R})
+		       /\ secret({K12}, sub2, {CA, S, P1})
+		       /\ secret({K23}, sub3, {CA, P1, P2})
+		       /\ secret({K34}, sub4, {CA, P2, R})
+
+end role
+
+
+role s (CA, S, R, P1, P2 :agent,
+	K1 : symmetric_key,
+	Snd, Rcv : channel(dy))
+played_by S def=
+
+	local
+		State : nat,
+		IDs, M1 : text,
+		K, K12 : symmetric_key
+
+	init State := 2
+
+	transition
+	1. State   = 2 /\ Rcv({IDs.K12.K.M1}_K1) =|>
+	   State' := 3 /\ Snd(M1)
+
+end role
+
+
+role p1 (CA, S, R, P1, P2 :agent,
+	K2 : symmetric_key,
+	Snd, Rcv : channel(dy))
+played_by P1 def=
+
+	local
+		State : nat,
+		IDp1, M2 : text,
+		K12, K23 : symmetric_key
+
+	init State := 4
+
+	transition
+	1. State   = 4 /\ Rcv({IDp1.K12.K23.M2}_K2) =|>
+	   State' := 5 /\ Snd(M2)
+
+end role
+
+
+role p2 (CA, S, R, P1, P2 :agent,
+	K3 : symmetric_key,
+	Snd, Rcv : channel(dy))
+played_by P2 def=
+
+	local
+		State : nat,
+		IDp2 : text,
+		K23, K34 : symmetric_key
+
+	init State := 6
+
+	transition
+	1. State   = 6 /\ Rcv(IDp2.K23.K34.M3}_K3) =|>
+	   State' := 7 /\ Snd(M3)
+
+end role
+
+
+role r (CA, S, R, P1, P2 :agent,
+	K4 : symmetric_key,
+	Snd, Rcv : channel(dy))
+played_by R def=
+
+	local
+		State : nat,
+		IDr : text,
+		K34 : symmetric_key
+
+	init State := 8
+
+	transition
+	1. State   = 8 /\ Rcv({IDr.K34.K}_K4)
+
+end role
+
+
+role session( CA, S, P1, P2, R : agent)
+
+ def=
+ 
+	local
+			 K1, K2, K3, K4 : symmetric_key, 
+			 Snd, Rcv  : channel (dy)
+	composition
+			   ca      (CA, S, R, P1, P2, K1, K2, K3, K4, Snd, Rcv)
+			/\ s      (CA, S, R, P1, P2, K1, SU, Snd, Rcv)
+			/\ p1      (CA, S, R, P1, P2, K2, Snd, Rcv)
+			/\ p2      (CA, S, R, P1, P2, K3, Snd, Rcv)
+			/\ r      (CA, S, R, P1, P2, K4, Snd, Rcv)
+
+end role
+
+role environment() 
+def=
+
+    const sub1,sub2,sub3,sub4				: protocol_id,
+    ca,s,r,p1,p2     					: agent
+		  
+          
+		  
+    intruder_knowledge = {ca,s,r,p1,p2}
+
+    composition
+
+        session(ca,s,p1,p2,r)
+     /\ session(ca,s,p1,p2,r)
+     /\ session(ca,s,p1,p2,r)
+     /\ session(ca,s,p1,p2,r)
+     /\ session(ca,s,p1,p2,r)
+
+end role
+
+goal
+	secrecy_of sub1
+	secrecy_of sub2
+	secrecy_of sub3
+	secrecy_of sub4
+end goal
+
+
+environment()

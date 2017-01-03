@@ -1,0 +1,101 @@
+% PROTOCOL : Certificateless Remote Anonymous Authentication Scheme for WBAN
+% PURPOSE  : Authentication
+% PAPER : 2
+
+role initiator (Client, AP : agent,
+                HSH, MAC : hash_func,
+                SND, RCV : channel(dy))
+
+played_by Client def= 
+  local 
+    State : nat,
+    TC, R, T, U, Tdash, Idash, V, MACTEXT : text
+	
+  const 
+		s2, s3, s1 : protocol_id 
+
+init State := 0
+
+transition
+1. State = 0 /\ RCV(start) =|>
+   State' := 1 /\ V' := HSH(TC.R,T) 
+               /\ SND(V.U.TC.Tdash.Idash) 
+               /\ T' :=new() 
+               /\  secret({T'}, s2, Client)
+2. State = 1 /\ RCV(MACTEXT) =|>
+   State' := 2 /\ request(AP, Client, s3, MACTEXT)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role responder (Client, AP : agent,
+                HSH, MAC : hash_func,
+                SND, RCV : channel(dy))
+
+played_by AP def=
+	local 
+    State : nat,
+    TC, R, T, U, Tdash, Idash, V, MACTEXT, V2: text
+
+	const
+    s2, s3, s1 : protocol_id 
+
+init State := 0
+
+transition
+1. State = 0 /\ RCV(V.U.TC.Tdash.Idash) =|>
+   State' := 1 /\ V' := new() 
+               /\ MACTEXT' := MAC(V) 
+               /\ T' := new()
+               /\secret({T'}, s1, AP)
+               /\ SND(MACTEXT)
+               /\ witness (Client, AP, s3, MACTEXT)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(Client,AP : agent,
+             HSH,MAC : hash_func) 
+def=
+	local 
+    SA, SB, RA, RB : channel (dy),
+    TC, R, T, U, Tdash, Idash, V, MACTEXT, V2: text
+	
+  const 
+    s3, s1, s2 : protocol_id
+
+composition
+	initiator(Client, AP, HSH, MAC, SA, RA)
+	/\ responder(Client, AP, HSH, MAC, SB, RB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() 
+def=
+	const 
+    client, ap : agent,
+    h, mac : hash_func,
+    tc, r, t, u, tdash, idash, v, macval, v2:text,
+    s3, s1, s2 : protocol_id
+
+composition
+	session(client, ap,h,mac) 
+  /\ session(client, ap,h,mac)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+secrecy_of s1
+secrecy_of s2
+authentication_on s3
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

@@ -1,0 +1,236 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilebwkqgjfdVq
+
+section signature:
+
+state_server: agent * public_key * set(pair(message,message)) * set(pair(message,message)) * nat * public_key * public_key * text * text * text * message * message * nat -> fact
+state_resp: agent * agent * agent * text * public_key * public_key * public_key * nat * text * text * nat -> fact
+state_orig: agent * agent * agent * text * public_key * public_key * public_key * nat * text * text * set(agent) * nat -> fact
+
+
+section types:
+
+set_100, set_99, set_98: set
+no_secret, nr, no: protocol_id
+succ, h: hash_func
+RList, AList, Dummy_RList, Dummy_AList: set(pair(message,message))
+MGoal, Count, X, start, Dummy_X, Dummy_Count, dummy_msg: message
+vo, vr, vt, ki, Vo, Vr, Vt, Dummy_Vr, Dummy_Vo, dummy_pk: public_key
+ASGoal, Set_32, Dummy_Set_32: set(agent)
+A2Goal, A1Goal, o, r, ref, t, T, O, R, i: agent
+SID2, SID1, SID, S, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, Dummy_S: nat
+text1, No, Nr, Text, resolve, aborted, timeout, Dummy_Text, Dummy_Nr, Dummy_No, dummy_nonce: text
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(aborted).
+ iknows(timeout).
+ iknows(resolve).
+ iknows(text1).
+ iknows(o).
+ iknows(r).
+ iknows(t).
+ iknows(vo).
+ iknows(vr).
+ iknows(vt).
+ iknows(ki).
+ iknows(inv(ki)).
+ iknows(h).
+ iknows(i).
+ state_orig(o,r,t,text1,vo,vr,vt,0,dummy_nonce,dummy_nonce,set_100,3).
+ state_resp(r,o,t,text1,vo,vr,vt,0,dummy_nonce,dummy_nonce,4).
+ state_server(t,vt,set_98,set_99,0,dummy_pk,dummy_pk,dummy_nonce,dummy_nonce,dummy_nonce,apply(succ,t),dummy_msg,5)
+
+
+section rules:
+
+step step_0 (O,R,T,Text,Vo,Vr,Vt,Dummy_No,Nr,Set_32,SID,No) :=
+ state_orig(O,R,T,Text,Vo,Vr,Vt,0,Dummy_No,Nr,Set_32,SID).
+ iknows(start)
+=[exists No]=>
+ state_orig(O,R,T,Text,Vo,Vr,Vt,1,No,Nr,Set_32,SID).
+ iknows(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No))))))).
+ witness(O,R,no,pair(No,Text))
+
+step step_1 (O,R,T,Text,Vo,Vr,Vt,No,Dummy_Nr,Set_32,SID,Nr) :=
+ state_orig(O,R,T,Text,Vo,Vr,Vt,1,No,Dummy_Nr,Set_32,SID).
+ iknows(crypt(inv(Vr),pair(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))),apply(h,Nr))))
+ =>
+ state_orig(O,R,T,Text,Vo,Vr,Vt,2,No,Nr,Set_32,SID).
+ iknows(No)
+
+step step_2 (O,R,T,Text,Vo,Vr,Vt,No,Nr,Set_32,SID) :=
+ state_orig(O,R,T,Text,Vo,Vr,Vt,2,No,Nr,Set_32,SID).
+ iknows(Nr)
+ =>
+ state_orig(O,R,T,Text,Vo,Vr,Vt,3,No,Nr,Set_32,SID).
+ request(O,R,nr,pair(Nr,Text),SID)
+
+step step_3 (O,R,T,Text,Vo,Vr,Vt,No,Nr,Dummy_Set_32,SID) :=
+ state_orig(O,R,T,Text,Vo,Vr,Vt,1,No,Nr,Dummy_Set_32,SID).
+ iknows(timeout)
+ =>
+ state_orig(O,R,T,Text,Vo,Vr,Vt,5,No,Nr,Dummy_Set_32,SID).
+ iknows(crypt(inv(Vo),pair(aborted,crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No))))))))).
+ secret(No,no_secret,Dummy_Set_32).
+ contains(O,Dummy_Set_32)
+
+step step_4 (O,R,T,Text,Vo,Vr,Vt,No,Nr,Set_32,SID) :=
+ state_orig(O,R,T,Text,Vo,Vr,Vt,5,No,Nr,Set_32,SID).
+ iknows(crypt(inv(Vt),pair(aborted,crypt(inv(Vo),pair(aborted,crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))))))))
+ =>
+ state_orig(O,R,T,Text,Vo,Vr,Vt,6,No,Nr,Set_32,SID)
+
+step step_5 (O,R,T,Text,Vo,Vr,Vt,No,Dummy_Nr,Set_32,SID,Nr) :=
+ state_orig(O,R,T,Text,Vo,Vr,Vt,5,No,Dummy_Nr,Set_32,SID).
+ iknows(crypt(inv(Vt),pair(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))),crypt(inv(Vr),pair(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))),apply(h,Nr))))))
+ =>
+ state_orig(O,R,T,Text,Vo,Vr,Vt,7,No,Nr,Set_32,SID)
+
+step step_6 (O,R,T,Text,Vo,Vr,Vt,No,Nr,Set_32,SID) :=
+ state_orig(O,R,T,Text,Vo,Vr,Vt,2,No,Nr,Set_32,SID).
+ iknows(resolve)
+ =>
+ state_orig(O,R,T,Text,Vo,Vr,Vt,8,No,Nr,Set_32,SID).
+ iknows(pair(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))),crypt(inv(Vr),pair(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))),apply(h,Nr)))))
+
+step step_7 (O,R,T,Text,Vo,Vr,Vt,No,Nr,Set_32,SID) :=
+ state_orig(O,R,T,Text,Vo,Vr,Vt,8,No,Nr,Set_32,SID).
+ iknows(crypt(inv(Vt),pair(aborted,crypt(inv(Vo),pair(aborted,crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))))))))
+ =>
+ state_orig(O,R,T,Text,Vo,Vr,Vt,9,No,Nr,Set_32,SID)
+
+step step_8 (O,R,T,Text,Vo,Vr,Vt,No,Nr,Set_32,SID) :=
+ state_orig(O,R,T,Text,Vo,Vr,Vt,8,No,Nr,Set_32,SID).
+ iknows(crypt(inv(Vt),pair(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))),crypt(inv(Vr),pair(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))),apply(h,Nr))))))
+ =>
+ state_orig(O,R,T,Text,Vo,Vr,Vt,10,No,Nr,Set_32,SID).
+ request(O,R,nr,pair(Nr,Text),SID)
+
+step step_9 (R,O,T,Text,Vo,Vr,Vt,Dummy_No,Dummy_Nr,SID,No,Nr) :=
+ state_resp(R,O,T,Text,Vo,Vr,Vt,0,Dummy_No,Dummy_Nr,SID).
+ iknows(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))))
+=[exists Nr]=>
+ state_resp(R,O,T,Text,Vo,Vr,Vt,1,No,Nr,SID).
+ iknows(crypt(inv(Vr),pair(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))),apply(h,Nr)))).
+ witness(R,O,nr,pair(Nr,Text))
+
+step step_10 (R,O,T,Text,Vo,Vr,Vt,No,Nr,SID) :=
+ state_resp(R,O,T,Text,Vo,Vr,Vt,1,No,Nr,SID).
+ iknows(No)
+ =>
+ state_resp(R,O,T,Text,Vo,Vr,Vt,2,No,Nr,SID).
+ iknows(Nr).
+ request(R,O,no,pair(No,Text),SID)
+
+step step_11 (R,O,T,Text,Vo,Vr,Vt,No,Nr,SID) :=
+ state_resp(R,O,T,Text,Vo,Vr,Vt,1,No,Nr,SID).
+ iknows(resolve)
+ =>
+ state_resp(R,O,T,Text,Vo,Vr,Vt,3,No,Nr,SID).
+ iknows(pair(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))),crypt(inv(Vr),pair(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))),apply(h,Nr)))))
+
+step step_12 (R,O,T,Text,Vo,Vr,Vt,No,Nr,SID) :=
+ state_resp(R,O,T,Text,Vo,Vr,Vt,3,No,Nr,SID).
+ iknows(crypt(inv(Vt),pair(aborted,crypt(inv(Vo),pair(aborted,crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))))))))
+ =>
+ state_resp(R,O,T,Text,Vo,Vr,Vt,4,No,Nr,SID)
+
+step step_13 (R,O,T,Text,Vo,Vr,Vt,No,Nr,SID) :=
+ state_resp(R,O,T,Text,Vo,Vr,Vt,3,No,Nr,SID).
+ iknows(crypt(inv(Vt),pair(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))),crypt(inv(Vr),pair(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))),apply(h,Nr))))))
+ =>
+ state_resp(R,O,T,Text,Vo,Vr,Vt,5,No,Nr,SID).
+ request(R,O,no,pair(No,Text),SID)
+
+step step_14 (T,Vt,AList,RList,Dummy_Vo,Dummy_Vr,Dummy_Text,Dummy_No,Dummy_Nr,Dummy_X,SID,Vo,Vr,Text,No,Nr,X) :=
+ state_server(T,Vt,AList,RList,0,Dummy_Vo,Dummy_Vr,Dummy_Text,Dummy_No,Dummy_Nr,apply(succ,X),Dummy_X,SID).
+ iknows(crypt(inv(Vo),pair(aborted,crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No))))))))).
+ contains(pair(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))),crypt(inv(Vr),pair(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))),apply(h,Nr)))),RList)
+ =>
+ state_server(T,Vt,AList,RList,0,Vo,Vr,Text,No,Nr,X,X,SID).
+ iknows(crypt(inv(Vt),pair(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))),crypt(inv(Vr),pair(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))),apply(h,Nr)))))).
+ contains(pair(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))),crypt(inv(Vr),pair(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))),apply(h,Nr)))),RList)
+
+step step_15 (T,Vt,Dummy_AList,RList,Dummy_Vo,Dummy_Vr,Dummy_Text,Dummy_No,Dummy_Nr,Dummy_X,SID,Vo,Vr,Text,No,X) :=
+ state_server(T,Vt,Dummy_AList,RList,0,Dummy_Vo,Dummy_Vr,Dummy_Text,Dummy_No,Dummy_Nr,apply(succ,X),Dummy_X,SID).
+ iknows(crypt(inv(Vo),pair(aborted,crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No))))))))) &
+ not(contains(pair(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))),crypt(inv(Vr),pair(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))),apply(h,Nr)))),RList))
+ =>
+ state_server(T,Vt,Dummy_AList,RList,0,Vo,Vr,Text,No,Dummy_Nr,X,X,SID).
+ iknows(crypt(inv(Vt),pair(aborted,crypt(inv(Vo),pair(aborted,crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No))))))))))).
+ contains(pair(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))),crypt(inv(Vo),pair(aborted,crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No))))))))),Dummy_AList)
+
+step step_16 (T,Vt,AList,RList,Dummy_Vo,Dummy_Vr,Dummy_Text,Dummy_No,Dummy_Nr,Dummy_X,SID,Vo,Vr,Text,No,Nr,X) :=
+ state_server(T,Vt,AList,RList,0,Dummy_Vo,Dummy_Vr,Dummy_Text,Dummy_No,Dummy_Nr,apply(succ,X),Dummy_X,SID).
+ iknows(pair(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))),crypt(inv(Vr),pair(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))),apply(h,Nr))))).
+ contains(pair(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))),crypt(inv(Vo),pair(aborted,crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No))))))))),AList)
+ =>
+ state_server(T,Vt,AList,RList,0,Vo,Vr,Text,No,Nr,X,X,SID).
+ iknows(crypt(inv(Vt),pair(aborted,crypt(inv(Vo),pair(aborted,crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No))))))))))).
+ contains(pair(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))),crypt(inv(Vo),pair(aborted,crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No))))))))),AList)
+
+step step_17 (T,Vt,AList,Dummy_RList,Dummy_Vo,Dummy_Vr,Dummy_Text,Dummy_No,Dummy_Nr,Dummy_X,SID,Vo,Vr,Text,No,Nr,X) :=
+ state_server(T,Vt,AList,Dummy_RList,0,Dummy_Vo,Dummy_Vr,Dummy_Text,Dummy_No,Dummy_Nr,apply(succ,X),Dummy_X,SID).
+ iknows(pair(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))),crypt(inv(Vr),pair(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))),apply(h,Nr))))) &
+ not(contains(pair(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))),crypt(inv(Vo),pair(aborted,crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No))))))))),AList))
+ =>
+ state_server(T,Vt,AList,Dummy_RList,0,Vo,Vr,Text,No,Nr,X,X,SID).
+ iknows(crypt(inv(Vt),pair(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))),crypt(inv(Vr),pair(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))),apply(h,Nr)))))).
+ contains(pair(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))),crypt(inv(Vr),pair(crypt(inv(Vo),pair(Vo,pair(Vr,pair(T,pair(Text,apply(h,No)))))),apply(h,Nr)))),Dummy_RList)
+
+
+section properties:
+
+property authentication_on_no (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,no,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,no,MGoal))
+     /\ ((request(A1Goal,A2Goal,no,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,no,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_nr (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,nr,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,nr,MGoal))
+     /\ ((request(A1Goal,A2Goal,nr,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,nr,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property secrecy_of_no_secret (MGoal,ASGoal) :=
+ [] ((secret(MGoal,no_secret,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state authentication_on_no (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,no,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,no,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_no (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,no,MGoal,SID1).
+ request(A1Goal,A2Goal,no,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_nr (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,nr,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,nr,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_nr (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,nr,MGoal,SID1).
+ request(A1Goal,A2Goal,nr,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state secrecy_of_no_secret (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,no_secret,ASGoal) &
+ not(contains(i,ASGoal))
+

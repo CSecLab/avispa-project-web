@@ -1,0 +1,131 @@
+% @verbatim(SAML v.2 Web SSO Profile)
+% @verbatim(SP-initiated SSO Profile with front channels)
+% @modeler(Giancarlo Pellegrino and Luca Compagna, SAP Research)
+% @modeler(David von Oheimb, Siemens AG, 2010)
+% @satmc()
+% @ofmc(--classic --untyped)
+% @clatse()
+
+specification SSO_Google
+channel_model CCM
+
+entity Environment {
+  types
+    uri < agent;
+    method < message;
+    code   < message;
+
+  symbols
+    nil                                       : message;
+    get, post                                 : method;
+    httpReq (method, agent, message, message) : message;
+    httpResp(code         , message, message) : message;
+    authReq (nat, agent)                      : message;
+    authResp (public_key, message)            : message;
+    %% how to add signature hypotheses to assertion?
+    redirect, ok                              : code;
+    uri_sp, uri_i                             : uri;
+    URIs                                      : uri set;
+    TrustedSPs                                : agent set;
+    c, sp, idp                                : agent;
+    pseudo_C                                  : public_key;
+
+  %%%%%%%%%%%%%%%% SESSION %%%%%%%%%%%%%%%%
+  entity Session (C, IdP, SP: agent, TrustedSPs : agent set, URIs : uri set, URI : uri) {
+
+    %%%%%%%%%%%%%%%% CLIENT %%%%%%%%%%%%%%%%
+    entity Client (Actor, SP: agent, URI : uri) {
+      symbols
+        IdP         : agent;
+        AReq, ARsp  : message;
+        Resource    : text;
+
+      body {
+        %% C-SP (1)
+        Actor  ->* SP    : httpReq (get, URI, Actor, nil);
+        SP    *->  Actor : httpResp(redirect, ?IdP.?AReq, nil);
+		
+        %% C-IdP
+        Actor *->* IdP   : httpReq (get, IdP, Actor.IdP.AReq, nil);
+        IdP   *->* Actor : httpResp(ok , nil, SP.?ARsp);
+		
+        %% C-SP (2)
+        Actor  ->* SP    : httpReq (post, SP, nil, ARsp);
+      channel_goal auth_C_on_uri:
+        Actor *-> SP     : URI;
+        SP    *->* Actor : httpResp(ok, URI, ?Resource);
+      channel_goal secrecy_and_auth_on_Resource: 
+        SP    *->* Actor : Resource;
+      }
+    }
+
+    %%%%%%%%%%%%%%%% IDENTITY PROVIDER %%%%%%%%%%%%%%%%
+    entity IdentityProvider (Actor: agent, TrustedSPs: agent set) {
+      symbols
+        C, SP: agent;
+        ID: nat;
+        URI : uri;
+      body {
+        %% is there another C in the message?
+        ?C *->* Actor  : httpReq (get, Actor, ?C.Actor.authReq(?ID, ?SP).?URI, nil);
+        
+        % The challenge by IdP and correct reponse by C to authenticate C is abstracted away here,
+        % but the authentication of C to IdP is modeled by using ?C *->...
+        %% check whether SP is a trusted SP
+        if (TrustedSPs->contains(SP)) {
+          Actor *->* C : httpResp(ok, nil, SP.authResp(pk(Actor), ({C.Actor}_inv(pk(Actor)))).URI);
+        }
+      }
+    }
+
+    %%%%%%%%%%%%%%%% SERVICE PROVIDER %%%%%%%%%%%%%%%%
+    entity ServiceProvider (Actor, IdP: agent, URIs : uri set) {
+      symbols
+        C           : agent;
+        URI         : uri;
+        ID          : nat;
+        AA          : message;
+        ConsumedAAs : message set;
+        Resource    : text;
+
+      body {
+        select {
+        on(?C  ->* Actor : httpReq(get, ?URI, ?C, nil) &
+                           URIs->contains(?URI) %% check whether the URI belongs to the SP
+          ): {}
+        }
+        ID := fresh();
+        Actor   *->  C   : httpResp(redirect, IdP.authReq(ID, Actor).URI, nil);
+        select {
+        on(?C  ->* Actor : httpReq (post, Actor, nil, authResp(pk(IdP), ?AA).?URI) &
+                           ?AA = {?C.IdP  }_inv(pk(IdP)) &
+                           !ConsumedAAs->contains(?AA) %% check if the assertion has not been consumed
+          ):
+          channel_goal auth_C_on_uri:
+            C *->  Actor : URI; {}
+        }
+        ConsumedAAs->add(AA); %% mark the assertion as consumed
+        Resource := fresh();
+        Actor   *->* C   : httpResp(ok, URI, Resource);
+      channel_goal secrecy_and_auth_on_Resource: 
+        Actor   *->* C   : Resource;
+       %assert finished: false; %%% just for executability testing!
+      }
+    }
+    body {
+      %% a new session is built
+      new Client(C, SP, URI);
+      new IdentityProvider(IdP, TrustedSPs);
+      new ServiceProvider(SP, IdP, URIs);
+    }
+  }
+  body {
+    TrustedSPs := {sp, i};
+    URIs := {uri_sp};
+	
+    %% Sessions
+    new Session(c, i  , i , TrustedSPs, URIs, uri_i ); % honest C talking to i(SP)
+    new Session(i, idp, sp, TrustedSPs, URIs, uri_sp); % honest IdP and SP
+  }
+
+} 

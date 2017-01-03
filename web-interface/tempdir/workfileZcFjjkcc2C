@@ -1,0 +1,107 @@
+%--------------------------------------------------role_IoTHub
+role role_IoTHub(
+	A:agent,B:agent,
+	H:function,F:function,
+	SND,RCV:channel(dy)
+	)
+played_by A
+def=
+	local
+		State:nat,
+		Offseta,Lengtha,Filtera,Offsetb,Lengthb,Filterb,T1,T2,T3,T4,Sa,Sb:text,
+		Sessionkey,Phub,P2hub,R2hub,HP2hub,Psd,R2sd,P2sd,HPsd:message
+	const
+		sk,psd,r2sd,p2sd,r2hub,p2hub,phub,sa,sb:protocol_id
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> 
+				State':=1 
+				/\ Offseta':=new() /\ Lengtha':=new() /\ Filtera':=new() /\ T1':=new()
+				/\ SND(Offseta'.Lengtha'.Filtera'.T1')
+				/\ Phub':=H(F(Offseta',Lengtha').Filtera')
+				/\ secret(Phub',phub,{A})
+
+		2. State=1 /\ RCV(Offsetb'.Lengthb'.Filterb'.HPsd'.T2') /\ H(Phub')=HPsd' =|> 
+				State':=2
+				/\ R2hub':=F(Offsetb',Lengthb')
+				/\ P2hub':=H(R2hub'.Filterb')
+				/\ HP2hub':=H(P2hub')
+				/\ Sa':=new() /\ T3':=new() /\ SND({Sa'}_H(R2hub).HP2hub'.T3')
+				/\ secret(R2hub',r2hub,{A})
+				/\ secret(P2hub',p2hub,{A})
+				/\ secret(Sa',sa,{A,B})
+
+		3. State=2 /\ RCV({Sb'}_P2sd'.T4') =|> 
+				State':=3 
+				/\ Sessionkey':=H(Sa'.Sb')
+				/\ secret(Sessionkey',sk,{A,B})
+end role
+
+%--------------------------------------------------role_B
+role role_IoTDevice(
+	A:agent,B:agent,
+	H:function,F:function,
+	SND,RCV:channel(dy)
+	)
+played_by B
+def=
+	local
+		State:nat,
+		Offseta,Lengtha,Filtera,Offsetb,Lengthb,Filterb,T1,T2,T3,T4,Sa,Sb:text,
+		Sessionkey,Phub,P2hub,R2hub,HP2hub,Psd,R2sd,P2sd,HPsd:message
+	const
+		sk,psd,r2sd,p2sd,r2hub,p2hub,phub,sa,sb:protocol_id
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(Offseta'.Lengtha'.Filtera'.T1') =|> 
+				State':=1 
+				/\ Offsetb':=new() /\ Lengthb':=new() /\ Filterb':=new() /\ T2':=new()
+				/\ Psd':=H(F(Offseta',Lengtha').Filtera') /\ HPsd':=H(Psd')
+				/\ SND(Offsetb'.Lengthb'.Filterb'.HPsd'.T2')
+				/\ R2sd':=F(Offsetb',Lengthb')
+				/\ P2sd':=H(F(Offsetb',Lengthb').Filterb')
+				/\ secret(Psd',psd,{B})
+				/\ secret(R2sd',r2sd,{B})
+				/\ secret(P2sd',p2sd,{B})
+
+		2. State=1 /\ RCV({Sa'}_H(R2hub).HP2hub'.T3') /\ H(P2sd')=HP2hub' =|> 
+				State':=2 
+				/\ Sb':=new() /\ Sessionkey':=H(Sa'.Sb') /\ T4':=new() 
+				/\ SND({Sb'}_P2sd'.T4')
+				/\ secret(Sb',sb,{A,B})
+				/\ secret(Sessionkey',sk,{A,B})
+end role
+
+%--------------------------------------------------Session
+role session1(A:agent,B:agent,H:function,F:function)
+def=
+	local
+		SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_IoTHub(A,B,H,F,SND1,RCV1) /\ role_IoTDevice(A,B,H,F,SND2,RCV2)
+end role
+
+%--------------------------------------------------Environment
+role environment()
+def=
+	const
+		alice:agent,bob:agent,
+		h:function,f:function,
+		sa,sb:protocol_id
+
+	intruder_knowledge = {alice,bob}
+	composition
+		session1(alice,bob,h,f)
+end role
+
+%--------------------------------------------------Goal
+goal
+	secrecy_of phub,p2hub,r2hub
+	secrecy_of psd,p2sd,r2sd
+	secrecy_of sa,sb
+	authentication_on sa,sb
+end goal
+
+environment()

@@ -1,0 +1,28 @@
+role user (
+Ui,Sj,G : agent,
+SND,RCV : channel(dy),
+% symmetric key between GW and user
+SKgui   : symmetric_key ,
+% symmetric key between GW and sensor node
+SKgsj   : symmetric_key ,
+H  :hash_func)
+played_by Ui
+def=
+local State : nat,
+T1, T2, T3, T4, TS1, TS2, Ki, Kj, IDi, SIDj, ,Ri, Rj, PWi, SK, Kgwu, Kgws: text,
+constant : message
+const sec_pw, sec_ri,sec_ki, sec_kgwu, sec_sk, gw_user_ki, gw_sensor_kj,
+gw_sensor_rj, user_sensor_kj,sensor_user_ki :protocol_id
+init State := 0
+transition
+%Registration phase
+1. State = 0/\ RCV(start) =|>
+State’ := 1/\ Ri’ := new()
+/\secret({PWi}, sec_PW, Ui)
+/\SND(H(Ri’.H(PWi)).IDi.TS1)_SKgui
+2. State=1/\RCV((xor(H(Kgwu.IDi),H(H(Ri’.H(PWi)).H(PWi))).H(H(Kgwu.IDi).h(PWi).IDi).IDi)_SKgui)=|>
+State':=2/\secret((Ri’) , sec_ri ,Ui)
+%Login and authentication phase
+/\T1’:=new()
+/\Ki’:=new()
+/\SND(

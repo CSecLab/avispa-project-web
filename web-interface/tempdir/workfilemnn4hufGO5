@@ -1,0 +1,298 @@
+role session (A, H, B, N, C: agent, G: text, Hsh: hash_func, khb, kbn, knc: symmetric_key, 
+                        Pwd: symmetric_key)
+def=
+       local      SA, RA, SH, RH, SB, RB, SN, RN, SC, RC:  channel(dy)
+
+       composition 
+                     
+                     sk_1(A, H, B, N, C, G, Hsh, SA, RA, Pwd)   /\ 
+                     sk_2(A, H, B, N, C, G, Hsh, khb, SH, RH, Pwd)   /\ 
+                     sk_3(A, H, B, N, C, G, Hsh, khb, kbn, SB, RB)     /\ 
+                     sk_4(A, H, B, N, C, G, Hsh, kbn, knc, SN, RN)     /\ 
+                     sk_5(A, H, B, N, C, G, Hsh, knc, SC, RC) 
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment() def=
+
+ const k_ah, k_ab, k_an, k_ac                                                             :  protocol_id,
+           k_ha, k_ba, k_na, k_ca                                                              :  protocol_id,
+           a, h, b, n, c                                                                                    :  agent,
+           khb, kbn, knc                                                                               :   symmetric_key,
+           kai, kia, khi, kih, kbi, kib, kni, kin, kci, kic                               :   symmetric_key,
+           pwd                                                                                               :  symmetric_key,
+           g                                                                                                    :  text,
+           hsh                                                                                                :  hash_func,
+
+intruder_knowledge   =   {a, h, b, n, c, kai, kia, khi, kih, kbi, kib, kni, kin, kci, kic}
+
+composition
+    
+         session(a, h, b, n, c, g, hsh, khb, kbn, knc, pwd)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+
+    % secrecy_of   GK
+    secrecy_of         sec_K_AH,  sec_K_HA,  sec_K_AB,  sec_K_BA,
+                                sec_K_AN,  sec_K_NA,  sec_K_AC,  sec_K_CA,
+
+ %  authentication
+  authentication_on  k_ah
+  authentication_on  k_ha
+  authentication_on  k_ab
+  authentication_on  k_ba
+  authentication_on  k_an
+  authentication_on  k_na
+  authentication_on  k_ac
+  authentication_on  k_ca
+
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()
+
+
+
+
+role  sk_1  (A, H, B, N, C                                  :  agent,
+                     G                                                     :  text,
+                     Hsh                                                 :  hash_func,
+                     Snd, Rcv                                        :  channel(dy),
+                     Pwd                                                :  symmetric_key)
+played_by  A
+def=
+     local  State                                                    :  nat,
+     Ra                                                                   :  text,                                                   %  random variable
+     TKah                                                              :  symmetric_key,                               %  temp  key  A   H
+     TKab                                                              :  symmetric_key,                               %  temp  key  A   B
+     TKan                                                              :  symmetric_key,                               %  temp  key  A   N
+     TKac                                                              :  symmetric_key,                               %  temp  key  A   C
+     Xah                                                                 :  message,                                           %  out
+     Yh, Yhb, Yhbn, Yhbnc                                 :  message,                                           %  in
+     Xhb, Xbn, Xnc, Xcc                                     :  message,                                            %  mine
+     Kh, Kb, Kn, Kc                                            :  message,                                            %  keys
+
+  const  sec_K_AH,  sec_K_AB,  sec_K_AN,  sec_K_AC   :  protocol_id
+  init   State  :=  0
+  transition
+1.  State  =  0    /\  Rcv(start)  =|>                                                                      %   start
+     State ' :=  1   /\  Ra '   :=  new()                                                                    %   a
+                           /\  Xah '   :=  exp(G, Ra ' )                                                       %   g^a.  equivalent to: T_{r_A} (\alpha)
+                           /\  TKah '   :=  Hsh(A . Pwd . H)                                             %   Temp key
+                           /\  TKab '   :=  Hsh(TKah ' . B)                                               %   Temp key (password)
+                           /\  TKan '   :=  Hsh(TKab ' . N)                                               %   Temp key (password)
+                           /\  TKac '   :=  Hsh(TKan ' . C)                                               %   Temp key (password)
+                           /\  Snd(A . {Xah '}_TKah ' . H)                                               %   Send to h: g^a s1
+1.  State  =  1    /\  Rcv(H . {Yh '}_TKah . {Yhb '}_TKah . {Yhbn '}_TKah . {Yhbnc '}_TKah . A)  =|>
+                                                                                                   %  receive:  g^h,  g^hb,  g^hbn,  g^hbnc
+     State ' :=  2   /\  Xhb '   :=  exp(Yh ' , Ra)                                                    %   g^ah. equivalent to: T_{r_A}(T_{r_B}) (\alpha)
+                            /\  Xbn '   :=  exp(Yhb ' , Ra)                                                  %   g^ahb. equivalent to: T_{r_A}(T_{r_H}(T_{r_B})) (\alpha)
+                            /\  Xnc '   :=  exp(Yhbn ' , Ra)                                                %   g^ahbn. equivalent to: T_{r_A}(T_{r_H}(T_{r_B}(T_{r_N}))) (\alpha)
+                            /\  Xbn '   :=  exp(Yhbnc ' , Ra)                                              %   g^ahbnc. equivalent to: T_{r_A}(T_{r_H}(T_{r_B}(T_{r_N}(T_{r_C}))))   (\alpha)%
+                            /\  Kh '     := Hsh(Xhb ' . TKah . TKab .Xah)                      %  Shared  key  A    H
+                            /\  Kb '     := Hsh(Xbn ' . TKab . TKan .Xhb ')                    %  Shared  key  A    B
+                            /\  Kn '     := Hsh(Xnc ' . TKan . TKac .Xbn ')                    %  Shared  key  A    N
+                            /\  Kc '     := Hsh(Xcc ' . TKac . TKac .Xnc ')                     %  Shared  key  A    C
+                            /\  witness(A, H, k_ah, Kh ')                                                   %  Check  shared key with  H
+                            /\  secret(Kh ' , sec_K_AH, {A, H})                                      %  Check  shared key with  H
+                            /\  witness(A, B, k_ab, Kb ')                                                   %  Checking  shared key with  B
+                            /\  secret(Kb ' , sec_K_AB, {A, B})                                      %  Checking  shared key with  B
+                            /\  witness(A, N, k_an, Kn ')                                                   %  Checking  shared key with  N
+                            /\  secret(Kn ' , sec_K_AN, {A, N})                                      %  Checking  shared key with  N
+                            /\  witness(A, C, k_ac, Kc ')                                                   %  Checking  shared key with  C
+                            /\  secret(Kc ' , sec_K_AC, {A, C})                                      %  Checking  shared key with  C
+                            /\  request(A, H, k_ha, Kh ')                                                   %  Checking  shared key with  H
+                            /\  request(A, B, k_ba, Kb ')                                                   %  Checking  shared key with  B
+                            /\  request(A, N, k_na, Kn ')                                                   %  Checking  shared key with  N
+                            /\  request(A, C, k_ca, Kc ')                                                   %  Checking  shared key with  C
+end  role
+
+
+
+
+role  sk_2  (A, H, B, N, C                     :   agent,
+                     G                                        :   text,
+                     Hsh                                    :   hash_func,
+                     khb                                    :   symmetric_key,
+                     Snd, Rcv                           :   channel(dy),
+                     Pwd                                   :   symmetric_key)
+
+played_by  H
+
+def=
+    local  State                                         :   nat,
+          Rh                                                 :   text,
+          TKah                                            :   symmetric_key,                         %  Temp  key  A   H
+          TKab                                            :   symmetric_key,                         %  Temp  key  A   B
+          Temp1                                          :   message,                                     %  temp
+          Xah                                               :   message,                                     %  in
+          Xhb                                               :   message,                                     %  out
+          Yb, Ybn, Ybnc                            :   message,                                     %   in
+          Yb, Ybn, Ybnc, Yhbnc              :   message,                                     %  out
+          Kh                                                :   message,                                     %  key
+
+const  sec_K_HA                                 :   protocol_id
+
+init    State   : = 0
+
+transition
+
+1.  State  =  0         /\   Rcv(A . Temp1 ' . H)   = | >
+     State '  : =  1    /\   TKah '   : =  Hsh(A . Pwd . H)                                   %   receive from  A :  g ^ a. equivalent to: T_{r_A} (\alpha)%
+                                /\   Xah '   : =  {Temp1 '}_TKah '                                    %   Temp  key  A   H
+                                /\   Rh '   : =  new()                                                             %   h
+                                /\   Xhb '   : =  exp(Xah ' , Rh ')                                        %   g^ah. equivalent to: T_{r_A}(T_{r_H}) (\alpha)
+                                /\   TKab '   : =  Hsh(TKah ' . B)                                      %   Temp  key  A   B
+                                /\   Snd(H . {TKab ' }_Khb . {Xhb ' }_Khb . B)              %   Send to B :   g^ah
+
+2.  State  =  1        /\   Rcv(B . {Yb ' }_Khb . {Ybn ' }_Khb . {Ybnc ' }_Khb . H)   = | >         
+                                                                                %   receive from  B :   g^b , g^bn , g^bnc. equivalent to: T_{r_B} (\alpha), ...%
+     State '  : =  2    /\   Yh '   : =  exp(G, Rh)                                                  %   g^h. equivalent to: T_{r_H} (\alpha)
+                               /\   Yhb '   : =  exp(Yb ' , Rh)                                           %   g^hb. equivalent to: T_{r_H}(T_{r_B}) (\alpha)
+                               /\   Yhbn '   : =  exp(Ybn ' , Rh)                                       %   g^hbn.  T_{r_H}(T_{r_B}(T_{r_N})) (\alpha)
+                               /\   Yhbnc '   : =  exp(Ybnc ' , Rh)                                   %   g^hbnc. T_{r_H}(T_{r_B}(T_{r_N}(T_{r_C}))) (\alpha)
+                               /\   Snd(H . {Yh ' }_TKah . {Yhb ' }_TKah . {Yhbn ' }_TKah . {Yhbnc ' }_TKah . A)             
+                                                                                           %   send to A :   g^h  ,  g^hb  ,  g^hbn  ,   g^hbnc
+
+                              /\   Kh '   : =  Hsh(Xhb . TKah . TKab . Xah)                  %   shared key  A    H
+                              /\   witness(H, A, k_ha, Kh ' )                                             %   Check  shared  key  with  A
+                              /\   secret(Kh '  , sec_K_HA, {H , A})                               %   Check  shared  key  with  A
+                              /\   request(H , A, k_ah, Kh ' )                                            %   Check  shared  key  with  A
+
+
+end   role
+
+
+
+
+
+role  sk_3  (A, H, B, N, C                     :   agent,
+                     G                                        :   text,
+                     Hsh                                    :   hash_func,
+                     khb, Kbn                                    :   symmetric_key,
+                     Snd, Rcv                           :   channel(dy))
+                   
+played_by  B
+
+def=
+    local  State                                         :   nat,
+          Rb                                                 :   text,
+          TKab                                            :   symmetric_key,                         %  Temp  key  A   B
+          TKan                                            :   symmetric_key,                         %  Temp  key  A   N
+          Xhb                                               :   message,                                     %  in
+          Xbn                                               :   message,                                     %  out
+          Yn, Ync                                        :   message,                                     %   in
+          Yb, Ybn, Ybnc                            :   message,                                     %  out
+          Kb                                                :   message,                                     %  key
+
+const  sec_K_BA                                 :   protocol_id
+
+init    State   : = 0
+
+transition
+
+1.  State  =  0         /\   Rcv(H.{TKab' }_Khb . {Xhb' }_Khb.B)   = | >      %  receive from H  :  g^ah. equivalent to: T_{r_A}(T_{r_H}) (\alpha)
+     State'  : =  1     /\   Rb '   : =  new()                                                            %   b
+                                /\   Xbn '   : = exp(Xhb', Rb' )                                         %   g^ahb. equivalent to: T_{r_A}(T_{r_H}(T_{r_B})) (\alpha)
+                                /\   TKan '   : =  Hsh(TKab ' . N)                                    %   Temp  key  A   N
+                                /\   Snd(B . {TKan ' }_Kbn . {Xbn ' }_Kbn . N)            %   Send to N :   g^ahb
+
+2.  State  =  1        /\   Rcv(N . {Yn ' }_Kbn . {Ync ' }_Kbn . B)   = | >         
+                                                                                %   receive from  N :   g^n , g^cn  
+     State '  : =  2    /\   Yb '   : =  exp(G, Rb)                                                  %   g^b. equivalent to: T_{r_B} (\alpha)
+                               /\   Ybn '   : =  exp(Yn ' , Rb)                                           %   g^bn. equivalent to: T_{r_B}(T_{r_N}) (\alpha)
+                               /\   Ybnc '   : =  exp(Ync ' , Rb)                                       %   g^bnc. equivalent to: T_{r_B}(T_{r_N}(T_{r_C})) (\alpha)
+                               /\   Snd(B . {Yb ' }_Khb . {Ybn ' }_Khb . {Ybnc ' }_Khb . H)             
+                                                                                           %   send to H :   g^b  ,  g^bn  ,   g^bnc
+
+                              /\   Kb '   : =  Hsh(Xbn . TKab . TKan . Xhb)                  %   shared key  A    B
+                              /\   witness(B, A, k_ba, Kb ' )                                             %   Check  shared  key  with  A
+                              /\   secret(Kb '  , sec_K_BA, {B , A})                               %   Check  shared  key  with  A
+                              /\   request(B , A, k_ab, Kb ' )                                            %   Check  shared  key  with  A
+end   role
+
+
+
+
+
+role  sk_4  (A, H, B, N, C                     :   agent,
+                     G                                        :   text,
+                     Hsh                                    :   hash_func,
+                     kbn, Knc                           :   symmetric_key,
+                     Snd, Rcv                           :   channel(dy))
+                   
+played_by  N
+
+def=
+    local  State                                         :   nat,
+          Rn                                                 :   text,
+          TKan                                            :   symmetric_key,                         %  Temp  key  A   N
+          TKac                                            :   symmetric_key,                         %  Temp  key  A   C
+          Xbn                                               :   message,                                     %  in
+          Xnc                                               :   message,                                     %  out
+          Yc                                                 :   message,                                     %   in
+          Yn, Ync                                       :   message,                                     %  out
+          Kn                                                :   message,                                     %  key
+
+const  sec_K_NA                                 :   protocol_id
+
+init    State   : = 0
+
+transition
+
+1.  State  =  0         /\   Rcv(B . {TKan' }_Kbn . {Xbn' }_Kbn . N)   = | >  %  receive from B  :  g^ahb. equivalent to: T_{r_A}(T_{r_H}(T_{r_B})) (\alpha)%
+     State '  : =  1    /\   Rn '   : =  new()                                                            %   n
+                                /\   Xnc '   : = exp(Xbn', Rn' )                                         %   g^ahbn. equivalent to: T_{r_A}(T_{r_H}(T_{r_B}(T_{r_N}))) (\alpha)
+                                /\   TKac '   : =  Hsh(TKan ' . C)                                    %   Temp  key  A   C
+                                /\   Snd(N . {TKac ' }_Knc . {Xnc ' }_Knc . C)            %   Send to C :   g^ahbn
+
+2.  State  =  1        /\   Rcv(C . {Yc ' }_Knc . N)   = | >         
+                                                                                                                           %   receive from  C :   g^c. equivalent to: T_{r_C} (\alpha)  
+     State '  : =  2    /\   Yn '   : =  exp(G, Rn)                                                  %   g^n. equivalent to: T_{r_N} (\alpha) 
+                               /\   Ync '   : =  exp(Yc ' , Rn)                                           %   g^cn. equivalent to: T_{r_C}(T_{r_N}) (\alpha)
+                               /\   Snd(N . {Yn ' }_Kbn . {Ync ' }_Kbn . B)                 %   send to B :   g^n  ,  g^cn             
+                                                                                                                         
+                              /\   Kn '   : =  Hsh(Xnc . TKan . TKac . Xbn)                  %   shared key  A    N
+                              /\   witness(N, A, k_na, Kn ' )                                             %   Check  shared  key  with  A
+                              /\   secret(Kn '  , sec_K_NA, {N , A})                               %   Check  shared  key  with  A
+                              /\   request(N , A, k_an, Kn ' )                                            %   Check  shared  key  with  A
+end   role
+
+
+
+
+
+role  sk_5  (A, H, B, N, C                     :   agent,
+                     G                                        :   text,
+                     Hsh                                    :   hash_func,
+                     Knc                                   :   symmetric_key,
+                     Snd, Rcv                           :   channel(dy))
+                   
+played_by  C
+
+def=
+    local  State                                         :   nat,
+          Rc                                                 :   text,
+          TKac                                            :   symmetric_key,                         %  Temp  key  A   C
+          Xnc                                               :   message,                                     %  in
+          Yc                                                 :   message,                                     %  out
+          Xcc                                               :   message,                                     %   mine
+          Kc                                                :   message,                                     %  key
+
+const  sec_K_CA                                 :   protocol_id
+
+init    State   : = 0
+
+transition
+
+1.  State  =  0         /\   Rcv(N . {TKac ' }_Knc . {Xnc ' }_Knc . C)   = | >  %  receive from N  :  g^ahbn. equivalent to: T_{r_A}(T_{r_H}(T_{r_B}(T_{r_N}))) (\alpha)%
+     State '  : =  1    /\   Rc '   : =  new()                                                             %   c
+                                /\   Yc '   : = exp(G, Rc ' )                                                  %   g^c. equivalent to: T_{r_C} (\alpha)
+                                /\   Xcc '   : =  exp(Xnc ' , Rc ')                                         %   g^ahbnc.  equivalent to: T_{r_A}(T_{r_H}(T_{r_B}(T_{r_N}(T_{r_C}))))   (\alpha)%
+                                /\   Snd(C . {Yc ' }_Knc . N)                                              %   Send to N :   g^c
+                                /\   Kc '   : = Hsh(Xcc '.TKac '.TKac '.Xnc ')                 %  Shared key A    C
+         
+                                                                                                                         
+                              /\   witness(C, A, k_ca, Kc ' )                                             %   Checking  shared  key  with  A
+                              /\   secret(Kc '  , sec_K_CA, {C , A})                               %   Checking  shared  key  with  A
+                              /\   request(C , A, k_ac, Kc ' )                                            %   Checking  shared  key  with  A
+end   role

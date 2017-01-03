@@ -1,0 +1,102 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileKlVlqs
+
+section signature:
+
+state_keymanager: agent * agent * nat * text * text * text * text * nat -> fact
+state_keyowner: agent * agent * nat * text * text * text * text * nat -> fact
+
+
+section types:
+
+ASGoal: set(agent)
+k1, renewal_ans: protocol_id
+MGoal, start: message
+UINFO, QUES, ANS, STATUS, Dummy_QUES, Dummy_ANS, Dummy_UINFO, dummy_nonce: text
+State, 3, 2, 1, 10, 0, 6, 4, SID, Dummy_State, SID2, SID1: nat
+a, b, A, B, i, A2Goal, A1Goal: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(i).
+ state_keyowner(a,b,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,3).
+ state_keymanager(b,a,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,4).
+ state_keyowner(a,i,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,6).
+ state_keymanager(b,i,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,10)
+
+
+section rules:
+
+step step_0 (A,B,Dummy_UINFO,QUES,ANS,STATUS,SID,UINFO) :=
+ state_keyowner(A,B,0,Dummy_UINFO,QUES,ANS,STATUS,SID).
+ iknows(start)
+=[exists UINFO]=>
+ state_keyowner(A,B,1,UINFO,QUES,ANS,STATUS,SID).
+ iknows(Dummy_UINFO)
+
+step step_1 (A,B,UINFO,QUES,Dummy_ANS,STATUS,SID,ANS) :=
+ state_keyowner(A,B,1,UINFO,QUES,Dummy_ANS,STATUS,SID).
+ iknows(QUES)
+=[exists ANS]=>
+ state_keyowner(A,B,2,UINFO,QUES,ANS,STATUS,SID).
+ iknows(Dummy_ANS)
+
+step step_2 (A,B,UINFO,QUES,ANS,STATUS,SID) :=
+ state_keyowner(A,B,2,UINFO,QUES,ANS,STATUS,SID).
+ iknows(STATUS)
+ =>
+ state_keyowner(A,B,3,UINFO,QUES,ANS,STATUS,SID).
+ witness(A,B,renewal_ans,ANS)
+
+step step_3 (B,A,UINFO,Dummy_QUES,ANS,STATUS,SID,QUES) :=
+ state_keymanager(B,A,0,UINFO,Dummy_QUES,ANS,STATUS,SID).
+ iknows(UINFO)
+=[exists QUES]=>
+ state_keymanager(B,A,1,UINFO,QUES,ANS,STATUS,SID).
+ iknows(Dummy_QUES)
+
+step step_4 (B,A,UINFO,QUES,ANS,STATUS,SID) :=
+ state_keymanager(B,A,1,UINFO,QUES,ANS,STATUS,SID).
+ iknows(ANS)
+ =>
+ state_keymanager(B,A,2,UINFO,QUES,ANS,STATUS,SID).
+ iknows(STATUS)
+
+
+section properties:
+
+property secrecy_of_k1 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,k1,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_renewal_ans (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,renewal_ans,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,renewal_ans,MGoal))
+     /\ ((request(A1Goal,A2Goal,renewal_ans,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,renewal_ans,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_k1 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,k1,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_renewal_ans (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,renewal_ans,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,renewal_ans,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_renewal_ans (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,renewal_ans,MGoal,SID1).
+ request(A1Goal,A2Goal,renewal_ans,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

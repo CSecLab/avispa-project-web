@@ -1,0 +1,134 @@
+role initiator (
+					U  : agent,
+					GW : agent,             
+					SN : agent,             
+					H  : hash_func,
+					UID: text, 
+					Pwd_U_GW: text, 
+					SND_UG, RCV_UG: channel (dy)
+				)
+        
+played_by U
+def=
+
+  local State  			: nat,
+        Recv_msg 	    : text,
+		Reqcompleted : text.text
+		
+        const sec_i_Pwd,user_gateway: protocol_id
+		
+  init  State := 0
+
+  transition     
+
+  1.  State  = 0 /\ RCV_UG(start) =|>
+      State':= 1 /\ SND_UG(UID.H(Pwd_U_GW)) 
+                 /\ secret(Pwd_U_GW,  sec_i_Pwd,{GW})  
+                 /\ Reqcompleted' := UID.H(Pwd_U_GW)
+                 /\ witness(U,GW,user_gateway,Reqcompleted') 
+
+  2. State  = 1 /\ RCV_UG(Recv_msg') =|>
+	 State' := 2
+	 
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role target( 
+				U,GW,SN       : agent,      
+				H             : hash_func,
+				UID			  : text, 
+				Pwd 		  : hash_func,
+				SND_UG, RCV_UG,SND_GS, RCV_GS      : channel (dy)
+			)
+        
+        
+played_by GW 
+def=
+
+  local State        : nat,
+         X,N       	 : text,
+        Tstamp       : text,
+        Succ_msg     : text,
+        Reqcompleted : text.text
+
+  const user_gateway : protocol_id
+
+  init  State := 0
+
+  transition 
+
+  1. State  =  0 /\ RCV_UG(UID.Pwd) =|>  
+     State' := 1 /\ Succ_msg' := new()
+				 /\ SND_UG(Succ_msg) 
+                 /\ X' := new()
+				 /\ N' := xor( Pwd,H(xor(X,UID)) )
+				 /\ Reqcompleted' := UID.Pwd
+     			 /\ Tstamp' := new()
+%%               /\ SND_GS(UID,N',Tstamp') 
+                 /\ request(U,GW,user_gateway,Reqcompleted') 
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(
+			  		U  : agent,
+					GW : agent,             
+					SN : agent,             
+					H  : hash_func,
+					UID: text, 
+					Pwd_U_GW: text,
+					Pwd  : hash_func
+				
+			)
+			
+def=  
+
+  local   SND_UG,RCV_UG, SND_GS,RCV_GS : channel (dy) 
+  
+  composition 
+
+     initiator(U,GW,SN,H,UID,Pwd_U_GW,SND_UG,RCV_UG)
+  /\ target(U,GW,SN,H,UID,Pwd,SND_UG, RCV_UG,SND_GS, RCV_GS)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+def=
+
+	const u,gw,sn : agent,             
+			h  		: hash_func,
+			uid		: text, 
+			pwd_u_gw: text,
+			pwd     : hash_func,				
+			sec_i_pwd,user_gateway : protocol_id
+
+  intruder_knowledge = {u,gw,sn,h,uid} 
+
+  composition
+            session(u,gw,sn,h,uid,pwd_u_gw,pwd)
+		/\  session(u,gw,sn,h,uid,pwd_u_gw,pwd)
+        /\  session(u,gw,sn,h,uid,pwd_u_gw,pwd)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal 
+
+  authentication_on user_gateway 
+  secrecy_of sec_i_Pwd
+  
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -1,0 +1,154 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileeGjiFw
+
+section signature:
+
+state_sed_or_esi: agent * agent * hash_func * symmetric_key * symmetric_key * text * text * public_key * protocol_id * protocol_id * nat * text * text * public_key * public_key * symmetric_key * set(agent) * nat -> fact
+state_sed: agent * agent * hash_func * symmetric_key * symmetric_key * text * text * public_key * protocol_id * protocol_id * nat * text * text * public_key * public_key * symmetric_key * set(agent) * nat -> fact
+
+
+section types:
+
+MGoal, start: message
+mu, mv, cert_u, cert_v, Mu, Mv, mac_v, mac_u, link_key: protocol_id
+set_97, set_110: set
+ASGoal, Set_59, Set_32, Dummy_Set_59, Dummy_Set_32: set(agent)
+mac, MAC: hash_func
+dummy_sk, ktcl, kn, Kl, Knwk, Ktcl, Dummy_Kl: symmetric_key
+dummy_pk, ca, Eu, Ev, CA, Dummy_Ev, Dummy_Eu: public_key
+dummy_nonce, pu, pv, cu, cv, Cu, EPv, Cv, Pv, EPu, Dummy_EPv, Dummy_Cu, Pu, Dummy_EPu, Dummy_Cv: text
+A2Goal, A1Goal, u, v, V, U, i: agent
+SID, 5, 7, State, 6, 3, 4, 2, 1, 8, 0, Dummy_State: nat
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(u).
+ iknows(v).
+ iknows(mac).
+ iknows(ca).
+ iknows(cu).
+ iknows(cv).
+ iknows(pu).
+ iknows(pv).
+ iknows(mu).
+ iknows(mv).
+ iknows(i).
+ state_sed(u,v,mac,kn,ktcl,cu,pu,ca,mu,mv,0,dummy_nonce,dummy_nonce,dummy_pk,dummy_pk,dummy_sk,set_97,3).
+ state_sed_or_esi(v,u,mac,kn,ktcl,cv,pv,ca,mu,mv,1,dummy_nonce,dummy_nonce,dummy_pk,dummy_pk,dummy_sk,set_110,4)
+
+
+section rules:
+
+step step_0 (U,V,MAC,Knwk,Ktcl,Cu,Pu,CA,Mu,Mv,Cv,EPu,Eu,Ev,Kl,Set_32,SID) :=
+ state_sed(U,V,MAC,Knwk,Ktcl,Cu,Pu,CA,Mu,Mv,0,Cv,EPu,Eu,Ev,Kl,Set_32,SID).
+ iknows(start)
+ =>
+ state_sed(U,V,MAC,Knwk,Ktcl,Cu,Pu,CA,Mu,Mv,2,Cv,EPu,Eu,Ev,Kl,Set_32,SID).
+ iknows(scrypt(Knwk,Cu))
+
+step step_1 (U,V,MAC,Knwk,Ktcl,Cu,Pu,CA,Mu,Mv,Dummy_Cv,Dummy_EPu,Dummy_Eu,Ev,Kl,Set_32,SID,Cv,EPu,Eu) :=
+ state_sed(U,V,MAC,Knwk,Ktcl,Cu,Pu,CA,Mu,Mv,2,Dummy_Cv,Dummy_EPu,Dummy_Eu,Ev,Kl,Set_32,SID).
+ iknows(scrypt(Knwk,Cv))
+=[exists EPu,Eu]=>
+ state_sed(U,V,MAC,Knwk,Ktcl,Cu,Pu,CA,Mu,Mv,4,Cv,EPu,Eu,Ev,Kl,Set_32,SID).
+ iknows(scrypt(Knwk,Eu))
+
+step step_2 (U,V,MAC,Knwk,Ktcl,Cu,Pu,CA,Mu,Mv,Cv,EPu,Eu,Dummy_Ev,Dummy_Kl,Dummy_Set_32,SID,Ev,Kl) :=
+ state_sed(U,V,MAC,Knwk,Ktcl,Cu,Pu,CA,Mu,Mv,4,Cv,EPu,Eu,Dummy_Ev,Dummy_Kl,Dummy_Set_32,SID).
+ iknows(scrypt(Knwk,Ev))
+=[exists Kl]=>
+ state_sed(U,V,MAC,Knwk,Ktcl,Cu,Pu,CA,Mu,Mv,6,Cv,EPu,Eu,Ev,Kl,Dummy_Set_32,SID).
+ secret(Kl,link_key,Dummy_Set_32).
+ iknows(scrypt(Knwk,apply(MAC,pair(Kl,Mu)))).
+ witness(U,V,mac_u,Kl).
+ contains(U,Dummy_Set_32).
+ contains(V,Dummy_Set_32)
+
+step step_3 (U,V,MAC,Knwk,Ktcl,Cu,Pu,CA,Mu,Mv,Cv,EPu,Eu,Ev,Kl,Set_32,SID) :=
+ state_sed(U,V,MAC,Knwk,Ktcl,Cu,Pu,CA,Mu,Mv,6,Cv,EPu,Eu,Ev,Kl,Set_32,SID).
+ iknows(scrypt(Knwk,apply(MAC,pair(Kl,Mv))))
+ =>
+ state_sed(U,V,MAC,Knwk,Ktcl,Cu,Pu,CA,Mu,Mv,8,Cv,EPu,Eu,Ev,Kl,Set_32,SID)
+
+step step_4 (V,U,MAC,Knwk,Ktcl,Cv,Pv,CA,Mu,Mv,Dummy_Cu,EPv,Eu,Ev,Kl,Set_59,SID,Cu) :=
+ state_sed_or_esi(V,U,MAC,Knwk,Ktcl,Cv,Pv,CA,Mu,Mv,1,Dummy_Cu,EPv,Eu,Ev,Kl,Set_59,SID).
+ iknows(scrypt(Knwk,Cu))
+ =>
+ state_sed_or_esi(V,U,MAC,Knwk,Ktcl,Cv,Pv,CA,Mu,Mv,3,Cu,EPv,Eu,Ev,Kl,Set_59,SID).
+ iknows(scrypt(Knwk,Cv))
+
+step step_5 (V,U,MAC,Knwk,Ktcl,Cv,Pv,CA,Mu,Mv,Cu,Dummy_EPv,Dummy_Eu,Dummy_Ev,Dummy_Kl,Dummy_Set_59,SID,EPv,Eu,Ev,Kl) :=
+ state_sed_or_esi(V,U,MAC,Knwk,Ktcl,Cv,Pv,CA,Mu,Mv,3,Cu,Dummy_EPv,Dummy_Eu,Dummy_Ev,Dummy_Kl,Dummy_Set_59,SID).
+ iknows(scrypt(Knwk,Eu))
+=[exists Kl,EPv,Ev]=>
+ state_sed_or_esi(V,U,MAC,Knwk,Ktcl,Cv,Pv,CA,Mu,Mv,5,Cu,EPv,Eu,Ev,Kl,Dummy_Set_59,SID).
+ secret(Kl,link_key,Dummy_Set_59).
+ iknows(scrypt(Knwk,Ev)).
+ witness(V,U,mac_v,Kl).
+ contains(U,Dummy_Set_59).
+ contains(V,Dummy_Set_59)
+
+step step_6 (V,U,MAC,Knwk,Ktcl,Cv,Pv,CA,Mu,Mv,Cu,EPv,Eu,Ev,Kl,Set_59,SID) :=
+ state_sed_or_esi(V,U,MAC,Knwk,Ktcl,Cv,Pv,CA,Mu,Mv,5,Cu,EPv,Eu,Ev,Kl,Set_59,SID).
+ iknows(scrypt(Knwk,apply(MAC,pair(Kl,Mu))))
+ =>
+ state_sed_or_esi(V,U,MAC,Knwk,Ktcl,Cv,Pv,CA,Mu,Mv,7,Cu,EPv,Eu,Ev,Kl,Set_59,SID).
+ iknows(scrypt(Knwk,apply(MAC,pair(Kl,Mv))))
+
+
+section properties:
+
+property secrecy_of_link_key (MGoal,ASGoal) :=
+ [] ((secret(MGoal,link_key,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property weak_authentication_on_mac_u (A1Goal,A2Goal,MGoal,SID) :=
+ [] ((wrequest(A1Goal,A2Goal,mac_u,MGoal,SID)
+      /\ ~ equal(A2Goal,i))
+     => witness(A2Goal,A1Goal,mac_u,MGoal))
+
+property weak_authentication_on_mac_v (A1Goal,A2Goal,MGoal,SID) :=
+ [] ((wrequest(A1Goal,A2Goal,mac_v,MGoal,SID)
+      /\ ~ equal(A2Goal,i))
+     => witness(A2Goal,A1Goal,mac_v,MGoal))
+
+property weak_authentication_on_cert_u (A1Goal,A2Goal,MGoal,SID) :=
+ [] ((wrequest(A1Goal,A2Goal,cert_u,MGoal,SID)
+      /\ ~ equal(A2Goal,i))
+     => witness(A2Goal,A1Goal,cert_u,MGoal))
+
+property weak_authentication_on_cert_v (A1Goal,A2Goal,MGoal,SID) :=
+ [] ((wrequest(A1Goal,A2Goal,cert_v,MGoal,SID)
+      /\ ~ equal(A2Goal,i))
+     => witness(A2Goal,A1Goal,cert_v,MGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_link_key (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,link_key,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state weak_authentication_on_mac_u (A1Goal,A2Goal,MGoal,SID) :=
+ wrequest(A1Goal,A2Goal,mac_u,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,mac_u,MGoal)) &
+ not(equal(A2Goal,i))
+
+attack_state weak_authentication_on_mac_v (A1Goal,A2Goal,MGoal,SID) :=
+ wrequest(A1Goal,A2Goal,mac_v,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,mac_v,MGoal)) &
+ not(equal(A2Goal,i))
+
+attack_state weak_authentication_on_cert_u (A1Goal,A2Goal,MGoal,SID) :=
+ wrequest(A1Goal,A2Goal,cert_u,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,cert_u,MGoal)) &
+ not(equal(A2Goal,i))
+
+attack_state weak_authentication_on_cert_v (A1Goal,A2Goal,MGoal,SID) :=
+ wrequest(A1Goal,A2Goal,cert_v,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,cert_v,MGoal)) &
+ not(equal(A2Goal,i))
+

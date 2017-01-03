@@ -1,0 +1,193 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Avispa-users] Please help me
+   </TITLE>
+   <LINK REL="Index" HREF="index.html" >
+   <LINK REL="made" HREF="mailto:avispa-users%40avispa-project.org?Subject=%5BAvispa-users%5D%20Please%20help%20me&In-Reply-To=">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000247.html">
+   <LINK REL="Next"  HREF="000249.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Avispa-users] Please help me</H1>
+    <B>Marieta</B> 
+    <A HREF="mailto:avispa-users%40avispa-project.org?Subject=%5BAvispa-users%5D%20Please%20help%20me&In-Reply-To="
+       TITLE="[Avispa-users] Please help me">marietam at o2.pl
+       </A><BR>
+    <I>Mon May 29 20:48:46 CEST 2006</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000247.html">[Avispa-users] LTL
+</A></li>
+        <LI>Next message: <A HREF="000249.html">[Avispa-users] Please help me
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#248">[ date ]</a>
+              <a href="thread.html#248">[ thread ]</a>
+              <a href="subject.html#248">[ subject ]</a>
+              <a href="author.html#248">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi all!!!
+I am a new user of Avispa. I am on the last year at the polish Technical University. I have to make some project, that why I need to use Avispa. I have started to use Avispa but I have some problem with some operation. I want to change a little bit the Iso3 protocol, I want to add encipher operation, but when I want to do it the OMFC is saying OFMC can't see how the protocol can be executed.
+See manual for more information. I am going to add my project. Please let me know what is wrong, it is realy importan for me.
+Have a nice day
+Marieta
+
+%%ALICE_BOB:
+%% 1.A-&gt;B :{{B,K1,Na}inv(PKa),A}Kb
+%% 2 B-&gt;A :{{A,K2,Nb}inv(PKb),B,Na}}Ka
+
+%% HLPSL:
+role iso3_Init( A, B     : agent,	
+                Pkas,Pkae, Pkbs, Pkbe : public_key,
+                Snd, Rcv : channel(dy))
+played_by A
+def=
+
+  local  State		   : nat,
+         Na, Nb		   : text,
+        K1,K2              :symmetric_key
+      
+
+  init State := 0 
+
+  transition
+
+   1. State = 0
+      /\ Rcv(start)
+      =|&gt; 
+      State' := 1
+      /\ Na' := new()
+      /\ K1':=new() 
+      /\ Snd({{B.K1'.Na'}_inv(Pkas).A}_Pkbe) 
+     /\witness(A,B,na,Na')
+     /\witness(A,B,k1,K1')
+     /\secret(K1',k1,{A,B})
+
+
+   2. State = 1 
+      /\ Rcv({{A.K2'.Nb'}_inv(Pkbs).B.Na}_Pkae)
+      =|&gt; 
+      State' := 2
+      /\ request(A,B,nb,Nb')
+      
+      /\ request(A,B,k2,K2')
+      /\ secret(K2',sec_k1,{A,B})
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role iso3_Resp (B, A     : agent, 					
+                Pkbs,Pkbe, Pkas, Pkae : public_key,
+                Snd, Rcv : channel(dy))
+played_by B
+def=
+
+   local  State          : nat,
+          Nb, Na             : text,
+          K1,K2               :symmetric_key
+               
+         const sec_k2 : protocol_id
+
+   init State := 0
+
+   %%knowledge(B)={A,B,Pkb,Pka}
+
+   transition
+
+   1. State = 0 
+      /\ Rcv({{B.K1'.Na'}_inv(Pkas).A}_Pkbe) 
+      =|&gt; 
+      State' := 1
+      /\ Nb' := new()
+      /\ K2' :=new()
+      /\ Snd({{A.K2'.Nb'}_inv(Pkbs).B.Na}_Pkae)
+       /\ request(B,A,na,Na')
+     /\ witness(B,A,nb,Nb')
+     /\ witness(B,A,k2,K2')
+      
+      /\ secret(K1',k1,{A,B})
+        /\ secret(K2',k2,{A,B})
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role session (A, B     : agent,
+	      Pkas, Pkae, Pkbs, Pkbe : public_key
+            ) def=
+
+  local SA, RA, SB, RB: channel (dy)
+
+  composition
+
+          iso3_Init(A,B,Pkas,Pkae,Pkbs,Pkbe,SA,RA)
+       /\ iso3_Resp(B,A,Pkbs,Pkbe,Pkas,Pkae,SB,RB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+role environment() def=
+
+  const a, b                           : agent,
+	na, nb                         : protocol_id,
+        
+        pkas, pkae, pkbs, pkbe, pkis,pkie             : public_key
+
+  intruder_knowledge={a,b,pkbe,pkae,pki,inv(pkis)}
+
+%%% LC: sufficient for finding the attacks
+  composition
+
+	session(a,b,pkas,pkae,pkbs,pkbe)
+       
+     /\	session(a,i,pkas,pkae,pkis,pkie)
+     /\	session(i,b,pkis,pkie,pkbs,pkbe)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+goal
+   secrecy_of k1, k2
+     authentication_on na % addressess G1 and G2 
+   authentication_on nb
+  
+end goal
+
+environment()
+                     
+                                                                                           
+                                                        
+                                                         
+
+
+</PRE>
+
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000247.html">[Avispa-users] LTL
+</A></li>
+	<LI>Next message: <A HREF="000249.html">[Avispa-users] Please help me
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#248">[ date ]</a>
+              <a href="thread.html#248">[ thread ]</a>
+              <a href="subject.html#248">[ subject ]</a>
+              <a href="author.html#248">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="http://www.avispa-project.org/mailman/listinfo/avispa-users">More information about the Avispa-users
+mailing list</a><br>
+</body></html>

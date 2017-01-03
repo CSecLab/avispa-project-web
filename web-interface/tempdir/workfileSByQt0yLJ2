@@ -1,0 +1,189 @@
+role server (RC, U, S     : agent,
+             Kj           : symmetric_key,
+             SKij         : symmetric_key,
+             Xu           : public_key,
+             Ij,Zs,ID,SID : text,
+             H            : hash_func,
+             SND_SRC, RCV_SRC, SND_US, RCV_US: channel(dy))
+played_by S
+def=
+
+  local State        : nat,
+        S            : nat, 
+        Ri,Rj,Vi,Vj  : message, 
+        Ns,Nu,Pi     : text 
+
+  init State := 0
+  transition
+  1.State  = 0 /\ RCV_SRC(start)  =|>
+    State':= 2 /\ SND_SRC(SID)
+
+  2.State  = 2 /\ RCV_SRC(H,Ij,Xu,Zs)   =|>   %21
+    State':= 4 /\ S' := new()
+               /\ Pi' := exp(H(ID.Xu),H(exp(Zs,Xu)))
+               /\ Kj' := exp(Ij,Pi)
+               /\ Nu' := xor(H(Kj),Ri) 
+               /\ Ns' := exp(S,Kj)
+               /\ Rj' := xor(H(Kj),Ns)
+               /\ Vj' := H(Kj.Ns)
+               /\ SKij' := H(exp(S,Nu))
+               /\ SND_US(SID,Rj,Vj)                                
+
+end role 
+
+role registrationcenter (RC,U,S               : agent,  
+                          X,Xs,Xu              : public_key,
+                          ID,SID,Z,Zs,Zu,PWu   : text, 
+                          H                    : hash_func,
+                          SND_SRC, RCV_SRC, SND_URC, RCV_URC: channel(dy))
+played_by RC
+def=
+
+  local State : nat,
+        Ii,Ij,Ti   : text
+
+  init State := 1
+  transition
+  1.State  = 1 /\ RCV_SRC(SID)     =|>
+    State':= 3 /\ Ij' := exp(H(SID.Xs),X)
+               /\ secret(Ij,Xu,Zs,{RC,S})
+               /\ secret(Z,X,{RC})  
+               /\ SND_SRC(H,Ij,Xu,Zs)  %51
+  2.State  = 3 /\ RCV_URC(ID,PWu)  =|>
+    State':= 5 /\ Ii' := exp(H(ID.Xu),X)
+               /\ Ti' := xor(H(ID.Zu.PWu),Ii)
+               /\ secret (Ii,Xs,Zu,{RC,U})
+               /\ SND_URC(h,Ti,Xs,Zu)
+
+end role
+
+
+role user (RC,U,S              : agent,    %60
+           Ki                  : symmetric_key,
+           SKij                : symmetric_key, 
+           Xs                  : public_key,
+           Ii,Zu,Ti,ID,SID,PW  : text,
+           H                   : hash_func,
+           SND_URC, RCV_URC, SND_US, RCV_US: channel(dy))
+played_by U
+def=
+
+  local State          : nat,  %71
+        B              : nat,
+        Pj,PWu,Ns,Nu : text,
+        Ri,Rj,Vi,Vj    : message
+       
+  init State := 5
+  transition
+  1.State  = 5 /\ SND_URC(ID,PWu)  =|>  
+    State':= 7 /\ RCV_URC(H,Ti,Xs,Zu)
+  2.State  = 9 /\ RCV_US(SID,Rj,Vj)   %80
+               /\ Ns = xor(H(Ki),Rj)
+               /\ SKij= H(exp(u,Ns))  =|>
+    State':= 7 /\ Ii':= xor(H(ID.Zu.PWu),Ti)  
+               /\ Pj':= exp(H(SID.Xs),H(exp(Zu,Xs)))
+               /\ Ki':= exp(Ii,Pj)
+               /\ B':= new()
+               /\ Nu':= exp(Ki,B')
+               /\ Ri':= xor(H(Ki),Nu)
+               /\ Vi':= H(Ki.Nu)
+               /\ SND_US(ID,Ri,Vi)  %90
+end role
+
+
+role session(RC,U,S : agent,
+             Ki,Kj  : symmetric_key,
+             SKij  : symmetric_key)
+def=
+  local
+   SSRC, RSRC,
+   SURC, RURC,    %100
+   SRCS, RRCS,
+   SRCU, RRCU,
+   SSU, RSU,
+   SUS, RUS  : channel (dy)  
+
+  composition
+
+      registrationcenter(RC, U, S, X, x, Xs, xs, Xu, xu, SRCS, RRCS, SRCU, RRCU, SSRC, RSRC, SURC, RURC)
+  /\  server             (RC, U, S, xs, Xu, SSRC, RSRC, SRCS, RRCS, SSU, RSU, SUS, RUS)
+  /\  user               (RC, U, S, xu, Xs, SURC, RURC, SRCU, RRCU, SSU, RSU, SUS, RUS)     %110
+
+
+end role
+
+
+role environment()     %120
+def=
+  const rc, u, s                 : agent,
+        server_user_SKij ,ki ,kj : protocol_id,   %119
+        x, xu, xs                : public_key
+
+  intruder_knowledge = {rc, s, u, X, Xs, Xu, xi, Xi,H}
+
+  composition   
+
+     session(rc,s,X,Xu)
+  /\ session(rc,u,X,Xs)
+  /\ session(u,s,Ki,Kj,SKij)
+  /\ session(u,s,i,xi,Xi)
+
+end role
+
+goal 
+  secrecy_of x,xs,xu,Ki,Kj,Skij  %134
+  authentication_on user_server_Ki,Kj
+end goal    %142
+
+environment()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,205 @@
+role meter (
+	METER,AHE,KGC	: agent,
+	H1	: function,
+	SK_KGC_METER		: symmetric_key,
+	Snd,Rcv	: channel(dy),
+P : text)
+
+			
+played_by METER  def=
+local  
+	State     : nat,
+	R_ahe	: text,
+	Id_m	: text,
+	P_pub	: message,
+	Y_m	      : message,
+	A	:text,
+	T_m         : message,
+	T_ahe	  : message,
+	M1		  : message,
+	K_m_ahe	  : message,
+	M2		  : message
+	
+const sec_k : protocol_id
+
+init  
+	State := 1
+
+transition
+	1. State = 1
+	/ Rcv(R_ahe') =|> 
+    State' := 2
+	/ Id_m' := new()
+	/ Snd(Id_m', R_ahe')
+	
+	2. State = 2
+	/ Rcv(P_pub',{Y_m'}_ SK_KGC_METER) =|> 
+    	State' := 3
+	/ A' = new()
+	/ T_m' = exp(P',A')
+/ Snd(T_m',Id_m)
+	
+	3. State = 3  
+	/ Rcv(T_ahe',M1') 
+	/ M1' = H1(zero.K_m_ahe') 
+	/ K_m_ahe' = exp(T_ahe,exp(A,exp(Y_m,P))) =|> 
+	State' := 4 
+	/ M2' := H1(one. K_m_ahe')	
+	/ Snd(M2')
+	/ secret(K_m_ahe ',sec_k,{METER,AHE})
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role ahe (
+	METER,AHE,KGC	: agent,
+	H1			: function,
+	H2			: function,
+	SK_KGC_AHE		: symmetric_key,
+	Snd,Rcv		: channel(dy),
+P: text)
+			
+played_by AHE  def=
+local 
+	State     : nat,
+	R_ahe 		: text ,
+P_pub	: message,
+	Y_ahe	  : message,
+	Id_m		: text,
+	T_m	: message,
+	B         : text,
+	T_ahe	  : message,
+	Temp	: message,
+	K_ahe_m	: message,
+	M1		  : message,
+	M2		  : message
+
+init  
+	State := 1
+
+transition
+
+	1. State = 1
+	/ Rcv(start) =|> 
+               State' := 2	
+	/ R_ahe' := new() 
+	/ Snd(R_ahe')
+	
+	2. State = 2
+	/ Rcv(P_pub'.{Y_ahe'}_ SK_KGC_AHE) =|>
+State' := 3
+	/ Snd(R_ahe)
+
+
+3. State = 3
+	/ Rcv(T_m',Id_m') =|> 
+               State' := 4
+	/ B' := new()
+	/ T_ahe' := exp(P,B')
+	/ Temp' := H2(Id_m'. Y_ahe)
+	/ K_ahe_m ' := exp(T_m',exp(B',exp(Temp',P_pub)))
+	/ M1' := H1(zero. K_ahe_m ')
+/ Snd(T_ahe',M1')
+
+	
+	4. State = 4
+	/ Rcv(M2') 
+/ M2' = H1(one. K_ahe_m) =|> 
+	State' := 5
+	
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role kgc (
+	METER,AHE,KGC	: agent,
+	H2			: function,
+	SK_KGC_AHE		: symmetric_key,
+	SK_KGC_METER		: symmetric_key,
+	Snd,Rcv		: channel(dy),
+P,X	: text)
+			
+played_by KGC  def=
+local 
+	State     : nat,
+	R_ahe	  : text,
+P_pub	: message,
+	Y_ahe	  : message,
+	Id_m	: text,
+	Temp : message,
+	Y_m	 	  : message
+	
+init  
+	State := 1
+
+transition
+	1. State = 1
+	/ Rcv(R_ahe') =|>
+	State' := 2
+	/ P_pub' := exp(P,X)
+	/ Y_ahe' := exp(X', R_ahe')
+	/ Snd(P_pub'.{Y_ahe'}_ SK_KGC_AHE)
+	
+	2. State = 2
+	/ Rcv(Id_m'.R_ahe') =|>
+	State' := 3
+	/ Y_ahe' := exp(X', R_ahe')
+	/ Temp' := H2(Id_m'.Y_ahe')
+/Y_m' := exp(X, Temp')
+	/ Snd(P_pub.{Y_m'}_ SK_KGC_METER)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(
+			METER,AHE,KGC	: agent,
+			H1,H2			: function,
+SK_KGC_METER	, SK_KGC_AHE		: symmetric_key,
+P,X	: text
+			)
+def=
+
+local 		Snd_m, Rec_m, Snd_ahe, Rec_ahe, Snd_kgc, Rec_kgc  : channel (dy)
+			
+%%%%  init
+	
+composition
+	
+		meter (METER,AHE,KGC,H1, SK_KGC_METER, Snd_m, Rec_m,P)
+		/ ahe(METER,AHE,KGC,H1,H2, SK_KGC_AHE, Snd_ahe, Rec_ahe,P)
+		/ kgc(METER,AHE,KGC, H2, SK_KGC_AHE, SK_KGC_METER, Snd_kgc, Rec_kgc,P,X)
+end role	
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment() 
+def=
+
+
+const 
+ meter,ahe,kgc    : agent,
+	 h1			 : function,
+	 h2		     : function,
+       	sk_kgc_meter,sk_kgc_ahe	 : symmetric_key,
+ zero, one,p,x    : text
+	
+	intruder_knowledge = { meter,ahe,kgc,h1,h2,zero,one,p}
+	              
+composition
+	session(meter,ahe,kgc,h1,h2, sk_kgc_meter,sk_kgc_ahe,p,x)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+    secrecy_of sec_k
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()
+
+	
+
+ 

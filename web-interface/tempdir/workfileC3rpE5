@@ -1,0 +1,124 @@
+%%PROTOCOL:ID-based authenticated two party key agreement protocol
+%%ALICE BOB:
+%%Macros:
+%% Key1: Union(Pred(Ra1,P1),Pred(Ra2,P2))
+%% Key2: Union(Pred(Rb1,P1),Pred(Rb2,P2))
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%HLPSL:
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+role alice(
+A,B:agent,
+Ra1,Ra2,Rb1,Rb2,Ro1,Ro2,Sa,Sb: symmetric_key,
+H,Minus,Union,Pred,Conc,Expr,Ebilinear:hash_func,
+SND,RCV : channel(dy))
+played_by A def=
+local 
+State :nat,
+Pa,Pb,Ppkg,Qa,Qb,IDa,IDb: public_key,
+P1,P2 :text,
+Ha,Hb,Ya,Yb,Ua,Ub,Va,Vb,Kab,Kba :message
+const key_id1:protocol_id
+init State:=0
+transition
+1.State=0/\RCV(start)=|>State':=2
+/\P1':=new()
+/\P2':=new()
+/\Pa':=Union(Pred(Ra1,P1),Pred(Ra2,P2))
+/\Ha':=H(Pa)
+/\Ya':=Minus(Pred(Ha,Ra2),Ra1)
+/\Ua':=Pred(Expr(Ebilinear(P1,P2),Ya),Ebilinear(Qa,Minus(Ppkg)))
+/\SND(Pa,Ha,Ya,Ua)
+2.State=2/\RCV(Tb,Hb,Yb,Ub)=|>
+State':=4/\Vb':=Pred(Ebilinear(P1,Union(Pred(Hb,Pb),Sb)),Ebilinear(P2,Pb))
+/\Hb':=H(Pb)
+/\Kab':=Ebilinear(Minus(Pred(Ra1,P1),Pred(Ra2,P2)),Pb)
+/\secret(key1,key_id1,{a,b})
+/\request(A,B,key1,key2)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role bob(
+B,A:agent,
+Ra1,Ra2,Rb1,Rb2,Ro1,Ro2,Sa,Sb: symmetric_key,
+H,Minus,Union,Pred,Conc,Expr,Ebilinear:hash_func,
+SND,RCV : channel(dy))
+played_by A def=
+local 
+State :nat,
+Pa,Pb,Ppkg,Qa,Qb,IDa,IDb: public_key,
+P1,P2 :text,
+Ha,Hb,Ya,Yb,Ua,Ub,Va,Vb,Kab,Kba :message
+const key_id2:protocol_id
+init State:=1
+transition
+1.State=1/\RCV(Pa,Ha,Ya,Ua)=|>State':=3
+/\P1':=new()
+/\P2':=new()
+/\Pb':=Union(Pred(Rb1,P1),Pred(Rb2,P2))
+/\Hb':=H(Pb)
+/\Yb':=Minus(Pred(Hb,Rb2),Rb1)
+/\Ub':=Pred(Expr(Ebilinear(P1,P2),Yb),Ebilinear(Qb,Minus(Ppkg)))
+/\SND(Pb,Hb,Yb,Ua)
+2.State=3/\RCV(Pa,Ha,Ya,Ua)=|>
+State':=5/\Va':=Pred(Ebilinear(P1,Union(Pred(Ha,Pa),Sa))Ebilinear(P2,Pa))
+/\Ha':=H(Pa)
+/\Kba':=Ebilinear(Pa,Minus(Pred(Rb2,P2),Pred(Rb1,P1)))
+/\secret(key2,key_id2,{b,a})
+/\request(B,A,key2,key1)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(
+A,B:agent,
+Ra1,Ra2,Rb1,Rb2,Ro1,Ro2,Sa,Sb: symmetric_key,
+H,Minus,Union,Pred,Conc,Expr,Ebilinear:hash_func)
+def=
+local
+SendA,ReceiveA:channel(dy),
+SendB,ReceiveB:channel(dy)
+composition
+alice(A,B,Ra1,Ra2,Rb1,Rb2,Ro1,Ro2,Sa,Sb,H,Minus,Union,Pred,Conc,Expr,Ebilinear,SendA,ReceiveA)
+/\bob(A,B,Ra1,Ra2,Rb1,Rb2,Ro1,Ro2,Sa,Sb,H,Minus,Union,Pred,Conc,Expr,Ebilinear,SendB,ReceiveB)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+const
+key1:protocol_id,
+key2:protocol_id,
+ra1,ra2,rb1,rb2,ro1,ro2,sa,sb,ri1,ri2,roi,si:symmetric_key,
+a,b,i:agent,
+h,minus,union,pred,conc,expr,ebilinear:hash_func
+intruder_knowledge={a,b,i,h,minus,union,pred,conc,expr,ebilinear}
+composition
+session(a,b,ra1,ra2,rb1,rb2,ro1,ro2,sa,sb,h,minus,union,pred,conc,expr,ebilinear)
+/\session(a,i,ra1,ra1,ri1,ri2,ro1,ro2,sa,sb,h,minus,union,pred,conc,expr,ebilinear)
+/\session (i,b,ri1,ri2,rb1,rb2,ro1,ro2,sa,sb,h,minus,union,pred,conc,expr,ebilinear)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+secrecy_of key_id1,key_id2
+authentication_on key1
+authentication_on key2
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()=
+%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,178 @@
+role alice (Ui, CHj, BS   : agent,
+            MKchj   : symmetric_key,
+            SKubs : symmetric_key,
+            H : hash_func,
+            Snd, Rcv: channel(dy))
+
+played_by Ui
+def=
+ local State  : nat,
+       RPWi, PWi, Xs, Xa, Yy, ACK,
+       T1, T2, IDi, IDchj:  text
+       
+ const alice_server,  server_bob, subs1,
+       subs2, subs3, subs4, subs5 : protocol_id
+
+init  State := 0
+
+transition
+ 1. State = 0 /\ Rcv(start) =|>
+    State' := 1 /\ RPWi' := H(Yy.PWi)
+                /\ Snd(Ui.BS.{IDi.RPWi'}_SKubs)
+		/\ secret({Xs}, subs1, BS)
+                /\ secret({PWi}, subs2, Ui)
+                /\ secret({MKchj}, subs3, {BS,CHj})
+                /\ secret({SKubs}, subs4, {Ui,BS})
+                /\ secret({Xa,Yy}, subs5, {Ui,BS})	  
+ 2. State = 1 /\ Rcv(BS.Ui.{IDi.Yy.Xa.H(Yy.H(H(Yy.PWi).Xa)).
+	             xor(H(IDi.Xs),H(H(Yy.PWi),Xa)).H.
+                     {IDi.IDchj.Xs}_MKchj.IDchj}_SKubs) =|>
+      State' := 2  /\ T1' := new()
+	           /\ Snd(Ui.BS.IDi.IDchj.
+                         {IDi.IDchj.H(H(H(Yy.PWi).Xa).T1')
+                         .xor(H(IDi.Xs),H(H(Yy.PWi),Xa)).
+	                  T1'}_({IDi.IDchj.Xs}_MKchj))
+                   /\ witness(Ui, BS, alice_server, T1')
+                   
+3. State = 2 /\ Rcv(BS.Ui.ACK) =|>
+   State' := 3 
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role bs (Ui, CHj, BS   : agent,
+         MKchj   : symmetric_key,
+         SKubs : symmetric_key,
+         H : hash_func,
+         Snd, Rcv: channel(dy))
+
+played_by BS
+def=
+ local State  : nat,
+       PWi, Xs, Xa, Yy, ACK,
+       T1, T2, IDi, IDchj:  text
+  
+ const alice_server,  server_bob, subs1,
+       subs2, subs3, subs4, subs5 : protocol_id
+
+init  State := 0
+
+transition
+1. State   = 0  /\ Rcv(Ui.BS.{IDi.H(Yy.PWi)}_SKubs) =|>
+   State':=1    /\ secret({Xs}, subs1, BS)
+                /\ secret({PWi}, subs2, Ui)
+                /\ secret({MKchj}, subs3, {BS,CHj})
+                /\ secret({SKubs}, subs4, {Ui,BS})
+                /\ secret({Xa,Yy}, subs5, {Ui,BS})
+                /\ Snd(BS.Ui.{IDi.Yy.Xa.H(Yy.H(H(Yy.PWi).Xa)).
+	             xor(H(IDi.Xs),H(H(Yy.PWi),Xa)).H.
+                     {IDi.IDchj.Xs}_MKchj.IDchj}_SKubs)
+          		  
+2. State = 1   /\ Rcv(Ui.BS.IDi.IDchj.
+                      {IDi.IDchj.H(H(H(Yy.PWi).Xa).T1')
+                      .xor(H(IDi.Xs),H(H(Yy.PWi),Xa)).
+	               T1'}_({IDi.IDchj.Xs}_MKchj)) =|>
+   State' := 2 /\ T2' := new()
+              /\ Snd(BS.CHj.IDi.IDchj.{IDi.IDchj.
+                     H(xor(xor(H(IDi.Xs), H(H(Yy.PWi).Xa)),
+                     H(IDi.Xs)).T2').T1.T2'.H(IDi.Xs).
+                     xor(H(IDi.Xs), H(H(Yy.PWi).Xa))}_MKchj)
+              /\ witness(BS, CHj, server_bob, T2')
+              
+3. State = 2  /\ Rcv(CHj.BS.ACK) =|>
+   State' := 3 /\ Snd(BS.Ui.ACK)
+               /\ request(Ui, BS, alice_server, T1)
+               
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob (Ui, CHj, BS   : agent,
+          MKchj   : symmetric_key,
+          SKubs : symmetric_key,
+	  H : hash_func,
+          Snd, Rcv: channel(dy))
+
+played_by CHj
+def=
+ local State  : nat,
+       PWi, Xs, Xa, Yy, ACK,
+       T1, T2, IDi, IDchj:  text
+  
+ const alice_server,  server_bob, subs1,
+       subs2, subs3, subs4, subs5 : protocol_id
+
+init  State := 0
+
+ transition
+1. State   = 0 /\ Rcv(BS.CHj.IDi.IDchj.{IDi.IDchj.
+                     H(xor(xor(H(IDi.Xs), H(H(Yy.PWi).Xa)),
+                     H(IDi.Xs)).T2').T1'.T2'.H(IDi.Xs).
+                     xor(H(IDi.Xs), H(H(Yy.PWi).Xa))}_MKchj)  =|>  
+  State' := 1 /\ secret({Xs}, subs1, BS)
+              /\ secret({PWi}, subs2, Ui)
+              /\ secret({MKchj}, subs3, {BS,CHj})
+              /\ secret({SKubs}, subs4, {Ui,BS})
+              /\ secret({Xa,Yy}, subs5, {Ui,BS})
+              /\ Snd(CHj.BS.ACK)  
+              /\ request(BS, CHj, server_bob, T2')  
+          
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(Ui, CHj, BS: agent,
+	     MKchj  : symmetric_key,
+             SKubs : symmetric_key,
+             H : hash_func 
+	)
+def=
+
+  local  SI, SJ, RI, RJ, BI, BJ: channel (dy)
+  
+  composition
+            alice(Ui, CHj, BS, MKchj, SKubs, H, SI, RI)
+        /\  bs(Ui, CHj, BS, MKchj, SKubs, H, BI, BJ)
+        /\  bob(Ui, CHj, BS, MKchj, SKubs, H, SJ, RJ)
+        
+
+end role 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role environment()
+def=
+
+  const ui, chj, bs: agent,
+        mkchj: symmetric_key,
+        skubs : symmetric_key,
+        h   : hash_func,
+        ack, pwi, xs, xa, yy, t1, t2, 
+        idi, idchj:  text,
+        alice_server,  server_bob,
+        subs1, subs2, subs3, subs4, subs5 : protocol_id
+
+
+  intruder_knowledge = {ui, chj, bs, idi, idchj, h}
+
+  composition
+	   session(ui, chj, bs, mkchj, skubs, h) 
+	/\ session(ui, chj, bs, mkchj, skubs, h) 
+        /\ session(ui, chj, bs, mkchj, skubs, h) 
+end role
+
+goal
+  secrecy_of subs1
+  secrecy_of subs2
+  secrecy_of subs3
+  secrecy_of subs4
+  secrecy_of subs5
+  authentication_on alice_server
+  authentication_on server_bob
+  
+end goal
+ 
+
+environment()
+

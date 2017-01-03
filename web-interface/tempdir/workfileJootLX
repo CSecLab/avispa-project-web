@@ -1,0 +1,117 @@
+%% PROTOCOL: Renault pairing in After sales
+%% VARIANT: basic
+%% PURPOSE: Encrypted CAPV exchange
+%% REFERENCE:
+
+%% ALICE_BOB:
+%% \begin{verbatim}
+%% A -> B : {Ea}_Kab        |    Key exchange part
+%% B -> A : {{K}_Ea}_Kab    |
+%% A -> B : {Ca}_K          |
+%% B -> A : {Ca,Cb}_K       |    Challenge/Response
+%% A -> B : {Cb}_K          |    Authentication part
+%% \end{verbatim}
+%%
+
+%%HLPSL:
+
+role bcm (B,C: agent,
+               Capv: symmetric_key,
+               Snd,Rcv: channel(dy),
+			   Hash: hash_func)
+played_by B
+def=
+
+  local State   : nat,
+        Sessionrnd, Exch : text
+
+  init  State := 0
+
+  transition
+
+   0. State = 0
+      /\ Rcv(start)
+      =|> 
+      State' := 2
+      /\ Sessionrnd' := new()
+	  /\ Exch':=Hash(Capv)
+      /\ Snd({Sessionrnd'}_Exch') 
+
+   2. State = 2
+      /\ Rcv({Capv'}_Sessionrnd')
+      =|> 
+      State' := 4
+      /\ secret(Capv',capv,{B,C})
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role codeserver (B,C: agent,
+               Capv: symmetric_key,
+               Snd,Rcv: channel(dy),
+			   Hash: hash_func)
+played_by C
+def=
+
+  local State   : nat,
+        Sessionrnd, Exch : text
+
+  init  State := 1
+
+  transition
+
+   1. State = 1 /\ Exch':=Hash(Capv')
+				/\ Rcv({Sessionrnd'}_Exch')
+      =|> 
+      State' := 3
+      /\ Snd({Capv}_Sessionrnd') 
+      /\ secret(Exch',exch,{B,C})
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(B,C: agent,
+	     Capv: symmetric_key,
+		 Hash: hash_func)
+def=
+
+  local SB, RB, SC, RC: channel (dy)
+
+  composition
+     bcm(B,C,Capv,SB,RB)
+  /\ codeserver(B,C,Capv,SC,RC)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role environment()
+def=
+
+  const b, c   : agent,
+        capv    : symmetric_key,
+		h: hash_func
+
+  composition
+      session(a,b,capv,h)
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+ % Confidentiality (G12)
+ secrecy_of exch, capv
+
+ % Message authentication (G2)
+ 
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

@@ -1,0 +1,237 @@
+role ua(
+                                               CA,AA,CS,DO,UA:agent,
+                                                           K1:symmetric_key,
+      SKca,SKuid,GSKuid,GPKuid,GPkaid,SKaid,SKuid1,UUKX1aid,SK,Kcu,Kau,PKxaid,PKaid:public_key,
+                                                            H:hash_func,
+                                                      SND,RCV:channel(dy))
+           played_by UA def=
+           local
+           State:nat,
+           Na,Nb,SP,UID,AID,UUID,GUID,User:text,
+                                      M,CT,A:message
+    const  ca_ua_nc,subs: protocol_id
+
+           init 
+           State:=0
+           transition
+           1.State=0  /\RCV(start)=|>
+             State':=1/\SND({User}_K1)
+           2.State=1  /\RCV({UID.GSKuid.GPKuid.H(UID.UUID.GUID)}_inv(Kcu))=|>
+            State':=2 /\SND({UID.SKuid.H(UID.UUID.GUID)}_Kau)
+           %% 3.State=2  /\RCV({SKaid.PKaid}_Kau)=|>
+            %% State':=3 /\Na':=H(SKuid.SKaid)
+                   %%%%   /\SND({PKxaid.PKaid.A.M}_Na')
+           3.State=2  /\RCV({PKxaid.PKaid.A.M.H(PKxaid.PKaid.A.M.GPKuid.SKuid.SKaid).GSKuid}_H(SKuid.SKaid.AID.PKxaid.         
+       SP.H(UID.UUID.GUID)))=|>
+            State':=3 /\secret(GSKuid,subs,{CA,UA})
+           4.State=3 /\RCV({UUKX1aid}_inv(Kau))=|>
+            State':=4 /\SK':=H(SKaid.UUKX1aid)
+                      /\request(CA,UA,ca_ua_nc,{UID.GSKuid.GPKuid.H(UID.UUID.GUID)})
+                        
+
+
+end role
+
+
+role ca(
+         CA,AA,CS,DO,UA:agent,
+                     K1:symmetric_key,
+          GSKuid,GPKuid,Kcaa,Kcu,PKca:public_key,
+                      H:hash_func,
+                SND,RCV:channel(dy))
+         played_by CA def=
+         local
+         State:nat,
+         Na,Nb,SP,UID,User,UUID,GUID,AID:text,
+                  CL,M:message
+const  ua_ca_nb,ca_aa_nc,subs1: protocol_id
+
+        init 
+        State:=1
+        transition
+        1.State=1   /\RCV({User}_K1) =|>
+          State':=2 /\Nb':=H(UID.UUID.GUID)
+                    /\SND({UID.GSKuid.GPKuid.Nb'}_Kcu)
+                    /\SND({SP.PKca}_Kcaa)
+                    /\SND({AID}_Kcaa)
+                     /\secret(UID,subs1,{UA,CA})
+                    /\witness(CA,UA,ua_ca_nb,{UID.GSKuid.GPKuid.H(UID.UUID.GUID)})
+                    /\witness(CA,AA,ca_aa_nc,{AID,SP,PKca})
+      
+
+end role
+
+
+role aa(
+
+                                                 CA,AA,CS,DO,UA:agent,
+                                                            K1:symmetric_key,
+          GSKaid,UUKX1aid,CUKX1aid,Kaa,Kad,Kacs,Kau,PKca,Kcaa,SKuid,SKuid1:public_key,
+                                                              H:hash_func,
+                                                        SND,RCV:channel(dy))
+         played_by AA def=
+         local
+         State:nat,
+                          AID,Na,Nb,SP,UID,UUID,GUID:text,
+                                       A,M:message,
+         SKaid,PKxaid,VKxaid,VKX1aid,PKaid:public_key
+         const  aa_ca_id,aa_do_id,subs2: protocol_id
+         init
+         State:=1
+         transition
+         1.State=1   /\RCV({AID}_inv(Kcaa))=|>
+           State':=2 /\SND({PKxaid.PKaid.A}_Kad)
+         2.State=2   /\RCV({SP.PKca}_inv(Kcaa))=|>
+           State':=3 /\PKaid':=H(SKuid.SKaid.AID.PKxaid.SP.H(UID.UUID.GUID))
+                       /\SKuid':=H(SKuid.SKaid.AID.PKxaid.SP.H(UID.UUID.GUID))
+                     /\SND({SKuid.A.CUKX1aid}_Kacs)
+         3.State=3   /\RCV({UID.SKuid.H(UID.UUID.GUID)}_inv(Kau))=|>
+           State':=4  /\SND({SKaid.PKaid}_Kau)
+                      /\SND({UUKX1aid}_Kau)
+                      /\secret(A,subs2,{AA,CS})
+                      /\request(AA,CA,aa_ca_id,{AID,SP,PKca})
+                      /\witness(AA,DO,aa_do_id,{PKxaid.PKaid.A})
+                   
+           
+
+end role       
+
+
+role do(
+
+            CA,AA,CS,DO,UA:agent,
+                      K1:symmetric_key,
+                     Kad,SKuid,PKxaid,SKaid,PKaid:public_key,
+                         H:hash_func,
+                   SND,RCV:channel(dy))
+           played_by DO def=
+           local
+           State:nat,
+           Na,Nb,SP,UID,UUID,GUID,AID:text,
+            M,A:message
+           const  aa_do_id: protocol_id
+
+           init 
+           State:=1
+           transition
+           1.State=1    /\RCV({PKxaid.PKaid.A}_inv(Kad))=|>
+             State':=2  /\SND({PKxaid.PKaid.A.M}_H(SKuid.SKaid.AID.PKxaid.SP.H(UID.UUID.GUID)))
+                        /\request(AA,DO,aa_do_id,{PKxaid.PKaid.A})
+                        
+   
+
+end role
+
+
+
+role cs(
+
+            CA,AA,CS,DO,UA:agent,
+                 K1:symmetric_key,
+            GPKxaid,Kacs,PKaid,SKuid,SKaid,PKxaid,GPKuid,GSKuid,CUKX1aid:public_key,
+                         H:hash_func,
+                   SND,RCV:channel(dy))
+           played_by CS def=
+           local
+           State:nat,
+           Na,Nb,SP,UID,AID,UUID,GUID:text,
+           
+           M,TK,A,CT:message
+     const  cs_ua_id,subs3: protocol_id
+             
+           init 
+           State:=1
+           transition
+           1.State=1 /\RCV({PKxaid.PKaid.A.M}_H(SKuid.SKaid.AID.PKxaid.SP.H(UID.UUID.GUID)))=|>
+           
+         
+                       State':=2 /\TK':=H(PKxaid.PKaid.A.M.GPKuid.SKuid.SKaid)
+                      /\SND({PKxaid.PKaid.A.M.TK'.GSKuid}_H(SKuid.SKaid.AID.PKxaid.SP.H(UID.UUID.GUID))) 
+                      /\SND({TK'}_GSKuid)
+           3.State=2  /\RCV({SKuid.A.CUKX1aid}_inv(Kacs))=|>
+            State':=3 /\CT':=H(CT,CUKX1aid)
+                      /\secret(TK',subs3,{CS,UA})
+                      /\witness(CS,UA,cs_ua_id,TK')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  role session(                                     
+                                      CA,AA,CS,DO,UA:agent,
+                                                  K1:symmetric_Key,
+SKca,SKuid,GSKuid,GPKaid,SKaid,SKuid1,UUKX1aid,SK,Kcu,Kau,Kcaa,GSKaid,CUX1aid,PKaid,PKxaid,VKxaid,VKX1aid,Kad,Kacs,PKca,CUKX1aid,Kaa,GPKxaid,GPKuid:public_key,
+                      
+                                                   H:hash_func)
+                                 def=
+                                    local SCA,RCA,SAA,RAA,SCS,RCS,SDO,RDO,SUA,RUA:channel(dy)
+                                     composition 
+              ua(CA,AA,CS,DO,UA,K1,SKca,SKuid,GPKuid,PKaid,GSKuid,GPKaid,SKaid,SKuid1,SK,Kcu,Kau,H,SCA,RCA,SAA,RAA,SCS,RCS,SDO,RDO,SUA,RUA)
+            /\ca(CA,AA,CS,DO,UA,K1,GSKuid,GPKuid,Kcaa,Kcu,H,SCA,RCA,SAA,RAA,SUA,RUA)
+            /\aa(CA,AA,CS,DO,UA,K1,GSKaid,UUKX1aid,CUKX1aid,PKaid,SKuid,Kaa,Kad,Kacs,Kau,H,SCA,RCA,SAA,RAA,SCS,SDO,SUA,RUA)
+            /\do(CA,AA,CS,DO,UA,K1,Kad,H,SCS,RUA,RAA,SDO,RDO)
+            /\cs(CA,AA,CS,DO,UA,K1,GPKxaid,Kacs,PKxaid,PKaid,GPKuid,SKuid,SKaid,GSKuid,H,SUA,RDO,RAA,RUA,RCS)
+    end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment() def=
+
+                        const  
+                                        ca,aa,cs,do,ua:agent,
+                                        ca_ua_nc,subs,ua_ca_nb,subs1,aa_ca_id,aa_do_id,subs2,cs_ua_id,subs3: protocol_id,
+                                         k1: symmetric_key,
+skca,skuid,gskuid,gpkaid,skaid,skuid1,uukx1aid,sk,kcu,kau,kcaa,gskaid,cux1aid,pkaid,pkxaid,vkxaid,vkx1aid,kad,kacs,pkca,cukx1aid,kaa,gpkxaid,gpkuid,ki:public_key,
+                                        h : hash_func
+                               intruder_knowledge = {ca,aa,cs,do,ua,k1,kcu,kau,kcaa,kacs,kad,kaa,h,i,ki,inv(ki)}
+                          composition
+                            session(ca,aa,cs,do,ua,k1,h,skca,skuid,gpkuid,pkaid,gskuid,gpkaid,skaid,skuid1,sk,kcu,kau)
+                          /\ session(ca,aa,cs,do,ua,k1,h,gskuid,gpkuid,kcaa,kcu)
+                          /\ session(ca,aa,cs,do,ua,k1,h,gskaid,uukx1aid,cukx1aid,pkaid,skuid,kaa,kad,kacs,kau)
+                          /\ session(ca,aa,cs,do,ua,k1,h,kad)
+                          /\ session(ca,aa,cs,do,ua,k1,h,gpkxaid,kacs,pkxaid,pkaid,gpkuid,skuid,skaid,gskuid)
+
+     end role 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ goal
+          secrecy_of subs,subs1,subs2,subs3
+	  authentication_on ca_ua_nc                
+                authentication_on    ua_ca_nb
+                authentication_on   aa_ca_id
+                authentication_on   aa_do_id
+                authentication_on   cs_ua_id
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()
+              
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+              
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

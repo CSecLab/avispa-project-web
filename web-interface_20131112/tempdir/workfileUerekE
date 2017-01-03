@@ -1,0 +1,255 @@
+role user (
+		U  : agent,
+		GW : agent,             
+		SN : agent,             
+		H  : hash_func,
+		UID: text, 
+		Password: text, 
+		SND_UG, RCV_UG,SND_US, RCV_US: channel (dy)
+          )
+        
+played_by U
+def=
+
+  local State   	: nat,
+        Recv_msg,A      : text,
+	Tstamp1   	: text,
+	PERMIT_LOGIN,MA_u,Tstamp7 : text,
+	Reg_req,Req_Login : text.text,
+	NewPassword 	: text
+		
+        const sec_i_Pwd,sec_i_NPwd,user_gateway,gateway_user,user_sensor,sensor_user: protocol_id
+		
+  init  State := 0
+
+  transition     
+
+  1.  State  = 0 /\ RCV_UG(start) =|>
+      State':= 1 /\ SND_UG(UID.H(Password)) 
+                 /\ secret(Password,  sec_i_Pwd,{GW})  
+                 /\ Reg_req' := UID.H(Password)
+                 /\ witness(U,GW,user_gateway,Reg_req') 
+
+  2. State  =  1 /\ RCV_UG(Recv_msg) =|>
+     State' := 2 /\ request(GW,U,gateway_user,Recv_msg)
+	         /\ Tstamp1' := new()
+	    	 /\ A' := H(xor(H(Password),Tstamp1')) 
+	    	 /\ SND_US(UID.A'.Tstamp1') 
+	    	 /\ Req_Login' := A'.Tstamp1'
+            	 /\ witness(U,SN,user_sensor,Req_Login') 
+			 
+				 
+  3. State  =  2 /\ RCV_US(PERMIT_LOGIN.MA_u.Tstamp7) =|> 
+     State' := 3 /\ request(SN,U,sensor_user,PERMIT_LOGIN.MA_u.Tstamp7) 
+		 /\ NewPassword' := new()
+		 /\ SND_UG(UID.H(Password).H(NewPassword')) 
+                 /\ secret(Password,  sec_i_Pwd,{GW})  
+                 /\ secret(NewPassword',  sec_i_NPwd,{GW}) 
+                 /\ witness(U,GW,user_gateway,H(Password).H(NewPassword')) 
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role target_GW( 
+		U,GW,SN       : agent,      
+		H             : hash_func,
+		UID			  : text, 
+		Pwd 		  : hash_func,
+		SND_UG, RCV_UG,SND_GS, RCV_GS      : channel (dy)
+	      )
+        
+played_by GW 
+def=
+
+  local State  		      : nat,
+         X,N,MA_sn,MA_u       : text,
+         A,C,Tstamp1,Tstamp3,Tstamp5 :text,
+        Tstamp       : text,
+        Succ_msg     : text,
+        Reg_resp     : text,
+        Broad_N_TS   : text.text,
+	Accept_Login : text.text.text,
+        NPwd 	     : text,
+	PERMIT_LOGIN :text
+
+  const user_gateway,gateway_user,gateway_sensor,sensor_gateway,sec_N_sensor,sec_Ts_sensor,sec_success : protocol_id
+
+  init  State := 0
+
+  transition 
+
+  1. State  =  0 /\ RCV_UG(UID.Pwd) =|>  
+     State' := 1 /\ Succ_msg' := new()
+                 /\ secret(Succ_msg',sec_success,{U})
+		 /\ SND_UG(Succ_msg') 
+                 /\ witness(GW,U,gateway_user,Succ_msg')
+                 /\ request(U,GW,user_gateway,UID.Pwd)
+ 
+		 /\ X' := new()
+		 /\ N' := xor( Pwd,H(xor(X,UID)) )
+		 /\ Tstamp' := new()
+        	 /\ secret(N',  sec_N_sensor,{SN})  
+                 /\ secret(Tstamp',  sec_Ts_sensor,{SN})  
+                 /\ SND_GS(UID.N'.Tstamp') 
+                 /\ witness(GW,SN,gateway_sensor,N'.Tstamp') 
+				 
+
+  2. State   = 1 /\ RCV_GS(UID.C.Tstamp1.Tstamp3) =|>
+     State' := 2 /\ Accept_Login' := C.Tstamp1.Tstamp3
+                 /\ request(SN,GW,sensor_gateway,Accept_Login') 
+
+		 /\ Tstamp5' := new()
+		 /\ PERMIT_LOGIN' := new()
+		 /\ A' := H(xor(Pwd,Tstamp1))
+		 /\ MA_sn' := H(xor(A',H(xor(N,Tstamp5')))) 
+    		 /\ MA_u' := H(xor(A',Pwd)) 
+	     	 /\ SND_GS(PERMIT_LOGIN'.xor(MA_sn',MA_u').H(MA_u').Tstamp5') 
+                 /\ witness(GW,SN,gateway_sensor,PERMIT_LOGIN'.xor(MA_sn',MA_u').H(MA_u').Tstamp5') 
+			 
+				 
+
+  3. State  =  2 /\ RCV_UG(UID.Pwd.NPwd) =|>  
+     State' := 3 /\ request(U,GW,user_gateway,UID.Pwd.NPwd)
+		 /\ Succ_msg' := new()
+                 /\ secret(Succ_msg',sec_success,{U})
+		 /\ SND_UG(Succ_msg') 
+                 /\ witness(GW,U,gateway_user,Succ_msg')
+                
+		 /\ X' := new()
+		 /\ N' := xor( Pwd,H(xor(X,UID)) )
+		 /\ Tstamp' := new()
+ 		 /\ secret(N',  sec_N_sensor,{SN})  
+                 /\ secret(Tstamp',  sec_Ts_sensor,{SN})  
+                 /\ SND_GS(UID.N'.Tstamp') 
+                 /\ witness(GW,SN,gateway_sensor,N'.Tstamp') 
+				 
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role target_SN( 
+		U,GW,SN       : agent,      
+		H             : hash_func,
+		UID			  : text, 
+		Pwd 		  : hash_func,
+		SND_US, RCV_US,SND_GS, RCV_GS      : channel (dy)
+	      )
+
+        
+played_by SN 
+def=
+
+  local State        : nat,
+        N,A,C      	 : text,
+        Tstamp       : text,
+        Tstamp1,Tstamp3       : text,
+        Rec_N_TS,Req_Login : text.text,
+        Res_Login: text.text.text,
+        MA_sn,MA_u : text,
+        PERMIT_LOGIN,XMA_sn_XMA_u,HMA_u,Tstamp5,Tstamp7 : text
+		
+  const user_gateway,gateway_sensor,sensor_user : protocol_id
+
+  init  State := 0
+
+  transition 
+
+  1. State  =  0 /\ RCV_GS(UID.N.Tstamp) =|>  
+     State' := 1 /\ Rec_N_TS' := N.Tstamp
+                 /\ request(GW,SN,gateway_sensor,Rec_N_TS') 
+
+  2. State   = 1 /\ RCV_US(UID.A.Tstamp1) =|>
+     State' := 2 /\ Req_Login' := A.Tstamp1
+                 /\ request(U,SN,user_sensor,Req_Login')
+				 
+		 /\ Tstamp3' := new()
+		 /\ C' := H(xor(A,H(xor(N,Tstamp3')))) 
+   		 /\ SND_GS(UID.C'.Tstamp1.Tstamp3') 
+		 /\ Res_Login' := C'.Tstamp1.Tstamp3'
+		 /\ witness(SN,GW,sensor_gateway,Res_Login') 
+				 
+
+  3. State   = 2 /\ RCV_GS(PERMIT_LOGIN.XMA_sn_XMA_u.HMA_u.Tstamp5) =|>
+     State' := 3 /\ request(GW,SN,gateway_sensor,PERMIT_LOGIN.XMA_sn_XMA_u.HMA_u.Tstamp5) 
+
+		 /\ Tstamp7' := new()
+		 /\ MA_sn' := H(xor(A,H(xor(N,Tstamp5)))) 
+		 /\ MA_u' := H(xor(MA_sn',XMA_sn_XMA_u.HMA_u)) 
+		 /\ MA_u' := xor(MA_u',Tstamp7') 
+
+ 		 /\ SND_US(PERMIT_LOGIN.MA_u'.Tstamp7') 
+		 /\ witness(SN,U,sensor_user,PERMIT_LOGIN.MA_u'.Tstamp7') 
+		 
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(
+		U  : agent,
+		GW : agent,             
+		SN : agent,             
+		H  : hash_func,
+		UID: text, 
+		Password: text
+ 	   )
+	
+def=  
+
+  local   SND_UG,RCV_UG, SND_GS,RCV_GS,SND_US,RCV_US : channel (dy) 
+  
+  composition 
+
+     user(U,GW,SN,H,UID,Password,SND_UG,RCV_UG,SND_US,RCV_US)
+  /\ target_GW(U,GW,SN,H,UID,H(Password),SND_UG, RCV_UG,SND_GS, RCV_GS)
+  /\ target_SN(U,GW,SN,H,UID,H(Password),SND_US, RCV_US,SND_GS, RCV_GS)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+def=
+
+	const u,gw,sn : agent,             
+              h       : hash_func,
+	      uid     : text, 
+	      pwd_u_gw: text,		
+	      sec_i_pwd,user_gateway : protocol_id
+
+  intruder_knowledge = {u,gw,sn,h,uid} 
+
+  composition
+	session(u,gw,sn,h,uid,pwd_u_gw)
+	/\  session(u,gw,sn,h,uid,pwd_u_gw)
+	/\  session(u,gw,sn,h,uid,pwd_u_gw)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal 
+
+  authentication_on gateway_sensor
+  authentication_on gateway_user
+  authentication_on user_sensor
+  authentication_on user_gateway
+  authentication_on sensor_gateway
+  authentication_on sensor_user
+  
+  secrecy_of sec_i_Pwd,sec_i_NPwd
+  secrecy_of sec_N_sensor
+  secrecy_of sec_Ts_sensor,sec_success
+  
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

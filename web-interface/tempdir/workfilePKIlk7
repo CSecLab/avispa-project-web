@@ -1,0 +1,130 @@
+role dhcp_Delayed_Client ( 
+        C, S     : agent,    % C client, S server 
+        H        : hash_func, % HMAC hash func.
+        KeyID    : hash_func, % get a key id from a key
+        K        : text,     % K is the pre-existing shared secret
+        Snd, Rcv : channel(dy))
+played_by C
+def=
+
+  local State : nat,
+        Time1 : text,
+        Sig   : hash(agent.protocol_id.hash(text).text)
+
+  const delayedAuthReq : protocol_id,
+        succ           : hash_func,   % Successor function
+        sec_k          : protocol_id
+
+  init  State := 0
+
+
+
+  transition
+
+   1. State = 0
+      /\ Rcv(start)
+      =|> 
+      State' := 1
+      /\ Time1' := new()
+      /\ Snd(C.delayedAuthReq.Time1')
+
+   2. State = 1
+      /\ Rcv(S.delayedAuthReq.succ(Time1).KeyID(K).
+             H(S.delayedAuthReq.succ(Time1).K))
+      =|> 
+      State' := 2
+      /\ Sig' := H(S.delayedAuthReq.succ(Time1).K) 
+      /\ request(C,S,sig,Sig') 
+      /\ secret(K,sec_k,{S})
+
+end role
+
+
+
+role dhcp_Delayed_Server (
+        S,C      : agent,
+        H        : hash_func,  % HMAC hash func.
+        KeyID    : hash_func,  % get a key id from a key
+        K        : text,
+        Snd, Rcv : channel (dy))
+played_by S
+def=
+
+  local State : nat,
+        Time1 : text, 
+        Sig   : hash(agent.protocol_id.hash(text).text)
+
+  const delayedAuthReq : protocol_id,
+        succ           : hash_func   % Successor function
+
+  init State := 0
+
+
+
+
+
+  transition
+
+   1. State = 0
+      /\ Rcv(C.delayedAuthReq.Time1')
+      =|> 
+      State' := 1
+      /\ Sig' := H(S.delayedAuthReq.succ(Time1').K) 
+      /\ Snd(S.delayedAuthReq.succ(Time1').KeyID(K).Sig')
+      /\ witness(S,C,sig,Sig')
+
+end role
+
+
+
+role session(C, S  : agent,
+             H, KeyID : hash_func,
+             K     : text)
+def=
+
+  local SA, RA, SB, RB : channel (dy)
+
+  composition
+        dhcp_Delayed_Server(S,C,H,KeyID,K,SA,RA) /\
+        dhcp_Delayed_Client(C,S,H,KeyID,K,SB,RB)
+
+end role
+
+
+
+
+
+
+
+
+
+role environment()
+def=
+ 
+ const a, b       : agent,
+       k1, k2, k3 : text,
+       h, keyid   : hash_func,
+       sig        : protocol_id
+
+ intruder_knowledge = {a,b,k2,i,delayedAuthReq,
+                       keyid,h,succ,        
+                       k3}                  
+
+ composition
+        session(a,b,h,keyid,k1)
+    /\  session(a,i,h,keyid,k2)
+    /\  session(i,b,h,keyid,k3)
+
+end role
+
+
+goal
+  secrecy_of sec_k % addresses G12
+
+  %DHCP_Delayed_Client authenticates DHCP_Delayed_Server on sig
+  authentication_on sig % addresses G1, G2, G3
+end goal
+
+
+
+environment()

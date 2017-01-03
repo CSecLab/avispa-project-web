@@ -1,0 +1,120 @@
+%% PROTOCOLE: Protection d'identité
+%% BUT: 
+%% Protection d'identité entre l'UE et P-CSCF.
+%% Terminal_P-CSCF:
+%%  Proxy est le p_cscf, Ue est le terminal. Chacun des deux possède sa propre clé générée aléatoirement.
+%% 
+%% Ue ---> Proxy : Ekue(ID)= exp(ID,Kue) mod p
+%%                 Ue génère aléatoirement sa clé privée Kue, un nombre premier p
+%%                 et envoie son identifiant (ID) crypté par sa clé privée (Ekue(ID))
+%%
+%% Proxy ---> Ue : EKproxy(Ekue(ID))= exp((exp(ID,Kue) mod p),Kproxy) mod p 
+%%                 A la réception de Ekue(ID), P-cscf génère sa clé privée Kproxy et calcule 
+%%                 EKproxy(Ekue(ID))= exp((exp(ID,Kue) mod p),Kproxy) mod p 
+%%                 ensuite, il l'envoie au terminal.
+%% 
+%% Ue ---> Proxy : Eproxy(ID)= exp(ID,Kproxy) mod p 
+%%                 A la réception , le terminal calcule Eproxy(ID) par l'inverse de sa clé 
+%%                 et l'envoie au p-cscf qui sera en mesure de cacluler l'ID via l'inverse de sa clé.
+%% 
+%%      
+%% Le but est que le terminal parvient à envoyer son identifiant de manière sécurisée au P-cscf 
+%%
+%% HLPSL
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Premier role: 
+                %role user_equipement: représente le terminal 
+role user_equipement ( Ue, Proxy: agent,
+                       SND,RCV: channel(dy) 
+                     ) played_by Ue % L'agent Ue joue le role du User_equipement
+
+def=
+% Variables locales
+local 
+         State,P  : nat,
+         Kue,Kproxy, Id : text,
+         X,Y  : message
+% Les constantes
+const 
+         sec_id, sec_kue: protocol_id
+init     State:=1
+% Définition des échanges
+transition
+% Le terminal initie le protocole en générant aléatoirement un nombre premier P
+% ,sa clé X, crypte l'ID et l'envoie au P-CSCF.
+
+       1.  State=1    /\ RCV(start) =|>
+           State':=2  /\ Kue':=new() /\ P':= new ()  
+                      /\ X':= {exp(Id,Kue')}_P'
+                      /\ SND (sipregisterFirst.X'.P')
+                      /\ secret (Id, sec_id, {Ue, Proxy})
+                      /\ secret (Kue', sec_kue, Ue)
+
+       2.  State=2    /\  RCV (accept202.{exp(X,Kproxy')}_P) =|>
+           State':=3  /\  SND (sipregister.{exp(Id,Kproxy)}_P)
+                      /\  secret (Id, sec_id, {Ue, Proxy})
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Deuxième role: 
+                %role p_cscf: représente le proxy P-CSCF 
+role p_cscf  ( 
+              Proxy,Ue: agent, 
+              SND,RCV: channel(dy)
+             ) played_by Proxy % L'agent Proxy joue le role du p_cscf 
+def=
+local
+      State,P  : nat,
+      Kue, Kproxy, Id : text,
+      X,Y  : message
+const
+      sec_kproxy, sec_id: protocol_id
+init State:=1
+transition
+0. State= 1   /\  RCV (sipregisterFirst.X'.P') =|> 
+   State':= 2 /\  Kproxy':= new()
+              /\  Y':= {exp(X',Kproxy')}_P
+              /\  SND (accept202.Y')
+              /\  secret (Kproxy', sec_kproxy, Proxy)
+              /\  secret (Id, sec_id, {Proxy,Ue})
+
+1. State= 2   /\ RCV (sipregister.{exp(Id,Kproxy)}_P) =|>
+   State':=3 
+
+end role 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% role session
+role session (Ue, Proxy: agent)
+def= local SND, RCV : channel(dy)
+composition
+      
+                  user_equipement (Ue, Proxy,SND, RCV)
+              /\  p_cscf (Proxy, Ue,SND, RCV)  
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% role environnement
+role environment ()
+def= 
+const  
+ue,proxy   : agent ,
+sec_id, sec_kproxy,sec_Kue: protocol_id,
+sipregisterFirst,accept202,sipregister: protocol_id,        
+p: text
+% Définir les connaissances de l'attaquant
+intruder_knowledge={ue, proxy, p,sipregisterFirst,accept202,sipregister} 
+
+composition 
+                 session (ue, proxy)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal 
+% Définir les propriétés de sécurité attendues
+secrecy_of
+         %1. Sécurité de l'identité  
+        sec_id,
+         %2. Sécurité des clés privées
+        sec_kproxy, sec_kue
+
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ 
+environment ()

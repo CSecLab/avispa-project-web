@@ -1,0 +1,1742 @@
+From wt.eric at gmail.com  Sun Sep  3 03:44:43 2006
+From: wt.eric at gmail.com (Eric Wang)
+Date: Sat Sep  2 19:51:07 2006
+Subject: [Avispa-users] A small problem in security protocol
+Message-ID: <a2d9e6e90609021844u631ca05ob0a27400adfff22a@mail.gmail.com>
+
+In many protocols under academic discussion (like NSPK protocol,
+Big-mouth-frog protocol, etc) there is no an apparent field in some messages
+that shows which step in which protocol this message is and who is the
+sender of this message, is it a problem?
+
+        I got this problem for if there is no such a tag, it will bring a
+problem that when one agent receive a message in the protocol, how does he
+know use which key in his own private key and other agents' public (maybe
+decades or even hundreds) to decrypt the message like message 1 in NSPK
+protocol in an environment where many different protocols and multi
+instances of same protocol are executed at the same time. It is impossible
+to try each key for most asymmetric key cryptograph
+algorithms are highly resource-cost.
+
+        Considering the case in Woo Lam mutual authentication protocol of
+missing the sender's identification:
+1. P -> Q : P, N1
+2. Q -> P : Q, N2
+3. P -> Q : {P, Q, N1, N2}Kps
+4. Q -> S : {P, Q, N1, N2}Kps, {P, Q, N1, N2}Kqs
+
+        When Q get message 3 being encrypted by Kps which is a shared key
+between P and S and Q didn't know it, consider multi instances of this
+protocol are carry out at the same time, how does Q know this message 3 is
+from P and compose the second half part of message 4 using P's ID in
+{P, Q, N1, N2}Kqs? And further considering in a multi protocol environment,
+Q may even doesn't know message 3 is a message in Woo Lam mutual
+authentication protocol.
+
+        Maybe this problem of showing the sender of message can be resolved
+easily by adding the sender ID in the message, but will it bring new
+security problem to the protocol? If the protocol analysis won't consider
+the situation of multi protocol environment, is it right and won't there be
+an attack scheme of cross-protocol attacking?
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: http://carroll.ai.dist.unige.it/pipermail/avispa-users/attachments/20060903/e1b6dfd8/attachment.htm
+From shirlei at gmail.com  Fri Sep  8 01:25:23 2006
+From: shirlei at gmail.com (Shirlei Chaves)
+Date: Thu Sep  7 17:31:45 2006
+Subject: [Avispa-users] A doubt about defining goals
+Message-ID: <c2b436830609071625v5829d7e1r24e4adcbc872fa25@mail.gmail.com>
+
+Hello everyone ! I tried to find a page with previous messages but I didn't
+find. So, please be patient If I me asking some stupid question and I would
+appreciate if you indicate me this kind of page.
+Here is my doubt:
+I have the following situation to solve:
+
+Someone will make reservations for a Theatre, but no one beside who made the
+reservation should know who had made reservations, even the Theatre.
+
+Here is the solution in Alice - Bob Notation:
+
+A:  Generates KS                                  % alice generates a
+symmetric key
+A -> B : EKUb (KS)  || EKS (reservation) % and sends to Bob this symmetric
+key encrypted with Bob's public key, concatenated with the
+                                                            %reservation
+encrypted with the symmetric key
+B -> A   :  SKRb(reservation)                 % The Theatre signs his
+reservation and send it to her
+
+
+Below is a copy of what I especified (espectador -> alice, teatro -> Theatre
+/ bob). I would like to hear from you about my intruder knowledge
+especification and if it's possible to have a goal that indicates that who
+is making the reservation is unknown. Thanks a lot!
+bye
+
+role espectador(
+    E, T : agent,
+    KUt : public_key,
+    SND, RCV : channel (dy))
+
+played_by E def=
+
+    local
+        State : nat,
+        P: text,
+           KS : symmetric_key
+
+init
+
+    State := 0
+
+transition
+
+    1. State  = 0 /\ RCV(start) =|>
+        State' := 2 /\ KS' := new() /\ SND({KS'}_KUt . {P}_KS')
+    2. State  = 2  /\ RCV({P}_inv(KUt)) =|> State' := 4
+
+end role
+
+
+role teatro (
+    E,T : agent,
+    KUt  : public_key,
+    SND, RCV : channel (dy))
+
+played_by T def=
+
+    local
+        State : nat,
+           KS : symmetric_key,
+              P : text
+
+init
+    State := 1
+
+transition
+
+    1. State  = 1 /\ RCV({KS'}_KUt.{P}_KS') =|>
+        State' := 3 /\ SND({P}_inv(KUt))
+
+end role
+
+
+
+role session(
+
+    E, T : agent,
+    KUt : public_key)
+
+def=
+    local
+        ST, SE,
+        RT, RE : channel (dy)
+
+composition
+
+    espectador(E, T, KUt, SE, RE) /\
+    teatro(E, T, KUt, ST, RT)
+
+end role
+
+
+
+role environment()
+
+def=
+
+const
+    e, t, i : agent,
+    kut : public_key,
+    teatro_espectador_p , espectador : protocol_id,
+    ket, kit : symmetric_key
+
+
+intruder_knowledge = {kut, kit, t}
+
+composition
+        session(e,t, kut)
+    /\      session(t,i, kut)
+
+end role
+
+
+
+goal
+    authentication_on teatro_espectador_p
+
+
+end goal
+
+environment()
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: http://carroll.ai.dist.unige.it/pipermail/avispa-users/attachments/20060907/710811d7/attachment.htm
+From iwk20 at ui.edu  Fri Sep  8 03:32:46 2006
+From: iwk20 at ui.edu (Ilham Kurnia)
+Date: Thu Sep  7 19:39:29 2006
+Subject: [Avispa-users] A doubt about defining goals
+In-Reply-To: <c2b436830609071625v5829d7e1r24e4adcbc872fa25@mail.gmail.com>
+References: <c2b436830609071625v5829d7e1r24e4adcbc872fa25@mail.gmail.com>
+Message-ID: <1157679166.8965.24.camel@riset-a-s1-112.riset.cs.ui.ac.id>
+
+Hi Shirlei,
+
+I've glanced into your specification. There are a few things to address:
+1. In the role espectador, you are using nonce P in the first step.
+   Yet, nonce P hasn't been initialized. 
+2. You have put protocol_id teatro_espectador_p as an authentication
+   goal. However, nowhere in the basic roles (espectador and teatro) I 
+   can find predicates witness and request. In other words, you are 
+   not giving the system any information on how to check your goal.
+
+In specifying an authentication procedure, the witness and request
+predicates require the 2 interacting agents' identities. This is to
+ensure that the system is checking the right pair of agents, which is
+inline with Gavin Lowe's definition of authentication. 
+
+One important thing to note is that although you use those two
+predicates and declare the identities of agent pair, it doesn't mean
+that the agents know who they are interacting with. If any messages in
+your protocol doesn't carry information about the identities of the
+agents, then the agents will not know who they are interacting with. 
+
+Cheers,
+
+Ilham
+
+On Thu, 2006-09-07 at 20:25 -0300, Shirlei Chaves wrote:
+> Hello everyone ! I tried to find a page with previous messages but I
+> didn't find. So, please be patient If I me asking some stupid question
+> and I would appreciate if you indicate me this kind of page.
+> Here is my doubt:
+> I have the following situation to solve:
+> 
+> Someone will make reservations for a Theatre, but no one beside who
+> made the reservation should know who had made reservations, even the
+> Theatre.
+> 
+> Here is the solution in Alice - Bob Notation: 
+> 
+> A:  Generates KS                                  % alice generates a
+> symmetric key
+> A -> B : EKUb (KS)  || EKS (reservation) % and sends to Bob this
+> symmetric key encrypted with Bob's public key, concatenated with the 
+>                                                             %
+> reservation encrypted with the symmetric key 
+> B -> A   :  SKRb(reservation)                 % The Theatre signs his
+> reservation and send it to her
+> 
+> 
+> Below is a copy of what I especified (espectador -> alice, teatro ->
+> Theatre / bob). I would like to hear from you about my intruder
+> knowledge especification and if it's possible to have a goal that
+> indicates that who is making the reservation is unknown. Thanks a
+> lot! 
+> bye
+> 
+> role espectador(
+>     E, T : agent,
+>     KUt : public_key,
+>     SND, RCV : channel (dy))
+> 
+> played_by E def=
+> 
+>     local
+>         State : nat,
+>         P: text,
+>            KS : symmetric_key 
+> 
+> init
+> 
+>     State := 0    
+> 
+> transition
+> 
+>     1. State  = 0 /\ RCV(start) =|>
+>         State' := 2 /\ KS' := new() /\ SND({KS'}_KUt . {P}_KS')
+>     2. State  = 2  /\ RCV({P}_inv(KUt)) =|> State' := 4 
+> 
+> end role
+> 
+> 
+> role teatro (
+>     E,T : agent,
+>     KUt  : public_key,
+>     SND, RCV : channel (dy))
+> 
+> played_by T def=
+> 
+>     local
+>         State : nat,
+>            KS : symmetric_key,
+>               P : text
+> 
+> init
+>     State := 1
+> 
+> transition
+> 
+>     1. State  = 1 /\ RCV({KS'}_KUt.{P}_KS') =|>
+>         State' := 3 /\ SND({P}_inv(KUt))
+> 
+> end role
+> 
+> 
+> 
+> role session(
+> 
+>     E, T : agent,
+>     KUt : public_key)
+> 
+> def=
+>     local 
+>         ST, SE, 
+>         RT, RE : channel (dy)
+> 
+> composition 
+> 
+>     espectador(E, T, KUt, SE, RE) /\ 
+>     teatro(E, T, KUt, ST, RT) 
+> 
+> end role
+> 
+> 
+> 
+> role environment()
+> 
+> def= 
+> 
+> const
+>     e, t, i : agent,
+>     kut : public_key,
+>     teatro_espectador_p , espectador : protocol_id,
+>     ket, kit : symmetric_key
+> 
+> 
+> intruder_knowledge = {kut, kit, t}
+> 
+> composition
+>         session(e,t, kut)
+>     /\      session(t,i, kut)
+> 
+> end role
+>         
+> 
+> 
+> goal
+>     authentication_on teatro_espectador_p
+> 
+> 
+> end goal 
+> 
+> environment()
+> 
+
+
+From shirlei at gmail.com  Fri Sep  8 23:28:00 2006
+From: shirlei at gmail.com (Shirlei Chaves)
+Date: Fri Sep  8 15:34:24 2006
+Subject: [Avispa-users] A doubt about defining goals
+In-Reply-To: <1157679166.8965.24.camel@riset-a-s1-112.riset.cs.ui.ac.id>
+References: <c2b436830609071625v5829d7e1r24e4adcbc872fa25@mail.gmail.com>
+	<1157679166.8965.24.camel@riset-a-s1-112.riset.cs.ui.ac.id>
+Message-ID: <c2b436830609081428s30f78934lad02455963da822e@mail.gmail.com>
+
+Thanks for replying, I'm really thankful. I'll put some other doubts just
+below each topic of your e-mail in hope you could help me again.
+
+>
+> 1. In the role espectador, you are using nonce P in the first step.
+>    Yet, nonce P hasn't been initialized.
+
+
+P, here, it's the number of a chair in the Theatre that it's about to be
+reservated (sorry if I can't do myself very clear because of my English).
+Even in this situation should I initialize this value?
+
+
+2. You have put protocol_id teatro_espectador_p as an authentication
+>    goal. However, nowhere in the basic roles (espectador and teatro) I
+>    can find predicates witness and request. In other words, you are
+>    not giving the system any information on how to check your goal.
+
+
+I got your point... this is my first try, so sometimes I'm walking as a
+blind girl. But, this takes me to another doubt.. what would be the
+information to be passed on request / witness ? Should it be the session key
+KS or the nonce P? Being KS a session key in this case, I think that should
+be P, but I can't find words to stand for this point of view... Sorry if I'm
+doing a mess right here.
+
+
+In specifying an authentication procedure, the witness and request
+> predicates require the 2 interacting agents' identities. This is to
+> ensure that the system is checking the right pair of agents, which is
+> inline with Gavin Lowe's definition of authentication.
+
+
+One important thing to note is that although you use those two
+> predicates and declare the identities of agent pair, it doesn't mean
+> that the agents know who they are interacting with. If any messages in
+> your protocol doesn't carry information about the identities of the
+> agents, then the agents will not know who they are interacting with.
+
+
+I see... I can't confuse the agents in protocol session with someone real in
+the real world... I didn't get any identifying information, so the person to
+whom the reservation is made will be unknown.
+
+And one last thing. Did I make myself clear in explaining the problem?  Do
+you think that Theatre's authentication would be the only goal in this
+problem? The other one would be secrecy about  whom the reservation is for,
+but as I don't get any personal information, should I especify this goal?
+Thanks a lot again
+Bye
+
+
+Cheers,
+>
+> Ilham
+>
+> On Thu, 2006-09-07 at 20:25 -0300, Shirlei Chaves wrote:
+> > Hello everyone ! I tried to find a page with previous messages but I
+> > didn't find. So, please be patient If I me asking some stupid question
+> > and I would appreciate if you indicate me this kind of page.
+> > Here is my doubt:
+> > I have the following situation to solve:
+> >
+> > Someone will make reservations for a Theatre, but no one beside who
+> > made the reservation should know who had made reservations, even the
+> > Theatre.
+> >
+> > Here is the solution in Alice - Bob Notation:
+> >
+> > A:  Generates KS                                  % alice generates a
+> > symmetric key
+> > A -> B : EKUb (KS)  || EKS (reservation) % and sends to Bob this
+> > symmetric key encrypted with Bob's public key, concatenated with the
+> >                                                             %
+> > reservation encrypted with the symmetric key
+> > B -> A   :  SKRb(reservation)                 % The Theatre signs his
+> > reservation and send it to her
+> >
+> >
+> > Below is a copy of what I especified (espectador -> alice, teatro ->
+> > Theatre / bob). I would like to hear from you about my intruder
+> > knowledge especification and if it's possible to have a goal that
+> > indicates that who is making the reservation is unknown. Thanks a
+> > lot!
+> > bye
+> >
+> > role espectador(
+> >     E, T : agent,
+> >     KUt : public_key,
+> >     SND, RCV : channel (dy))
+> >
+> > played_by E def=
+> >
+> >     local
+> >         State : nat,
+> >         P: text,
+> >            KS : symmetric_key
+> >
+> > init
+> >
+> >     State := 0
+> >
+> > transition
+> >
+> >     1. State  = 0 /\ RCV(start) =|>
+> >         State' := 2 /\ KS' := new() /\ SND({KS'}_KUt . {P}_KS')
+> >     2. State  = 2  /\ RCV({P}_inv(KUt)) =|> State' := 4
+> >
+> > end role
+> >
+> >
+> > role teatro (
+> >     E,T : agent,
+> >     KUt  : public_key,
+> >     SND, RCV : channel (dy))
+> >
+> > played_by T def=
+> >
+> >     local
+> >         State : nat,
+> >            KS : symmetric_key,
+> >               P : text
+> >
+> > init
+> >     State := 1
+> >
+> > transition
+> >
+> >     1. State  = 1 /\ RCV({KS'}_KUt.{P}_KS') =|>
+> >         State' := 3 /\ SND({P}_inv(KUt))
+> >
+> > end role
+> >
+> >
+> >
+> > role session(
+> >
+> >     E, T : agent,
+> >     KUt : public_key)
+> >
+> > def=
+> >     local
+> >         ST, SE,
+> >         RT, RE : channel (dy)
+> >
+> > composition
+> >
+> >     espectador(E, T, KUt, SE, RE) /\
+> >     teatro(E, T, KUt, ST, RT)
+> >
+> > end role
+> >
+> >
+> >
+> > role environment()
+> >
+> > def=
+> >
+> > const
+> >     e, t, i : agent,
+> >     kut : public_key,
+> >     teatro_espectador_p , espectador : protocol_id,
+> >     ket, kit : symmetric_key
+> >
+> >
+> > intruder_knowledge = {kut, kit, t}
+> >
+> > composition
+> >         session(e,t, kut)
+> >     /\      session(t,i, kut)
+> >
+> > end role
+> >
+> >
+> >
+> > goal
+> >     authentication_on teatro_espectador_p
+> >
+> >
+> > end goal
+> >
+> > environment()
+> >
+>
+>
+>
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: http://carroll.ai.dist.unige.it/pipermail/avispa-users/attachments/20060908/8f11b9f5/attachment-0001.htm
+From rusu at irisa.fr  Mon Sep 11 18:57:30 2006
+From: rusu at irisa.fr (rusu@irisa.fr)
+Date: Mon Sep 11 11:03:41 2006
+Subject: [Avispa-users] other kinds of channels than DY?
+Message-ID: <4964.131.174.138.203.1157993850.squirrel@mail.irisa.fr>
+
+ Hi,
+
+ Somewhere in the HLPSL reference manual there is a mention of future plans
+to incorporate other kinds of channels/intruders than Dolev-Yao, in particular,
+over-the-air channels, in which the intruder cannot prevent messages from
+reaching their destination. Is there any planned future realease where this
+will be implemented? Is there any way to encode over-the-air channels using
+DY channels? I guess not, but you never know...
+
+ Thanks,
+
+ Vlad
+
+From A00472021 at itesm.mx  Thu Sep 14 01:06:27 2006
+From: A00472021 at itesm.mx (=?ISO-8859-1?Q?Juan_Carlos_L=F3pez_Pimentel?=)
+Date: Wed Sep 13 17:15:05 2006
+Subject: [Avispa-users] cl-atse ends and ofmc not
+Message-ID: <45088EF3.6060301@itesm.mx>
+
+Hello List,
+
+I was verifying a version of the Andrew Secure RPC protocol (an extended
+version). However,  I am not sure if my new version is secure, because
+while cl-atse backend takes out that the protocol is secure, ofmc
+backend does not end (it seems to be in a cycle).
+
+I would like to know, why while cl-atse backend clearly takes out a
+result, ofmc does not do the same?
+
+Attachment you can find the security protocol.
+
+Thanks you for your trouble.
+
+Best regards,
+
+Juan Carlos L?pez P.
+
+
+
+-------------- next part --------------
+%% HLPSL definition on Andrew Secure RPC protocol.
+%% This patched version is that proposed by principle 10 proposed by Juan Carlos Lopez P.
+%% By Juan Carlos Lopez Pimentel
+
+%1 A --> B : A, {Na}_|Kab|
+%2 B --> A : {Succ(Na), Nb}_|Kab|
+%3 A --> B : {Succ(Nb)}_|Kab|
+%4 B --> A : {Kpab,Nbp}_|Kab|
+%Add the following steps
+%5 A --> B : {Nap}_|Kpab|
+%6 B --> A : {Succ(Nap)}_|Kpab|
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role alice(A,B:agent,
+	   Kab: symmetric_key,
+	   Succ: hash_func,
+	   Snd, Rcv: channel (dy))
+played_by A
+def=
+
+  local State: nat,
+	Na, Nb, Nap, Nbp: text, 
+	Kpab: symmetric_key
+
+  const nap, na, nb, alice_bob_kpab, alice_bob_na, bob_alice_nb: protocol_id
+
+  init  State := 0
+
+  transition
+
+%% Start of the protocol
+  step1. 	State = 0  /\ Rcv(start)  =|>	
+%1 A --> B : A, {Na}_|Kab|
+		State':= 2 /\ Na':= new() 
+			/\ Snd(A.{Na'}_Kab)
+
+  %% Receving the first response of B
+%2 B --> A : {Succ(Na), Nb}_|Kab|
+  step2and3. 	State = 2  /\ Rcv({Succ(Na).Nb'}_Kab) =|>	
+%3 A --> B : {Succ(Nb)}_|Kab|
+		State':= 4 /\ Snd({Succ(Nb')}_Kab)
+			/\ witness(A,B,bob_alice_nb,Nb')
+
+  %% Receving the second response of B
+%4 B --> A : {Kpab,Nbp}_|Kab|
+  step4and5. 	State = 4  /\ Rcv({Kpab'.Nbp'}_Kab) =|>	
+%5 A --> B : {Nap}_|Kpab|
+		State':= 6 /\ Nap':=new() /\ Snd({Nap'}_Kpab')
+			 /\ secret(Nap',nap,{A,B})
+			 /\ witness(A,B,alice_bob_kpab,Kpab')			 
+
+%6 B --> A : {Succ(Nap)}_|Kpab|
+  step6.        State = 6  /\ Rcv({Succ(Nap)}_Kpab) =|>			 
+		State':=8
+%			 /\ request(A,B,alice_bob_kpab,Kpab)
+			 /\ request(A,B,alice_bob_na,Na)
+
+%6 B --> A : {Succ(Nap)}_|Kpab|
+			 
+			 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+%1 A --> B : A, {Na}_|Kab|
+%2 B --> A : {Succ(Na), Nb}_|Kab|
+%3 A --> B : {Succ(Nb)}_|Kab|
+%4 B --> A : {Kpab,Nbp}_|Kab|
+%5 A --> B : {Nap}_|Kpab|
+%6 B --> A : {Succ(Nap)}_|Kpab|
+
+role   bob(A,B:agent,
+	   Kab: symmetric_key,
+	   Succ: hash_func,
+	   Snd, Rcv: channel (dy))
+played_by B
+def=
+
+  local State: nat,
+	Na, Nb, Nap, Nbp: text, 
+	Kpab: symmetric_key
+
+  const kpab,nbp,alice_bob_kpab,alice_bob_na,bob_alice_nb: protocol_id
+
+  init  State := 1
+
+  transition
+
+%1 A --> B : A, {Na}_|Kab|
+  step1and2. 	State = 1  /\ Rcv(A.{Na'}_Kab) =|>	
+%2 B --> A : {Succ(Na), Nb}_|Kab|
+		State':= 3 /\ Nb':= new() 
+			/\ Snd({Succ(Na').Nb'}_Kab)
+			/\ witness(B,A,alice_bob_na,Na')
+
+%3 A --> B : {Succ(Nb)}_|Kab|
+  step3and4. 	State = 3  /\ Rcv({Succ(Nb)}_Kab) =|>	
+%4 B --> A : {Kpab,Nbp}_|Kab|
+		State':= 5 /\ Kpab':= new()
+			/\ Nbp':= new() 
+			/\ Snd({Kpab'.Nbp'}_Kab)
+%			/\ witness(B,A,alice_bob_kpab,Kpab')
+			/\ secret(Kpab',kpab,{A,B})
+			/\ secret(Nbp',nbp,{A,B})
+			
+%5 A --> B : {Nap}_|Kpab|
+  step5and6.    State = 5 /\ Rcv({Nap'}_Kpab) =|>
+%6 B --> A : {Succ(Nap)}_|Kpab|  
+		State' := 7 /\ Snd({Succ(Nap')}_Kpab)
+			/\ request(B,A,bob_alice_nb,Nb)
+			/\ request(B,A,alice_bob_kpab,Kpab)
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+%% The role representing a partial session between alice and bob
+role  andrewSRPC(A,B: agent,
+		 Kab: symmetric_key,
+		 Succ:hash_func)
+		
+def=
+
+  local SAB, RAB, SBA, RBA: channel (dy)
+
+  composition
+	    alice (A,B,Kab,Succ,SAB,RAB) 
+	/\  bob   (A,B,Kab,Succ,SBA,RBA)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+%% The main role
+role environment()
+def=
+ 
+  const a, b : agent,
+        kab,kai,kib : symmetric_key,
+	succ : hash_func
+
+  intruder_knowledge = {a, b, kai, kib, succ}
+
+  composition
+     	   andrewSRPC(a,b,kab,succ)
+	/\ andrewSRPC(a,b,kab,succ)
+	/\ andrewSRPC(a,i,kai,succ)
+	/\ andrewSRPC(i,b,kib,succ)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+%% Properties to verify
+goal
+
+%  	secrecy_of nbp,kpab,nap
+%	authentication_on bob_alice_nb
+  	authentication_on alice_bob_na
+%	authentication_on alice_bob_kpab
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+%% Call of the main role
+environment()
+
+
+From schaller at gmx.ch  Fri Sep 15 12:04:12 2006
+From: schaller at gmx.ch (Patrick Schaller)
+Date: Fri Sep 15 04:10:18 2006
+Subject: [Avispa-users] other kinds of channels than DY?
+Message-ID: <20060915100412.297670@gmx.net>
+
+Hi Vlad,
+
+we (Information Security Group at ETHZ) are currently working on
+possible extensions that could additionally handle other kinds of
+channels/intruders. 
+
+We'll keep you posted on new developments.
+
+Best regards, Patrick
+
+
+>Hi,
+>
+>Somewhere in the HLPSL reference manual there is a mention of 
+>future plans to incorporate other kinds of channels/intruders than 
+>Dolev-Yao, in particular, over-the-air channels, in which the 
+>intruder cannot prevent messages from reaching their destination. 
+>Is there any planned future realease where this will be
+>implemented? Is there any way to encode over-the-air channels
+>using DY channels? I guess not, but you never know...
+>
+>Thanks,
+>
+>    Vlad
+
+-- 
+"Feel free" - 10 GB Mailbox, 100 FreeSMS/Monat ...
+Jetzt GMX TopMail testen: http://www.gmx.net/de/go/topmail
+From compa at dist.unige.it  Sat Sep 16 12:36:28 2006
+From: compa at dist.unige.it (Luca Compagna)
+Date: Sat Sep 16 04:43:06 2006
+Subject: [Avispa-users] cl-atse ends and ofmc not
+In-Reply-To: <45088EF3.6060301@itesm.mx>
+References: <45088EF3.6060301@itesm.mx>
+Message-ID: <450BD3AC.1010909@dist.unige.it>
+
+Dear Juan Carlos,
+one of the reason why OFMC might require some time can lay in the 
+complementarity of the AVISPA back-ends. Your HLPSL problem considers 4 
+parallel sessions of the protocol and in my experience while SATMC is 
+much more insensitive to the number of concurrent sessions analysed, 
+OFMC and CL-ATSE are quite insensitive to the size of messages.  I would 
+suggest you to give a try with SATMC as well. Actually the fact that 
+CL-ATSE is able to solve the problem is a really a good thing.
+
+However your question on CL-ATSE vs OFMC still remains :D
+
+Best regards,
+Luca
+
+Juan Carlos L?pez Pimentel wrote:
+> Hello List,
+> 
+> I was verifying a version of the Andrew Secure RPC protocol (an extended
+> version). However,  I am not sure if my new version is secure, because
+> while cl-atse backend takes out that the protocol is secure, ofmc
+> backend does not end (it seems to be in a cycle).
+> 
+> I would like to know, why while cl-atse backend clearly takes out a
+> result, ofmc does not do the same?
+> 
+> Attachment you can find the security protocol.
+> 
+> Thanks you for your trouble.
+> 
+> Best regards,
+> 
+> Juan Carlos L?pez P.
+> 
+> 
+> 
+> 
+> ------------------------------------------------------------------------
+> 
+> %% HLPSL definition on Andrew Secure RPC protocol.
+> %% This patched version is that proposed by principle 10 proposed by Juan Carlos Lopez P.
+> %% By Juan Carlos Lopez Pimentel
+> 
+> %1 A --> B : A, {Na}_|Kab|
+> %2 B --> A : {Succ(Na), Nb}_|Kab|
+> %3 A --> B : {Succ(Nb)}_|Kab|
+> %4 B --> A : {Kpab,Nbp}_|Kab|
+> %Add the following steps
+> %5 A --> B : {Nap}_|Kpab|
+> %6 B --> A : {Succ(Nap)}_|Kpab|
+> 
+> 
+> %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+> 
+> role alice(A,B:agent,
+> 	   Kab: symmetric_key,
+> 	   Succ: hash_func,
+> 	   Snd, Rcv: channel (dy))
+> played_by A
+> def=
+> 
+>   local State: nat,
+> 	Na, Nb, Nap, Nbp: text, 
+> 	Kpab: symmetric_key
+> 
+>   const nap, na, nb, alice_bob_kpab, alice_bob_na, bob_alice_nb: protocol_id
+> 
+>   init  State := 0
+> 
+>   transition
+> 
+> %% Start of the protocol
+>   step1. 	State = 0  /\ Rcv(start)  =|>	
+> %1 A --> B : A, {Na}_|Kab|
+> 		State':= 2 /\ Na':= new() 
+> 			/\ Snd(A.{Na'}_Kab)
+> 
+>   %% Receving the first response of B
+> %2 B --> A : {Succ(Na), Nb}_|Kab|
+>   step2and3. 	State = 2  /\ Rcv({Succ(Na).Nb'}_Kab) =|>	
+> %3 A --> B : {Succ(Nb)}_|Kab|
+> 		State':= 4 /\ Snd({Succ(Nb')}_Kab)
+> 			/\ witness(A,B,bob_alice_nb,Nb')
+> 
+>   %% Receving the second response of B
+> %4 B --> A : {Kpab,Nbp}_|Kab|
+>   step4and5. 	State = 4  /\ Rcv({Kpab'.Nbp'}_Kab) =|>	
+> %5 A --> B : {Nap}_|Kpab|
+> 		State':= 6 /\ Nap':=new() /\ Snd({Nap'}_Kpab')
+> 			 /\ secret(Nap',nap,{A,B})
+> 			 /\ witness(A,B,alice_bob_kpab,Kpab')			 
+> 
+> %6 B --> A : {Succ(Nap)}_|Kpab|
+>   step6.        State = 6  /\ Rcv({Succ(Nap)}_Kpab) =|>			 
+> 		State':=8
+> %			 /\ request(A,B,alice_bob_kpab,Kpab)
+> 			 /\ request(A,B,alice_bob_na,Na)
+> 
+> %6 B --> A : {Succ(Nap)}_|Kpab|
+> 			 
+> 			 
+> end role
+> 
+> %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+> 
+> %1 A --> B : A, {Na}_|Kab|
+> %2 B --> A : {Succ(Na), Nb}_|Kab|
+> %3 A --> B : {Succ(Nb)}_|Kab|
+> %4 B --> A : {Kpab,Nbp}_|Kab|
+> %5 A --> B : {Nap}_|Kpab|
+> %6 B --> A : {Succ(Nap)}_|Kpab|
+> 
+> role   bob(A,B:agent,
+> 	   Kab: symmetric_key,
+> 	   Succ: hash_func,
+> 	   Snd, Rcv: channel (dy))
+> played_by B
+> def=
+> 
+>   local State: nat,
+> 	Na, Nb, Nap, Nbp: text, 
+> 	Kpab: symmetric_key
+> 
+>   const kpab,nbp,alice_bob_kpab,alice_bob_na,bob_alice_nb: protocol_id
+> 
+>   init  State := 1
+> 
+>   transition
+> 
+> %1 A --> B : A, {Na}_|Kab|
+>   step1and2. 	State = 1  /\ Rcv(A.{Na'}_Kab) =|>	
+> %2 B --> A : {Succ(Na), Nb}_|Kab|
+> 		State':= 3 /\ Nb':= new() 
+> 			/\ Snd({Succ(Na').Nb'}_Kab)
+> 			/\ witness(B,A,alice_bob_na,Na')
+> 
+> %3 A --> B : {Succ(Nb)}_|Kab|
+>   step3and4. 	State = 3  /\ Rcv({Succ(Nb)}_Kab) =|>	
+> %4 B --> A : {Kpab,Nbp}_|Kab|
+> 		State':= 5 /\ Kpab':= new()
+> 			/\ Nbp':= new() 
+> 			/\ Snd({Kpab'.Nbp'}_Kab)
+> %			/\ witness(B,A,alice_bob_kpab,Kpab')
+> 			/\ secret(Kpab',kpab,{A,B})
+> 			/\ secret(Nbp',nbp,{A,B})
+> 			
+> %5 A --> B : {Nap}_|Kpab|
+>   step5and6.    State = 5 /\ Rcv({Nap'}_Kpab) =|>
+> %6 B --> A : {Succ(Nap)}_|Kpab|  
+> 		State' := 7 /\ Snd({Succ(Nap')}_Kpab)
+> 			/\ request(B,A,bob_alice_nb,Nb)
+> 			/\ request(B,A,alice_bob_kpab,Kpab)
+> 
+> 
+> end role
+> 
+> %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+> 
+> %% The role representing a partial session between alice and bob
+> role  andrewSRPC(A,B: agent,
+> 		 Kab: symmetric_key,
+> 		 Succ:hash_func)
+> 		
+> def=
+> 
+>   local SAB, RAB, SBA, RBA: channel (dy)
+> 
+>   composition
+> 	    alice (A,B,Kab,Succ,SAB,RAB) 
+> 	/\  bob   (A,B,Kab,Succ,SBA,RBA)
+> 
+> end role
+> 
+> %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+> 
+> %% The main role
+> role environment()
+> def=
+>  
+>   const a, b : agent,
+>         kab,kai,kib : symmetric_key,
+> 	succ : hash_func
+> 
+>   intruder_knowledge = {a, b, kai, kib, succ}
+> 
+>   composition
+>      	   andrewSRPC(a,b,kab,succ)
+> 	/\ andrewSRPC(a,b,kab,succ)
+> 	/\ andrewSRPC(a,i,kai,succ)
+> 	/\ andrewSRPC(i,b,kib,succ)
+> 
+> end role
+> 
+> %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+> 
+> %% Properties to verify
+> goal
+> 
+> %  	secrecy_of nbp,kpab,nap
+> %	authentication_on bob_alice_nb
+>   	authentication_on alice_bob_na
+> %	authentication_on alice_bob_kpab
+> 
+> end goal
+> 
+> %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+> 
+> %% Call of the main role
+> environment()
+> 
+> 
+> 
+> 
+> ------------------------------------------------------------------------
+> 
+> _______________________________________________
+> Avispa-users mailing list
+> Avispa-users@avispa-project.org
+> http://www.avispa-project.org/mailman/listinfo/avispa-users
+From compa at dist.unige.it  Sat Sep 16 13:24:49 2006
+From: compa at dist.unige.it (Luca Compagna)
+Date: Sat Sep 16 05:31:18 2006
+Subject: [Avispa-users] other kinds of channels than DY?
+In-Reply-To: <4964.131.174.138.203.1157993850.squirrel@mail.irisa.fr>
+References: <4964.131.174.138.203.1157993850.squirrel@mail.irisa.fr>
+Message-ID: <450BDF01.2010005@dist.unige.it>
+
+Hi Vlad,
+in a joint work between "Universita` degli Studi di Genova", SAP, and 
+"Universidad de castilla-la mancha" we are also investigating the 
+extension of SATMC and of the IF language to handle other kinds of 
+channels/intruders than the standard Dolev-Yao.
+
+We will keep you informed about this work.
+
+cheers,
+Luca
+
+rusu@irisa.fr wrote:
+
+>  Hi,
+> 
+>  Somewhere in the HLPSL reference manual there is a mention of future plans
+> to incorporate other kinds of channels/intruders than Dolev-Yao, in particular,
+> over-the-air channels, in which the intruder cannot prevent messages from
+> reaching their destination. Is there any planned future realease where this
+> will be implemented? Is there any way to encode over-the-air channels using
+> DY channels? I guess not, but you never know...
+> 
+>  Thanks,
+> 
+>  Vlad
+> 
+> _______________________________________________
+> Avispa-users mailing list
+> Avispa-users@avispa-project.org
+> http://www.avispa-project.org/mailman/listinfo/avispa-users
+> 
+From A00472021 at itesm.mx  Fri Sep 22 04:08:29 2006
+From: A00472021 at itesm.mx (=?ISO-8859-1?Q?Juan_Carlos_L=F3pez_Pimentel?=)
+Date: Thu Sep 21 20:18:51 2006
+Subject: [Avispa-users] cl-atse ends and ofmc not
+In-Reply-To: <450BD3AC.1010909@dist.unige.it>
+References: <45088EF3.6060301@itesm.mx> <450BD3AC.1010909@dist.unige.it>
+Message-ID: <4513459D.3030603@itesm.mx>
+
+Dear Luca,
+
+Luca Compagna wrote:
+
+> Dear Juan Carlos,
+> one of the reason why OFMC might require some time can lay in the 
+> complementarity of the AVISPA back-ends. Your HLPSL problem considers 
+> 4 parallel sessions of the protocol and in my experience while SATMC 
+> is much more insensitive to the number of concurrent sessions 
+> analysed, OFMC and CL-ATSE are quite insensitive to the size of 
+> messages.  I would suggest you to give a try with SATMC as well. 
+> Actually the fact that CL-ATSE is able to solve the problem is a 
+> really a good thing.
+>
+I have also used SATMC and the result is the same with CL-ATSE. Now I'm 
+dealing with a new problem. The protocol attachment is an extended 
+version of wide mouth frog protocol. When I'm verifying it with SATMC 
+and OFMC both backends take out that the protocol is secure (free of 
+attacks). However, CL-ATSE takes out that the protocol is faulty (the 
+attack is shown below). I have analyzed the counterexample and I think 
+that the counterexample has an error or there is a something that I'm 
+not understanding because it is unexplicable how the intruder can 
+generate message {{n5(Na)}_succ}_n11(Kab) of line 13.  
+
+1   i -> (a,7):  start
+2  (a,7) -> i:  a.{a.b.n11(Ta).n11(Kab)}_ka
+3  i -> (s,9):  a.{a.b.n11(Ta).n11(Kab)}_ka
+4   (s,9) -> i:  {a.{n11(Ta)}_ts.n11(Kab)}_kb
+5   i -> (a,3):  start
+6   (a,3) -> i:  a.{a.b.n1(Ta).n1(Kab)}_ka
+7  i -> (b,8):  {a.{n11(Ta)}_ts.n11(Kab)}_kb
+8   (b,8) -> i:  {n15(Na)}_n11(Kab)
+9   i -> (a,7):  {n15(Na)}_n11(Kab)
+10  (a,7) -> i:  {{n15(Na)}_succ}_n11(Kab)
+11  i -> (b,4):  {a.{n11(Ta)}_ts.n11(Kab)}_kb
+12  (b,4) -> i:  {n5(Na)}_n11(Kab)
+13   i -> (b,4):  {{n5(Na)}_succ}_n11(Kab)
+14  (b,4) -> i:  ()
+15 i -> (b,8):  {{n15(Na)}_succ}_n11(Kab)
+16  (b,8) -> i:  ()
+
+Please, I would like to know if CL-ATSE is OK, then how the intruder can 
+generate line 13 and why OFMC and SATMC do not detect such an attack.
+
+
+> However your question on CL-ATSE vs OFMC still remains :D
+
+OK.... THANKS
+
+Thanks for your trouble.
+
+Best regards,
+
+Juan Carlos
+
+> Juan Carlos L?pez Pimentel wrote:
+>
+>> Hello List,
+>>
+>> I was verifying a version of the Andrew Secure RPC protocol (an extended
+>> version). However,  I am not sure if my new version is secure, because
+>> while cl-atse backend takes out that the protocol is secure, ofmc
+>> backend does not end (it seems to be in a cycle).
+>>
+>> I would like to know, why while cl-atse backend clearly takes out a
+>> result, ofmc does not do the same?
+>>
+>> Attachment you can find the security protocol.
+>>
+>> Thanks you for your trouble.
+>>
+>> Best regards,
+>>
+>> Juan Carlos L?pez P.
+>>
+>>
+>>
+>>
+>> ----
+>>
+>>
+>>
+>> ------------------------------------------------------------------------
+>>
+>> _______________________________________________
+>> Avispa-users mailing list
+>> Avispa-users@avispa-project.org
+>> http://www.avispa-project.org/mailman/listinfo/avispa-users
+>
+>
+
+-------------- next part --------------
+%% HLPSL definition on WMF protocol
+%% This is a version patched and extended 
+%% By Juan Carlos Lopez Pimentel
+
+%%1 A --> S : A, {B, Ta, Kab}_|KA|
+%%2 S --> B : {A, Ts, Kab}_|KB|
+%%extension
+%%3 B --> A : {Na}_Kab
+%%4 A --> B : {Succ(Na)}_Kab
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+%%1 A --> S : A, {B, Ta, Kab}_|KA|
+%%3 B --> A : {Na}_Kab
+%%4 A --> B : {Succ(Na)}_Kab
+
+role alice(A,B,S:agent,
+	   KA: symmetric_key,
+	   Succ: hash_func,
+	   Snd, Rcv: channel (dy))
+played_by A
+def=
+
+  local State: nat,
+	Ta, Na: text, 
+	Kab: symmetric_key
+
+
+%  const na, alice_bob_kab,secret_kab: protocol_id
+  const kab, alice_bob_kab, bob_alice_kab: protocol_id
+
+  init  State := 0
+
+  transition
+
+%% Start of the protocol
+  step1. 	State = 0  /\ Rcv(start)  =|>	
+		State':= 2 /\ Ta':= new() /\ Kab':= new() 
+			/\ Snd(A.{A.B.Ta'.Kab'}_KA)
+	                /\ secret(Kab',kab,{A,B,S})
+			/\ witness(A,B,alice_bob_kab,Kab')
+
+%%3 B --> A : {Na}_Kab
+  step3and4.    State = 2 /\ Rcv({Na'}_Kab) =|>
+%%4 A --> B : {Succ(Na)}_Kab
+ 		State':= 4 /\ Snd({Succ(Na')}_Kab)
+%		/\ request(A,B,bob_alice_kab,Kab)
+						
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+
+%%2 S --> B : {A, Ts, Kab}_|KB|
+%%3 B --> A : {Na}_Kab
+%%4 A --> B : {Succ(Na)}_Kab
+
+role   bob(A,B,S:agent,
+	   KB: symmetric_key,
+	   Succ: hash_func,
+	   Snd,Rcv: channel (dy))
+played_by B
+def=
+
+  local State: nat,
+	Na:text,
+	Ts: message, 
+	Kab: symmetric_key
+
+  const bob_alice_kab: protocol_id
+
+  init  State := 0
+
+  transition
+
+%%2 S --> B : {A, Ts, Kab}_|KB|
+  step2and3. 	State = 0  /\ Rcv({A.Ts'.Kab'}_KB) =|>
+%%3 B --> A : {Na}_Kab
+		State' := 1 /\ Na':=new() /\ Snd({Na'}_Kab')
+%		/\ witness(B,A,bob_alice_kab,Kab')
+		
+		
+%%4 A --> B : {Succ(Na)}_Kab
+  step4.    State = 1 /\ Rcv({Succ(Na)}_Kab) =|>
+	    State':= 3 /\
+	    request(B,A,alice_bob_kab,Kab)
+
+		
+		
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+%%1 A --> S : A, {B, Ta, Kab}_|KA|
+%%2 S --> B : {A, Ts, Kab}_|KB|
+
+role server(A, B, S:agent,
+	    KA, KB: symmetric_key,
+  	    Timestamp : hash_func,
+	    Snd, Rcv: channel (dy))
+played_by S
+def=
+
+  local State: nat,
+	Ta: text, 
+	Kab: symmetric_key
+
+  init  State := 0
+
+  transition
+  step0. 	State = 0 /\ Rcv(A.{A.B.Ta'.Kab'}_KA) =|>	
+		State' := 1 /\ Snd({A.Timestamp(Ta').Kab'}_KB)	
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+%%1 A --> S : A, {B, Ta, Kab}_|KA|
+%%2 S --> B : {A, Ts, Kab}_|KB|
+
+
+%% The role representing a partial session between alice and bob
+role  wmf(A,B,S: agent,
+	  KA, KB: symmetric_key,
+	  TS,Succ:hash_func )
+		
+def=
+
+  local S_AS, R_AS, S_BS, R_BS, R_AB, S_AB: channel (dy)
+
+  composition
+	    alice (A,B,S,KA,Succ,S_AS,R_AB) 
+	/\  bob   (A,B,S,KB,Succ,S_AB,R_BS)
+	/\  server(A,B,S,KA,KB,TS,S_BS,R_AS)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+%% The main role
+role environment()
+def=
+ 
+  const a, b, s, i : agent,
+        ka, kb, ki : symmetric_key,
+	ts, succ: hash_func
+
+
+  intruder_knowledge = {ki, inv(ki), a, b, i,s,ts,succ}
+
+  composition
+     	   wmf(a,b,s,ka,kb,ts,succ)
+     	/\ wmf(a,b,s,ka,kb,ts,succ)
+%     	/\ wmf(b,a,s,kb,ka,ts,succ)
+%	/\ wmf(a,i,s,ka,ki,ts,succ)
+%     	/\ wmf(i,b,s,ki,kb,ts,succ)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+%% Properties to verify
+goal
+
+%  	secrecy_of na
+%	secrecy_of secret_kab
+
+  	authentication_on alice_bob_kab
+%  	authentication_on bob_alice_kab
+  
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+%% Call of the main role
+environment()
+
+From moedersheim at inf.ethz.ch  Sun Sep 24 15:46:41 2006
+From: moedersheim at inf.ethz.ch (Sebastian Alexander Moedersheim)
+Date: Sun Sep 24 07:52:40 2006
+Subject: [Avispa-users] cl-atse ends and ofmc not
+In-Reply-To: <4513459D.3030603@itesm.mx>
+References: <45088EF3.6060301@itesm.mx> <450BD3AC.1010909@dist.unige.it>
+	<4513459D.3030603@itesm.mx>
+Message-ID: <1159105601.29687.6.camel@mariachi>
+
+Hi,
+
+> I have also used SATMC and the result is the same with CL-ATSE. 
+
+Well, there is an attack to your protocol...
+
+As noted in the Clark-Jacob library, there are two kinds of attacks
+known on Andrew Secure RPC, namely a replay and a parallel session
+attack. The parallel session attack is still possible with your
+modification. 
+
+The problem is that it is not covered by the session instances you have
+specified, i.e. you did not consider the situation
+  composition
+           andrewSRPC(a,b,kab,succ)
+        /\ andrewSRPC(b,a,kab,succ)
+
+(and then you can find this attack with all back-ends)
+
+I know that going through all kinds of scenarios manually is very
+awkward, but we have installed in OFMC a feature to do that
+symbolically, i.e. you specify several sessions but with variables for
+the agent names. Unfortunately, you can use this feature only through
+the Intermediate Format, as HLPSL does not allow symbolic initial states
+and you also get into trouble when using functions for key-tables (which
+you of course need to say what the shared key of A and B is). 
+
+> 12  (b,4) -> i:  {n5(Na)}_n11(Kab)
+> 13   i -> (b,4):  {{n5(Na)}_succ}_n11(Kab)
+
+I suppose CL-AtSe has the property {{M}K_1}K_2 = {{M}K_2}K_1 built in
+for symmetric cryptography. Also in CL-AtSe function application is
+handled by a hack, namely using symmetric encryption, that's why you
+have this strange "encryption" with the "hash-function" called "succ".
+That's should be the reason for this nonsensical attack.
+
+Btw: in OFMC you can specify your own algebraic theories, like the above
+property (which is not part of the standard built-in theory that is used
+when you call OFMC without the "-theory" option).
+
+Regards,
+Sebastian
+
+
+
+From A00472021 at itesm.mx  Tue Sep 26 16:57:22 2006
+From: A00472021 at itesm.mx (=?ISO-8859-1?Q?Juan_Carlos_L=F3pez_Pimentel?=)
+Date: Tue Sep 26 16:56:19 2006
+Subject: [Avispa-users] cl-atse ends and ofmc not
+In-Reply-To: <1159105601.29687.6.camel@mariachi>
+References: <45088EF3.6060301@itesm.mx> <450BD3AC.1010909@dist.unige.it>
+	<4513459D.3030603@itesm.mx> <1159105601.29687.6.camel@mariachi>
+Message-ID: <45193FD2.5080401@itesm.mx>
+
+Dear Sebastian,
+
+
+>Well, there is an attack to your protocol...
+>
+>The problem is that it is not covered by the session instances you have
+>specified, i.e. you did not consider the situation
+>  composition
+>           andrewSRPC(a,b,kab,succ)
+>        /\ andrewSRPC(b,a,kab,succ)
+>
+>(and then you can find this attack with all back-ends)
+>  
+>
+I really appreciate your help and I have done such a modification.
+
+>I know that going through all kinds of scenarios manually is very
+>awkward, but we have installed in OFMC a feature to do that
+>symbolically, i.e. you specify several sessions but with variables for
+>the agent names. Unfortunately, you can use this feature only through
+>the Intermediate Format, as HLPSL does not allow symbolic initial states
+>and you also get into trouble when using functions for key-tables (which
+>you of course need to say what the shared key of A and B is). 
+>  
+>
+Ok thanks for that. I would like to know if the feature in the IF, is it 
+documented in the tutorial (user manual) or in some document for 
+consulting it?
+
+>  
+>
+>>12  (b,4) -> i:  {n5(Na)}_n11(Kab)
+>>13   i -> (b,4):  {{n5(Na)}_succ}_n11(Kab)
+>>    
+>>
+>
+>I suppose CL-AtSe has the property {{M}K_1}K_2 = {{M}K_2}K_1 built in
+>for symmetric cryptography. Also in CL-AtSe function application is
+>handled by a hack, namely using symmetric encryption, that's why you
+>have this strange "encryption" with the "hash-function" called "succ".
+>That's should be the reason for this nonsensical attack.
+>  
+>
+Yes, I supposed the same..., I would want to be sure about it.
+
+>Btw: in OFMC you can specify your own algebraic theories, like the above
+>property (which is not part of the standard built-in theory that is used
+>when you call OFMC without the "-theory" option).
+>  
+>
+
+Thanks a lot for the information.....
+
+Best regards,
+
+Juan Carlos L?pez Pimentel
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: http://carroll.ai.dist.unige.it/pipermail/avispa-users/attachments/20060926/0ac31ee4/attachment.htm
+From turuani at loria.fr  Tue Sep 26 17:46:12 2006
+From: turuani at loria.fr (Mathieu Turuani)
+Date: Tue Sep 26 17:45:11 2006
+Subject: [Avispa-users] cl-atse ends and ofmc not
+In-Reply-To: <45193FD2.5080401@itesm.mx>
+References: <45088EF3.6060301@itesm.mx>
+	<450BD3AC.1010909@dist.unige.it>	<4513459D.3030603@itesm.mx>
+	<1159105601.29687.6.camel@mariachi> <45193FD2.5080401@itesm.mx>
+Message-ID: <45194B44.8030101@loria.fr>
+
+An HTML attachment was scrubbed...
+URL: http://carroll.ai.dist.unige.it/pipermail/avispa-users/attachments/20060926/1d9afc4e/attachment.htm
+From A00472021 at itesm.mx  Tue Sep 26 19:32:42 2006
+From: A00472021 at itesm.mx (=?ISO-8859-1?Q?Juan_Carlos_L=F3pez_Pimentel?=)
+Date: Tue Sep 26 19:36:06 2006
+Subject: [Avispa-users] cl-atse ends and ofmc not
+In-Reply-To: <45194B44.8030101@loria.fr>
+References: <45088EF3.6060301@itesm.mx>
+	<450BD3AC.1010909@dist.unige.it>	<4513459D.3030603@itesm.mx>
+	<1159105601.29687.6.camel@mariachi> <45193FD2.5080401@itesm.mx>
+	<45194B44.8030101@loria.fr>
+Message-ID: <4519643A.3040808@itesm.mx>
+
+Dear Mathieu,
+
+Mathieu Turuani wrote:
+
+> Juan Carlos L?pez Pimentel wrote:
+>
+>> Dear Sebastian,
+>>
+>>
+>>>Well, there is an attack to your protocol...
+>>>
+>>>The problem is that it is not covered by the session instances you have
+>>>specified, i.e. you did not consider the situation
+>>>  composition
+>>>           andrewSRPC(a,b,kab,succ)
+>>>        /\ andrewSRPC(b,a,kab,succ)
+>>>
+>>>(and then you can find this attack with all back-ends)
+>>>  
+>>>
+>> I really appreciate your help and I have done such a modification.
+>>
+>>>I know that going through all kinds of scenarios manually is very
+>>>awkward, but we have installed in OFMC a feature to do that
+>>>symbolically, i.e. you specify several sessions but with variables for
+>>>the agent names. Unfortunately, you can use this feature only through
+>>>the Intermediate Format, as HLPSL does not allow symbolic initial states
+>>>and you also get into trouble when using functions for key-tables (which
+>>>you of course need to say what the shared key of A and B is). 
+>>>  
+>>>
+>> Ok thanks for that. I would like to know if the feature in the IF, is 
+>> it documented in the tutorial (user manual) or in some document for 
+>> consulting it?
+>>
+>>>  
+>>>
+>>>>12  (b,4) -> i:  {n5(Na)}_n11(Kab)
+>>>>13   i -> (b,4):  {{n5(Na)}_succ}_n11(Kab)
+>>>>    
+>>>>
+>>>
+>>>I suppose CL-AtSe has the property {{M}K_1}K_2 = {{M}K_2}K_1 built in
+>>>for symmetric cryptography. Also in CL-AtSe function application is
+>>>handled by a hack, namely using symmetric encryption, that's why you
+>>>have this strange "encryption" with the "hash-function" called "succ".
+>>>That's should be the reason for this nonsensical attack.
+>>>  
+>>>
+>> Yes, I supposed the same..., I would want to be sure about it.
+>
+>
+> Sorry to follow this only from far for the moment (Inria evaluation of 
+> the team...),
+> but to my knowledge the rule {{M}K1}K2 = {{M}K2}K1 is not built in
+> CL-Atse. 
+
+So, If CL-Atse don't have such a rule, then I still don't understand why 
+CL-AtSe finds such an attack.  Could it be a bug?
+
+> However, yes functions are coded with encryption, but it is
+> asymetric (private/public) encryption : f(x) -> {x}_f with f a public 
+> key such
+> that nobody knows the inverse key inv(f). (i.e. nobody can inverse a 
+> hash).
+> Or maybe were you speaking about two-way, non-hashing, inversible 
+> functions ?
+> For these, symmetric encryption can be used.
+
+
+Really, I'm wanting to model two-way function with    (Succ : hash_func 
+), then I understand, following your suggestion, I should model Succ 
+function something like this Succ: symmetric_key and to include in 
+intruder knowledge {succ} for pinpointing the Spy is able to know 
+whichever message encrypted with succ (two-way).
+
+Now, Consider my original model (Succ : hash_func ), Would it be 
+possible to include in intruder knowledge something like this 
+{succ,inv(succ)} or would it be a violation?
+
+Best regars,
+
+
+Juan Carlos
+
+
+
+
+
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: http://carroll.ai.dist.unige.it/pipermail/avispa-users/attachments/20060926/810086da/attachment.htm
+From moedersheim at inf.ethz.ch  Tue Sep 26 20:22:45 2006
+From: moedersheim at inf.ethz.ch (Sebastian Alexander Moedersheim)
+Date: Tue Sep 26 20:21:40 2006
+Subject: [Avispa-users] cl-atse ends and ofmc not
+In-Reply-To: <45193FD2.5080401@itesm.mx>
+References: <45088EF3.6060301@itesm.mx> <450BD3AC.1010909@dist.unige.it>
+	<4513459D.3030603@itesm.mx> <1159105601.29687.6.camel@mariachi>
+	<45193FD2.5080401@itesm.mx>
+Message-ID: <1159294965.11032.63.camel@mariachi>
+
+Dear Juan and Matthieu,
+  
+> Ok thanks for that. I would like to know if the feature in the IF, is
+> it documented in the tutorial (user manual) or in some document for
+> consulting it?
+> 
+
+There is a short description of symbolic sessions in the user-guide of
+OFMC, which you can find in the documentation (not sure it is in the one
+that ships with the AVISPA tool):
+
+http://www.inf.ethz.ch/personal/moedersheim/research/ofmc-doc.tgz
+
+A bit more in detail this is described in a journal paper:
+
+David Basin and Sebastian M?dersheim and Luca Vigan?. OFMC: A symbolic
+model checker for security protocols. In International Journal of
+Information Security, 4 (3), pages 181-208, 2005.
+
+Maybe it is helpful to also consider the example "real-SRP.if" in the
+examples that come with OFMC. 
+
+> >   
+> > > 12  (b,4) -> i:  {n5(Na)}_n11(Kab)
+> > > 13   i -> (b,4):  {{n5(Na)}_succ}_n11(Kab)
+> > >     
+> > I suppose CL-AtSe has the property {{M}K_1}K_2 = {{M}K_2}K_1 built in
+> > for symmetric cryptography. Also in CL-AtSe function application is
+> > handled by a hack, namely using symmetric encryption, that's why you
+> > have this strange "encryption" with the "hash-function" called "succ".
+> > That's should be the reason for this nonsensical attack.
+> >   
+> Yes, I supposed the same..., I would want to be sure about it.
+
+Sorry, this was my guess...
+
+> Sorry to follow this only from far for the moment (Inria evaluation of
+> the team...),
+> but to my knowledge the rule {{M}K1}K2 = {{M}K2}K1 is not built in
+> CL-Atse. However, yes functions are coded with encryption, but it is 
+> asymetric (private/public) encryption : f(x) -> {x}_f with f a public
+> key such
+> that nobody knows the inverse key inv(f). (i.e. nobody can inverse a
+> hash).
+> 
+
+@Mathieu: Then how come these derivations? Actually, the outer
+encryption with Kab IS symmetric...  (maybe look at the entire attack
+trace).
+
+Regards,
+Sebastian
+
+
+
+From turuani at loria.fr  Wed Sep 27 15:08:44 2006
+From: turuani at loria.fr (Mathieu Turuani)
+Date: Wed Sep 27 15:07:38 2006
+Subject: [Avispa-users] cl-atse ends and ofmc not
+In-Reply-To: <4519643A.3040808@itesm.mx>
+References: <45088EF3.6060301@itesm.mx>
+	<450BD3AC.1010909@dist.unige.it>	<4513459D.3030603@itesm.mx>
+	<1159105601.29687.6.camel@mariachi> <45193FD2.5080401@itesm.mx>
+	<45194B44.8030101@loria.fr> <4519643A.3040808@itesm.mx>
+Message-ID: <451A77DC.10700@loria.fr>
+
+Thanks to the bug report in this post, I release a small correction of 
+CL-Atse.
+The problem was a false attack with the default options (i.e. with 
+optimisation),
+but no attack (correct answer) with the -noopt option (no optimisation).
+You can download it on CL-Atse's web page :
+
+http://www.loria.fr/equipes/cassis/softwares/AtSe/
+
+Thanks for the report,
+Mathieu Turuani
+
+
+Juan Carlos L?pez Pimentel wrote:
+
+> Dear Mathieu,
+>
+> Mathieu Turuani wrote:
+>
+>> Juan Carlos L?pez Pimentel wrote:
+>>
+>>> Dear Sebastian,
+>>>
+>>>
+>>>>Well, there is an attack to your protocol...
+>>>>
+>>>>The problem is that it is not covered by the session instances you have
+>>>>specified, i.e. you did not consider the situation
+>>>>  composition
+>>>>           andrewSRPC(a,b,kab,succ)
+>>>>        /\ andrewSRPC(b,a,kab,succ)
+>>>>
+>>>>(and then you can find this attack with all back-ends)
+>>>>  
+>>>>
+>>> I really appreciate your help and I have done such a modification.
+>>>
+>>>>I know that going through all kinds of scenarios manually is very
+>>>>awkward, but we have installed in OFMC a feature to do that
+>>>>symbolically, i.e. you specify several sessions but with variables for
+>>>>the agent names. Unfortunately, you can use this feature only through
+>>>>the Intermediate Format, as HLPSL does not allow symbolic initial states
+>>>>and you also get into trouble when using functions for key-tables (which
+>>>>you of course need to say what the shared key of A and B is). 
+>>>>  
+>>>>
+>>> Ok thanks for that. I would like to know if the feature in the IF, 
+>>> is it documented in the tutorial (user manual) or in some document 
+>>> for consulting it?
+>>>
+>>>>  
+>>>>
+>>>>>12  (b,4) -> i:  {n5(Na)}_n11(Kab)
+>>>>>13   i -> (b,4):  {{n5(Na)}_succ}_n11(Kab)
+>>>>>    
+>>>>>
+>>>>
+>>>>I suppose CL-AtSe has the property {{M}K_1}K_2 = {{M}K_2}K_1 built in
+>>>>for symmetric cryptography. Also in CL-AtSe function application is
+>>>>handled by a hack, namely using symmetric encryption, that's why you
+>>>>have this strange "encryption" with the "hash-function" called "succ".
+>>>>That's should be the reason for this nonsensical attack.
+>>>>  
+>>>>
+>>> Yes, I supposed the same..., I would want to be sure about it.
+>>
+>>
+>> Sorry to follow this only from far for the moment (Inria evaluation 
+>> of the team...),
+>> but to my knowledge the rule {{M}K1}K2 = {{M}K2}K1 is _not_ built in
+>> CL-Atse. 
+>
+> So, If CL-Atse don't have such a rule, then I still don't understand 
+> why CL-AtSe finds such an attack.  Could it be a bug?
+
+
+Bug corrected, thx.
+From carbone at dist.unige.it  Wed Sep 27 15:21:46 2006
+From: carbone at dist.unige.it (Roberto Carbone)
+Date: Wed Sep 27 15:20:38 2006
+Subject: [Avispa-users] Avispa web interface down
+Message-ID: <451A7AEA.6070607@dist.unige.it>
+
+Dear all,
+
+the Avispa web interface is temporarily down for maintenance.
+We apoligize for this inconvenient.
+
+Best regards,
+Roberto
+
+
+-- 
+Roberto Carbone      Ph.D. student
+Artificial Intelligence Laboratory
+DIST - University of Genova, Italy

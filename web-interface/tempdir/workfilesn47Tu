@@ -1,0 +1,133 @@
+%%Initial phase
+role useri(U,S,CS: agent,
+			Ai, Di,IDi, SIDj, Bee :text ,  
+		    Hash : hash_func,
+            Snd, Rcv: channel(dy))
+played_by U def=
+
+local State : nat, 
+		Ni1 , Ci ,Fi,Gi,Tsi, BBi,CIDi ,PIDi , Pij: text
+
+	
+const    bi : text
+	init State := 0
+	
+transition
+	1. State = 0 /\ Rcv(start) =|> 
+		State':= 1 /\   Ni1':= new() /\  Tsi' := new() /\ PIDi':= Hash(IDi.Bee) /\ Ci' := Hash(IDi.Ai) /\ BBi':= xor(Di, Ci) /\ Fi':=xor(BBi' ,Ni1')
+		/\ Pij' := Hash(BBi, Hash(Ni1'.SIDj.PIDi'.Tsi)) 
+		/\ CIDi' := xor(IDi, Hash(BBi'.Ni1'.Tsi'.00))
+		/\ Gi' := xor(Bee, Hash(BBi'.Ni1'.Tsi'.11))
+		/\ Snd(Fi'.Pij'.CIDi'.Gi'.PIDi'.Tsi') 
+		/\secret(Bee,be,{U,S,CS})
+	    %%/\ secret(Ni1', n1 , {U,S,CS})
+		
+	2. State = 4 /\ Rcv(ri.vi) =|> 
+		State' := 5 
+	 
+	
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role serverj(U, S,CS: agent,
+					BSj, SIDj,Dee : text,
+					Hash : hash_func,
+					Snd, Rcv: channel(dy))
+played_by S def=
+	local State : nat,	
+	Ni2 ,Ji,Ki,Mi, Li,PSIDj :text,
+	Bi , X, Pid: text
+		
+		
+	const  fi,gi,tsi, cidi ,pidi , pij , pi,qi,ri,vi :text
+					
+	init State :=1 
+transition	
+	1. State = 1 /\ Rcv(fi.pij.cidi.gi.pidi.tsi) =|> 
+		State' := 2 /\ Ni2':=new() /\  PSIDj' := Hash(SIDj.Dee) /\ Ji' := xor(BSj,Ni2) /\ Ki' := Hash(Ni2'.BSj.pij.tsi)  
+		/\ Li' := xor(SIDj, Hash(BSj.Ni2'.tsi.00))
+		/\ Mi' := xor(Dee,Hash(BSj.Ni2'.tsi.11)) 
+		/\ Snd(fi.pij.cidi.gi.pidi.tsi.Ji'.Ki'.Li'.Mi'.PSIDj')
+		/\secret(Dee,de,{U,S,CS}) 
+		%%/\ secret(Ni2', n2 , {U,S,CS})
+	2. State = 3 /\ Rcv(pi.qi.ri.vi) =|>
+	   State' := 4 /\ Snd(ri.vi) 
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role controlserver(U, S,CS: agent,
+					X,Y : text,
+					Hash : hash_func,
+					Snd, Rcv: channel(dy))
+played_by CS def=
+	local State : nat,	
+	BBi , Pid, Bee,IDi,BSj, SIDj,Dee,Ni1,Ni2 ,Ni3: text,
+	Pi, Qi, Ri, Vi : text
+		
+		
+	const  bee,dee: text,
+	fi,gi,tsi,cidi ,pidi , psidj, pij,ji,ki,li,mi :text
+					
+	init State :=2 
+transition	
+	1. State = 2 /\ Rcv(fi.pij.cidi.gi.pidi.tsi.ji.ki.li.mi.psidj) =|> 
+		State' := 3 /\ BSj':= Hash(psidj.Y) /\ Ni2':=xor(ji,BSj') /\ BBi':= Hash(pidi.X) /\ Ni1' := xor(fi,BBi')
+		/\ IDi' := xor(cidi, Hash(BBi'.Ni1'.tsi.00))
+		/\ SIDj' := xor(li, Hash(BSj'.Ni2'.tsi.00))
+		/\ Bee' := xor(gi , Hash(BBi'.Ni1'.tsi.11))
+		/\ Dee':= xor(mi,Hash(BSj'.Ni2'.tsi.11))
+		/\ Ni3' := new()
+		/\ Pi' := xor(Ni1', xor(Ni3', Hash(SIDj'.Ni2'.BSj')))
+		/\ Qi' := Hash(xor(Ni1', Ni3'))
+		/\ Ri' := xor(Ni2', xor(Ni3', Hash(IDi'.Ni1'.BBi')))
+		/\ Vi' := Hash(xor(Ni2', Ni3'))		
+		/\ Snd(Pi'.Qi'.Ri'.Vi')
+		/\ secret(Ni3', n3 , {U,S,CS})
+	
+
+end role
+
+%%%%%%%%%
+role session (U, S,CS: agent, Hash : hash_func)
+def=
+	local Su, Ru , SS,RS , SCS, RCS  : channel(dy),
+	 X , Y , BSj, SIDj,Dee , Ai, Di,IDi, Bee :text
+	composition 
+	controlserver(u,s, cs,X , Y, Hash, SCS, RCS ) /\ serverj(u,s, cs,BSj, SIDj,Dee,Hash, SS, RS) /\ useri( u, s,cs ,Ai, Di,IDi, SIDj, Bee , Hash , Su , Ru )
+	
+end role
+%%%%%%
+
+%%%%%%%%%
+
+
+role environment() def=
+	const 
+	u,s, cs:agent,	
+	be, de ,n3 : protocol_id,
+	ha : hash_func
+	
+	intruder_knowledge = {u,cs,ha}
+	
+	composition
+		session(u,s, cs,ha) /\ session(i,s,cs,ha)/\ session(u,i,cs,ha)/\ session(u,s,i,ha)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%
+goal
+
+  secrecy_of be ,de ,n3
+
+end goal
+%%%%%%%%%%%
+
+environment()
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%Login Phase
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%Authentication Phase

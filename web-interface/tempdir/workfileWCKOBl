@@ -1,0 +1,197 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role base (
+US : agent,
+BS : agent,
+SN : agent,
+H : hash_func,
+PKPKG : public_key,
+USK : public_key,
+SNK : public_key,
+KAB : text,
+SND_US, RCV_US,SND_SN, RCV_SN: channel (dy)
+)
+
+played_by BS
+def= 
+	local State : nat,
+		P	: text,
+		Alpha : text,
+		UID	: text,
+		SIID	: text,
+		TS  : text,
+		G	: text,
+		DIDI : text,
+		NU : text
+	const base_user,base_sensor,sensor_base,s_key : protocol_id
+init
+	State := 0
+	
+
+transition
+1.	State = 0 /\ RCV_US(start) =|> State' := 1 /\ NU' := new() /\ DIDI' := H(NU'.inv(PKPKG))
+				/\ P' := H(Alpha.PKPKG)
+				/\ secret(KAB,s_key,{US}) /\ secret(KAB,s_key,{SN})
+			/\ SND_US({DIDI'.P'}_USK)			% USK is user secret key
+			/\ witness(BS,US,base_user,DIDI')
+			/\ witness(BS,US,base_user,P')
+			/\ SND_SN({DIDI'.P'}_SNK)			% USK is sensor secret key
+			/\ witness(BS,SN,base_sensor,DIDI')
+			/\ witness(BS,SN,base_sensor,P')
+			
+2.	State = 1 /\ RCV_US(UID'.TS'.G') =|> State' := 2 /\  request(SN,BS,sensor_base,UID'.TS'.G') 
+													/\ SND_SN(H(UID').TS'.G')
+3.	State = 2 /\ RCV_SN(SIID'.TS'.G') =|> State' := 3 /\ SND_US(H(SIID').TS'.G')
+			
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role user 
+(
+	US : agent,
+	BS : agent,
+	SN : agent,
+	H	: hash_func,
+	PKPKG : public_key,
+	USK : public_key,
+	SNK : public_key,
+	KAB : text,
+	SND_SN, RCV_SN,SND_BS, RCV_BS: channel (dy)
+)
+
+played_by US
+	def=
+	local State : nat,
+		KSN : public_key,
+			UID : text,
+			TS  : text,
+			G	: text,
+			P	: text,
+			Sig	: text,
+			DIDI : text,
+			HashValue : text,
+			TK	: text,
+			SK	: text,
+			R	: text
+	const base_user,base_sensor,s_key : protocol_id
+init
+	State := 0
+
+transition 
+1. State = 0 /\ RCV_BS({DIDI'.P'}_USK) =|>
+	State' := 1 /\ TS' := new() /\ G' := new() /\ UID' := new() /\ R' := new()
+				/\ SND_BS(UID'.TS'.G') /\ witness(US,BS,user_base,UID'.TS'.G')
+				/\ request(BS,US,base_user,DIDI')
+				/\ request(BS,US,base_user,P')
+				/\ secret(KAB,s_key,{US}) /\ secret(KAB,s_key,{SN})
+2. State = 1 /\ RCV_BS(HashValue'.TS'.G') =|> State' := 2 /\ TK' := (R.H(UID)) 
+				/\ Sig' := ({TS'.TK.UID}_KSN) /\ SND_SN(Sig')					% KSN public key of sensor node
+				/\ SK' := H(KAB.TS')
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role sensor
+(
+	US : agent,
+	BS : agent,
+	SN : agent,
+	H	: hash_func,
+	PKPKG : public_key,
+	USK : public_key,
+	SNK : public_key,
+	KAB : text,
+	SND_US, RCV_US,SND_BS, RCV_BS: channel (dy)
+)
+
+played_by SN
+def=
+	local	State : nat,
+			Sig	   : text,
+			SigNew : text,
+			KSN	: public_key,
+			KUS	: public_key,
+			DIDI : text,
+			SIID : text,
+			P	: text,
+			HashValue : text,
+			TS 	: text,
+			G	: text,
+			R	: text,
+			SK	: text,
+			TK	: text
+	const base_sensor, s_key : protocol_id
+init 
+	State := 0
+	
+transition
+1. State = 0 /\ RCV_BS({DIDI'.P'}_SNK) =|> State' := 1 /\ SIID' := new() /\ R' := new()
+							/\ request(BS,US,base_sensor,DIDI')
+							/\ request(BS,US,base_sensor,P')
+							/\ secret(KAB,s_key,{US}) /\ secret(KAB,s_key,{SN})
+2. State = 1 /\ RCV_BS(HashValue.TS'.G') =|> State' := 2 
+			/\ SND_BS(SIID.TS'.G')
+3. State = 2 /\ RCV_US(Sig') =|> State' := 3 /\ TK' := (R.H(SIID)) /\ SigNew' := (SIID.{TS.TK'.SIID}_KUS)
+						/\ SK' := H(KAB.TS)
+end role
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(
+		US  : agent,
+		BS : agent,             
+		SN : agent,             
+		H  : hash_func,
+		SNK : public_key,
+		USK : public_key,
+		PKPKG : public_key,
+		KAB	: text
+ 	   )
+	
+def=  
+
+  local   SND_US,RCV_US, SND_BS,RCV_BS,SND_SN,RCV_SN : channel (dy) 
+  
+  composition 
+	base(US,BS,SN,H,PKPKG,USK,SNK,KAB,SND_US,RCV_US,SND_SN,RCV_SN)
+	/\ user(US,BS,SN,H,PKPKG,USK,SNK,KAB,SND_SN,RCV_SN,SND_BS,RCV_BS)
+%	/\ sensor(US,BS,SN,H,PKPKG,USK,SNK,KAB,SND_US,RCV_US,SND_BS,RCV_BS)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+def=
+
+	const us,bs,sn : agent,             
+              h       : hash_func,
+              snk,usk,pkpkg : public_key,
+              kab	: text
+
+  intruder_knowledge = {us,bs,sn,h,snk,ksn,kus} 
+
+  composition
+		session(us,bs,sn,h,snk,usk,pkpkg,kab)
+	/\  session(us,bs,sn,h,snk,usk,pkpkg,kab)
+%	/\  session(us,bs,sn,h,snk,usk,pkpkg,kab)
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal 
+
+  secrecy_of sec_i_Pwd
+  authentication_on base_sensor
+  authentication_on base_user
+  authentication_on sensor_base
+  
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -1,0 +1,185 @@
+%% PROTOCOL: OpenID (revised)
+%% VARIANT: 2.0
+%% PURPOSE: Web Single Sign-On 
+%% REFERENCE: http://openid.net/specs/openid-authentication-2_0.html
+%% MODELER: San-Tsai Sun (santsais@ece.ubc.ca)
+%% LAST UPDATE: Mar 21th, 2010
+%% ALICE_BOB:
+%% U  -> RP : U.Id.t1, t1=HMAC(U.Id.Kru), Login Request 
+%% RP  -> U : IdP.Id.Sh.RP.t2, t2=HMAC(IdP.Id.Sh.RP.U.Kru) Auth Request 
+%% U  -> IdP: IdP.Id.Sh.RP.t2.{Na}_Kui, U-to-IdP authentication 
+%% IdP -> U : {Nb}_Kui, K1=H(Na.Nb) 
+%% U  -> IdP: {Nb}_K1, IdP authenticates U on Nb
+%% IdP -> U : IdP.Id.Sh.RP.t2.Ns.s, s=HMAC(IdP.Id.Sh.RP.t2.Ns, Kri), Auth Response 
+%% U  -> RP : IdP.Id.Sh.RP.t2.Ns.s. Assertion 
+%%
+%% ASSUMPZTIONS: 
+%%  1. IdP and U share a key Kui and an OpenID Id
+%%  2. RP knows the end-point of IdP (omit discovery)
+%%  3. RP and IdP share a key Kri (omit association)
+%%  4. RP and U share a key Kru 
+%%
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role user (U, RP, IdP: agent,
+  Id: text, H, Hmac: hash_func, 
+  Kui, Kru: symmetric_key,
+  SND_UR, RCV_UR, SND_UI, RCV_UI: channel(dy))
+  played_by U def=
+
+ local State : nat,
+   Na, Nb: text,   % U authenticates to IdP 
+   Nu: text,       % Login Request nonce
+   K1: message,    % session key of U and IdP 
+   X1: agent.text.text.agent.message, % Auth Request (redirection)
+   X2: agent.text.text.agent.message.text.message % Auth Response (redirection)
+ init State := 0
+
+ transition
+ 
+  % Send Login Request
+  0. State  = 0 /\ RCV_UR(start) =|>
+     State':= 1 
+     /\ Nu':= new()
+     /\ SND_UR(U.Id.Nu'.Hmac(U.Id.Nu'.Kru))
+     /\ witness (U,RP, rp_u_id,U.Id.Nu')
+
+  % Auth Request (redirection)
+  % {Na'}_Kui is used to authenticate U by IdP
+  1. State  = 1 /\ RCV_UR(X1') =|>
+     State':= 2 
+     /\ Na':= new()
+     /\ SND_UI(X1'.{Na'}_Kui) 
+     
+  2. State  = 2 /\ RCV_UI({Nb'}_Kui) =|>
+     State':= 3 
+     /\ K1':= H(Na.Nb') % session key of U and IdP  
+     /\ secret(K1', sec_k1, {U,IdP})
+     /\ SND_UI({Nb'}_K1') 
+     /\ witness(U,IdP, idp_u_k1, Nb')    
+ 
+  % Auth Response (redirection)
+  3. State  = 3 /\ RCV_UI(X2') =|>
+     State':= 4
+     /\ SND_UR(X2')
+     /\ witness(U,RP, rp_u_resp, X2')  
+     
+end role
+
+role rp ( RP, IdP: agent, Sh: text, 
+  Hmac: hash_func,  Kri,Kru: symmetric_key, NsSet: text set,
+  SND_RU, RCV_RU: channel(dy)) played_by RP def=
+
+ local State : nat,
+   U: agent,  % U is a browser and the RP does not know U 
+   Id: text,  % OpenID URL (e.g., http://santsaisun.myopenid.com)
+   Nu: text,  % Login Request nonce
+   Ns: text   % IdP signature nonce
+   
+ init State := 0
+
+ transition
+  % Rcv Login Request, Snd Auth Request 
+  0. State  = 0  /\ RCV_RU(U'.Id'.Nu'.Hmac(U'.Id'.Nu'.Kru)) 
+     /\ not(in(Nu',NsSet)) % prevent Replay 
+     =|>
+     State':= 1
+     /\ NsSet' := cons(Nu',NsSet)
+     /\ SND_RU(IdP.Id'.Sh.RP.Hmac(U'.IdP.Id'.Sh.RP.Kri))
+     /\ witness(RP,IdP, idp_rp_req_resp, IdP.Id'.Sh.RP.Hmac(U'.IdP.Id'.Sh.RP.Kri)) 
+
+  % Rcv Auth Response      
+  1. State  = 1 
+     /\ RCV_RU(IdP.Id.Sh.RP.Hmac(U.IdP.Id.Sh.RP.Kri).Ns'.Hmac(IdP.Id.Sh.RP.Hmac(U.IdP.Id.Sh.RP.Kri).Ns'.Kri))
+     /\ not(in(Ns',NsSet)) % prevent Replay
+     =|>
+     State':= 2
+     /\ NsSet' := cons(Ns',NsSet)
+     /\ request(RP, IdP, rp_idp_sig, Hmac(IdP.Id.Sh.RP.Hmac(U.IdP.Id.Sh.RP.Kri).Ns'.Kri))
+     /\ request(RP, IdP, rp_idp_sig_u, U.Hmac(IdP.Id.Sh.RP.Hmac(U.IdP.Id.Sh.RP.Kri).Ns'.Kri))
+     /\ request(RP, U, rp_u_id, U.Id.Nu)
+
+    
+end role
+
+role idp (IdP, U, RP: agent, Id,Sh: text,
+  H, Hmac: hash_func, Kui, Kri: symmetric_key, 
+  SND_IU, RCV_IU, SND_IR, RCV_IR: channel(dy))
+  played_by IdP def=
+
+ local State : nat,
+   Na,Nb: text,  % nouces for U-to-IdP authentication
+   K1: message,  % session key of U and IdP 
+   Ns: text,     % signature nonce
+   Sig: message  % signature over Sh.RP.Id.IdP.Ns.Nr
+
+ init State := 0
+
+ transition
+
+  % RCV Auth Request, Snd auth form to U
+  0. State  = 0  /\ RCV_IU(IdP.Id.Sh.RP.Hmac(U.IdP.Id.Sh.RP.Kri).{Na'}_Kui) =|>
+     State':= 1
+     /\ Nb':= new()
+     /\ K1':= H(Na'.Nb') 
+     /\ secret(K1', sec_k1, {IdP,U})  
+     /\ SND_IU({Nb'}_Kui)
+     /\ request(IdP, RP, idp_rp_req_resp, IdP.Id.Sh.RP.Hmac(U.IdP.Id.Sh.RP.Kri))
+    
+     
+  % Authenticate U and generate Auth Response 
+  1. State  = 1  /\ RCV_IU({Nb}_K1) =|>
+     State':= 2 
+     /\ Ns':= new()
+     /\ Sig':= Hmac(IdP.Id.Sh.RP.Hmac(U.IdP.Id.Sh.RP.Kri).Ns'.Kri)
+     /\ SND_IU(IdP.Id.Sh.RP.Hmac(U.IdP.Id.Sh.RP.Kri).Ns'.Sig')
+     /\ request(IdP,U, idp_u_k1, Nb) 
+     /\ witness(IdP,RP,rp_idp_sig,Sig')   
+     /\ witness(IdP,RP,rp_idp_sig_u,U.Sig') 
+end role
+
+role session(U, RP, IdP: agent, 
+  Id, Sh: text,
+  H, Hmac: hash_func, Kui, Kri, Kru: symmetric_key, NsSet:text set) def=
+ 
+ local 
+  SUI, RUI, SUR, RUR,
+  SRU, RRU,  
+  SIU, RIU, SIR, RIR: channel (dy)
+
+composition
+  user(U, RP, IdP, Id, H, Hmac,  Kui, Kru, SUI, RUI, SUR, RUR)
+  /\ rp(RP, IdP, Sh, Hmac, Kri, Kru, NsSet,  SRU, SRU)
+  /\ idp (IdP, U, RP, Id, Sh, H, Hmac, Kui, Kri, SIU, RIU, SIR, RIR)
+
+end role
+
+role environment() def=
+
+ local NsSet: text set
+ 
+ const  rp_idp_sig,idp_u_k1, rp_u_uid, rp_u_id, sec_k1,idp_rp_req_resp, rp_idp_sig_u: protocol_id,
+  kri, kui, kru: symmetric_key, u, rp, idp: agent,
+  id, sh1,sh2: text, h, hmac: hash_func
+ 
+ init NsSet := {} 
+  
+ intruder_knowledge = {u, rp,  idp, id, h, hmac}
+ 
+ composition
+   session(u, rp, idp, id, sh1, h, hmac,  kui, kri, kru, NsSet)
+   /\ session(u, rp,  idp, id, sh2, h, hmac, kui, kri, kru, NsSet)
+  
+end role
+
+goal
+  
+  authentication_on rp_idp_sig      %G1
+  authentication_on rp_idp_sig_u    %G2
+  authentication_on idp_u_k1        %G3
+  secrecy_of sec_k1                 %G4 
+  authentication_on idp_rp_req_resp %G5  
+  authentication_on rp_u_id         %G6
+ 
+end goal
+environment()

@@ -1,0 +1,129 @@
+%%% Case 2
+%%%%%%% Role specification for the mobile user MU %%%%%%%%
+
+role mobileuser (MU, HA : agent, 
+           SKmuha : symmetric_key,
+           SND, RCV: channel(dy))
+played_by MU
+def=     
+local State : nat,
+      H, F : hash_func,
+      IDu, Nu, NIDu, K, IDh, P, X: text,
+      A, Aa, Rac, DIDu, V1: text
+const mu_ha_x, ha_mu_d, 
+      s1, s2, s3 : protocol_id
+init  State := 0  
+transition
+1. State = 0 /\ RCV(start) =|>
+% Registration phase
+State' := 2 /\  Nu' := new()
+            /\ NIDu' := H(IDu.Nu')
+% MU sends the registration request Reg to HA securely
+            /\ SND({IDu.NIDu'}_SKmuha)
+            /\ secret(IDu, s1, {MU,HA})
+            /\ secret(Nu', s2, MU)
+% Receive the smart card from HA securely
+2. State = 2 /\ RCV({{H(IDu.Nu').IDu}_K.IDh.F(K.P).H}_SKmuha) =|>
+State' := 4 /\ secret(K, s3, HA)
+% Authentication and key establishment phase when a mobile user MU
+% is located in his/her home network
+   /\ X' := new()
+   /\ Q' := {H(IDu.Nu').IDu}_K
+   /\ A' := H(X'.Q')
+   /\ Aa' := F(A'.P)
+   /\ Rac' := F(A'.F(K.P))
+   /\ DIDu' := xor(IDu, H(Rac'))
+   /\ V1' := H(Q'.Rac'.IDh.Aa')
+% Send message Req to HA via a public channel
+   /\ SND(Aa'.DIDu'.V1'.IDh)
+% MU has freshly generated the value x for FA
+   /\ witness (MU, FA, mu_ha_x, X')     
+% Receive message Rep from HA via a public channel
+3. State = 4 /\ RCV(F(D'.P).H(IDu.F(H(X'.{H(IDu.Nu').IDu}_K).P).F(D'.P).
+                {H(IDu.Nu').IDu}_K.IDh.H({H(IDu.Nu').ID}_K.F(D'.F(H(X'.
+                {H(IDu.Nu').IDu}_K).P)))).IDh) =|>
+% MU's acceptance of the value d generated for MU by HA
+State' := 6 /\ request(HA, MU, ha_mu_d, D')
+end role
+
+
+%%%%%%% Role specification for the home agent HA %%%%%%%%
+
+role homeagent (MU, HA : agent, 
+                SKmuha : symmetric_key,
+                SND, RCV: channel(dy))
+played_by HA
+def=     
+local State : nat,
+      H, F : hash_func,
+      IDu, Nu, NIDu, K, IDh, P, X: text,
+      A, Aa, Rac, DIDu, V1, W1, Q, Y: text,
+      D, Dd, SK : text
+const mu_ha_x, ha_mu_d, 
+      s1, s2, s3 : protocol_id
+init  State := 0  
+transition
+% Registration phase
+% Receive registration request Reg from MU securely
+1. State = 0 /\ RCV({IDu.H(IDu.Nu')}_SKmuha)  =|>
+State' := 3 /\ secret(IDu, s1, {MU,HA})
+            /\ secret(Nu', s2, MU)
+% Send the smart card to MU securely
+            /\ Q' := {H(IDu.Nu').IDu}_K
+            /\ SND({Q'.IDh.F(K.P).H}_SKmuha)
+            /\ secret(K, s3, HA)
+% Authentication and key establishment phase when a mobile user MU
+% is located in his/her home network
+% Receive message Req from HA via a public channel
+2. State = 3 /\ RCV(F(H(X'.{H(IDu.Nu').IDu}_K).P).
+                 xor(IDu, H(F(H(X'.{H(IDu.Nu').IDu}_K).F(K.P)))).
+                 H({H(IDu.Nu').IDu}_K.F(H(X'.{H(IDu.Nu').IDu}_K).P).
+                 F(K.P)).IDh) =|>
+% Send message Rep to HA via a public channel
+State' := 5 /\ D' := new()
+      /\ Dd' := F(D'.P)
+      /\ SK' := H({H(IDu.Nu').ID}_K.F(D'.F(H(X'.{H(IDu.Nu').IDu}_K).P))) 
+      /\ W1' := H(IDu.F(H(X'.{H(IDu.Nu').IDu}_K).P).F(D'.P).
+                {H(IDu.Nu').IDu}_K.IDh.SK')
+      /\ SND(Dd'.W1'.IDh)
+% HA has freshly generated the value d for MU
+   /\ witness (HA, MU, ha_mu_d, D')
+% HA's acceptance of the value x generated for HA by MU
+   /\ request(MU, HA, mu_ha_x, X')
+end role
+
+
+
+%%%%%%% Role specification for the session %%%%%%%%
+role session (MU, HA : agent, 
+	     SKmuha : symmetric_key)
+def=
+  local S1, R1, S2, R2 : channel (dy)
+  composition
+           mobileuser(MU, HA, SKmuha, S1, R1)
+        /\ homeagent(MU, HA,SKmuha, S2, R2)
+end role
+
+%%%%%%% Role specification for the goal and environment %%%%%%%%
+role environment()
+def=
+  const mu, ha  : agent,
+        skmuha : symmetric_key,
+        h, f : hash_func, 
+        idh, idu, p: text,
+        mu_ha_x, ha_mu_d,
+        s1, s2, s3 : protocol_id
+intruder_knowledge = {h, f, idh, p}
+composition
+	session(mu, ha, skmuha) 
+     /\ session(i, ha, skmuha) 
+     /\ session(mu, i, skmuha) 
+end role
+
+goal
+secrecy_of s1, s2, s3
+authentication_on mu_ha_x, ha_mu_d
+end goal
+environment()
+
+

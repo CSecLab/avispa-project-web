@@ -1,0 +1,81 @@
+# Vote Électronique
+
+signature
+ V1,V2, TM, AS, M, intruder : principal;
+ PK: principal -> pubkey;
+
+hashfunctions
+  h: message -> message;
+end
+
+# Hermes translates the axioms as a set of protocol rules that may be executed 
+# whenever and how often is necessary, however they are not used 
+# by the term unification algorithm
+
+axioms
+	declare
+	x: message;
+	y: symkey;
+	begin
+		sign(asym, inv(PK(AS)), h(x,y)) = 
+		symcrypt(sym, y, sign(asym, inv(PK(AS)), x));
+	end
+
+role voter ( myname:principal; 
+	          skv:privkey;
+	          as,tm,m: principal; 
+	          cert:message)
+
+declare
+	vote : nonce;
+	r, x, e, s : message;
+	y, b, c, sigma : message;
+
+
+begin
+	new(r);
+	new(vote);
+	x := crypt (asym, PK(tm), vote);
+	e := h(x,r);
+	s := sign (asym, skv, e);
+	send ([myname, cert, e, s]);
+	recv (sign(asym, inv(PK(as)), e));
+	y := sign(asym, inv(PK(as)), e);
+	b := [x, y];
+	c := crypt (asym, PK(m), b);
+	sigma := sign (asym, skv, c);
+	send ([myname, cert, c, sigma]);
+end
+
+role administrator (ska:privkey)
+declare
+	voter : principal ;
+	ev , dv : message ;
+
+begin
+	recv ([voter, sign (asym, ska, [voter, PK(voter)]), ev, sign (asym, inv(PK(voter)), ev)]);
+	dv := sign (asym, ska , ev);
+	send (dv) ;
+end
+
+role bulletinBoard (as: principal)
+
+declare
+	voter : principal;
+	cb: message;
+
+begin
+	recv ([voter, sign(asym, inv(PK(as)),[voter, PK(voter)]), 
+	      cb, sign(asym, inv(PK(voter)), cb)]);
+end
+
+scenario
+		parallel
+			forall i : int . administrator (inv(PK(AS)))
+			|forall i : int .	bulletinBoard (AS)
+			| voter (V1,inv(PK(V1)),AS,TM,M,
+			         sign(asym,inv(PK(AS)),[V1,PK(V1)]))  
+			| voter (V2,inv(PK(V2)),AS,TM,M,
+			         sign(asym,inv(PK(AS)),[V2,PK(V2)]))  
+		end 
+end 

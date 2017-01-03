@@ -1,0 +1,72 @@
+%%HLPSL:
+role peer (A, B: agent, Ks: symmetric_key,  SHA224: hash_func, SND, RCV: channel (dy)) 
+played_by A def=
+local State, T : nat, Hs, Ek, P_id, Reauth_key, Rv_c, NAI, Func_id, Ack : text
+init State := 0
+transition  
+  0.  State  = 0 /\ RCV(start) =|> 
+	State':= 2 /\ SND({P_id.Reauth_key.Rv_c.NAI}_Ks)
+                /\ Hs' := SHA224(P_id.Func_id.Rv_c.NAI)
+			/\ SND(Hs')
+		   /\ SND(T)
+		   /\ secret(Ks,k1,{A,B}) 
+              /\ witness(A,B,bob_alice_na,Reauth_key)
+		   
+  end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role authenticator(A, B: agent, Ks: symmetric_key,  SHA224: hash_func, SND, RCV: channel (dy)) 
+played_by B def=
+local State, T : nat, P_id, Reauth_key, Rv_c, Ack, Hs : text
+init State := 1
+transition 
+ 1.  State  = 1 /\ RCV({P_id'.Reauth_key'.Rv_c.NAI}_Ks, Hs', T) =|> 
+	State':= 3  /\ Ack' := new() /\ SND(Ack') 
+		/\ secret(Ks,k1,{A,B}) 
+		   /\ wrequest(B,A,bob_alice_na,Reauth_key')
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(A, B: agent, Ks: symmetric_key, SHA224:hash_func) def=
+
+  local SA, RA, SB, RB: channel (dy)
+
+  composition 
+
+	peer(A,B,Ks,SHA224,SA,RA)
+     /\ authenticator  (A,B,Ks,SHA224,SB,RB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+    const a, b         : agent,
+	  kab, kai, kib   : symmetric_key,
+       alice_bob_nb, bob_alice_na, k1 : protocol_id,
+	  sha224 : hash_func
+
+    intruder_knowledge = {a, b, sha224, kai, kib}
+	
+    composition
+
+	session(a,b,kab,sha224)
+	/\ session(a,i,kai,sha224)
+     /\ session(i,b,kib,sha224)
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of k1
+  authentication_on bob_alice_na
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

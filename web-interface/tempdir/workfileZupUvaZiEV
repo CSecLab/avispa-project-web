@@ -1,0 +1,151 @@
+%NSPKxor Protocol
+
+% role - descrie o comportare
+% dy - model general de intrus, rol jucat de A
+
+
+role alice (A,B     : agent, 
+            Ka,Kb   : public_key,  
+            Snd,Rcv : channel (dy)) played_by A def=
+
+% send, receive - schimba starea
+% text - pentru numere generate random
+% message - tip general de mesaje
+
+  local 
+     State  : nat, 
+     Na    : message, 
+     Nb     : text
+	
+% faza de intializare
+
+  init 
+     State:=0
+
+  transition 
+
+% preconditia - State=0
+% sunt in starea initiala; daca receptionez 'start'
+% mut starea (ia valoarea 1)
+% new() - generez un nonce, il retin in Na
+% trimit pe canalul Snd Na . (concatenare) 
+% _Kb (criptare cu cheie publica)
+
+% confidentialitatea nonce-ului initiator este reprezentata
+% prin cuvantul 'secret'
+% secret(la ce valoare ma refer, {la ce agenti})
+% na - protocol ID
+
+    1. State=0 /\ Rcv(start) =|>
+          State':=1
+       /\ Na':=new()
+       /\ Snd({Na'.A}_Kb)
+       /\ secret(Na',na,{A,B})
+
+% daca A este in starea 1 si receptionez
+% imi mut starea
+% Alice il autentifica pe Bob prin alice_bob_nb
+
+    2. State=1 /\ Rcv({Nb'.xor(Na,B)}_Ka) =|>
+          State':=2
+       /\ Snd({Nb'}_Kb)
+       /\ request (A,B,alice_bob_nb,Nb')
+
+end role
+
+
+% autentificare - Bob solicita si Alic accepta
+ 
+role bob (B,A     : agent,  
+          Kb,Ka   : public_key,  
+          Snd,Rcv : channel (dy)) played_by B def=
+
+  local 
+     State : nat, 
+     Na    : message, 
+     Nb    : text
+
+  init 
+     State:=0
+ 
+  transition 
+
+% este in starea initiala;
+% receptioneaza pe canalul Rcv (nu neaparat de la A)
+
+% witness - b solicita autentificarea la Alice
+% alice_bob_nb - protocol ID
+% Bob solicita autentificarea, demonstrandu-i ca noua
+% valoare Nb' este de la Bob
+% witness unit cu accept-ul de la Alice
+
+    1. State=0 /\ Rcv({Na'.A}_Kb) =|> 
+          State':=1 
+       /\ Nb':=new()
+       /\ Snd({Nb'.xor(Na',B)}_Ka)
+       /\ witness(B,A,alice_bob_nb,Nb')
+  
+% sunt in starea 1; am receptionat
+% imi mut starea
+% intrusul ia mesajele de pe Snd si pe pune pe Rcv
+% el face legatura
+
+    2. State=1 /\ Rcv({Nb}_Kb) =|> 
+          State':=2 
+      
+
+end role
+
+
+
+role session (A,B: agent,
+              Ka, Kb: public_key, 
+              SND, RCV: channel(dy) ) def=
+
+% compunere in paralel intre cele 2 roluri - e deja surpinsa
+
+  composition
+    alice(A,B,Ka,Kb,SND,RCV) /\ 
+    bob(B,A,Kb,Ka,SND,RCV)
+
+end role
+
+
+
+role environment() def=
+
+  local
+     Snd, Rcv: channel(dy)
+  const
+     a, b, i: agent,
+     ka, kb, ki: public_key,
+     na, alice_bob_nb: protocol_id
+
+  intruder_knowledge = {a,b,i,ka,kb,ki,inv(ki)}
+
+% /\ - si logic
+% verificam compunerea in paralel
+% analizam 2 sesiuni ale protocolului
+% 3 agenti - alice, bob, intrus
+% cheile lor
+% cunostintele lor
+% inv(ki) - cheia privata a intrusului
+
+  composition
+    session(a,b,ka,kb,Snd,Rcv) /\
+    session(a,i,ka,ki,Snd,Rcv)  
+  
+end role
+
+
+goal 
+     authentication_on alice_bob_nb
+     secrecy_of na
+
+end goal
+
+
+
+environment()
+
+

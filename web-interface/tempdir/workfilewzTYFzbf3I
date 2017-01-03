@@ -1,0 +1,238 @@
+%%% Protocol: Design of a robust user authentication and key agreement scheme
+%for smart home environment 
+% Author: Mohammad Wazid
+
+%%%%%%% Role specification for the user U_i %%%%%%%%
+
+role user (Ui, RA, GWN, SDj : agent,                                                         
+            H : hash_func,
+            SKuira : symmetric_key,
+            Snd, Rcv: channel(dy))
+played_by Ui
+
+def=     
+  local State  : nat,
+     IDi, IDsdj, IDgwn, PWi, BIOi, A, R, TIDi : text,
+     Kgwnui, Kgwnsdj, M1, Rui, M2, M3 : text
+     
+  const user_gwn_t1, user_gwn_rui,
+        sr1, sr2 : protocol_id
+
+init  State := 0
+transition
+1. State   = 0 /\ Rcv(start) =|>
+% Registration phase
+State' := 1  /\ A' := new() /\ R'= new()
+             /\ secret({PWi, A', R'}, sr1, Ui)
+             /\ RPWi' := xor(H(PWi.A'), R')
+% Send registration request securely to RA
+             /\ Snd({IDi.RPWi'}_SKuira)
+% Receive information securely from RA for SPi
+2. State = 1 /\ Rcv({xor(H(IDi.Kgwnui), xor(H(PWi,A'),R')).
+                    TIDi'.H}_SKuira) =|>             
+% Login phase
+State' := 2 /\ secret({Kgwnui,Kgwnsdj}, sr2, GWN)
+% Send login request to GWN via public channel
+            /\ M1' := H(IDi.Kgwnui)
+            /\ Rui' := new()
+            /\ T1' := new()
+            /\ M2' := xor(M1', Rui')
+            /\ M3' := H(M2'.T1'.IDi'.TIDi'.Rui')
+            /\ Snd(TIDi'.M2'.M3'.T1')
+% Ui has freshly generated the values T1 and Rui for GWN
+            /\ witness(Ui,GWN,user_gwn_t1, T1')
+            /\ witness(Ui,GWN,user_gwn_rui,Rui')
+% Authentication and key agreement phase
+% Receive authentication reply from GWN via public channel
+3. State = 2 /\ Rcv({Rui'.Rgwn'.Rsdj'.Idi.IDsdj.Idgwn.
+                H(H(IDsdj.Kgwnsdj))}_H(IDi.Kgwnui).
+                xor(TIDinew', H(TIDi'.H(IDi.Kgwnui).T3'.T4')).
+                H(H(H(IDi.IDsdj.IDgwn.Rui'.Rgwn'.Rsdj'.
+                H(H(IDi.Kgwnui)).H(H(IDsdj.Kgwnsdj))).T3').T4').
+                T3'.T4')  =|>
+% Ui's acceptance of T4 and TIDinew generated for Ui by GWN
+State' := 3 /\ request(GWN, Ui, gwn_ui_t4, T4') 
+            /\ request(GWN, Ui, gwn_ui_tidinew, TIDinew') 
+end role
+
+
+
+
+%%%%%%% Role specification for the RA %%%%%%%%
+
+role registrationauthority (Ui, RA, GWN, SDj : agent,                                                         
+            H : hash_func,
+            SKuira : symmetric_key,
+            Snd, Rcv: channel(dy))
+played_by RA
+def=     
+  local State  : nat,
+     
+  const 
+        sr1, sr2 : protocol_id
+init  State := 0
+transition
+% Registration phase
+% Recieve registration request from Ui securely
+1. State = 0 /\ Rcv({IDi.xor(H(PWi.A'), R')}_SKuira) =|>             
+% Send informations securely to Ui for smart phone
+State' := 3 /\ secret({PWi, A', R'}, sr1, Ui)
+            /\ secret({Kgwnui,Kgwnsdj}, sr2, GWN)
+            /\ Ai' := xor(H(IDi.Kgwnui), xor(H(PWi,A'),R'))
+            /\ TIDi' := new()
+            /\ Snd({Ai'.TIDi'.H}_SKuira)
+end role
+
+
+
+%%%%%%% Role specification for GWN %%%%%%%%
+
+role gatewaynode (Ui, RA, GWN, SDj : agent,                                                         
+            H : hash_func,
+            SKuira : symmetric_key,
+            Snd, Rcv: channel(dy))
+played_by GWN
+def=     
+  local State  : nat,
+        IDi, IDsdj, IDgwn, TIDi, Rui, Kgwnui, T1, T2: text,
+        Kgwndsj, PWi, A, R, M7, M8 : text
+
+  const user_gwn_t1, user_gwn_rui, gwn_sdj_t2, gwn_sdj_rgwn,
+        sr1, sr2 : protocol_id
+init  State := 0
+transition
+% Login phase
+% Receive login request from Ui via public channel
+1. State = 0 /\ Rcv(TIDi'.xor(H(IDi.Kgwnui), Rui').
+                    H(xor(H(IDi.Kgwnui), Rui').T1'.
+                    IDi'.TIDi'.Rui').T1') =|> 
+% Authentication and key agreement phase
+State' := 2 /\ secret({PWi, A', R'}, sr1, Ui)
+            /\ secret({Kgwnui,Kgwnsdj}, sr2, GWN)
+            /\ Rgwn' := new()
+            /\ T2' := new()
+            /\ M7' := {IDi.IDsdj.IDgwn.Rui'.Rgwn'.
+                       H(H(IDi.Kgwnui))}_H(IDsdj.Kgwnsdj)
+            /\ M8' := H(H(IDsdj.Kgwnsdj).T2'.IDi.IDsdj.IDgwn.Rgwn')
+% Send authentication request to SDj via public channel
+            /\ Snd(M7'.M8'.T2')
+% GWN has freshly generated the values T2 and Rgwn for SDj
+            /\ witness(GWN,SDj,gwn_sdj_t2, T2')
+            /\ witness(GWN,SDj,gwn_sdj_rgwn,Rgwn') 
+% Receive authentication reply from SDj via public channel
+2. State = 2 /\ Rcv(xor(H(H(IDsdj.Kgwnsdj).T3'),Rsdj').
+                H(H(IDi.IDsdj.IDgwn.Rui'.Rgwn'.Rsdj'.
+                H(H(IDi.Kgwnui)).H(H(IDsdj.Kgwnsdj))).T3')'.T3') =|>
+% Send authentication reply to Ui via public channel
+State' := 4 /\ T4' := new()
+            /\ TIDinew' = new()
+            /\ M12' := {Rui'.Rgwn'.Rsdj'.Idi.IDsdj.Idgwn.
+                        H(H(IDsdj.Kgwnsdj))}_H(IDi.Kgwnui)
+            /\ M13' := xor(TIDinew', H(TIDi'.H(IDi.Kgwnui).T3'.T4'))
+            /\ M14' := H(H(H(IDi.IDsdj.IDgwn.Rui'.Rgwn'.Rsdj'.
+                       H(H(IDi.Kgwnui)).H(H(IDsdj.Kgwnsdj))).T3').T4')
+            /\ Snd(M12'.M13'.M14'.T3'.T4')    
+% GWN has freshly generated the values T4 and TIDinew for Ui
+            /\ witness(GWN, Ui, gwn_ui_t4, T4')
+            /\ witness(GWN, Ui, gwn_ui_tidinew,TIDinew')    
+% GWN's acceptance of T1, Rui, T3 and Rsdj generated for GWN by Ui and SDj
+State' := 3 /\ request(Ui, GWN, ui_gwn_t1, T1') 
+            /\ request(Ui, GWN, ui_gwn_rui, Rui')
+            /\ request(SDj, GWN, sdj_gwn_t3, T3') 
+            /\ request(SDj, GWN, sdj_gwn_rsdj, Rsdj')
+end role
+
+
+
+
+%%%%%%% Role specification for SDj %%%%%%%%
+
+role smartdevice (Ui, RA, GWN, SDj : agent,                                                         
+            H : hash_func,
+            SKuira : symmetric_key,
+            Snd, Rcv: channel(dy))
+played_by SDj
+def=     
+  local State  : nat,
+        IDi, IDsdj, IDgwn, TIDi, Rui, Kgwnui, Rsdj: text,
+        T1, T2, T3, Kgwndsj, PWi, A, R, M10, M11, SKij : text
+
+  const user_gwn_t1, user_gwn_rui, gwn_sdj_t2, gwn_sdj_rgwn,
+        sdj_gwn_t3, sdj_gwn_rsdj, 
+        sr1, sr2 : protocol_id
+init  State := 0
+transition
+% Authentication and key agreement phase
+% Receive authentication request from GWN via public channel
+1. State = 0 /\ Rcv({IDi.IDsdj.IDgwn.Rui'.Rgwn'.
+                H(H(IDi.Kgwnui))}_H(IDsdj.Kgwnsdj).
+                H(H(IDsdj.Kgwnsdj).T2'.IDi.IDsdj.
+                IDgwn.Rgwn').T2') =|> 
+State' := 5 /\ secret({PWi, A', R'}, sr1, Ui)
+            /\ secret({Kgwnui,Kgwnsdj}, sr2, GWN)
+% Send authentication reply to GWN via public channel
+            /\ Rsdj' := new()
+            /\ T3' := new()
+            /\ SKij' := H(IDi.IDsdj.IDgwn.Rui'.Rgwn'.Rsdj'.
+                        H(H(IDi.Kgwnui)).H(H(IDsdj.Kgwnsdj)))
+            /\ M10' := xor(H(H(IDsdj.Kgwnsdj).T3'),Rsdj')
+            /\ M11' := H(SKij'.T3')
+            /\ Snd(M10'.M11'.T3')
+% SDj has freshly generated the values T3 and Rsdj for GWN
+            /\ witness(SDj,GWN, sdj_gwn_t3, T3')
+            /\ witness(SDj,GWN,sdj_gwn_rsdj,Rsdj') 
+% SDj's acceptance of T2 and Rgwn generated for SDj by GWN
+State' := 3 /\ request(GWN, SDj, gwn_sdj_t2, T2')
+            /\ request(GWN, SDj, gwn_sdj_rgwn, Rgwn')
+end role
+
+
+
+
+%%%%%%% Role specification for the session %%%%%%%%
+
+role session (Ui, RA, GWN, SDj : agent,                                                         
+            H : hash_func,
+            SKuira : symmetric_key)
+def=
+  local  S1, R1, S2, R2, S3, R3, S4, R4: channel (dy)
+  composition
+    user (Ui, RA, GWN, SDj, H, SKuira, S1, R1)
+ /\ registrationauthority(Ui, RA, GWN, SDj, H, SKuira, S2, R2)
+ /\ gatewaynode (Ui, RA, GWN, SDj, H, SKuira, S3, R3)
+ /\ smartdevice (Ui, RA, GWN, SDj, H, SKuira, S2, R2)
+end role
+
+
+
+%%%%%%% Role specification for the goal and environment %%%%%%%%
+
+role environment()
+def=
+ const ui, ra, gwn, sdj : agent,
+        h : hash_func, 
+        skuira: symmetric_key, 
+        kgwnui, kgwnsdj, idi, idsnj, idgwn, t1, t2,
+        t3, t4, tidi, tidinew : text,
+        user_gwn_t1, user_gwn_rui, gwn_sdj_t2, gwn_sdj_rgwn,
+        sdj_gwn_t3, sdj_gwn_rsdj,
+        sr1, s2 : protocol_id
+intruder_knowledge ={h, t1, t2, t3, t4}
+  composition
+	session(ui, ra, gwn, sdj, h, skuira) 
+    /\	session(i, ra, gwn, sdj, h, skuira)
+    /\  session(ui, i, gwn, sdj, h, skuira)
+    /\  session(ui, ra, i, sdj, h, skuira)
+    /\ session(ui, ra, gwn, i, h, skuira)
+end role
+
+goal
+  secrecy_of sr1
+  secrecy_of sr2
+  authentication_on user_gwn_t1, user_gwn_rui
+  authentication_on gwn_sdj_t2, gwn_sdj_rgwn 
+  authentication_on sdj_gwn_t3, sdj_gwn_rsdj
+  authentication_on gwn_ui_t4, gnw_ui_tidinew
+end goal
+environment()
+

@@ -1,0 +1,130 @@
+%% DISCUSSION & ISSUES:
+%% -----------
+%% LucaC: 
+%%
+%% - I have corrected the protocol wrt HLPSL_GUIDELINES (in the
+%%   previous version fresh were in the initial knowledge of 
+%%   agents).
+%%
+
+
+%%--------------------------Nhlpsl-spec ---------------------
+
+role SHARE_Init ( A,B : agent, 
+                  Ka,Kb : public_key,
+                  Snd, Rcv : channel(dy)) played_by A def=
+
+  exists State: nat,
+         Na, Msg: text(fresh),
+         Nb   : text,
+         K    : message
+
+  owns   Snd
+
+  init  State = 0
+  accept State = 3
+  knowledge(A) = {A,B,Ka,Kb,inv(Ka),zero,one}
+
+  transition
+
+   1. State=0 /\ Rcv(start) =|> 
+	 Snd({Na'}Kb)
+      /\ State'=1 
+
+   2. State=1 /\ Rcv({Nb'}Ka) =|> 
+         Snd({zero.Msg'}(Na.Nb')) 
+      /\ State'=2 
+      /\ K'=Na.Nb'
+      /\ secret(Na.Nb',A)
+      /\ secret(Na.Nb',B)		
+      /\ witness(A,B,k,Na.Nb')
+
+   3. State=2 /\ Rcv({one.Msg}K) =|> 
+	 State'=3 
+      /\ wrequest(A,B,k,K)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role SHARE_Resp (B,A : agent,
+               Kb,Ka : public_key,
+            Snd, Rcv : channel (dy)) played_by B def=
+
+  exists State: nat,
+         Nb   : text(fresh),
+         Msg,Na : text,
+	 K    : message
+
+  owns Snd
+
+  init State = 0
+  accept State = 2 
+  knowledge(B) = {B,A,Ka,Kb,inv(Kb),zero,one}
+
+  transition
+
+   1. State=0 /\ Rcv({Na'}Kb) =|> 
+	 Snd({Nb'}Ka) /\ 
+	 State'=1  /\ 
+	 K'= Na'.Nb'
+      /\ witness(B,A,k,Na'.Nb')
+      /\ secret(Na'.Nb',A)
+      /\ secret(Na'.Nb',B)
+
+   2. State=1 /\ Rcv({zero.Msg'}K) =|> 
+	 Snd({one.Msg'}K)
+      /\ State'=2
+      /\ wrequest(B,A,k,K)
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role Session(A, B: agent,
+	     Ka, Kb: public_key,
+	     SA, RA, SB, RB: channel (dy)) def=
+
+  const  k         : protocol_id,
+	 zero, one : text
+
+
+  composition
+    SHARE_Init(A,B,Ka,Kb,SA,RA) /\
+    SHARE_Resp(B,A,Kb,Ka,SB,RB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role Environment() def=
+ 
+ knowledge(i) = {a,b,ka,kb,ki,i,inv(ki),zero,one}
+
+ composition
+
+	Session(a,b,ka,kb,sa1,ra1,sb1,rb1) 
+    /\  Session(a,i,ka,ki,sa2,ra2,si2,ri2) 
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+
+%% Secrecy of Na and Nb:
+
+   secrecy_of K
+
+%% Authentication: Init. authenticates Resp. on nonces Na.Nb
+
+   SHARE_Init weakly authenticates SHARE_Resp on K
+
+%% Reverse_Authentication: 
+
+   SHARE_Resp weakly authenticates SHARE_Init on K
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Environment()

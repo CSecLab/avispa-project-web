@@ -1,0 +1,243 @@
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+%%HLPSL:
+
+role user(Ui,S:agent,
+
+	   h: hash_func,
+
+	   SK: symmetric_key,
+
+	   SND, RCV: channel (dy))
+
+
+played_by Ui
+def=
+
+
+  local State :nat,
+	IDi, r1, r2, R1, R2, R1s, K, MV1, MV2, MV3, C1 : text,
+	%%%P, Q : public_key,
+ 
+	F: hash_func
+	const Ui_S_r1, S_Ui_r2, G1, G2, G3, G4, G5 : protocol_id
+
+  
+init  State := 0
+
+
+  transition
+
+  
+
+1. State = 0  /\ RCV(start) =|>
+
+	State':= 2
+	/\ r1' := new()
+
+        /\ R1' := F(r1'.P)
+                
+	/\ R1s' := F(r1'.F(qs.P))
+	        
+	/\ MV1' := h(IDi.R1'.R1s'.h(IDi.qs))
+	        
+	/\ C1' := {IDi. MV1'}_h(R1s')
+	        
+
+	/\ SND(C1'.R1')
+
+  
+	/\ witness(Ui, S, Ui_S_r1, r1)
+
+  
+	/\ secret(qs, G1, S)
+
+  
+	/\ secret(r1', G2, Ui)
+
+  
+
+2. State = 2  /\ RCV(h(IDi.{IDi.h(IDi.F(r1'.P)
+.F(r1'.F(qs.P)).h(IDi.qs))}_h(F(r1'.F(qs.P))).F(r2'.P).F(r1'.P).F(r1'.F(qs.P)).F(r2'.F(r1'.P))).F(r2'P) =|>
+
+	State':= 4 
+%%%	/\ secret(r2', G3, S)          
+	/\ K' := F(r1'.F(r2'.P))
+	/\ MV3' := h(h(IDi.{IDi.h(IDi.F(r1'.P)
+.F(r1'.F(qs.P)).h(IDi.qs))}_h(F(r1'.F(qs.P))).F(r2'.P).F(r1'.P).F(r1'.F(qs.P)).F(r2'.F(r1'.P))).F(r2'.P).K')
+                
+                
+	/\ SND(MV3')
+	/\ SK' := h(IDi.F(r1'.P).F(r2'.P).K')
+                
+	/\ secret(K', G4, {Ui, S})                
+	/\ secret(SK', G5, {Ui, S})                
+	/\ request(S,Ui,S_Ui_r2, r2)
+
+  
+  
+  
+  
+  
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+
+role server(Ui,S:agent,
+
+	   h: hash_func,
+
+	   SK: symmetric_key,
+
+	   SND, RCV: channel (dy))
+played_by S
+def=
+
+
+local State :nat,
+	IDi, r1, r2, R1, R2, R1s, K, MV1, MV2, MV3, C1 : text,
+	%%%P, Q : public_key,
+ 
+	F: hash_func
+	const Ui_S_r1, S_Ui_r2, G1, G2, G3, G4, G5 : protocol_id
+
+  
+init  State := 1
+
+  
+  transition
+
+  
+
+1. State = 1  /\ RCV({IDi. h(IDi.R1'.R1s'.h(IDi.qs))}_h(F(r1'.F(qs.P))).F(r1'.P)) =|>
+     
+	State':= 3 
+	/\ R1s' := F(qs.F(r1'.P))
+                
+	/\ r2' := new()
+                
+	/\ R2' := F(r2'.P)
+                
+	/\ K' := F(r2'.F(r1'.P))
+                
+	/\ MV2' := h(IDi.{IDi.h(IDi.F(r1'.P)
+.F(r1'.F(qs.P)).h(IDi.qs))}_h(F(r1'.F(qs.P))).R2'.F(r1'.P).R1s'.K')                
+	/\ SND(MV2'.R2')
+                           
+	/\ witness(S, Ui, S_Ui_r2, r2)
+
+  
+	/\ secret(r2', G3, S)
+
+2. State = 3  /\ RCV(h(MV2'.F(r2'.P).K')) =|>
+     
+	State':= 5
+	/\ SK' := h(IDi.F(r1'.P).F(r2'.P).K')
+                 
+	/\ request(Ui, S, Ui_S_r1, r1)
+
+  
+  
+  
+  
+  
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+
+role session(Ui, S: agent,
+
+	     SK: symmetric_key,
+
+             h: hash_func)
+
+def=
+
+  
+    local 
+	S1, R1, S2, R2: channel (dy)
+
+  
+
+    composition
+	   
+	
+	user(Ui, S, SK, h, S1, R1)
+	
+	/\ server(Ui, S, SK, h, S2, R2)
+
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+
+role environment()
+
+def=
+ 
+  
+    const 
+	Ui, S       : agent,
+        
+	SK : symmetric_key,
+        
+	P          : text,
+        
+	h, F          : hash_func
+
+,
+	Ui_S_r1, S_Ui_r2, G1, G2, G3, G4, G5 : protocol_id
+
+	
+
+intruder_knowledge = {Ui, S, h, F, P}
+
+  
+
+composition
+
+	
+	session(Ui, S, SK, h)
+     
+	/\ 	session(Ui, S, SK, h)
+
+%%%%%	/\ session(a,i,ka,ki,g,f)
+     
+%%%%%	/\	session(i,b,ki,kb,g,f)
+
+
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+
+goal
+
+  
+secrecy_of G1, G2, G3, G4, G5
+
+%Alice authenticates Bob on sk1
+  
+%authentication_on sk1 
+authentication_on Ui_S_r1
+
+%Bob authenticates Alice on sk2
+  
+%authentication_on sk2 
+authentication_on S_Ui_r2
+
+end goal
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+
+environment()

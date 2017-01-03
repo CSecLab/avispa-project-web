@@ -1,0 +1,124 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilem043qW
+
+section signature:
+
+state_coordinateur: agent * agent * hash_func * hash_func * hash_func * nat * text * message * set(text) * set(text) * set(text) * set(text) * set(text) * nat -> fact
+state_noeud: agent * agent * hash_func * hash_func * hash_func * nat * text * message * set(text) * set(text) * set(text) * set(text) * set(text) * set(agent) * nat -> fact
+
+
+section types:
+
+dummy_set: set(message)
+sec_key, noeud_coordinateur_index, key, noeud_coordinateur_q: protocol_id
+set_71: set
+R, Fprime, F, Q, Index, Dummy_Index, Dummy_Fprime, Dummy_F, Dummy_Q: set(text)
+Dummy_Set_26, Set_26, ASGoal: set(agent)
+Key, Dummy_Key, dummy_msg, start, MGoal: message
+No, Dummy_No, dummy_nonce: text
+State, 4, SID, 2, Dummy_State, 3, 1, 0, SID2, SID1: nat
+Permute, H, Mac, permute, h, mac: hash_func
+N, C, A2Goal, A1Goal, n, c, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(n).
+ iknows(c).
+ iknows(mac).
+ iknows(h).
+ iknows(i).
+ state_noeud(n,c,mac,h,permute,0,dummy_nonce,dummy_msg,dummy_set,dummy_set,dummy_set,dummy_set,dummy_set,set_71,3).
+ state_coordinateur(c,n,mac,h,permute,0,dummy_nonce,dummy_msg,dummy_set,dummy_set,dummy_set,dummy_set,dummy_set,4)
+
+
+section rules:
+
+step step_0 (N,C,Mac,H,Permute,Dummy_No,Dummy_Key,Index,Dummy_Q,Dummy_F,Dummy_Fprime,R,Dummy_Set_26,SID,No,Q,F,Fprime) :=
+ state_noeud(N,C,Mac,H,Permute,0,Dummy_No,Dummy_Key,Index,Dummy_Q,Dummy_F,Dummy_Fprime,R,Dummy_Set_26,SID).
+ iknows(start)
+=[exists Fprime,F,Q,No]=>
+ state_noeud(N,C,Mac,H,Permute,1,No,apply(H,Q),Index,Q,F,Fprime,R,Dummy_Set_26,SID).
+ iknows(pair(N,pair(C,pair(No,apply(Permute,pair(pair(F,Q),Fprime)))))).
+ request(N,C,noeud_coordinateur_q,Q,SID).
+ secret(apply(H,Q),key,Dummy_Set_26).
+ contains(N,Dummy_Set_26).
+ contains(C,Dummy_Set_26)
+
+step step_1 (N,C,Mac,H,Permute,No,Dummy_Key,Dummy_Index,Q,F,Fprime,R,Set_26,SID,Key,Index) :=
+ state_noeud(N,C,Mac,H,Permute,1,No,Dummy_Key,Dummy_Index,Q,F,Fprime,R,Set_26,SID).
+ iknows(pair(N,pair(C,pair(Index,apply(Mac,pair(Key,pair(Index,pair(Q,C))))))))
+ =>
+ state_noeud(N,C,Mac,H,Permute,2,No,Key,Index,Q,F,Fprime,R,Set_26,SID).
+ request(N,C,noeud_coordinateur_index,Index,SID).
+ iknows(apply(Mac,pair(Dummy_Key,pair(No,pair(N,C)))))
+
+step step_2 (C,N,Mac,H,Permute,Dummy_No,Dummy_Key,Dummy_Index,Dummy_Q,Dummy_F,Dummy_Fprime,R,SID,No,Index,Q,F,Fprime) :=
+ state_coordinateur(C,N,Mac,H,Permute,0,Dummy_No,Dummy_Key,Dummy_Index,Dummy_Q,Dummy_F,Dummy_Fprime,R,SID).
+ iknows(pair(N,pair(C,pair(No,apply(Permute,pair(pair(F,Q),Fprime))))))
+=[exists Index]=>
+ state_coordinateur(C,N,Mac,H,Permute,1,No,apply(H,Q),Index,Q,F,Fprime,R,SID).
+ witness(C,N,noeud_coordinateur_q,Q).
+ iknows(pair(N,pair(C,pair(Index,apply(Mac,pair(apply(H,Q),pair(Index,pair(Dummy_Q,C))))))))
+
+step step_3 (C,N,Mac,H,Permute,Dummy_No,Key,Index,Q,F,Fprime,R,SID,No) :=
+ state_coordinateur(C,N,Mac,H,Permute,1,Dummy_No,Key,Index,Q,F,Fprime,R,SID).
+ iknows(apply(Mac,pair(Key,pair(No,pair(N,C)))))
+ =>
+ state_coordinateur(C,N,Mac,H,Permute,2,No,Key,Index,Q,F,Fprime,R,SID).
+ witness(C,N,noeud_coordinateur_index,Index)
+
+
+section properties:
+
+property secrecy_of_key (MGoal,ASGoal) :=
+ [] ((secret(MGoal,key,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_noeud_coordinateur_index (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,noeud_coordinateur_index,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,noeud_coordinateur_index,MGoal))
+     /\ ((request(A1Goal,A2Goal,noeud_coordinateur_index,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,noeud_coordinateur_index,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_noeud_coordinateur_q (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,noeud_coordinateur_q,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,noeud_coordinateur_q,MGoal))
+     /\ ((request(A1Goal,A2Goal,noeud_coordinateur_q,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,noeud_coordinateur_q,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_key (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,key,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_noeud_coordinateur_index (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,noeud_coordinateur_index,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,noeud_coordinateur_index,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_noeud_coordinateur_index (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,noeud_coordinateur_index,MGoal,SID1).
+ request(A1Goal,A2Goal,noeud_coordinateur_index,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_noeud_coordinateur_q (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,noeud_coordinateur_q,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,noeud_coordinateur_q,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_noeud_coordinateur_q (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,noeud_coordinateur_q,MGoal,SID1).
+ request(A1Goal,A2Goal,noeud_coordinateur_q,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

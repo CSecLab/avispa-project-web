@@ -1,0 +1,174 @@
+%%- u1- userA	AM-Authentication Module SM-Services Module U2- UserB 
+%%HLPSL:
+%%protocol flow here
+%=======================Start============================
+role u1(U1,AM,SM,U2: agent,
+		Ku1,Kam,Kca,Ku2,Ksm : public_key,
+                H : hash_func
+		) played_by U1 def= 
+local S : nat,
+UseraID : nat,
+UaT : nat,
+UserAC : text,                
+Nonce : nat,
+InviteAB : text, 
+ServReq : text,                               
+ServRes : text,                               
+Bye : text, 
+Ks: symmetric_key,
+        SND, RCV: channel (dy)
+const session_key1 : protocol_id
+	init S := 0
+transition
+
+1.  S = 0 /\ RCV(start)  =|>            
+        S' := 1 /\ 
+	 Nonce' := new() /\
+	SND ({UseraID.UserAC.Nonce'.{H(UseraID.Nonce')}_inv(Ku1)}_Kam)         %% sent to AM
+
+2. S = 1 /\ RCV ({UaT.{SM.Ksm}_inv(Kca).Nonce'}_inv(Kam))   =|>
+                 S':= 2 /\                 
+	SND (InviteAB.{UseraID.ServReq.UaT.Nonce}_Ksm)       	   %sent to SM
+
+
+3. S = 2 /\   RCV({UseraID.ServRes.Ks.{H(UseraID.ServRes.Ks.Nonce')}_inv(Ksm).Nonce'}_Ku1) =|>  %%rece from SM
+	S':= 3 /\
+	SND ({UseraID.Bye.Nonce'}_inv(Ku1))       	   %sent to UserB
+	% /\ secret(Ks,session_key1,{sm,u1})
+%/\ secret(Ku1,session_key,{sm,u1}) 		
+
+end role             
+
+%% AM=======================================================
+
+role am(U1,AM,SM,U2: agent,
+		Ku1, Kam,Kca,Ku2,Ksm : public_key,
+                H : hash_func
+		) played_by AM def= 
+
+local S : nat,
+UaT: nat,
+Nonce : nat,		
+UseraID : nat,
+               SND, RCV: channel (dy)
+
+        init S := 2
+	
+transition
+1. S = 2 /\ RCV ({UseraID.Nonce.{H(UseraID.Nonce)}_inv(Ku1)}_Kam)          =|>   %% received from Ua1
+ S':= 4 /\
+	 Nonce' := new() /\
+ SND ({UaT.{SM.Ksm}_inv(Kca).Nonce'}_inv(Kam))         %% sent to USerA
+
+
+end role
+
+  
+%%========SM===============================================
+role sm(U1,AM,SM,U2: agent,
+		Ku1,Kam,Kca,Ku2,Ksm : public_key,
+                H : hash_func
+		) played_by SM def= 
+       
+local S : nat,
+UseraID : nat,
+UserbID : nat,
+UaT : nat,
+UserAC : text,                
+Nonce : nat,
+TOKENID: nat,
+InviteAB : text, 
+ServReq : text,
+ServRes : text,		
+Ks: symmetric_key,			
+                SND, RCV: channel (dy)
+
+const session_key1,session_key : protocol_id
+	init S := 1
+
+transition
+
+1.  S = 1 /\ RCV (InviteAB.{UseraID.ServReq.UaT.Nonce}_Ksm)       	  =|>      %sent frm UserA
+	S' := 3 /\ 
+%Ks' :=  new() /\
+	 Nonce' := new() /\
+SND (InviteAB.{UseraID.UserbID.Ks.{H(UseraID.Ks.Nonce')}_inv(Ksm).Nonce'}_Ku2) /\  %%sent to UserB
+SND ({UseraID.ServRes.Ks.{H(UseraID.ServRes.Ks.Nonce')}_inv(Ksm).Nonce'}_Ku1)  %%sent to UserA
+%/\ secret(Ku1,session_key,{sm,u1}) 
+%/\ secret(Ks,session_key1,{sm,u1}) 
+/\ secret(Ks,session_key,{sm,u2})
+end role
+
+
+%%===u2====================================================
+
+role u2(U1,AM,SM,U2: agent,
+		Ku1,Kam,Kca,Ku2,Ksm : public_key,
+                H : hash_func
+		) played_by U2 def= 
+
+local S : nat,
+UseraID : nat,
+UserbID : nat,
+UaT : nat,
+UserAC : text,                
+Nonce : nat,
+TOKENID: nat,
+InviteAB : text, 
+ServReq : text,
+Bye : text,
+
+Ks: symmetric_key,	
+        SND, RCV: channel (dy)
+const session_key : protocol_id
+init S := 3
+
+transition
+
+
+1. S = 3  /\   RCV (InviteAB.{UseraID.UserbID.Ks.{H(UseraID.Ks.Nonce')}_inv(Ksm).Nonce'}_Ku2) =|>          %%sent by SM
+   S':= 6 
+	secret(Ks',session_key,{sm,u2})
+
+2.   S = 6 /\  RCV ({UseraID.Bye.Nonce'}_inv(Ku1))       =|>	   %sent by UserA
+	S' := 9 
+end role
+
+%===================================================================
+
+
+role session(U1,AM,SM,U2: agent,
+		Ku1,Kam,Kca,Ku2,Ksm : public_key,                
+                H : hash_func
+               ) def=
+
+local  SA, SB,SC,SD, RA, RB,RC,RD: channel (dy)
+ composition
+  u1(U1,AM,SM,U2,Ku1,Kam,Kca,Ku2,Ksm,H)   
+% /\ am(U1,AM,SM,U2,Ku1,Kam,Kca,Ku2,Ksm,H)   /\
+%  sm(U1,AM,SM,U2,Ku1,Kam,Kca,Ku2,Ksm,H)   /\
+%  u2(U1,AM,SM,U2,Ku1,Kam,Kca,Ku2,Ksm,H)   
+end role
+
+role environment() 
+def=
+const h: hash_func, 
+u1,am,sm,u2: agent,
+ku1,kam,kca,ku2,ksm,ki : public_key
+      
+
+intruder_knowledge = {u1,am,sm,u2,i,ku1,ku2,kam,ksm,ki}
+
+composition
+
+session(u1,am,sm,u2,ku1,kam,kca,ku2,ksm,h)
+%/\ session(u1,i,sm,u2,ku1,ki,kca,ku2,ksm,h) /\
+%session(u1,am,i,u2,ku1,kam,kca,ku2,ki,h) /\
+%session(u1,am,sm,i,ku1,kam,kca,ki,ksm,h)
+end role
+
+goal
+ 
+  secrecy_of session_key  % Addresses  G12
+end goal
+environment()

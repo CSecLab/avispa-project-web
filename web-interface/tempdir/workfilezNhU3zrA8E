@@ -1,0 +1,119 @@
+
+%%%%%%%%%%%%% reader role %%%%%%%%%%%%%%%%%
+role reader(
+R                : agent,
+H                : hash_func,
+SND_RT, RCV_RT  : channel (dy))
+
+played_by R def=
+
+local 
+State           : nat,
+T                : agent,
+K                : text,
+Nr, Nt          : text,
+ID               : text,
+M1,M2,M3,M4     : message
+
+init State := 0
+
+transition
+
+1. State   = 0  / RCV_RT(start) =|>
+   State' := 2   / Nr' := new()
+                     / SND_RT(Nr')
+
+2. State    = 2  / RCV_RT((H(ID).Nr').xor(ID,Nt').H(ID.K.Nr'.Nt')) =|>
+   State'   := 4  / M3':= H(ID.K.Nr'.Nt')
+                      / request(R,T,r_auth_t,M3')
+                      / ID':= H(ID)   
+                      / K' :=H(xor(ID',K))
+                      / M4':=H(K'.Nr.Nt)
+                      / SND_RT(M4')  
+                      / witness(R,T,t_auth_r,M4') 
+                      / secret(K',k_new,{R,T})
+                  
+                   
+end role
+
+
+%%%%%%%%%%%%% tag role %%%%%%%%%%%%%%%%%
+
+role tag(
+T                : agent,
+ID               : text,
+K                : text,
+H                : hash_func,
+SND_RT, RCV_RT   : channel(dy))
+
+played_by T def=
+
+local 
+State       : nat,
+R            : agent,
+Nr, Nt      : text,
+M1,M2,M3,M4 : message
+
+init State := 1
+
+transition
+
+1. State   = 1  / RCV_RT(Nr') =|>
+   State' := 3   / Nt':=new()
+                     / M1':= H(ID).Nr'
+                     / M2':= xor(ID,Nt')
+                     / M3':= H(ID.K.Nr'.Nt')
+                     / SND_RT(M1'.M2'.M3')
+                     / witness(T,R,r_auth_t,M3')
+                     / secret(ID,t2r_id,{R,T})
+                     / secret(K,t2r_k,{R,T})
+
+2. State    = 3 / RCV_RT(H(K'.Nr.Nt)) =|>  
+    State'  := 5 / M4':= H(K'.Nr.Nt)
+                     / request(T,R,t_auth_r,M4')
+               
+end role
+%%%%%%%%%%%%%% role session %%%%%%%%%%%%%%%%
+role session(
+R, T           :agent,
+ID, K          :text,
+H               : hash_func)
+
+def=
+local SNDRT,RCVRT: channel (dy)
+composition
+           reader(R,H,SNDRT,RCVRT) /
+           tag(T,ID,K,H,SNDRT,RCVRT)
+end role
+
+%%%%%%%%%%%%%% role environment %%%%%%%%%%%%%%
+
+role environment()
+def=
+const 
+      r_auth_t, t_auth_r, t2r_id, t2r_k, k_new : protocol_id,
+      reader ,tag                 : agent,
+      tid                             : text,
+      kt,ki                          : text,
+      h                              : hash_func
+
+intruder_knowledge={reader,tag,tid,h,ki}
+
+composition
+
+          session(reader,tag,tid,kt,h)/ 
+          session(reader,tag,tid,kt,h)/
+          session(reader,tag,tid,kt,h)
+  
+end role
+
+goal
+secrecy_of t2r_id
+secrecy_of t2r_k
+secrecy_of k_new
+authentication_on r_auth_t
+authentication_on t_auth_r
+
+
+end goal
+environment() 

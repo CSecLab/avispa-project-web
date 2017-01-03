@@ -1,0 +1,109 @@
+% Authentication-only STS
+% A simplified form of STS is available that provides mutual authentication but does not produce a shared secret. It uses random number challenges instead of the above Diffie-Hellman technique.
+%1.Alice generates a random number x sends it to Bob.
+%2.Bob generates a random number y.
+%3.Bob concatenates the random numbers (y, x) (order is important) and signs them using his asymmetric key B. He sends the signature along with his own random number to Alice.
+%4.Alice verifies Bob's signature.
+%5.Alice concatenates the random numbers (x, y) (order is important) and signs them using her asymmetric key A. She sends the signature to Bob.
+%6.Bob verifies Alice's signature.
+role alice(
+	A,B           :agent,
+	Ka,Kb         :public_key,
+        SND_A,RCV_A   :channel(dy))
+
+played_by A def=
+
+local
+ State                     : nat,
+ Na,Nb                     : text
+ 
+
+ init State :=0 
+
+ transition 
+
+0. State   =  0 /\ RCV_A(start) =|>
+   State' :=  2 /\ Na' := new()
+                /\ SND_A (Na') 
+
+2. State   = 2 /\ RCV_A ({Nb'.Na}_Ka) =|>   
+   State' := 4 /\ request(A,B,alice_bob_nb,Na') 
+                 
+
+end role
+
+role bob(
+	A,B           :agent,
+	Ka,Kb         :public_key,
+	SND_B,RCV_B   :channel(dy)) 
+
+played_by B def=
+
+local
+ State                   : nat,
+ Na,Nb                   : text
+
+init
+ State :=1
+
+transition 
+
+1. State   = 1 /\  RCV_B(Na') =|>  
+   State' := 3 /\  Nb' := new()
+	       /\  SND_B({Nb'.Na'}_Ka)
+	       /\  witness(B,A,bob_alice_na, Nb')
+
+%2. State   = 3 /\  RCV_B({Na'.Nb'}_Kb) =|>
+%   State' := 5 	       
+%                 
+
+                                                                
+       
+end role
+
+
+role session(
+ A,B                    : agent,
+ Ka,Kb                  : public_key)
+
+def=
+
+local  
+SA, RA, SB, RB : channel(dy)
+
+composition
+
+	alice(A,B,Ka,Kb,SA,RA)
+     /\ bob  (A,B,Ka,Kb,SB,RB)
+     
+end role
+
+
+
+role environment()
+      def=
+
+ const a,b,i                   : agent,
+ ka,kb, ki                     : public_key,
+ na, nb,
+	  alice_bob_nb,
+	  bob_alice_na : protocol_id
+
+intruder_knowledge={a,b,ka,kb,ki}
+
+composition
+      
+       session(a,b,ka,kb)
+%    /\ session(a,i,ka,ki)
+%    /\ session(i,b,ki,kb)
+
+end role
+
+goal
+
+%   authentication_on alice_bob_nb
+   authentication_on bob_alice_na
+end goal
+
+
+environment()

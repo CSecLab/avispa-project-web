@@ -1,0 +1,50 @@
+role user(Ujv, CA: agent, SKv: symmetric_key, Kjv: text, M: message, SND,RCV: channel(dy))
+played_by Ujv
+def= 
+local 
+State: nat, Xji: text, Yj: text
+init 
+State := 0
+transition 
+1.	State=0 /\ RCV(start) 
+=|> state’:=1
+/\ M’:= new()
+/\ SND({Kjv,M})
+/\ secret({SKv,CA,Ujv})
+2.	State=1 /\ RCV({Xji,Yj}SKV)
+=|> state’:=2
+end role
+role CA(Ujv,CA: agent, SKv: symmetric_key, Xji: text, Yj: text, SND,RCV: channel(dy))
+Played_by CA
+Def= 
+local 
+state: nat, Kjv: text, M: message
+init 
+state := 0
+transition 
+1.	State=0 /\ RCV({Kjv,M})
+=|> state’:=1
+/\ Xji’:= new()
+/\ Yj’:= new()
+/\ SND({Xji,Yj}SKV)
+/\ secret({xji,yj,CA,Ujv})
+end role
+role session1(Ujv: agent, CA: agent, SKv: symmetric_key, Kjv: text, M: message, Xji: text, Yj: text)
+def= 
+local 
+SND2, RCV2, SND1, RCV1:channel(dy)
+	Composition 
+	role_CA(CA,Ujv,SKv,Kjv,M,SND2,RCV2)
+	/\ role_Uj,v(Ujv,CA,SKv,Xji,Yj,SND1,RCV1)
+end role
+role environment()
+def= 
+	const
+	user: agent, CA: agent, SKv: symmetric_key, Kjv: text, M: message,Xji: text, Yj: text
+	intruder_knowledge={Ujv,CA,Kjv}
+	composition
+	session1(Ujv,CA,SKv,Kjv,M,Xji,Yj)
+end role
+goal 
+	secrecy_of SKv,Xji,Yj
+end goal

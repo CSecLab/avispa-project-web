@@ -1,0 +1,94 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileBJEkF1
+
+section signature:
+
+state_iso9798_client: agent * agent * message * public_key * public_key * public_key * nat * text * text * text * nat -> fact
+state_iso9798_server: agent * agent * message * public_key * public_key * public_key * nat * text * text * text * nat -> fact
+
+
+section types:
+
+server_client_rab, client_server_rabc: protocol_id
+RA, RB, RC, Dummy_RC, Dummy_RA, Dummy_RB, dummy_nonce: text
+ClientCert, start, MGoal, ServerCert: message
+State, 2, 1, 0, 7, 4, SID, Dummy_State, 3: nat
+KC, KS, PkCert, kc, ks, ki, pkcert: public_key
+s, C, S, A2Goal, A1Goal, i, c: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(c).
+ iknows(s).
+ iknows(pkcert).
+ iknows(kc).
+ iknows(ks).
+ iknows(ki).
+ iknows(inv(ki)).
+ iknows(i).
+ state_iso9798_server(s,c,crypt(inv(pkcert),pair(s,ks)),pkcert,kc,ks,0,dummy_nonce,dummy_nonce,dummy_nonce,3).
+ state_iso9798_client(c,s,crypt(inv(pkcert),pair(c,kc)),pkcert,kc,ks,0,dummy_nonce,dummy_nonce,dummy_nonce,4).
+ state_iso9798_client(c,i,crypt(inv(pkcert),pair(c,kc)),pkcert,kc,ki,0,dummy_nonce,dummy_nonce,dummy_nonce,7)
+
+
+section rules:
+
+step step_0 (S,C,ServerCert,PkCert,KC,KS,RA,Dummy_RB,RC,SID,RB) :=
+ state_iso9798_server(S,C,ServerCert,PkCert,KC,KS,0,RA,Dummy_RB,RC,SID).
+ iknows(start)
+=[exists RB]=>
+ state_iso9798_server(S,C,ServerCert,PkCert,KC,KS,1,RA,RB,RC,SID).
+ iknows(pair(S,RB))
+
+step step_1 (S,C,ServerCert,PkCert,KC,KS,Dummy_RA,RB,Dummy_RC,SID,RA,RC) :=
+ state_iso9798_server(S,C,ServerCert,PkCert,KC,KS,1,Dummy_RA,RB,Dummy_RC,SID).
+ iknows(pair(C,pair(RA,pair(crypt(inv(PkCert),pair(C,KC)),crypt(inv(KC),pair(RA,RB))))))
+=[exists RC]=>
+ state_iso9798_server(S,C,ServerCert,PkCert,KC,KS,2,RA,RB,RC,SID).
+ iknows(pair(S,pair(RC,pair(ServerCert,crypt(inv(KS),pair(RA,pair(RB,RC))))))).
+ wrequest(S,C,server_client_rab,pair(RA,RB),SID).
+ witness(S,C,client_server_rabc,pair(RA,pair(RB,RC)))
+
+step step_2 (C,S,ClientCert,PkCert,KC,KS,Dummy_RA,Dummy_RB,RC,SID,RA,RB) :=
+ state_iso9798_client(C,S,ClientCert,PkCert,KC,KS,0,Dummy_RA,Dummy_RB,RC,SID).
+ iknows(pair(S,RB))
+=[exists RA]=>
+ state_iso9798_client(C,S,ClientCert,PkCert,KC,KS,1,RA,RB,RC,SID).
+ iknows(pair(C,pair(RA,pair(ClientCert,crypt(inv(KC),pair(RA,RB)))))).
+ witness(C,S,server_client_rab,pair(RA,RB))
+
+step step_3 (C,S,ClientCert,PkCert,KC,KS,RA,RB,Dummy_RC,SID,RC) :=
+ state_iso9798_client(C,S,ClientCert,PkCert,KC,KS,1,RA,RB,Dummy_RC,SID).
+ iknows(pair(S,pair(RC,pair(crypt(inv(PkCert),pair(S,KS)),crypt(inv(KS),pair(RA,pair(RB,RC)))))))
+ =>
+ state_iso9798_client(C,S,ClientCert,PkCert,KC,KS,2,RA,RB,RC,SID).
+ wrequest(C,S,client_server_rabc,pair(RA,pair(RB,RC)),SID)
+
+
+section properties:
+
+property weak_authentication_on_server_client_rab (A1Goal,A2Goal,MGoal,SID) :=
+ [] ((wrequest(A1Goal,A2Goal,server_client_rab,MGoal,SID)
+      /\ ~ equal(A2Goal,i))
+     => witness(A2Goal,A1Goal,server_client_rab,MGoal))
+
+property weak_authentication_on_client_server_rabc (A1Goal,A2Goal,MGoal,SID) :=
+ [] ((wrequest(A1Goal,A2Goal,client_server_rabc,MGoal,SID)
+      /\ ~ equal(A2Goal,i))
+     => witness(A2Goal,A1Goal,client_server_rabc,MGoal))
+
+
+section attack_states:
+
+attack_state weak_authentication_on_server_client_rab (A1Goal,A2Goal,MGoal,SID) :=
+ wrequest(A1Goal,A2Goal,server_client_rab,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,server_client_rab,MGoal)) &
+ not(equal(A2Goal,i))
+
+attack_state weak_authentication_on_client_server_rabc (A1Goal,A2Goal,MGoal,SID) :=
+ wrequest(A1Goal,A2Goal,client_server_rabc,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,client_server_rabc,MGoal)) &
+ not(equal(A2Goal,i))
+

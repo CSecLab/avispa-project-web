@@ -1,0 +1,104 @@
+role alice(A,B: agent,
+           F: hash_func,
+           PSK: symmetric_key,
+           SND, RCV: channel (dy))
+played_by A
+def=
+
+  local IPDATAGRAM: text,
+	H, AUTH_A: hash(message),
+        State: nat
+  
+ 
+  init  State := 0
+   
+  transition
+
+  
+  1. State = 0  /\ RCV(start) =|>
+     State':= 2 /\ IPDATAGRAM':= new()
+                /\ AUTH_A':= F(PSK.IPDATAGRAM')
+                /\ SND(A.IPDATAGRAM'.{AUTH_A'}_PSK)
+		%%/\ secret(PSK,psk,{A,B})
+                /\ witness(A,B,auth_a,AUTH_A')
+
+end role
+
+
+
+
+role bob(B,A:agent,
+         F: hash_func,
+         PSK: symmetric_key,
+         SND, RCV: channel (dy))
+played_by B
+def=
+
+  local IPDATAGRAM: text,
+	H, AUTH_A: hash(message),
+        State: nat
+
+ 
+
+  init  State := 1
+
+
+  transition
+
+  1. State = 1 /\ RCV(A.IPDATAGRAM'.{AUTH_A'}_PSK) =|>
+     State':=3 /\ AUTH_A':= F(IPDATAGRAM') 
+	       %%/\ secret(PSK,psk,{A,B})
+	       /\ request(B,A,auth_a,AUTH_A')
+              
+
+end role
+
+
+
+role session(A, B: agent,
+             PSK: symmetric_key,
+             F: hash_func)
+def=
+
+  local SA, RA, SB, RB: channel (dy)
+
+  composition
+
+           alice(A,B,F,PSK,SA,RA)
+        /\ bob(B,A,F,PSK,SB,RB)
+
+end role
+
+
+
+role environment()
+def=
+ 
+  const h, auth_a     : protocol_id,
+        a, b          : agent,
+        kab,kai,kib   : symmetric_key,
+        f             : hash_func
+
+ 
+  intruder_knowledge = {f,a,b,i,kai,kib}
+
+  composition
+
+        session(a,b,psk,f)
+     /\ session(a,i,kai,f)
+     /\ session(i,b,kib,f)
+
+end role
+
+
+
+goal    
+ 
+  secrecy_of psk
+  authentication_on auth_a
+
+end goal
+
+
+
+environment()                 

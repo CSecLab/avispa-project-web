@@ -1,0 +1,115 @@
+role sender (Ni, Nsh, NSl, Nj : agent,  
+% H is hash function
+H: hash_func, Snd, Rcv: channel(dy))
+played_by Ni
+def=
+local State : nat,
+IDni, IDnj, A, B, TSni, Tsms, TSnsi:text,
+Y, X, Z, SKnsi, SKnj, Skni, ZZ : message,
+Inc : hash_func
+const sender_mserver, mserver_tserver, tserver_receiver, 
+receiver_sender, sender_tserver,susb1,subs2 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(start) =|>
+State' := 1 /\ B' := new()
+/\ SKni' := H(B'.IDni)
+/\ TSni' := new()
+/\ X' := H(IDni.IDnj.TSni'.SKni')
+/\ Snd(IDni.IDnj.TSni'.X')
+/\ secret({B'}, subs1, {Nsh,NSl})
+end role
+
+role mserver (Nsh, Ni, NSl, Nj  : agent,
+% H is hash function
+H : hash_func,
+Snd, Rcv: channel(dy) )
+played_by Nsh
+def=
+local State : nat,
+IDni, IDnj, IDnsi, A, B, TSni, TSms, TSnsi:text,
+Y, X, Z, SKnsi, SKnj, ZZ : message,
+Inc : hash_func
+const sender_mserver, mserver_tserver, tserver_receiver, 
+receiver_sender, sender_tserver,subs1,subs2 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(IDni.IDnj.TSni'.X') =|>
+State' := 1 /\ A' := new()
+/\ SKnsi' := H(A'.IDnsi)
+/\ TSms' := new()
+/\ Y' := H(IDni.IDnj.TSms'.SKnsi')
+/\ Snd(IDni.IDnj.TSms'.Y')
+/\secret({A'}, subs2, {Nsh})
+end role
+
+role tserver (NSl, Nsh, Ni, Nj : agent,
+% H is hash function
+H : hash_func,
+Snd, Rcv: channel(dy) )
+played_by NSl
+def=
+local State : nat,
+IDni, IDnj, A, B, TSni, TSms, TSnsi:text,
+Y, X, Z, SKnsi, SKnj, ZZ : message,
+Inc : hash_func
+const sender_mserver, mserver_tserver, tserver_receiver, 
+receiver_sender, sender_tserver,subs1,subs2 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(IDni.IDnj.TSms'.Y') =|>
+State' := 1 /\ TSnsi' := new()
+/\ SKnj' := H(A.IDnj)
+/\ Z' :=H(IDni.IDnj.TSnsi'.SKnj')
+/\ Snd(IDni.IDnj.TSnsi'.Z')
+end role
+
+role receiver (Nj, NSl, Nsh, Ni  : agent,
+% H is hash function
+H: hash_func,
+Snd, Rcv: channel(dy) )
+played_by Nj
+def=
+local State : nat,
+IDni, IDnj, A, B, TSni, Tsms, TSnsi:text,
+Y, X, Z, SKnsi, SKnj, ZZ : message,
+Inc : hash_func
+const sender_mserver, mserver_tserver, tserver_receiver, 
+receiver_sender, sender_tserver, subs1,subs2 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(IDni.IDnj.TSnsi'.Z') =|>
+State' := 1 /\ ZZ' := H(IDni.IDnj.TSnsi'.SKnj')
+end role
+
+role session(Nj, NSl, Nsh, Ni: agent,
+H: hash_func)
+def=
+local SI, SJ, RI, RJ, TI, TJ, PI, PJ: channel (dy)
+composition
+alice(Nj, NSl, Nsh, Ni, H, SI, RI)
+/\ server(Nj, NSl, Nsh, Ni, H, SJ, RJ)
+/\ mserver(Nj, NSl, Nsh, Ni, H, TI, TJ)
+/\ pserver(Nj, NSl, Nsh, Ni, H, PI, PJ)
+end role
+
+role environment()
+def=
+const ni, nsh, nsl, nj: agent,
+h: hash_func,
+idni, idnj, a, b, tsni, tsms, tsnsi : text,
+sender_mserver, mserver_tserver, tserver_receiver, 
+receiver_sender, sender_tserver,subs1,subs2 : protocol_id
+intruder_knowledge = {ni, nsh, nsl, nj, h}
+composition
+session( ni, nsh, nsl, nj, h)
+/\ session(nsh, ni, nsl, nj, h)
+/\ session(nsl, nsh, ni, nj, h)
+/\ session(nj, nsl, nsh, ni, h)
+end role
+
+goal
+secrecy_of subs1
+secrecy_of subs2
+end goal
+environment()

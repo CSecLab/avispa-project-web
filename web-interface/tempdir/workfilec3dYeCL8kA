@@ -1,0 +1,209 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Role of the MobileUser
+role mobuser	(Mu,Dns,B,As		:agent,
+		 Ku,Kas			:public_key,
+ 		 Mu_id,Mu_ph,Mu_usr,Mu_pwd,Url,Link,Rc_mobuser,B_name,Place_branch,B_code,Bank_webinfo :text,
+ 		 Auth_info,As_info,As_name,As_id,D_req,D_res,Dns_ser,Dns_serres,Ip,Ipfake :text,
+		 Hash		:hash_func,
+		 SND_B,RCV_Mu,RCV_B,SND_As,SND_Dns,RCV_Dns	:channel(dy))
+played_by Mu def=
+			local State	:nat,
+			NMu1,Alpha,Beta,NAs1	:text
+		
+const mobuser,bank,authser,nas1,mobuser_authser_nas1,bank_webinfo,auth_info,ts,rc_mobuser		:protocol_id
+init State :=0
+transition
+1.	State	 =0	/\ RCV_Mu(start)	=|>
+	State'  :=2     /\ NMu1'	:=new()
+			/\ Rc_mobuser'	:=({Mu_usr,Mu_pwd})
+			/\ D_req':=({Dns_ser})
+			/\ Bank_webinfo':=({Link})
+			/\ Auth_info':=({B_name,Place_branch,B_code})
+			/\ SND_Dns({Url.D_req'})
+			/\ secret(Bank_webinfo',bank_webinfo,{Mu,Dns})
+			
+4.	State	=2	/\ RCV_Mu(D_res'.Ip') =|>
+	State' :=3	/\ Mu_id'	:=({Mu_ph})
+			/\ SND_B({Link.Mu_id'})	
+			/\ NAs1'	:=new()
+			/\ SND_As({Mu_id'.Rc_mobuser'})
+			/\ As_info'	:=({As_name,As_id})
+			/\ secret(D_res',dns_res,{Dns,Mu})
+			/\ secret(Rc_mobuser',rc_mobuser,{Mu,As})
+			
+10.	State	=3	/\ RCV_Mu(NAs1'.As_info')	=|>
+	State' :=5	/\ Auth_info':=({B_name,Place_branch,B_code})
+			/\ Alpha'   	:=Hash(NAs1'.Auth_info')
+			/\ SND_As({Alpha'.Auth_info'}_inv(Ku))
+			/\ secret(NAs1,nas1,{Mu,As})
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Role of the DNS Server
+role dns	(Mu,Dns,B,As		:agent,
+		 Ku,Kas			:public_key,
+		 Mu_id,Mu_ph,Mu_usr,Mu_pwd,Url,Link,Rc_mobuser,B_name,Place_branch,B_code,Bank_webinfo: text,
+		 Auth_info,As_info,As_name,As_id,D_req,D_res,Dns_ser,Dns_serres,Ip,Ipfake  :text,
+		 Hash		:hash_func,
+		 RCV_Dns,SND_Mu		:channel(dy))
+played_by Mu def=
+			local State		:nat,
+			NMu1,Alpha,Beta,NAs1,Ts	:text
+			
+const mobuser,bank,authser,bank_authser_ts,bank_authser_auth_info,auth_info,ts,dns_res	:protocol_id
+init State :=0
+transition
+2.	State	 =0	/\ RCV_Dns(start)	=|>
+	State'  :=1     /\ Mu_id'	:=({Mu_ph})
+			/\ Bank_webinfo':=({Link})
+			/\ D_req':=({Dns_ser})
+			/\ D_res':=({Dns_serres})
+			/\ Ip':=({Ipfake})
+			/\ Auth_info':=({B_name,Place_branch,B_code})
+			/\ SND_Mu({D_res'.Ip'}) 
+			/\ secret(D_res',dns_res,{Dns,Mu})
+
+3.	State	=1	/\ RCV_Dns(Url.D_req') =|>
+	State' :=5	/\ secret(Url,url,{Mu,Dns})
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Role of the Bank
+role bank	(Mu,Dns,B,As		:agent,
+		 Ku,Kas			:public_key,
+		 Mu_id,Mu_ph,Mu_usr,Mu_pwd,Url,Link,Rc_mobuser,B_name,Place_branch,B_code,Bank_webinfo: text,
+		 Auth_info,As_info,As_name,As_id  :text,
+		 Hash		:hash_func,
+		 SND_B,RCV_B,SND_As		:channel(dy))
+played_by Mu def=
+			local State		:nat,
+			NMu1,Alpha,Beta,NAs1,Ts	:text
+			
+const mobuser,bank,authser,bank_authser_ts,bank_authser_auth_info,auth_info,ts		:protocol_id
+init State :=0
+transition
+5.	State	 =0	/\ RCV_B(start)	=|>
+	State'  :=2     /\ Mu_id'	:=({Mu_ph})
+			/\ Bank_webinfo':=({Link})
+			/\ Auth_info':=({B_name,Place_branch,B_code})
+			/\ SND_As({Bank_webinfo'.Auth_info'})
+			/\ secret(Auth_info',auth_info,{B,As})
+
+6.	State	=2	/\ RCV_B(Bank_webinfo'.Mu_id') =|>
+	State'	:=5	/\ Ts'		:=new()
+			/\ Auth_info':=({B_name,Place_branch,B_code})
+			/\ Beta':=Hash(Mu_id',Auth_info',Ts') 
+
+
+13.	State	=5	/\ RCV_B({Beta'.Auth_info'.Ts'}_inv(Kas)) =|>
+	State' :=7	/\ secret(Auth_info',auth_info,{B,As})
+			/\ secret(Ts',ts,{B,As})
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Role of the AuthenticationServer
+role authser	(Mu,Dns,B,As		:agent,
+		 Ku,Kas			:public_key,
+		 Mu_id,Mu_ph,Mu_usr,Mu_pwd,Url,Link,Rc_mobuser,B_name,Place_branch,B_code,Bank_webinfo :text,
+ 		 Auth_info,As_info,As_name,As_id :text,	 
+		 Hash	:hash_func,
+		 SND_B,RCV_As,SND_Mu		:channel(dy))
+played_by As def=
+			local State		:nat,
+			NMu1,Alpha,Beta,NAs1,Ts	:text
+			
+const mobuser,bank,authser,nas1,ts1,mobuser_authser_nas1,authser_bank_ts1,auth_info,ts	:protocol_id
+
+init State :=0
+transition
+7.	State	 =0	/\ RCV_As(start)	=|>
+	State'  :=2     /\ Bank_webinfo':=({Link})
+			/\ Auth_info':=({B_name,Place_branch,B_code})
+			/\ Mu_id'	:=({Mu_ph})
+			/\ Rc_mobuser'	:=({Mu_usr,Mu_pwd})
+			/\ RCV_As({Bank_webinfo'.Auth_info'})
+			/\ secret(Bank_webinfo',bank_webinfo,{B,As})
+
+8. 	State	 =2	/\ RCV_As(Mu_id'.Rc_mobuser') =|>
+	State'	:=3	/\ NAs1'	:=new()
+			/\ As_info'	:=({As_name,As_id})
+			/\ secret(Rc_mobuser',rc_mobuser,{Mu,As})
+
+9.	State	 =3	/\ SND_Mu(NAs1'.As_info')	=|>
+	State'  :=5	/\ Auth_info':=({B_name,Place_branch,B_code})
+			/\ Alpha'   	:=Hash(NAs1'.Auth_info')
+			/\ secret(NAs1',nas1,{Mu,As})
+			
+11.	State	 =5	/\ RCV_As({Alpha'.Auth_info'}_inv(Ku)) =|>
+	State'	:=7	/\ Ts'		:=new()
+			/\ Mu_id'	:=({Mu_ph})
+			/\ Beta':=Hash(Mu_id',Auth_info',Ts')
+			/\ secret(Auth_info',auth_info,{Mu,As})
+
+12.	State	 =7	/\ SND_B({Beta'.Auth_info'.Ts'}_inv(Kas)) =|>
+	State'	:=9	/\ secret(Auth_info',auth_info,{B,As})
+			/\ secret(Ts',ts,{B,As})
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Role of session
+role session	(Mu,Dns,B,As		:agent,
+		 Ku,Kas			:public_key,
+		 Mu_id,Mu_ph,Mu_usr,Mu_pwd,Url,Link,Rc_mobuser,B_name,Place_branch,B_code,Bank_webinfo :text,
+ 		 Auth_info,As_info,As_name,As_id,D_req,D_res,Dns_serres,Ip,Dns_ser,Ipfake :text,	 
+		 Hash		:hash_func)
+ def=
+local SND_B,RCV_Mu,RCV_B,SND_As,SND_Mu,SND_Dns,RCV_Dns,RCV_As: channel(dy)
+composition
+mobuser(Mu,Dns,B,As,Ku,Kas,Mu_id,Mu_ph,Mu_usr,Mu_pwd,Url,Link,Rc_mobuser,B_name,
+Place_branch,B_code,Bank_webinfo,Auth_info,As_info,As_name,As_id,D_req,D_res,Dns_ser,Dns_serres,
+Ip,Ipfake,Hash,SND_B,RCV_Mu,RCV_B,SND_As,SND_Dns,RCV_Dns)
+/\
+dns(Mu,Dns,B,As,Ku,Kas,Mu_id,Mu_ph,Mu_usr,Mu_pwd,Url,Link,Rc_mobuser,B_name,
+Place_branch,B_code,Bank_webinfo,Auth_info,As_info,As_name,As_id,D_req,D_res,Dns_ser,Dns_serres,
+Ip,Ipfake,Hash,RCV_Dns,SND_Mu)
+/\
+bank(Mu,Dns,B,As,Ku,Kas,Mu_id,Mu_ph,Mu_usr,Mu_pwd,Url,Link,Rc_mobuser,B_name,
+Place_branch,B_code,Bank_webinfo,Auth_info,As_info,As_name,As_id,Hash,SND_B,RCV_B,SND_As)
+/\
+authser(Mu,Dns,B,As,Ku,Kas,Mu_id,Mu_ph,Mu_usr,Mu_pwd,Url,Link,Rc_mobuser,B_name,
+Place_branch,B_code,Bank_webinfo,Auth_info,As_info,As_name,As_id,Hash,SND_B,RCV_As,SND_Mu)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Role of Environment
+role environment()
+def=
+const
+ mu,ddns,ubank,authserver	:agent,
+ ku,kas			:public_key,
+ mu_id,mu_ph,mu_usr,mum_pwd,url,link,rc_mobuser1,b_name,place_branch,b_code,bank_webinfo1,auth_info1,as_info,as_name,as_id,
+ d_req,d_res,dns_ser,dns_serres,ip,ipfake :text,
+ h1	: hash_func
+
+intruder_knowledge={mu,ddns,ubank,authserver,i}
+composition
+session(mu,ddns,ubank,authserver,ku,kas,mu_id,mu_ph,mu_usr,mum_pwd,url,link,rc_mobuser1,b_name,place_branch,
+b_code,bank_webinfo1,auth_info1,as_info,as_name,as_id,d_req,d_res,dns_ser,dns_serres,ip,ipfake,h1)
+/\session(mu,ubank,authserver,ku,kas,mu_id,mu_ph,mu_usr,mum_pwd,url,link,rc_mobuser1,b_name,place_branch,
+b_code,bank_webinfo1,auth_info1,as_info,as_name,as_id,h1)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%Goal	
+goal
+secrecy_of nas1
+authentication_on bank_authser_ts,bank_authser_auth_info
+weak_authentication_on auth_info
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+environment()
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+
+
+
+
+
+
+
+ 

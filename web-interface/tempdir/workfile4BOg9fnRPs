@@ -1,0 +1,187 @@
+%%%%%%% Role for user Ui %%%%%
+
+role user (Ui, RS, AS : agent,
+           SKuirs : symmetric_key,
+           % H is one-way hash function
+           H: hash_func,
+           SEND, RECV: channel(dy))
+% Player: the user Ui
+played_by Ui
+def=
+local State  : nat,
+      B, Au, PIDu, IDu, PWu : text,
+      USK, PSK, P, SIDs, Xu, Ru, Ruu : text,
+      AIDu, M1, M4, Xs, N1 : text,
+	  F: hash_func
+const ui_as_xu, 
+      s1, s2, s3: protocol_id
+init  State := 0
+transition
+% User registration phase
+1. State = 0 /\ RECV(start) =|>
+State' := 1 /\ B' := new() /\ Au' := H(PWu.B')
+            /\ PIDu' := H(IDu.B')
+            /\ secret({IDu,B',PWu}, s1, {Ui})
+% Send request message < PIDu, Au > to RS securely
+            /\ SEND({PIDu'.Au'}_SKuirs)
+% Receive smart card SC from RS securely
+2. State = 1 /\ RECV({H(H(IDu.B').H(PWu.B').USK).SIDs.
+                xor(H(PWu.B'),H(H(IDu.B').H(SIDs.PSK))).
+                H(SIDs.PSK).P.H}_SKuirs) =|>
+% Login phase
+State' := 2 /\ secret({USK,PSK}, s2, RS)
+            /\ Xu' := new() /\ Ru' := F(Xu'.P)
+            /\ Ruu' := F(Xu'.F(Xs'.P))
+            /\ AIDu' := xor(H(IDu.B'),Ruu')
+            /\ M1' := H(H(IDu.B').H(H(IDu.B').H(SIDs.PSK)).
+                      Ru'.Ruu')
+            /\ secret(Xs', s3, {RS, AS})
+% Send message < AIDu, M1, Ru > to AS publicly
+            /\ SEND(AIDu'.M1'.Ru')
+% Ui has freshly generated random value x_U for AS
+     /\ witness(Ui, AS, ui_as_xu, Xu')
+% Receive message < M2, M3 > from AS publicly
+3. State = 2 /\ RECV(xor(H(IDu.B'),N1').
+                H(H(F(Xu'.F(Xs'.P)).H(H(IDu.B').H(SIDs.PSK)).
+                SIDs.N1').H(IDu.B').N1'.H(H(IDu.B').H(SIDs.PSK)).
+                F(Xu'.P))) =|>
+% Send message < M4 > to AS publicly
+State' := 3 /\ M4' := H(H(F(Xu'.F(Xs'.P)).H(H(IDu.B').H(SIDs.PSK)).
+                      SIDs.N1').N1')
+            /\ SEND(M4')
+% Ui's acceptance of the value N1 generated for Ui by AS  
+            /\ request(AS, Ui, as_ui_n1, N1')
+end role
+
+
+
+%%%%%%% Role for registration server RS %%%%%
+
+role registrationserver (Ui, RS, AS : agent,
+           SKuirs : symmetric_key,
+           % H is one-way hash function
+           H: hash_func,
+           SEND, RECV: channel(dy))
+% Player: RS
+played_by RS
+def=
+local State  : nat,
+      IDu, B, PWu, USK, PSK, SIDs, P : text,
+      Bu, Cus, Dus, Xs : text, 
+      F : hash_func
+const as_rs_xs, s1, s2, s3: protocol_id
+init  State := 0
+transition
+% User registration phase
+% Receive request message < PIDu, Au > from Ui securely
+1. State = 0 /\ RECV({H(IDu.B').H(PWu.B')}_SKuirs) =|>
+State' := 2 /\ secret({IDu,B',PWu}, s1, {Ui})
+            /\ secret({USK,PSK}, s2, RS)
+            /\ Bu' := H(H(IDu.B').H(PWu.B').USK)
+            /\ Cus' := H(H(IDu.B').H(SIDs.PSK))
+            /\ Dus' := xor(H(PWu.B'),Cus')
+% Send smart card SC to Ui securely
+            /\ SEND({Bu'.SIDs.Dus'.H(SIDs.PSK).P.H}_SKuirs) 
+% Application server registration phase
+% Receive registration request  from AS publicly 
+2. State = 2 /\ RECV(SIDs.F(Xs'.P)) =|>
+State' := 4  /\ secret(Xs', s3, {RS, AS})
+% RS's acceptance of the value x_S generated for RS by AS  
+            /\ request(AS, RS, as_rs_xs, Xs')
+end role
+
+
+
+%%%%%%% Role for application server AS %%%%%
+
+role applicationserver (Ui, RS, AS : agent,
+           % H is one-way hash function
+           H: hash_func,
+           SEND, RECV: channel(dy))
+% Player: AS
+played_by AS
+def=
+local State  : nat,
+      IDu, B, PWu, USK, PSK, SIDs, P, Bu, Cus : text,
+      Dus, Xs, Rs, Xu, SK, M2, N1, M3 : text, 
+      F : hash_func
+const as_rs_xs, ui_as_xu, as_ui_n1,
+      s1, s2, s3: protocol_id
+init  State := 0
+transition
+% Application server registration phase
+1. State = 0 /\ RECV(start) =|>
+State' := 3 /\ Xs' := new() /\ Rs' := F(Xs'.P)
+% Send registration request  to RS publicly 
+            /\ SEND(SIDs.Rs')
+% AS has freshly generated random value x_S for RS
+            /\ witness(AS, RS, as_rs_xs, Xs')
+% Login phase
+% Receive message < AIDu, M1, Ru > from Ui publicly
+2. State = 3 /\ RECV(xor(H(IDu.B'),F(Xu'.F(Xs'.P))).
+                H(H(IDu.B').H(H(IDu.B').H(SIDs.PSK)).
+                F(Xu'.P).F(Xu'.F(Xs'.P))).F(Xu'.P)) =|>
+State' := 6 /\ secret({IDu,B',PWu}, s1, {Ui})
+            /\ secret({USK,PSK}, s2, RS)
+            /\ secret(Xs', s3, {RS, AS})
+% Mutual authentication with key agreement phase
+            /\ N1' := new()
+            /\ SK' := H(F(Xu'.F(Xs'.P)).H(H(IDu.B').H(SIDs.PSK)).
+                      SIDs.N1')
+            /\ M2' := xor(H(IDu.B'),N1')
+            /\ M3' := H(SK'.H(IDu.B').N1'.H(H(IDu.B').H(SIDs.PSK)).
+                      F(Xu'.P))
+% Send message < M2, M3 > to Ui publicly
+            /\ SEND(M2'.M3')
+% AS has freshly generated random value N1 for Ui
+            /\ witness(AS, Ui, as_ui_n1, N1')
+% Receive message < M4 > from Ui publicly
+3. State = 6 /\ RECV(H(H(F(Xu'.F(Xs'.P)).H(H(IDu.B').H(SIDs.PSK)).
+                     SIDs.N1').N1')) =|>
+% AS's acceptance of the value x_U generated for AS by Ui  
+State' :=  8 /\ request(Ui, AS, ui_as_xu, Xu')
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session (Ui, RS, AS : agent,
+            SKuirs : symmetric_key,
+            % H is one-way hash function
+            H: hash_func)
+def=
+  local  TX1, TX2, TX3, RX1, RX2, RX3 : channel (dy)
+composition
+   user (Ui, RS, AS, SKuirs, H, TX1, RX1)
+/\ registrationserver (Ui, RS, AS, SKuirs, H, TX2, RX2)
+/\ applicationserver (Ui, RS, AS, H, TX3, RX3)
+end role 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role environment()
+def=
+  const ui, rs, as: agent,
+        skuirs: symmetric_key,
+        h, f : hash_func,
+        sids, p, ru, aidu, m1, m2, m3, m4 : text,
+        as_rs_xs, ui_as_xu, as_ui_n1,
+        s1, s2, s3: protocol_id
+  intruder_knowledge = {ui, rs, as, h, f, sids, 
+                        p, ru, aidu, m1, m2, m3, m4}
+  composition
+	   session(ui, rs, as, skuirs, h) 
+	/\ session(i, rs, as, skuirs, h)
+        /\ session(ui, i, as, skuirs, h)
+        /\ session(ui, rs, i, skuirs, h)
+end role
+goal
+  secrecy_of s1
+  secrecy_of s2
+  secrecy_of s3
+  authentication_on as_rs_xs
+  authentication_on ui_as_xu
+  authentication_on as_ui_n1
+end goal
+environment()

@@ -1,0 +1,139 @@
+%% ALICE_SERVEUR:
+%% 1. A  - {Na.A}_Kb ----> B
+%% 2. A  B
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% rôle alice
+role alice (A,S : agent,
+			PKa,PKs : public_key,
+			Info,Login : text,
+			Hash : hash_func,
+			Snd,Rcv : channel (dy)) played_by A def=
+
+	local
+		State : nat,
+		Na,Ns : text,
+		K1 : message,
+		Validation,Refuse : text		
+
+init State :=0
+
+transition
+% 	Etablissement ligne
+	1.	State = 0 /\ Rcv(start) =|>
+		State':= 2 	/\ Na' := new()
+				/\ K1' := Hash(A.S.Login.Info.Na')
+				/\ Snd({{A.S.Login.Info.Na'.K1'}_inv(PKa)}_PKs) 
+				/\ secret(Info.Login,secretInfo,{A,S})
+				
+	
+%	inscription_Ok	
+	2.	State = 2 /\ Rcv({{A.S.Validation'.Ns'.K1'}_inv(PKs)}_PKa) =|> 
+			State' := 4	/\ request(A,S,alice_serveur_nas,Validation')
+
+%	inscription_Ko
+	3.	State = 2 /\ Rcv({{A.S.Refuse'.Ns'.K1'}_inv(PKs)}_PKa) =|> 
+			State' := 4	/\ request(A,S,alice_serveur_nas,Refuse')	
+			
+
+
+	
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% role serveur
+
+role serveur (	S,A : agent,
+			PKs,PKa : public_key,
+			Hash : hash_func,
+			KeyComm : (text) set,
+			Snd,Rcv : channel (dy)) played_by S def=
+
+	local
+		State : nat,
+		Na,Ns : text,
+		Info,Login : text,
+		K1 : message,
+		Validation,Refuse : text
+		
+init State := 1
+	
+transition	
+%	Reception du nonce et envoie de la reponse positive 
+	1. 	State = 1 /\ Rcv({{A.S.Login'.Info'.Na'.K1'}_inv(PKa)}_PKs) /\ not(in(Login',KeyComm)) =|>
+		State':= 3 	/\ Ns' := new()
+				/\ Validation':= new()
+				/\ K1' := Hash(A.S.Validation'.Ns')
+				/\ Snd({{A.S.Validation'.Ns'.K1'}_inv(PKs)}_PKa)
+				/\ witness(S,A,alice_serveur_nas,Validation')		
+
+%	Reception du nonce et envoie de la reponse negative 
+	3. 	State = 1 /\ Rcv({{A.S.Login'.Info'.Na'.K1'}_inv(PKa)}_PKs) /\ not(in(Login',KeyComm)) =|>
+		State':= 3 	/\ Ns' := new()
+				/\ Refuse' := new()
+				/\ K1' := Hash(A.S.Refuse'.Ns')
+				/\ Snd ({{A.S.Refuse'.Ns'.K1'}_inv(PKs)}_PKa)	
+				/\ witness(S,A,alice_serveur_nas,Refuse')
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% définition du rôle caractérisant une session
+role session (	A,S: agent,
+				PKa, PKs : public_key,
+				Info,Login : text,
+				Hash : hash_func,
+				KeyMapS : (text) set)
+	def=
+
+	local SA, RA, SS, RS: channel (dy)
+
+	composition
+		alice(A,S,PKa,PKs,Info,Login,Hash,SA,RA)
+		/\ serveur(S,A,PKs,PKa,Hash,KeyMapS,SS,RS)
+	
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% définition du rôle caractérisant le scenario à exécuter
+role environment() def=
+
+	local KeyMapS,KeyMapI : (text) set
+
+	const
+		a, s : agent,
+		pka, pks, pki : public_key,
+		h : hash_func,
+		infoAS,infoAI,infoIS : text,
+		loginAS,loginAI,loginIS : text,
+		serveur_alice_nsa : protocol_id,
+		alice_serveur_nas : protocol_id,
+		secretInfo : protocol_id
+		
+	init KeyMapS := {}
+		/\ KeyMapI := {}
+
+		intruder_knowledge = {a,s,h,pka,pks,pki,inv(pki)}
+
+		composition
+			session(a,s,pka,pks,infoAS,loginAS,h,KeyMapS)
+			%/\ session(a,s,pka,pks,infoAS,loginAS,h,KeyMapS)
+			/\ session(a,i,pka,pki,infoAI,loginAI,h,KeyMapI)
+			/\ session(i,s,pki,pks,infoIS,loginIS,h,KeyMapS)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% section goal
+goal
+
+	authentication_on alice_serveur_nas
+	authentication_on serveur_alice_nsa
+	secrecy_of secretInfo
+
+end goal
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% lancement du rôle principal
+environment()

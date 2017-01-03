@@ -1,0 +1,113 @@
+role user (
+A, B : agent,
+H : hash func,
+ID : text,
+SND,RCV : channel(dy)
+)
+% Role played by User
+played by A
+def=
+local State : nat,
+PW, B1, Y1, T, TS : text,
+RPW, M1, M2, M3 : text
+M4, M5, M6, M7, M8 : text
+const sec pw, sec b1 : protocol id
+m4, m7, m8, t, ts : protocol id
+init State := 0
+transition
+1. State = 0 ? RCV(start) =|>
+State’ := 2 ? PW’ := new()
+^ B1’ := new()
+^ RPW’ := H(B1’.PW’)
+^ SND(ID.RPW’)
+^ secret(PW’,sec pw,A)
+^ secret(B1’,sec b1,A)
+2. State = 2 ? RCV(M2’.M3’.M4’.H) =|>
+State’ := 4 ? M1’:= xor(M2’,H(xor(ID,RPW)))
+^ Y1’ := xor(M3’,H(xor(M1’,RPW)))
+^ M4’ := H(ID.RPW.Y1’.M1’)
+^ request(A,B,m4,M4’)
+^ T’ := new()
+^ M6’:= xor(Y1’,xor(H(xor(ID,M1’)),
+H(xor(ID,xor(M1’,T’)))))
+^ M7’ := H(ID.M1’.Y1’.xor(M1’,Y1’).T’)
+^ witness(A,B,t,T’)
+^ witness(A,B,m7,M7’)
+^ SND(ID.M6’.M7’.T’)
+3. State = 4 ? RCV(M8’.TS’) =|>
+State’ := 6 ? request(A,B,ts,TS’)
+^ M8’ := H(ID.Y1.xor(M1,Y1).TS’)
+^ request(A,B,m8,M8’)
+end role
+role server(
+B, A : agent,
+X, Y : symmetric key,
+H : hash func,
+ID : text,
+SND,RCV : channel(dy)
+)
+% Role played by Server
+played by B
+def=
+local State : nat,
+Y1, T, TS : text,
+RPW, M1, M2, M3 : text
+M4, M5, M6, M7, M8 : text
+const m4, m7, m8, t, ts : protocol id
+init State := 1
+transition
+1. State = 1 ? RCV(ID.RPW’) =|>
+State’ := 3 ? Y1’ := new()
+^ M1’ := H((xor(ID,X)).Y)
+^ M2’:= xor(M1’,H(xor(ID,RPW’)))
+^ M3’ := xor(Y1’,H(xor(M1’,RPW’)))
+^ M4’ := H(ID.RPW’.Y1’.M1’)
+^ witness(B,A,m4,M4’)
+^ SND(M2’.M3’.M4’.H)
+2. State = 3 ? RCV(ID.M6’.M7’.T’) =|>
+State’ := 5 ? request(B,A,t,T’)
+^ M1’ := H((xor(ID,X)).Y)
+^ Y1’:= xor(M6’,xor(H(xor(ID,M1’)),
+H(xor(ID,xor(M1’,T’)))))
+^ M7’ := H(ID.M1’.Y1’.xor(M1’,Y1’).T’)
+^ request(B,A,m7,M7’)
+^ TS’ := new()
+^ M8’ := H(ID.Y1’.xor(M1’,Y1’).TS’)
+^ witness(B,A,ts,TS’)
+^ witness(B,A,M8,M8’)
+end role
+role session(
+A, B : agent,
+X, Y : symmetric key,
+H : hash func,
+ID : text
+)
+def=
+local SA, RA, SB, RB : channel(dy)
+composition
+user(A,B,H,ID,SA,RA)
+^ server(B,A,X,Y,H,ID,SB,RB)
+end role
+role environment()
+def=
+const a,b,i : agent,
+x, y, xi, yi : symmetric key,
+h : hash func,
+id, idi : text,
+sec pw, sec b1, m4, m7, m8, t, ts : protocol id
+intruder knowledge = a,b,h,idi,xi,yi
+composition
+session(a,b,x,y,h,id)
+^ session(a,b,x,y,h,id)
+^ session(a,i,xi,yi,h,idi)
+^ session(i,b,xi,yi,h,idi)
+end role
+goal
+secrecy of sec pw, sec b1
+authentication on m4
+authentication on m7
+authentication on m8
+authentication on t
+authentication on ts
+end goal
+environment()

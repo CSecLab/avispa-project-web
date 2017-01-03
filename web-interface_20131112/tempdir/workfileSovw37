@@ -1,0 +1,124 @@
+%%HLPSL:
+role originalsigner(A, B, V: agent,
+	    H:hash_func,
+	    F:hash_func,
+	    Snd, Rcv: channel (dy))
+played_by A
+def=
+
+  local  State : nat, 
+         R,P,X0,Mw,Q:text
+
+   const alice_bob_na,bob_alice_nb,bob_verifier_nc,verifier_bob_nd,subs1,subs2:protocol_id
+
+  init   State := 0
+
+  transition 
+
+  1. State = 0   /\ Rcv(start) 
+     =|>
+     State' := 1 /\ R':=new()
+	        /\ secret({R',X0},subs1,A)
+	        /\ Snd({Mw.F(R'.P).F(R'.X0.H(Mw.F(R'.P)))}.Q)
+	        /\ witness(A,B,bob_alice_nb,R')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role proxysigner(A,B,V : agent,
+	     F: hash_func,
+	     H: hash_func,
+	    Snd, Rcv: channel (dy))
+played_by B
+def=
+
+  local State : nat,
+   R,P,X0,Mw,Q,X2,M,R1,Y0,Y1:text
+
+  
+  const alice_bob_na,bob_alice_nb,bob_verifier_nc,verifier_bob_nd,subs1,subs2:protocol_id
+
+  init  State := 0
+
+  transition 
+   1. State = 2   /\ Rcv({Mw.F(R'.P).F(R'.X0.H(Mw.F(R'.P)))}.Q) 
+     =|>
+       State' := 3 /\ M' := new() /\ R1':=new() 
+                  /\ secret({R',X0},subs1,A)
+                  /\ secret({X2,R1'},subs2,B)
+	    /\ Snd({F(R'.H(Mw.F(R'.P).X0.X2)).H(M.Mw).F(R1'.H(R'.P).H(Mw.F(R'.P).Y0.Y1))}.Q)
+	    /\ witness(B,V,verifier_bob_nd,x2')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+
+role verifier(A,B,V : agent,
+	    H: hash_func,
+	    F:hash_func,
+	    Snd,Rcv : channel(dy))
+played_by V
+def=
+local State : nat,
+  R,P,X0,Mw,Q,X2,M,R1,Y0,Y1:text
+
+ const alice_bob_na,bob_alice_nb,bob_verifier_nc,verifier_bob_nd,subs1,subs2:protocol_id
+
+
+init  State := 0
+
+transition
+1. State = 4   /\ Rcv({F(R'.H(Mw.F(R'.P).X0.X2)).H(M.Mw).F(R1'.H(R'.P).H(Mw.F(R'.P).Y0.Y1))}.Q)
+      =|>
+      State' := 5 /\ secret({R',X0},subs1,A)
+                  /\ secret({X1,R1'},subs2,B)
+	    
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(A, B, V: agent,
+             H, F: hash_func)
+def=
+
+  local 
+  SA,RA,SB,RB,SV,RV:channel(dy)
+
+  composition
+       originalsigner(A,B,V,H,F,SA,RA)
+      /\ proxysigner(A,B,V,H,F,SB,RB)
+      /\ verifier(A,B,V,H,F,SV,RV)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role environment()
+def=
+
+  const alice_bob_na,bob_alice_nb,bob_verifier_nc,verifier_bob_nd,subs1,subs2:protocol_id,
+  a,b,v : agent,
+  h,f: hash_func 
+
+ intruder_knowledge = {a,b,v,h,f}
+
+ composition
+      session(a,b,v,h,f)
+   /\ session(a,i,v,h,f)
+   /\ session(a,b,i,h,f)
+   
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+
+  secrecy_of subs1,subs2
+  authentication_on bob_alice_nb
+  authentication_on verifier_bob_nd
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

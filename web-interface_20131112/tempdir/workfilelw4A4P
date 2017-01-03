@@ -1,0 +1,258 @@
+role user( U,SC,N,S	 : agent,
+	K,Ea,X	 : symmetric_key,
+	Hash	 :hash_func,
+	SND,RCV : channel(dy))
+
+played_by U 
+def=
+
+local
+State 			:nat,
+Ni,Ai,Bi,Ei,Fi,Idi,Pi,Da	 : text
+
+
+const  e_m,g_m,h_m,a_m,b_m,d_d	:protocol_id
+init             State := 0
+
+transition
+1.State = 0 /\RCV(start) =|>
+   State' := 2/\Idi' := new()/\ Ni' :=new()
+	    /\Pi' := new()
+	    /\Ei' := Hash(Idi'.Ni')
+	    /\Fi' := Hash(xor(Idi',Pi'))
+	    /\SND(U.{Ei'.Fi'}_Ea.S)
+	    /\secret(Ei',g_m,{U,S})
+	    /\secret(Fi',h_m,{U,S})
+	    /\witness(U,S,seq1,Ei'.Fi')
+
+2.State = 2 /\ RCV({Da'}_K) =|>
+   State' := 4 /\Idi' := new()
+	    /\Pi' := new()
+	    /\SND({Idi'.Pi'}_Ea)
+	    /\secret(Idi',e_m,{U,SC})
+	    /\secret(Pi',a_m,{U,SC})
+	    /\request(SC,U,req1,Da')
+	    /\witness(U,SC,seq2,Idi'.Pi')
+	    					
+end role
+
+role smartcard(U,SC,N,S	 : agent,
+	        K,Ea,X	 : symmetric_key,
+	        Hash	 	:hash_func,
+	        SND,RCV : channel(dy))
+
+played_by SC 
+def=
+
+local
+State 			                                           :nat,
+Gi,Hi,Ai,Bi,N1,Ei,Fi,Yi,Idi,Pi,Hx,Vi,Wi      			       : text,
+Ci,Cidi,Ki,Ni,N2,N2N3,Vis,Sk,Da			       : text
+
+const  d_1,p_3,y_y,z_3	:protocol_id
+init             State := 6
+
+transition
+1.State = 6  /\ RCV({Gi'.Hi'}_K) =|>
+   State' := 8 /\Ni' := new() /\ Idi' := new() /\ Pi' := new()
+	    /\ Ai' := xor(Ni,Hash(Idi'.Pi')) /\Da' := new()
+	    /\ Bi' := xor(Hash(Idi'.Pi'),Pi')
+	    /\SND({Da'}_K)
+	    /\secret(Da',d_1,{SC,U})
+	    /\witness(U,SC,seq3,Da')
+	    /\request(S,SC,req2,Idi'.Pi')					
+
+1.State = 8  /\ RCV({Idi'.Pi'}_Ea) =|>
+   State' := 10 /\Bi' := xor(Hash(Idi'.Pi'),Pi')
+	    /\N2' := new() /\ N1' := new()
+	    /\Ai' := xor(Ni,Hash(Idi'.Pi'))
+	    /\Ni' := xor(Ai',Hash(Idi'.Pi'))
+	    /\Ei' := Hash(Idi.Ni)
+	    /\Fi' := Hash(xor(Idi',Pi')) 
+	    /\Gi' := xor(Ei'.Yi')
+	    /\Hi' := xor(Fi',xor(Hash(Yi'),Hash(X)))
+                      /\Yi' := xor(Gi',Ei')
+	    /\Hx' :=xor(Hi',xor(Fi',Yi'))
+	    /\Ci' := xor(exp(Hash(X),2),N1')
+	    /\Cidi' :=xor(Ei',xor(Hash(Yi'),xor(Hx',N1')))
+	    /\Ki' :=Hash(Hash(X).Yi'.N1')
+	    /\SND({Ci'.Cidi'.Ki'}_K)
+	    /\secret(Ci',y_y,{SC,N})
+	    /\secret(Cidi',z_3,{SC,N})
+	    /\secret(Ki',p_3,{SC,N})
+	    /\witness(SC,N,seq4,Ci'.Cidi'.Ki')
+	    /\request(U,SC,req3,Idi'.Pi')
+
+1.State = 10  /\ RCV({Vi'.Wi'}_K) =|>
+   State' := 12 /\Idi' := new() /\ N1' := new()
+	   /\ Ni' := new() /\ Yi' := new()
+	    /\Ei' := Hash(Idi'.Ni')
+	    /\Cidi' :=xor(Ei',xor(Hash(Yi'),xor(Hash(X),N1')))
+	    /\N2N3' := xor(Wi',Hash(Hash(Yi').Idi'.Hash(X).N1'))
+	    /\Vis' := Hash(Hash(xor(N1',N2N3')).Hash(Idi'.Yi'.N1'))
+	    /\Sk' := Hash(Hash(Idi'.Yi'.N1'.xor(N1',xor(N2N3'))))
+
+end role
+
+
+role node(U,SC,N,S	 : agent,
+	K,Ea,X	 : symmetric_key,
+	Hash	 :hash_func,
+	SND,RCV : channel(dy))
+
+played_by N 
+def=
+
+local
+State 			      	 :nat,
+N1,N2,N1N3         			: text,
+P1,P2,Ti,P3,P4,Da,Ai,P44,Sks,Vis,Qi     	 : text,
+Ci,Cidi,Ki,Di,Mi,Ri,Wi,Vi     		 : text
+
+const  z_y,p_m,z_1,p_2,z_2,p_1	:protocol_id
+init             State := 7
+
+transition
+1.State = 7 /\RCV({Ci'.Cidi'.Ki'}_K) =|>
+   State' := 9 /\N2' := new() 
+	    /\Sks' := new()
+	    /\ Di' := xor(N2',Sks')
+	    /\ SND({Ci'.Cidi'.Ki'.Di'}_K)
+	     /\secret(Cidi',z_y,{U,S})
+	    /\secret(Ci',p_m,{N,S})
+	     /\secret(Di',z_1,{N,S})
+	    /\secret(Ki',p_1,{N,S})
+	    /\witness(SC,S,seq5,Ci'.Cidi'.Ki'.Di')
+	    /\request(SC,N,req4,Ci'.Cidi'.Ki')
+
+1.State = 9 /\RCV({Mi'.Ri'.Vi'.Wi'}_K) =|>
+   State' := 11 /\N2' := new() /\Sks' := new()
+	    /\N1N3' :=xor(Mi',Hash(xor(Sks',N2'))) 
+	    /\Qi' :=xor(Ri',Hash(xor(N2',N1N3')))
+ 	    /\Vis' := Hash(Hash(xor(N2',N1N3').Qi'))
+	    /\ SND({Vi'.Wi'}_K)
+	    /\secret(Vi',z_2,{U,S})
+	    /\secret(Wi',p_2,{U,S})
+	    /\witness(SC,N,seq6,Vi'.Wi')
+	    /\request(S,N,req5,Mi'.Ri'.Vi'.Wi')
+	    
+
+
+
+end role
+
+
+
+role server(U,SC,N,S 	: agent,
+	  K,Ea,X		: symmetric_key,
+	  Hash 		:hash_func,
+	  SND,RCV	: channel(dy))
+played_by S 
+def=
+
+local
+State 			                         :nat,
+Ei,Fi,Gi,Hi,Ji,Yi,Ci,Cidi,Ki,Zi,Jis,Di,Mi	       	        : text,
+N1,N2,N3,Vi,Ri,Wi,Sks,Sids,Kis	        : text
+
+const f_n,t_n,t_1,t_2,t_3,t_4	 : protocol_id
+init 	State := 1
+
+transition
+1.State = 1 /\RCV(U.{Ei'.Fi'}_Ea.S) =|>
+  State' := 3 /\Yi' := new()
+	   /\Gi' := xor(Ei'.Yi')
+	   /\Hi' := xor(Fi',xor(Hash(Yi'),Hash(X)))
+	   /\Ji' := xor(Ei',xor(Hash(Yi'),X)) 
+                     /\SND({Gi'.Hi'}_K)		
+	   /\secret(Gi',f_n,{S,SC}) 
+	   /\secret(Hi',t_n,{S,SC})
+	   /\witness(S,SC,seq7,Gi'.Hi')
+	   /\request(S,U,req6,Ei'.Fi')			
+	 
+2.State = 3 /\ RCV({Ci'.Cidi'.Ki'.Di'}_K) =|>
+  State' := 5 /\Sks' := new() /\Sids' := new() 
+	    /\Ei' := new()
+	   /\N1' :=xor(Ci',exp(Hash(X),2))
+  	   /\N2' :=xor(Di',Sks') /\ Yi' := new()
+	   /\Jis' := xor(Ei',xor(Hash(Yi'),X))
+                    /\Kis' := Hash(Hash(X).Yi'.Sids'.N1')
+	  /\N3' := new()
+	  /\Mi' :=xor(N1',xor(N3',Hash(Sks'.N2')))
+	  /\Vi' :=Hash(Hash(xor(N1',xor(N2',N3')).Hash(Cidi'.Yi'.N1')))
+	  /\Ri' :=Hash(xor(Cidi',xor(Yi',N1')).Hash(xor(N1',xor(N2',N3'))))
+	  /\Wi' :=xor(N2',xor(N3',Hash(Yi'.Cidi'.Hash(X).N1')))
+	  /\SND({Mi'.Ri'.Vi'.Wi'}_K)
+	   /\secret(Mi',t_1,{S,N})
+	   /\secret(Ri',t_2,{S,N})
+	   /\secret(Wi',t_3,{S,N})
+	   /\secret(Vi',t_4,{S,N})
+	   /\witness(S,N,seq8,Mi'.Ri'.Vi'.Wi')
+	   /\request(N,S,req7,Ci'.Cidi'.Ki'.Di')
+	 
+
+end role
+
+role session(U,SC,N,S 	: agent,
+	     K,K4,P		: symmetric_key,
+	     Hash 		:hash_func)
+
+def=
+local SA,SB,RA,RB,SC,SD,RC,RD :channel(dy)
+
+composition
+user(U,SC,N,S,K,K4,P,Hash,SA,RA) /\ smartcard(U,SC,N,S,K,K4,P,Hash,SB,RB)
+/\node(U,SC,N,S,K,K4,P,Hash,SC,RC) /\ server(U,SC,N,S,K,K4,P,Hash,SD,RD)
+
+
+end role
+
+
+role environment()	def=
+
+const 	k1,e_m,g_m,h_m,a_m,b_m,d_d,d_1,p_3,y_y,z_3		:protocol_id,
+	z_y,p_m,z_1,p_2,z_2,p_1,f_n,t_n,t_1,t_2,t_3,t_4 	                  :protocol_id,
+	seq1,seq2,seq3,seq4,seq5,seq6,seq7,seq8		:protocol_id,
+	req1,req2,req3,req4	,req5,req6,req7			:protocol_id,
+	kab,kai,kib,kba,k12,k13,k14,kia,kbi			:symmetric_key,
+	k15,k16,k17,k18,k19,k20,k21,k22 			: symmetric_key,
+	u,sc,n,s 						: agent,
+	h 						: hash_func
+
+intruder_knowledge	= {u,sc,n,s,kai,kia,kbi,kib}
+
+composition
+ session(u,sc,n,s,kab,k12,k13,h)
+
+
+end role
+
+goal
+
+secrecy_of  k1,e_m,g_m,h_m,a_m,b_m,d_d,d_1,p_3,y_y,z_3	,z_y,p_m,z_1,p_2,z_2,p_1,f_n,t_n,t_1,t_2,t_3,t_4 
+
+authentication_on seq1
+authentication_on seq2
+authentication_on seq3
+authentication_on seq4
+authentication_on seq5
+authentication_on seq6
+authentication_on seq7
+authentication_on seq8
+
+authentication_on req1
+authentication_on req2
+authentication_on req3
+authentication_on req4
+authentication_on req5
+authentication_on req6
+authentication_on req7
+
+end goal
+
+environment()
+
+
+
+
+         

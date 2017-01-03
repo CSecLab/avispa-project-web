@@ -1,0 +1,228 @@
+
+role mobile(Mo,Ser,Clet :agent,
+            Hash           :hash_func,
+             Gm             :message,
+             Lsc, Lss,Lsm : text,
+            Snd_ms,Rcv_ms, 
+            Snd_mc,Rcv_mc  :channel(dy) )
+
+played_by Mo def= 
+ 
+ local State:  nat, 
+       Ns:            text,
+       Nm:             text,
+       Egm,K,Mcx,X,Mmx ,Mcc  :     message ,
+       H,SID  :                        message ,
+       Keys,Keym,Keyc    : message,  %should be: symmetric_key
+       Secre:       text ,
+       Msg,Xm,Me1,Me2,Me3:  message
+
+const  
+     k,xk,xkeys,xkeyc,xkeym   :    protocol_id 
+
+init State :=1
+
+transition 
+
+1.  State =1  /\ Rcv_ms(start)  =|>
+     State' := 3 /\ Nm' := new() /\ Snd_ms ( Nm' )
+
+2. State =3  /\ Rcv_ms(Ns')  =|>
+   State' := 5 /\  Msg' := new()  /\  Snd_mc ( Msg' ) 
+
+3. State = 7 /\ Rcv_mc( Mcc' )    =|>
+     State' :=9
+              /\ Xm' := new() 
+             /\ Egm' := exp( Gm. Xm' )
+              /\ Snd_mc ( Egm'  )
+%35
+4.  State = 12  /\  Rcv_ms   (Egm , Mmx' , { H' } _inv ( Mmx' ) , K' )
+            /\ H' = Hash (Nm.Ns.Egm .Mmx'.K')
+            /\ Me1 = Egm 
+           /\ Me2' =Mmx'       =|>
+
+  State' := 14 /\ SID' :=H'
+              /\ Keym' := Hash (K'.H'.Lsm.SID')
+              /\ Keys' := Hash (K'.H'.Lss.SID')
+              /\ secret (K',xk,{Mo,Ser})
+              /\ secret (Keym,xkeym,{Mo,Ser})
+              /\ secret (Keys,xkeys,{Mo,Ser})
+              /\Snd_ms ({Secre}_Keys')
+              /\request (Mo,Ser,k,K')
+
+end role
+%--------------------------------------56
+role server(Mo,Ser,Clet :agent,
+           
+             Hash          :hash_func,
+             Gm             :message,
+             Lsc,Lss,Lsm  : text,
+            Snd_cs,Rcv_cs, 
+            Snd_ms,Rcv_ms  :channel(dy)   )
+
+played_by Ser def= 
+ 
+ local State:  nat, 
+       Ns,Nss,Nm,Nc:            text,
+       Egm,K,SID,Mcx,Mcc,H,Mmx :    message ,
+       Keys,Keym,Keyc:    message,
+       Secre:             text ,
+       Msg,Kx1,P :    message
+      
+
+const   k,xk,xkeys,xkeyc ,xkeym      :  protocol_id 
+
+init State :=2
+
+transition 
+
+1. State =3  /\  Rcv_ms (Nm')   =|> 
+   State' := 4 /\ Ns' := new() /\ Snd_ms(Ns')
+
+
+2. State =5 /\ Rcv_cs (Nc')  =|>
+   State' := 7 /\  Nss' := new()  /\  Snd_cs(Nss')
+
+3. State =9   /\ Rcv_cs ( Egm'. Mcx' . { H' } _inv (Mcx') .K' ) 
+             /\ H' =Hash (Nc.Nss.Egm'.Mcx'.K')   =|>
+            
+    State' := 11
+               /\ SID' :=H'    %/\  Kx2' := new() 
+               /\ Keys' :=Hash(K'.H'.Lsc.SID')
+               /\ Keyc' :=Hash (K'.H'.Lss.SID')            
+               /\ secret(K',xk,{Ser,Clet})
+               /\ secret(Keyc',xkeyc,{Ser,Clet})
+               /\ secret(Keys',xkeys,{Ser,Clet} ) 
+               /\ Snd_cs({Secre}_Keyc')
+               /\request(Ser,Clet,k,K')
+%100
+% authentication  server-cloudlet
+%authenticatyion  server - mobile
+
+4. State = 11 /\ Rcv_cs(P)   =|>
+      State' :=13
+             /\  Mmx'  := exp(exp(Mcc',Egm').K')
+              /\  H' := Hash(Nm.Ns.Egm'.Mmx'.K')
+               /\  SID' :=H'
+               /\ Keym' := Hash (K'.H'.Lsm.SID')
+                /\ Keys'   := Hash (K'.H'.Lss.SID') 
+               /\ Snd_ms(Egm'.Mmx'.{ H' } _inv( Mmx' ) .K')
+               /\  witness(Mo,Ser,k,K')   
+             
+5. State= 13  /\ Rcv_ms({Secre'}_ Keys) =|>
+    State':=15
+
+end role
+%---118-----------------------------------
+role cloudlet(Mo,Ser,Clet :agent,
+            
+            Hash           :hash_func,
+            Gm             :message,
+          Lsc,Lss,Lsm  : text ,
+            Snd_cs,Rcv_cs ,
+            Snd_mc,Rcv_mc  :channel(dy))
+
+played_by Clet
+  def= 
+ 
+ local    State :  nat, 
+       Nss:               text,
+       Nc : text,
+       Egm,K,H,Mcx,SID,Mcc  :    message,
+       Keys,Keym,Keyc,Xkeym    : message,
+       Secre:              text,
+        Msg,Ky1    :  message
+
+const   k,xk,xkeys,xkeyc ,xkeym  :  protocol_id  
+%137
+
+init State :=4
+
+transition 
+%------statr
+1. State =4  /\ Rcv_cs(Nc)  =|>
+   State':=6 /\ Nc':=new() /\ Snd_cs(Nc')
+
+2. State =6 /\ Rcv_cs(Nss')  =|>  % /\  Rcv_mc(Msg')   
+   State':=8 /\ Mcc':=new() /\ Snd_mc(Mcc')
+
+3. State = 8 /\ Rcv_mc(Egm')   =|> 
+    State':=10 /\
+                Ky1':=new()
+               /\ Mcx':=exp(Egm',Ky1')
+               /\ K':=exp(exp(Mcc',Egm'),inv(Egm'))
+               /\ H':=Hash(Nc.Nss.Egm'.Mcx'.K')
+               /\ SID':=H'
+               /\ Keyc':= Hash ( K'.H'.Lsc.SID' )
+               /\ Keys':=Hash ( K'.H'.Lss.SID' )
+ 
+               /\ Snd_cs(Egm'.Mcx'.{H'} _inv(Mcx').K')
+               /\ witness(Ser,Clet,k,K')
+
+4. State=10 /\ Rcv_cs({Secre'}_ Keyc) =|>
+     State':=12
+%  /\ Snd_cs(P)
+
+ 
+end role
+%-------------------------------------
+
+
+role session (Mo,Ser,Clet : agent,
+            
+            Hash           :hash_func,
+             Gm             :message,
+             Lsc,Lss,Lsm : text,
+           
+            Snd_ms,Rcv_ms, 
+            Snd_mc,Rcv_mc  ,Snd_cs,Rcv_cs :channel(dy)  )
+
+
+
+def= 
+ 
+composition
+
+     mobile(Mo,Ser,Clet,Hash,Gm,Lsc,Lss,Lsm,Snd_ms,Rcv_ms,Snd_mc,Rcv_mc )
+  /\ server(Mo,Ser,Clet,Hash,Gm,Lsc,Lss,Lsm,Snd_cs,Rcv_cs,Snd_ms,Rcv_ms)
+  /\ cloudlet(Mo,Ser,Clet,Hash,Gm,Lsc,Lss,Lsm,Snd_cs,Rcv_cs,Snd_mc,Rcv_mc )
+ 
+end role
+
+role environment()
+def=
+local 
+ 
+            Snd_ms,Rcv_ms, 
+            Snd_mc,Rcv_mc  ,Snd_cs,Rcv_cs ,
+             Snd_mi,Rcv_mi,   Snd_is,Rcv_is ,  Snd_ic,Rcv_ic  ,Snd_ci,Rcv_ci 
+
+                                 :channel(dy)
+
+
+const  
+        m,s,c : agent,
+        hash_  :hash_func,
+        gm     : message,
+        lsc,lss,lsm  : text
+        
+
+
+intruder_knowledge ={m,s,c,hash_,gm,lsc,lss,lsm}
+
+composition 
+session (m,s,c,hash_,gm,lsc,lss,lsm,Snd_ms,Rcv_ms, Snd_mc,Rcv_mc,Snd_cs,Rcv_cs)
+/\ session (i,s,c,hash_,gm,lsc,lss,lsm ,Snd_is,Rcv_is,Snd_ic,Rcv_ic,Snd_cs,Rcv_cs )
+/\ session (m,s,i,hash_,gm,lsc,lss,lsm, Snd_ms,Rcv_ms,Snd_mi,Rcv_mi,Snd_is,Rcv_is)
+
+end role
+
+goal 
+
+secrecy_of xk,xkeyc,xkeys,xkeym 
+authentication_on  k
+
+end goal
+
+environment()
+ 

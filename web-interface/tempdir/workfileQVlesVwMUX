@@ -1,0 +1,172 @@
+role user (
+
+U,S		: agent,
+H		: function,
+P,PK		: public_key,
+SND, RCV	: channel (dy))
+
+played_by U
+def=
+	local
+		State   					: nat,
+		R,R1,R2,R3,R4					: text,
+		C1,C2,C3,C4,C5,C6,C7,C8,Smartcard,Pub,SK	: text,
+		Auth,C9,Authinfo				: text,
+		Realm,IDi,PWi					: message
+
+
+	init
+		State  := 0
+		
+
+	transition
+
+	1. State   = 0 / RCV (start) =|>
+	    State' := 2 / R' := new() 
+		      / C1' := H(xor(PWi,R'))
+		      /  SND (IDi.C1')
+		     
+	2. State   = 2 / RCV (C3') =|>
+	    State' := 4 /  Smartcard' := (R'.C3')
+		    
+		%Authentication Phase%
+
+		     / C2' := xor(C3',h(xor(PWi,R')))
+		     / R1' := new()	
+		     / C4' := (R1'.P)
+		     / C5' := (R1'.C2'.Pub')
+		     / R2' := new()
+		     / C6' := xor(xor(h(C5'),(h(xor(IDi,inv(PK))))),R2'.C5')
+		     / SND (IDi.C4'.C6')
+		     / secret (R1',sec_r1,{U,S})
+		     / secret (inv(PK),sec_pk,{U,S})
+		     / witness (U,S,user_server,R1')
+		     / witness (U,S,user_server2,R2')
+		    
+	3. State   = 4 / RCV (Realm.(R3'.P).h(h(xor(IDi,inv(PK))).R2'.SK'.C5').R4')  =|>
+	    State' := 6 / C9' := (R1'.C7') 
+		      / SK' := h(C4'.C9'.C7')
+		      / Authinfo' := h(SK'.R4')
+		      / SND (Realm.Authinfo')
+                      / secret (Authinfo',sec_authinfo,{U,S})
+	              / secret (SK',sec_sk,{U,S})
+		      / request(S,U,server_user,Auth')
+		      
+end role
+
+
+role server (
+
+U,S		: agent,
+H		: function,
+P,PK		: public_key,
+SND, RCV	: channel (dy))
+
+played_by S
+def=
+	local
+		State   						: nat,
+		R,R1,R2,R3,R4					: text,
+		C1,C2,C3,C4,C5,C6,C7,C8,Smartcard,Pub,SK	: text,
+		Auth,C9,Authinfo				: text,
+		Realm,IDi,PWi					: message
+	init
+		State   := 1
+
+	transition
+
+	1. State   = 1 / RCV (IDi.H(xor(PWi,R'))) =|>
+	    State' := 3 / Pub' := (inv(PK).P)
+		      / C2' := H(xor(IDi,inv(PK)))
+		      / C3' := (xor(C1',C2'))
+		      / Smartcard' := C3'
+		      / SND (Smartcard')
+		     
+		%Authentication phase%
+
+	2. State   = 3 / RCV (IDi.(R1'.P).xor(xor(h(C5'),(h(xor(IDi,inv(PK))))),R2'.C5')) =|>
+	    State' := 5 /  C2' := h(xor(IDi,inv(PK)))
+		      /  R2' := xor((xor(C2',C2')),R2')
+		      /  R3' := new()
+		      /  R4' := new()
+		      /  C7' := (R3'.P)
+		      /  C8' := (R3'.C4')
+		      /  SK' := h(C4'.C8'.C7')
+		      / Auth' := h(h(xor(IDi,inv(PK))).R2'.SK'.C5')
+		      / SND (Realm.C7'.Auth'.R4')
+		      / secret (Auth',sec_auth,{U,S})
+		      / secret (SK',sec_sk2,{U,S})
+		      / request (U,S,user_server,R1')
+		      / request (U,S,user_server2,R2')
+
+		      
+	 
+	3.  State =  5  / RCV (Realm.h(SK'.R4')) =|>
+	     State' := 7 / SK' := (R1'.R3'.P) 
+		       / request(U,S,server_user2,Authinfo')
+
+end role
+
+
+
+
+
+
+
+
+role session (
+
+	U, S		: agent,
+	H	    	: function,
+	P,PK     		: public_key )
+	
+
+def=
+local 
+	SU,RU,SS,RS  : channel (dy)
+
+	composition
+	   user (U,S,H,P,PK,SU,RU) 
+	/ server (S,U,H,P,PK,SS,RS)
+
+end role
+
+role environment()
+def=
+
+	const
+		u,s						: agent,
+		h						: function,
+		p,pk,pi						: public_key,
+		sec_c1,sec_s, sec_pw,sec_smartcard,sec_auth             : protocol_id,
+		sec_r,sec_r1,sec_pk,sec_authinfo,sec_sk,sec_sk2	: protocol_id,
+		user_server,user_server2,server_user,server_user2	: protocol_id,
+		server_user3					: protocol_id
+
+	intruder_knowledge = {u,s,h,p,pk,pi}
+
+	composition
+		
+	   session (u,s,h,p,pk)
+	/ session (u,i,h,p,pi)
+	/ session (i,s,h,pi,pk)
+
+end role
+
+goal
+
+%secrecy_of sec_r1%
+secrecy_of sec_pk
+%secrecy_of sec_authinfo%
+%secrecy_of sec_auth%
+%secrecy_of sec_sk%
+%secrecy_of sec_sk2%
+%authentication_on user_server%
+%authentication_on user_server2%
+%authentication_on server_user%
+%authentication_on server_user2%
+
+end goal
+
+environment()	
+ 

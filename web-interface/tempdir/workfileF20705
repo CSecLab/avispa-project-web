@@ -1,0 +1,234 @@
+role cardholder(C,M,P: agent,
+                AI : text,
+                PurchAmt : nat,
+                OrderDesc : text,
+                EncK_C, SignK_C, 
+                EncK_M, SignK_M, 
+                EncK_P, SignK_P : public_key
+               ) played_by C def=
+
+ local S : nat,
+       LID_M, Chall_C : text,
+       XID, Chall_M : text,
+       OI,PI,DualSig : message,
+       K1 : symmetric_key,
+       SND, RCV: channel (dy)
+
+ init S := 0
+
+ transition
+
+ % =|> Purchase Initiate Request
+ 1. S = 0 /\ 
+    RCV(start) 
+    =|>
+    S' := 1 /\
+    LID_M' := new() /\
+    Chall_C' := new() /\
+    SND(LID_M'.Chall_C')
+
+ % Purchase Initiate Response =|> Purchase Request
+ 2. S = 1 /\ 
+    RCV(LID_M.Chall_C.XID'.Chall_M'.
+        {h(LID_M.Chall_C.XID'.Chall_M')}_inv(SignK_M))
+    =|> 
+    S' := 2 /\
+    OI' := XID'.Chall_C.h(OrderDesc.PurchAmt).Chall_M' /\
+    PI' := LID_M.XID'.h(OrderDesc.PurchAmt).PurchAmt.M.h(XID'.AI) /\
+    DualSig' := h(OI').h(PI').{h(h(OI').h(PI'))}_inv(SignK_C) /\
+    K1' := new() /\
+    SND(OI'.DualSig'.
+        {DualSig'.PI'}_K1'.{AI.K1'}_EncK_P) /\
+    witness(C,M,deal,OI'.h(PI')) /\
+    witness(C,P,deal,OI'.PI') /\
+    secret(OrderDesc,order,{C,M}) /\
+    secret(PurchAmt,order,{C,M,P}) /\
+    secret(PI',payment,{C,P})
+
+ % Purchase Response =|>
+ 3. S = 2 /\
+    RCV(LID_M.XID.Chall_C.h(PurchAmt).
+        {h(LID_M.XID.Chall_C.h(PurchAmt))}_inv(SignK_M))
+    =|>
+    S' := 3 /\
+    request(C,M,deal,OI.h(PI))
+    % /\ request(C,P,deal,OI.PI) %% cannot be done; see notes, item 2
+
+end role
+
+
+
+role merchant  (C,M,P: agent,
+                PurchAmt : nat,
+                OrderDesc : text,
+                EncK_C, SignK_C, 
+                EncK_M, SignK_M, 
+                EncK_P, SignK_P : public_key
+               ) played_by M def=
+
+ local S : nat,
+       LID_M, Chall_C : text ,
+       XID, Chall_M : text,
+       OI,HPI,DualSig,Paymentpart,AuthReq : message,
+       K2 : symmetric_key,
+       K3 : symmetric_key,
+       SND, RCV: channel (dy)
+
+ init S := 0
+
+ transition
+
+ % Purchase Initiate Request =|> Purchase Initiate Response
+ 1. S = 0 /\ 
+    RCV(LID_M'.Chall_C') 
+    =|>
+    S' := 1 /\
+    XID' := new() /\
+    Chall_M' := new() /\
+    SND(LID_M'.Chall_C'.XID'.Chall_M'.
+        {h(LID_M'.Chall_C'.XID'.Chall_M')}_inv(SignK_M))
+
+ % Purchase Request =|> Payment Authorization Request
+ 2. S = 1 /\ 
+    RCV(XID.Chall_C.h(OrderDesc.PurchAmt).Chall_M.
+        h(OI').HPI'.{h(h(OI').HPI')}_inv(SignK_C).
+        Paymentpart') /\
+    OI' = XID.Chall_C.h(OrderDesc.PurchAmt).Chall_M 
+    =|>
+    S' := 2 /\
+    DualSig' := h(OI').HPI'.{h(h(OI').HPI')}_inv(SignK_C) /\
+    K2' := new() /\
+    AuthReq' := LID_M.XID.h(OI').h(OrderDesc.PurchAmt).
+                DualSig' /\
+    SND({AuthReq'.{h(AuthReq')}_inv(SignK_M)}_K2'.{K2'}_EncK_P.
+        Paymentpart') /\
+    witness(M,C,deal,OI'.HPI') /\
+    witness(M,P,deal,OI'.HPI')
+
+ % Payment Authorization Response =|> Purchase Response
+ 3. S = 2 /\
+    RCV({LID_M.XID.PurchAmt.
+         {h(LID_M.XID.PurchAmt)}_inv(SignK_P)}_K3'.{K3'}_EncK_M)
+    =|>
+    S' := 3 /\
+    SND(LID_M.XID.Chall_C.h(PurchAmt).
+        {h(LID_M.XID.Chall_C.h(PurchAmt))}_inv(SignK_M)) /\
+    request(M,C,deal,OI.HPI) /\
+    request(M,P,deal,OI.HPI)
+
+
+end role
+
+
+
+role paymentgateway(C,M,P: agent,
+                AI : text,
+                EncK_C, SignK_C, 
+                EncK_M, SignK_M, 
+                EncK_P, SignK_P : public_key
+               ) played_by P def=
+
+ local S : nat,
+       XID, Chall_M, LID_M, Chall_C : text ,
+       AuthReq,Paymentpart,OI,PI,DualSig : message,
+       K1,K2 : symmetric_key,
+       K3 : symmetric_key,
+       PurchAmt : nat,
+       OrderDesc : text,
+       SND, RCV: channel (dy)
+
+ init S := 0
+
+ transition
+
+ % Payment Authorization Request =|> Payment Authorization Response
+
+ 1. S = 0 /\ 
+    RCV({AuthReq'.{h(AuthReq')}_inv(SignK_M)}_K2'.{K2'}_EncK_P.
+        {DualSig'.PI'}_K1'.{AI.K1'}_EncK_P
+       ) /\
+    AuthReq' = LID_M'.XID'.h(OI').h(OrderDesc'.PurchAmt').DualSig' /\
+    OI' = XID'.Chall_C'.h(OrderDesc'.PurchAmt').Chall_M' /\
+    DualSig' = h(OI').h(PI').{h(h(OI').h(PI'))}_inv(SignK_C) /\
+    PI' = LID_M'.XID'.h(OrderDesc'.PurchAmt').PurchAmt'.M.h(XID'.AI) 
+    =|>
+    S' := 1 /\
+    K3' := new() /\
+    SND({LID_M'.XID'.PurchAmt'.
+         {h(LID_M'.XID'.PurchAmt')}_inv(SignK_P)}_K3'.{K3'}_EncK_M) /\
+    wrequest(P,C,deal,OI'.PI') /\
+    wrequest(P,M,deal,OI'.h(PI')) /\
+    witness(P,C,deal,OI'.PI') /\
+    witness(P,M,deal,OI'.h(PI'))
+
+
+end role
+
+
+role session(C,M,P: agent,
+                AI : text,
+                PurchAmt : nat,
+                OrderDesc : text,
+                EncK_C, SignK_C, 
+                EncK_M, SignK_M, 
+                EncK_P, SignK_P : public_key
+               ) def=
+
+% local SI, RI, SR, RR: channel(dy)
+
+ composition
+  cardholder(C,M,P,AI,PurchAmt,OrderDesc,
+             EncK_C,SignK_C,EncK_M,SignK_M,EncK_P,SignK_P) /\
+  merchant  (C,M,P,   PurchAmt,OrderDesc,
+             EncK_C,SignK_C,EncK_M,SignK_M,EncK_P,SignK_P) /\
+  paymentgateway(C,M,P,AI,
+             EncK_C,SignK_C,EncK_M,SignK_M,EncK_P,SignK_P)
+end role
+
+
+
+role environment() def=
+ 
+  local AList, RList: (message.message) set,
+        S2, R2, S3, R3: channel (dy)
+
+  const h: hash_func, 
+        deal,order,payment : protocol_id,
+        c,m,p: agent,
+        enc_c,sign_c,enc_m,sign_m,enc_p,sign_p,enc_i,sign_i: public_key,
+        ai_c,ai_i,od1,od2,od3,od4,od5: text,
+        pa1,pa2,pa3,pa4,pa5 : nat
+
+
+ intruder_knowledge = {c,m,p,enc_c,sign_c,enc_m,sign_m,enc_p,sign_p,
+         enc_i,sign_i,inv(enc_i),inv(sign_i),ai_i,pa3,od3,pa4,od4,h }
+
+ composition
+  session(c,m,p,ai_c,pa2,od2,enc_c,sign_c,enc_m,sign_m,enc_p,sign_p) /\
+%  session(i,m,p,ai_i,pa3,od3,enc_i,sign_i,enc_m,sign_m,enc_p,sign_p) /\
+  session(c,i,p,ai_c,pa4,od4,enc_c,sign_c,enc_i,sign_i,enc_p,sign_p) /\
+  session(c,m,i,ai_c,pa5,od5,enc_c,sign_c,enc_m,sign_m,enc_i,sign_i)
+
+end role
+
+
+
+goal
+
+  % Entity authentication (G1)
+  % Message authentication (G2)
+  % Replay protection (G3)
+  % Accountability (G17)
+  % Proof of Origin (G18)
+  % Proof of Delivery (G19)
+  authentication_on deal
+  weak_authentication_on deal
+
+  % ID protection (Eavesdr.) (G13)
+  % Conifidentiality (G12) --- Missing in table of D6.1
+  secrecy_of order
+  secrecy_of payment
+end goal
+
+environment()
+

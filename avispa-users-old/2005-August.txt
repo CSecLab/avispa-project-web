@@ -1,0 +1,308 @@
+From jacopo at dist.unige.it  Thu Aug  4 17:55:32 2005
+From: jacopo at dist.unige.it (Jacopo Mantovani)
+Date: Tue May  2 17:43:47 2006
+Subject: [Avispa-users] usability issues
+In-Reply-To: <lywtnt3exo.fsf@tanto.lshift.net>
+References: <lywtnt3exo.fsf@tanto.lshift.net>
+Message-ID: <42F23A74.8040401@dist.unige.it>
+
+Dear Matthias,
+
+in this e-mail I try to collect all issues and answers that you
+arose in your posting of the 14th of July.
+
+you wrote:
+> I have been playing with AVISPA for the past few days. Overall my
+> impressions are very positive. It is a great piece of software, the
+> installation is painless, the documentation is good and overall I found
+> it a lot easier to use than some of the other tools in the same space.
+> 
+> I do, however, have a few gripes:
+> 
+> * The xemacs mode. It does a great job of syntax highlighting. However,
+> it is suffering from the following shortcomings/bugs:
+>   - no indentation support
+>   - the buffer refresh in the compile cycle is erratic - sometimes the
+> result buffers refresh automatically, sometimes they don't, and at other
+> times I get duplicate buffers (..<2> etc)
+>   - the compilation does not report any errors; one can find them by
+> switching to the compilation buffer, but that is not at all obvious
+>   - the error locations in the compilation buffer are not of a format
+> that emacs recognises, which makes navigating to error locations
+> difficult
+> 
+> 
+Driven by your suggestions, we have been doing many improvements
+to the XEmacs mode:
+- more support for semantics errors,
+- automatic splitting of the XEmacs window in two buffers
+   (specification and compilation) during compilation;
+- a more rational navigation through error locations
+
+All of these improvements will be available in the next release of
+the Avispa Tool for sure.
+
+
+> * Non-executable models. As mentioned in the manual & tutorial, and
+> evidenced by my own observations, it is very easy to make mistakes that
+> result in the model becoming partially un-executable and the model
+> checker consequently reporting success. The tutorial suggests using the
+> -p option to step through the states. However, that is extremely tedious
+> for anything but the most trivial models.
+> 
+> Would it be possible to perform an automated check that all transitions
+> in a model are reachable and can fire? That, I think, would catch most
+> of the cases of non-executable models.
+> 
+
+In fact, there already are two tools that can perform such a check:
+
+OFMC has the option "sessco" (User-manual, section 3.2.2) which tries
+to find a trace where all participants reach their final state. This
+is not possible for protocols with any kinds of loops (as then there
+is no such final state). Also, in the case that the protocol is not
+executable and there is no trace where all agents reach their final
+state, OFMC cannot give a hint where it failed. Anyway, if the
+protocol is executable, you don't have to trace through the search
+space with the -p option.
+
+Also, SATMC has an option to check executability of single rules.
+It can be enabled by using the option
+
+"check_only_executability=true"
+
+We'll surely think about making these checks automatic.
+
+> 
+> * Secure channels. Currently, the only type of channel supported by the
+> modelling language are Dolev-Yao channels. For modelling complex systems
+> I find myself wanting to decompose roles into smaller entities but since
+> the insecure D-Y channels are the only form of communication available
+> this introduces spurious vulnerabilities.
+> 
+> The same problem arises more generally when trying to model systems
+> where parts of the communication are impervious to attack. Would it be
+> possible to introduce a secure channel type?
+> 
+Yes, this would be a useful feature.  Unfortunately, it's rather complex, both 
+theoretically and in terms of actually implementing it. We've been working on 
+a framework for introducing different channels types that we hope will be as 
+general as possible.  Instead of extending the system each time we want a new 
+channel type, we'd like a general way of describing what capabilities an 
+intruder can have on a channel and then be able to give a new channel type 
+simply by describing a combination of those capabilities.  This is in the 
+pipeline but will require quite a bit of work, so for the immediate future I'm 
+afraid the only option is to specify such "secure" communication as happening 
+within a monolithic role.
+
+
+> 
+> * Web interface. The downloadable distribution of AVISPA does not appear
+> to contain the web interface and the trace->msc converter. Would it be
+> possible to make these available?
+> 
+There is no particular problem with that. I believe we will soon make
+the whole web interface available for download (as a separate package).
+By the way, it is likely that we will release also a new version
+of the avispa tool with minor corrections and improvements within
+this year. Further strategies for managing future releases of the
+tool are still under discussion.
+
+Best Regards,
+
+Jacopo.
+
+
+-- 
+
+Jacopo Mantovani
+Artificial Intelligence Laboratory
+DIST - University of Genova, Italy
+
+http://www.ai.dist.unige.it/jacopo
+
+
+From matthias at lshift.net  Fri Aug  5 11:40:33 2005
+From: matthias at lshift.net (Matthias Radestock)
+Date: Tue May  2 17:43:47 2006
+Subject: [Avispa-users] usability issues
+In-Reply-To: <42F23A74.8040401@dist.unige.it> (Jacopo Mantovani's message of
+	"Thu, 04 Aug 2005 17:55:32 +0200")
+References: <lywtnt3exo.fsf@tanto.lshift.net> <42F23A74.8040401@dist.unige.it>
+Message-ID: <ly4qa42032.fsf@tanto.lshift.net>
+
+
+Jacopo,
+
+thanks for your detailed reply. My comments are inline below.
+
+Jacopo Mantovani <jacopo@dist.unige.it> writes:
+
+> Driven by your suggestions, we have been doing many improvements
+> to the XEmacs mode:
+> - more support for semantics errors,
+> - automatic splitting of the XEmacs window in two buffers
+>    (specification and compilation) during compilation;
+> - a more rational navigation through error locations
+
+Excellent. I am looking forward to using that. Are you planning to add
+indentation support?
+
+> OFMC has the option "sessco" (User-manual, section 3.2.2) which tries
+> to find a trace where all participants reach their final state. This
+> is not possible for protocols with any kinds of loops (as then there
+> is no such final state). Also, in the case that the protocol is not
+> executable and there is no trace where all agents reach their final
+> state, OFMC cannot give a hint where it failed. Anyway, if the
+> protocol is executable, you don't have to trace through the search
+> space with the -p option.
+
+I didn't realise -sessco could be used to check executability. I've
+tried it now, and it does indeed work. Not getting any hint as to where
+it failed is, of course, somewhat unhelpful. There is also one other
+problem: Executability is checked in the presence of the intruder. In
+some of the examples I had tried before, the protocol itself wasn't
+executable due to mismatches in the send/receive patterns. However,
+since an intruder can construct messages, the protocol does become
+executable in the presence of an intruder and hence -sessco does not
+report any problems.
+
+> Also, SATMC has an option to check executability of single rules.
+> It can be enabled by using the option
+>
+> "check_only_executability=true"
+
+The user manual doesn't mention this option. I have just tried it and it
+does identify the non-executability problems I have encountered so far,
+including the one I mention above. Great!
+
+Does this check cope with (some) loops?
+
+>> Would it be possible to introduce a secure channel type?
+>
+> Yes, this would be a useful feature.  Unfortunately, it's rather
+> complex, both theoretically and in terms of actually implementing
+> it. We've been working on a framework for introducing different
+> channels types that we hope will be as general as possible.
+
+I can see how the general framework would be useful, but also a lot of
+work, as you say. Perhaps you could consider an interim solution where
+you just get secure channels to work. Or would that be almost as hard as
+the general solution?
+
+> I believe we will soon make the whole web interface available for
+> download (as a separate package).
+
+Cool.
+
+
+Regards,
+
+
+Matthias.
+
+
+From jacopo at dist.unige.it  Tue Aug  9 13:31:12 2005
+From: jacopo at dist.unige.it (Jacopo Mantovani)
+Date: Tue May  2 17:43:47 2006
+Subject: [Avispa-users] Call For Papers: Automated Reasoning for Security
+	Protocol Analysis
+Message-ID: <42F89400.60101@dist.unige.it>
+
+                              Special Issue
+                                    of
+		      Theoretical Computer Science
+                                    on
+                         Automated Reasoning for
+                        Security Protocol Analysis
+
+
+                   http://www.avispa-project.org/arspa
+
+
+                         ***********************
+                         *** CALL FOR PAPERS ***
+                         ***********************
+
+
+
+BACKGROUND AND SCOPE
+====================
+
+In connection with
+
+	       The Second Workshop on Automated Reasoning
+		     for Security Protocol Analysis
+			       (ARSPA'05)
+
+which took place as a satellite event of ICALP'05, we are guest-editing
+a Special Issue of Theoretical Computer Science devoted to original
+papers on formal security protocol specification, analysis and
+verification.
+
+Contributions are welcomed on the following topics and related ones:
+
+- Automated analysis and verification of security protocols.
+- Languages, logics, and calculi for the design and specification of
+   security protocols.
+- Verification methods: accuracy, efficiency.
+- Decidability and complexity of cryptographic verification problems.
+- Synthesis and composition of security protocols.
+- Integration of formal security specification, refinement and
+   validation techniques in development methods and tools.
+
+
+
+SUBMISSION
+==========
+
+Authors should submit their papers electronically, in portable
+document format (pdf) or postscript (ps), by sending an email with
+subject "TCS submission" to the address
+                         arspa -at- avispa-project.org
+with the file of the paper as an attachment, by November 13, 2005.
+The following information should be included in the body of the email,
+in plain text:
+   - paper title
+   - author names
+   - coordinates of the corresponding author
+   - abstract of the paper
+The cover page of the submission should also include this information.
+
+Authors are strongly encouraged to use Elsevier Science's document class
+'elsart', or alternatively the standard document class 'article'.  The
+Elsevier LaTeX package (including detailed instructions for LaTeX
+preparation) can be obtained from Elsevier's web site:
+http://www.elsevier.com/locate/latex (see also
+http://www.elsevier.com/wps/find/journaldescription.cws_home/505625/description).
+
+Submitted papers must be original and not submitted for publication
+elsewhere. The submitted papers will be subject to the standard journal
+refereeing process.
+
+We kindly ask the authors to send us an abstract of their submission by
+November 6, 2005.
+
+
+
+DEADLINES
+=========
+
+Submission of abstract: November  6, 2005
+Submission of paper:    November 13, 2005
+
+
+
+EDITORS
+=======
+
+Pierpaolo Degano (Universita` di Pisa, Italy)
+Luca Vigano`     (ETH Zurich, Switzerland)
+
+
+WEB-SITE
+========
+
+http://www.avispa-project.org/arspa
+
+

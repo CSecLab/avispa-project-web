@@ -1,0 +1,96 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileXwsqMj
+
+section signature:
+
+state_longTermCertificateAuthority: agent * agent * agent * public_key * public_key * hash_func * nat * symmetric_key * text * text * nat -> fact
+state_pseudonymCertificateAuthority: agent * agent * agent * public_key * public_key * hash_func * nat * symmetric_key * text * text * text * nat -> fact
+state_vehicle: agent * agent * agent * public_key * public_key * hash_func * nat * symmetric_key * text * text * text * set(agent) * nat -> fact
+
+
+section types:
+
+set_95, set_81: set
+Dummy_Set_25, ASGoal, Set_25: set(agent)
+MGoal, start: message
+pseudoReq: protocol_id
+EncryptKey_PCA, EncryptKey_LTCA, encryptKey_PCA, encryptKey_LTCA: public_key
+TSP, PseudonymKeys, ACK, Dummy_PseudonymKeys, Dummy_TSP, dummy_nonce: text
+RespEncryptKey, Dummy_RespEncryptKey, dummy_sk: symmetric_key
+9, 8, 7, 5, SID, 4, State, Dummy_State, 3, 2, 1, 0: nat
+LTCA, OBU, PCA, obu, pca, ltca, i: agent
+H, h: hash_func
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(obu).
+ iknows(pca).
+ iknows(ltca).
+ iknows(encryptKey_PCA).
+ iknows(encryptKey_LTCA).
+ iknows(h).
+ iknows(i).
+ state_vehicle(obu,pca,ltca,encryptKey_PCA,encryptKey_LTCA,h,0,dummy_sk,dummy_nonce,dummy_nonce,dummy_nonce,set_81,3).
+ state_pseudonymCertificateAuthority(pca,obu,ltca,encryptKey_PCA,encryptKey_LTCA,h,0,dummy_sk,dummy_nonce,dummy_nonce,dummy_nonce,4).
+ state_longTermCertificateAuthority(ltca,obu,pca,encryptKey_LTCA,encryptKey_PCA,h,0,dummy_sk,dummy_nonce,dummy_nonce,5).
+ state_vehicle(pca,ltca,pca,encryptKey_PCA,encryptKey_LTCA,h,0,dummy_sk,dummy_nonce,dummy_nonce,dummy_nonce,set_95,7).
+ state_pseudonymCertificateAuthority(ltca,pca,pca,encryptKey_PCA,encryptKey_LTCA,h,0,dummy_sk,dummy_nonce,dummy_nonce,dummy_nonce,8).
+ state_longTermCertificateAuthority(pca,pca,ltca,encryptKey_LTCA,encryptKey_PCA,h,0,dummy_sk,dummy_nonce,dummy_nonce,9)
+
+
+section rules:
+
+step step_0 (OBU,PCA,LTCA,EncryptKey_PCA,EncryptKey_LTCA,H,Dummy_RespEncryptKey,Dummy_TSP,Dummy_PseudonymKeys,ACK,Dummy_Set_25,SID,RespEncryptKey,TSP,PseudonymKeys) :=
+ state_vehicle(OBU,PCA,LTCA,EncryptKey_PCA,EncryptKey_LTCA,H,0,Dummy_RespEncryptKey,Dummy_TSP,Dummy_PseudonymKeys,ACK,Dummy_Set_25,SID).
+ iknows(start)
+=[exists TSP,RespEncryptKey,PseudonymKeys]=>
+ state_vehicle(OBU,PCA,LTCA,EncryptKey_PCA,EncryptKey_LTCA,H,1,RespEncryptKey,TSP,PseudonymKeys,ACK,Dummy_Set_25,SID).
+ iknows(pair(crypt(EncryptKey_PCA,pair(PseudonymKeys,pair(RespEncryptKey,TSP))),crypt(EncryptKey_LTCA,pair(TSP,apply(h,PseudonymKeys))))).
+ secret(PseudonymKeys,pseudoReq,Dummy_Set_25).
+ contains(OBU,Dummy_Set_25).
+ contains(PCA,Dummy_Set_25)
+
+step step_1 (OBU,PCA,LTCA,EncryptKey_PCA,EncryptKey_LTCA,H,RespEncryptKey,TSP,PseudonymKeys,ACK,Set_25,SID) :=
+ state_vehicle(OBU,PCA,LTCA,EncryptKey_PCA,EncryptKey_LTCA,H,1,RespEncryptKey,TSP,PseudonymKeys,ACK,Set_25,SID).
+ iknows(ACK)
+ =>
+ state_vehicle(OBU,PCA,LTCA,EncryptKey_PCA,EncryptKey_LTCA,H,2,RespEncryptKey,TSP,PseudonymKeys,ACK,Set_25,SID)
+
+step step_2 (OBU,PCA,LTCA,EncryptKey_PCA,EncryptKey_LTCA,H,RespEncryptKey,TSP,PseudonymKeys,ACK,Set_25,SID) :=
+ state_vehicle(OBU,PCA,LTCA,EncryptKey_PCA,EncryptKey_LTCA,H,2,RespEncryptKey,TSP,PseudonymKeys,ACK,Set_25,SID).
+ iknows(pair(TSP,apply(h,PseudonymKeys)))
+ =>
+ state_vehicle(OBU,PCA,LTCA,EncryptKey_PCA,EncryptKey_LTCA,H,3,RespEncryptKey,TSP,PseudonymKeys,ACK,Set_25,SID)
+
+step step_3 (PCA,OBU,LTCA,EncryptKey_PCA,EncryptKey_LTCA,H,Dummy_RespEncryptKey,Dummy_TSP,Dummy_PseudonymKeys,ACK,SID,RespEncryptKey,TSP,PseudonymKeys) :=
+ state_pseudonymCertificateAuthority(PCA,OBU,LTCA,EncryptKey_PCA,EncryptKey_LTCA,H,0,Dummy_RespEncryptKey,Dummy_TSP,Dummy_PseudonymKeys,ACK,SID).
+ iknows(pair(crypt(EncryptKey_PCA,pair(PseudonymKeys,pair(RespEncryptKey,TSP))),crypt(EncryptKey_LTCA,pair(TSP,apply(h,PseudonymKeys)))))
+ =>
+ state_pseudonymCertificateAuthority(PCA,OBU,LTCA,EncryptKey_PCA,EncryptKey_LTCA,H,1,RespEncryptKey,TSP,PseudonymKeys,ACK,SID).
+ iknows(ACK).
+ iknows(pair(apply(h,pair(PseudonymKeys,pair(RespEncryptKey,TSP))),crypt(EncryptKey_LTCA,pair(TSP,apply(h,PseudonymKeys)))))
+
+step step_4 (LTCA,OBU,PCA,EncryptKey_PCA,EncryptKey_LTCA,H,Dummy_RespEncryptKey,Dummy_TSP,Dummy_PseudonymKeys,SID,RespEncryptKey,TSP,PseudonymKeys) :=
+ state_longTermCertificateAuthority(LTCA,OBU,PCA,EncryptKey_PCA,EncryptKey_LTCA,H,0,Dummy_RespEncryptKey,Dummy_TSP,Dummy_PseudonymKeys,SID).
+ iknows(pair(apply(h,pair(PseudonymKeys,pair(RespEncryptKey,TSP))),crypt(EncryptKey_LTCA,pair(TSP,apply(h,PseudonymKeys)))))
+ =>
+ state_longTermCertificateAuthority(LTCA,OBU,PCA,EncryptKey_PCA,EncryptKey_LTCA,H,1,RespEncryptKey,TSP,PseudonymKeys,SID).
+ iknows(pair(TSP,apply(h,PseudonymKeys)))
+
+
+section properties:
+
+property secrecy_of_pseudoReq (MGoal,ASGoal) :=
+ [] ((secret(MGoal,pseudoReq,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_pseudoReq (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,pseudoReq,ASGoal) &
+ not(contains(i,ASGoal))
+

@@ -1,0 +1,130 @@
+role role_MN(MN:agent,NAAA:agent,HAAA:agent,PAAA:agent,NAR:agent,PAR:agent,HACN:agent,SKMNPAR:symmetric_key,LK:symmetric_key,KMNHAAA:symmetric_key,SND,RCV:channel(dy))
+played_by MN
+def=
+	local
+		State:nat,N1:text,MAC:function,HKMNNAR:symmetric_key,N3:text,SKMNNAR:symmetric_key,N2:text,F:function
+              const
+	              netpre,narid,narip,nid,apid,mnid,sid,ncoa,imsi,rtsolpr,prrtadv,fbu,fna,nnack,bu,buack:text,sec_n2:protocol_id
+                        
+              init
+		State := 0 %L10
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ SND(rtsolpr(apid))
+		2. State=1 /\ RCV(prrtadv(apid.narid.narip.netpre.N1'.{HKMNNAR'.N1'}_SKMNPAR)) =|> State':=2 /\ N2':=new() /\ SND(fbu(mnid.N2'.{HKMNNAR'.N2'}_LK.{N2'}_KMNHAAA.nid.apid.ncoa.MAC(N1'.N2'.nid.sid).{N2'}_(HKMNNAR'.N1'.N2'.sid.LK))) /\ N3':=new() /\ SND(fna(mnid.sid.N3'.{N3'}_SKMNNAR')) /\ witness(MN,PAAA,auth_1,{HKMNNAR'.N2'}_LK) /\ witness(MN,HAAA,auth_2,{N2'}_KMNHAAA) /\ secret({N2'}_(F(HKMNNAR'.N1'.N2'.sid.LK)),sec_n2,{MN,PAAA,NAAA}) /\ witness(MN,NAAA,auth_3,{N2'}_(F(HKMNNAR'.N1'.N2'.sid.LK)))
+		13. State=2 /\ RCV(naack(mnid.sid.narid)) =|> State':=3 /\ SND(bu)
+		15. State=3 /\ RCV(buack) =|> State':=4 
+      
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role role_PAR(PAR:agent,MN:agent,SKMNPAR:symmetric_key,NAR:agent,PAAA:agent,SND,RCV:channel(dy))
+played_by PAR %%L20
+def=
+	local
+		State:nat,MAC:function,KMNHAAA:symmetric_key,N1:text,HKMNNAR:symmetric_key,LK:symmetric_key,N2:text
+        const
+	        netpre,narid,narip,nid,apid,mnid,sid,ncoa,imsi,rtsolpr,prrtadv,fbu,aaa_auth_req,hi,hack:text,sec_n1:protocol_id 
+                                 
+              init
+		State := 0
+	transition
+		1. State=0 /\ RCV(rtsolpr(apid)) =|> State':=1 /\ N1':=new() /\ HKMNNAR':=new() /\ SND(prrtadv(apid.narid.narip.netpre.N1'.{HKMNNAR'.N1'}_SKMNPAR)) /\ secret(HKMNNAR',sec_n1,{MN,PAR,NAR,PAAA}) %L30
+		3. State=1 /\ RCV(fbu(mnid.N2'.{HKMNNAR'.N2'}_LK'.{N2'}_KMNHAAA'.nid.apid.ncoa.MAC(N1'.N2'.nid.sid).{N2'}_(HKMNNAR'.N1'.N2'.sid.LK'))) =|> State':=2 /\ SND(aaa_auth_req(mnid.narid.sid.N1'.HKMNNAR'.{HKMNNAR'.N2'}_LK'.{N2'}_KMNHAAA')) /\ SND(hi(mnid.N2'.apid.narip.ncoa.{N2'}_(HKMNNAR'.N1'.N2'.sid.LK')))
+		11. State=2 /\ RCV(hack(mnid.sid)) =|> State':=3
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role role_PAAA(PAAA:agent,NAAA:agent,PAR:agent,MN:agent,LK:symmetric_key,SND,RCV:channel(dy))
+played_by PAAA
+def=
+	local
+		State:nat,KMNHAAA:symmetric_key,N1:text,HKMNNAR:symmetric_key,N2:text,F:function  
+        const %L40
+	        narid,mnid,sid,aaa_auth_req:text
+	init
+		State := 0
+	transition
+		4. State=0 /\ RCV(aaa_auth_req(mnid.narid.sid.N1'.HKMNNAR'.{HKMNNAR'.N2'}_LK.{N2'}_KMNHAAA')) =|> State':=1 /\ request(PAAA,MN,auth_1,{HKMNNAR'.N2'}_LK) /\ SND(aaa_auth_req(mnid.narid.sid.F(HKMNNAR'.N1'.N2'.sid.LK)))
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role role_NAR(NAR:agent,PAR:agent,MN:agent,NAAA:agent,SND,RCV:channel(dy))
+played_by NAR
+def=%L50
+	local
+		State:nat,N3:text,SKMNNAR:symmetric_key,F:function,N2:text,N1:text,KMNHAAA:symmetric_key,HKMNNAR:symmetric_key,LK:symmetric_Key
+	const
+	        narid,narip,apid,mnid,ncoa,imsi,sid,aaa_auth_req,aaa_auth_resp,hi,hack,fna,naack:text
+        init
+		State := 0
+	transition
+		6. State=0 /\ RCV(hi(mnid.N2'.apid.narip.ncoa.{N2'}_(HKMNNAR'.N1'.N2'.sid.LK'))) =|> State':=1 /\ SND(aaa_auth_req(mnid.narid.sid.ncoa.{N2'}_(HKMNNAR'.N1'.N2'.sid.LK')))
+		8. State=1 /\ RCV(aaa_auth_resp(mnid.narip.ncoa.sid.SKMNNAR')) =|> State':=2 /\ SND(hack(mnid.sid))
+		12. State=2 /\ RCV(fna(mnid.sid.N3'.{N3'}_SKMNNAR')) =|> State':=3 /\ SND(naack(mnid.sid.narid))
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role role_NAAA(NAAA:agent,MN:agent,NAR:agent,PAAA:agent,HAAA:agent,SND,RCV:channel(dy))
+played_by NAAA
+def=
+	local
+		State:nat,LK:symmetric_key,N1:text,HKMNNAR:symmetric_key,SKMNNAR:symmetric_key,KMNHAAA:symmetric_key,F:function,N2:text,RAND:text,AUTH:text
+	const 
+                narid,narip,ncoa,imsi,mnid,sid,aaa_auth_req,aaa_auth_resp:text  
+init
+		State := 0
+	transition
+		5. State=0 /\ RCV(aaa_auth_req(mnid.narid.sid.F(HKMNNAR'.N1'.N2'.sid.LK'))) =|> State':=1 
+		7. State=1 /\ RCV(aaa_auth_req(mnid.narid.sid.ncoa.{N2'}_(HKMNNAR'.N1'.N2'.sid.LK'))) =|> State':=2 /\ request(NAAA,MN,auth_3,{N2'}_(F(HKMNNAR'.N1'.N2'.sid.LK))) /\ SKMNNAR':=new() /\ KMNHAAA':=new() /\ SND(aaa_auth_resp(mnid.narip.ncoa.sid.SKMNNAR')) /\ SND (aaa_auth_req(mnid.sid.N2'.{N2'}_KMNHAAA')) 
+		10. State=2 /\ RCV(aaa_auth_resp(mnid.sid.RAND'.AUTH'.{F(N2'.KMNHAAA').F(imsi.N2'.KMNHAAA')}_KMNHAAA')) =|> State':=3
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role role_HACN(HACN:agent,MN:agent,SND,RCV:channel(dy))
+played_by HACN
+def=
+	local
+		State:nat,KMNHAAA:symmetric_key,N2:text,F:function
+	const
+                imsi,bu,buack:text
+         init
+		State := 0 
+	transition
+		14. State=0 /\ RCV(bu) =|> State':=1 /\ SND(buack) 
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role role_HAAA(HAAA:agent,MN:agent,NAAA:agent,KMNHAAA:symmetric_key,PAAA:agent,PAR:agent,NAR:agent,SND,RCV:channel(dy))
+played_by HAAA
+def=
+	local
+		State:nat,F:function,N2:text,RAND:text,AUTH:text,SKMNNAR:symmetric_key
+        const	
+                mnid,sid,imsi,aaa_auth_req,aaa_auth_resp:text  
+        init
+		State := 0
+	transition
+		9. State=0 /\ RCV(aaa_auth_req(mnid.sid.N2'.{N2'}_SKMNNAR')) =|> State':=1 /\ request(HAAA,MN,auth_2,{N2'}_KMNHAAA) /\ AUTH':=new() /\ RAND':=new() /\ SND(aaa_auth_resp(mnid.sid.RAND'.AUTH'.{F(N2'.KMNHAAA).F(imsi.N2'.KMNHAAA)}_KMNHAAA))
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session1(HACN:agent,SKMNPAR:symmetric_key,LK:symmetric_key,HAAA:agent,MN:agent,NAAA:agent,KMNHAAA:symmetric_key,PAAA:agent,PAR:agent,NAR:agent)
+def=
+	local
+		SND7,RCV7,SND6,RCV6,SND5,RCV5,SND4,RCV4,SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+        
+	composition
+		role_HAAA(HAAA,MN,NAAA,KMNHAAA,PAAA,PAR,NAR,SND7,RCV7) /\ role_HACN(HACN,MN,SND6,RCV6) /\ role_NAAA(NAAA,MN,NAR,PAAA,HAAA,SND5,RCV5) /\ role_NAR(NAR,PAR,MN,NAAA,SND4,RCV4) /\ role_PAAA(PAAA,NAAA,PAR,MN,LK,SND3,RCV3) /\ role_PAR(PAR,MN,SKMNPAR,NAR,PAAA,SND2,RCV2) /\ role_MN(MN,NAAA,HAAA,PAAA,NAR,PAR,HACN,SKMNPAR,LK,KMNHAAA,SND1,RCV1)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+	const
+		hash_0:function,par:agent,kmnhaaa:symmetric_key,mn:agent,kmnpaaa:symmetric_key,hacn:agent,sk1mnpar:symmetric_key,const_1:text,haaa:agent,naaa:agent,paaa:agent,nar:agent,auth_1:protocol_id,auth_2:protocol_id,auth_3:protocol_id,sec_n1:protocol_id,sec_n2:protocol_id
+	intruder_knowledge = {mn,par,paaa,nar,naaa}
+	composition
+		session1(hacn,sk1mnpar,kmnpaaa,haaa,mn,naaa,kmnhaaa,paaa,par,nar)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+	authentication_on auth_1
+        authentication_on auth_2
+        authentication_on auth_3
+        secrecy_of  sec_n1,sec_n2
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()
+

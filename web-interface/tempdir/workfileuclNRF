@@ -1,0 +1,114 @@
+%% ALICE_SERVEUR:
+%% 1. A  - {Na.A}_Kb ----> B
+%% 2. A  B
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% rôle alice
+role alice (A,S : agent,
+			PKa,PKs : public_key,
+			Hash : hash_func,
+			Snd,Rcv : channel (dy)) played_by A def=
+
+	local
+		State : nat,
+		Na,Ns : text,
+		K1 : message 
+
+init State :=0
+
+transition
+	1.	State = 0 /\ Rcv(start) =|>
+		State':= 2 	/\ Na' := new() /\ Snd({Na'.A}_PKs)
+
+	2. 	State = 2 /\ Rcv({Ns'}_PKs) =|>
+		State':= 4 	/\ K1' := Hash(Na.Ns')
+					/\ Snd ({Ns'.A'}_K1)
+					/\ witness(A,S,serveur_alice_nsa, Ns')				
+%	tryInscription	
+
+
+
+	
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% role serveur
+
+role serveur (	S,A : agent,
+			PKs,PKa : public_key,
+			Hash : hash_func,
+			Snd,Rcv : channel (dy)) played_by S def=
+
+	local
+		State : nat,
+		Na,Ns : text,
+		K1 : message
+		
+init State := 1
+	
+transition	
+	1. 	State = 1 /\ Rcv({Na'.A}_PKs) =|>
+		State':= 3 	/\ Ns' := new() 
+					/\ Snd({Ns'.S}_PKa)
+					/\ K1' := Hash(Na'.Ns')
+					/\ secret(K1',secretInfo,{A,S})
+
+
+	2. 	State = 3 /\ Rcv({Ns}_K1) =|>
+		State':= 5 	/\ request(S,A,serveur_alice_nsa,Ns)
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% définition du rôle caractérisant une session
+role session (	A,S: agent,
+				PKa, PKs : public_key,
+				Hash : hash_func) 
+	def=
+
+	local SA, RA, SS, RS: channel (dy)
+
+	composition
+		alice(A,S,PKa,PKs,Hash,SA,RA)
+		/\ serveur(S,A,PKs,PKa,Hash,SS,RS)
+	
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% définition du rôle caractérisant le scenario à exécuter
+role environment() def=
+
+	local KeyMapS,KeyMapI : (text) set
+
+	const
+		a, s : agent,
+		pka, pks, pki : public_key,
+		h : hash_func,
+		serveur_alice_nsa : protocol_id,
+		alice_serveur_nas : protocol_id,
+		secretInfo : protocol_id
+
+		intruder_knowledge = {a,s,h,pka,pks,pki,inv(pki)}
+
+		composition
+			session(a,s,pka,pks,h)
+			/\ session(a,s,pka,pks,h)
+			/\ session(a,i,pka,pki,h)
+			/\ session(i,s,pki,pks,h)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% section goal
+goal
+
+	%authentication_on alice_serveur_nas
+	authentication_on serveur_alice_nsa
+	%secrecy_of secretInfo
+
+end goal
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% lancement du rôle principal
+environment()

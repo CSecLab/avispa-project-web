@@ -1,0 +1,126 @@
+role alice (A,B   : agent,
+           	Kab   : symmetric_key,
+	   	H     : hash_func,
+		Ka, Kb : public_key,
+           	Snd, Rcv: channel(dy))
+played_by A
+def=
+        local State  : nat,
+        Na, Nb, Dareq, Dbreq, Pma, Pmb,Nha, Nhb, Tca, Tcb, Ha, Hb : text
+
+	const kab_id1  : protocol_id
+	init  State := 0
+
+transition
+   1. State   = 0 / Rcv(start) =|>
+      State' := 1 / Snd(A, Dareq)
+
+   2. State   = 1 / Rcv(B, Dbreq) =|> 
+      State' := 2 / Na' := new() / Snd(Na'.{Kab.Nha.A.B.Tca.Ha.Pma}_Kb)
+	          %% / witness(A,B,na,Na') 
+		  / secret(Kab,kab_id1,{A,B})
+
+   3. State   = 2 / Rcv(Nb'.{Kab.Nhb.B.A.Tcb.Hb.Pmb}_Ka) =|> 
+      State' := 3 / Snd (H(Kab.Nb))
+
+   3. State   = 3 / Rcv(H(Kab.Na)) =|> 
+      State'  := 4 / request(B,A,nb,Na) 
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob (B,A, C: agent,
+                Kab : symmetric_key,
+		H: hash_func,
+		Ka, Kb,Kc : public_key,
+                Snd, Rcv: channel(dy))
+played_by B
+def=
+           
+  local State  : nat,
+        Na, Nb, Dareq, Dbreq, Pma, Pmb,Nha, Nhb, Tca, Tcb, Ha, Hb, Req, Res : text
+
+  const kab_id2 : protocol_id
+
+  init  State := 0
+
+
+transition
+   1. State   = 0 / Rcv(A,Dareq) =|> 
+      State' := 1 / Snd(B, Dbreq) 
+
+
+  2. State   = 1 / Rcv(Na'.{Kab.Nha.A.B.Tca.Ha.Pma}_Kb)  =|>
+     State' := 2 / Nb' := new() / Snd(Nb'.{Kab.Nhb.B.A.Tcb.Hb.Pmb}_Ka)
+		      / secret(Kab,kab_id2,{A,B})
+		    
+  3. State   = 2 / Rcv(H(Kab.Nb)) =|>
+     State' := 3 / Snd (H(Kab.Na))
+		/ request(B,A, nb, Nb)
+  4. State  = 3 / Snd (B,Req, {Kab.Nha.A.B.Tca.Ha.Pma}_Kc) =|>
+     State' := 4 / Rcv(C, Res)
+	        
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role chris(C, B, A: agent,
+                Kab : symmetric_key,
+		Kc : public_key,
+                Snd, Rcv: channel(dy))
+played_by C
+def=
+           
+  local State  : nat,
+        Pma, Nha, Nhb, Tca, Tcb, Ha, Hb, Req, Res : text
+
+  init  State := 0
+
+	   transition  
+	   1. State   = 0 / Rcv(B,Req, {Kab.Nha.A.B.Tca.Ha.Pma}_Kc) =|>
+     	      State' := 1 / Snd(C, Res) 
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role session(A,B, C: agent,
+	     Kab: symmetric_key,
+	     H: hash_func,
+	     Ka, Kb, Kc : public_key)
+def=
+
+  local SA, SB, RA, RB: channel (dy)
+
+  composition
+          alice(A, B, Kab, H, Ka, Kb, SA, RA)
+       /  bob(B, A, C, Kab, H, Ka, Kb, Kc, SB, RB)
+       /  chris(C, B, A, Kab, Kc, SB, RB)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+def=
+  const a, b          : agent,
+        kab, kai, kbi : symmetric_key,
+        h             : hash_func,
+        ka,kb, kc     : public_key,
+        na, nb        : protocol_id
+ intruder_knowledge = {a, b, h, kai, kbi }
+  composition
+	session(a,b,c, kab,h, ka,kb, kc) /
+	session(a,i, b, kai,h, ka,kb, kc) /
+        session(b,i,c, kbi,h, ka,kb, kc)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+ secrecy_of kab_id1, kab_id2
+ authentication_on nb, na
+ secrecy_of kab
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()
+ 

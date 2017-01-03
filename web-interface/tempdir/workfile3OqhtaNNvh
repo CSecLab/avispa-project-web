@@ -1,0 +1,145 @@
+role user(
+   Ui,Sj	:agent,
+   K1		:symmetric_key,
+   H,T,HB	:hash_func,
+   SND,RCV	:channel(dy))
+played_by Ui
+def=
+local State	:nat,
+IDi,Di,Bi,HBi,PWi,PWDi,X,Xi,Yi,Rs,Ri,Rj,A1,A2,A3,A4,A5,UIDi,Pi,Pnewi,Lreqi,Lresj,Wj,T1,T3,IDj,Dj:text
+
+%:message
+
+const sert1,sert2,sert3,sert4,ui_sj_ri,ui_sj_t1,ui_sj_pi,sj_ui_rj,sj_ui_t3,sj_ui_pnewi :protocol_id
+
+init State:=0
+
+transition
+
+1. State=0   	/\ RCV(start)=|>
+   State':=1 	/\ Di':=h(IDi)
+		/\ Bi':= new()     
+		/\ HBi':=HB(Bi')
+             	/\ PWi':=new()
+		/\ PWDi':=H(PWi'.HBi')
+		/\ Xi':=H(Di'.Rs')
+		/\ Yi':=H(Di'.PWDi'.Rs')
+		/\ Ri':=new()
+		/\ A1':=T(X'.Ri')
+		/\ A2':=T(Rs'.A1)
+		/\ A3':=H(Yi'.Ri')
+		/\ UIDi':=xor(A3,{H(A1'.A2'.Pi')})
+		/\ Pi':=new()
+		/\ T1':=new()
+		/\ Lreqi':=H(A2.A3.Pi.T1)
+		/\SND(Lreqi'.UIDi'.A1'.Pi'.T1')
+		/\ secret(Ri', sert1,Ui)
+		/\ secret(Rs',sert2,{Ui,Sj})
+		/\ witness({Ui,Sj},ui_sj_ri,Ri')
+		/\ witness({Ui,Sj},ui_sj_t1,T1')
+		/\ witness({Ui,Sj},ui_sj_pi,Pi')
+		
+2. State=1   	/\ RCV(Lresj'.Dj'.A4'.Pnewi'.T3')=|>
+   State':=2 	/\ request({Sj,Ui},sj_ui_rj,Rj')
+		/\ request({Sj,Ui},sj_ui_t3,T3')
+		/\ request({Sj,Ui},sj_ui_pnewi,Pnewi')
+                
+end role
+
+role server(
+   Ui,Sj	:agent,
+   K1		:symmetric_key,
+   H,T,HB	:hash_func,
+   SND,RCV	:channel(dy))
+played_by Sj
+def=
+local State	:nat,
+IDi,Di,Bi,HBi,PWi,PWDi,X,Xi,Yi,Rs,Ri,Rj,A1,A2,A3,A4,A5,UIDi,Pi,Pnewi,Lreqi,Lresj,Wj,T1,T3,IDj,Dj:text
+
+%:message
+
+const sert1,sert2,sert3,sert4,ui_sj_ri,ui_sj_t1,ui_sj_pi,sj_ui_rj,sj_ui_t3,sj_ui_pnewi :protocol_id
+
+init State:=0
+
+transition
+
+1. State=0   	/\ RCV(Lreqi'.UIDi'.A1'.Pi'.T1')=|>
+   State':=1 	/\ Dj':=h(IDj')
+		/\ request({Ui,Sj},ui_sj_ri,Ri')
+		/\ request({Ui,Sj},ui_sj_t1,T1')
+	/\ request({Ui,Sj},ui_sj_pi,Pi')
+		/\ Rj':=new()
+		/\ A4':=T(X'.Rj')
+                /\ A5':=T(A4'.Rs')
+		/\ Pnewi':=new()
+		/\ Wj':= xor(UIDi'.{h(A4'.A5'.Pnewi')}
+		/\ T3':=new()
+		/\ Lresj':=h(Wj'.Dj'. A5'.Pnewi'.T3')
+		/\SND(Lresj'.Dj'.A4'.Pnewi'.T3')
+		/\ secret(Rj', sert3,Sj)
+		/\ secret(Rs',sert4,{Ui,Sj})
+		/\ witness({Sj,Ui},sj_ui_rj,Rj')
+		/\ witness({Sj,Ui},sj_ui_t3,T3')
+		/\ witness({Sj,Ui},sj_ui_pnewi,Pnewi')
+
+end role		
+
+role session(
+   Ui,Sj	:agent,
+   K1		:symmetric_key,
+   H,T,HB	:hash_func)
+
+def=
+local SU,SS,RU,RS	:channel(dy),
+
+IDi,Di,Bi,HBi,PWi,PWDi,X,Xi,Yi,Rs,Ri,Rj,A1,A2,A3,A4,A5,UIDi,Pi,Pnewi,Lreqi,Lresj,Wj,T1,T3,IDj,Dj:text
+
+%:message
+
+const sert1,sert2,sert3,sert4,ui_sj_ri,ui_sj_t1,ui_sj_pi,sj_ui_rj,sj_ui_t3,sj_ui_pnewi :protocol_id
+
+composition 
+ user(Ui,Sj,K1,H,T,HB,SS,RS)
+/\server(Ui,Sj,K1,H,T,HB,SU,RU)
+
+end role
+
+role environment()
+  
+def=
+const ui,sj	:agent,
+h,t,hb		:hash_func,
+k1		:symmetric_key,
+
+idi,di,bi,hbi,pwi,pwdi,x,xi,yi,rs,ri,rj,a1,a2,a3,a4,a5,uidi,pi,pnewi,lreqi,lresj,wj,t1,t3,idj,dj:text
+
+%:message
+
+sert1,sert2,sert3,sert4,ui_sj_ri,ui_sj_t1,ui_sj_pi,sj_ui_rj,sj_ui_t3,sj_ui_pnewi :protocol_id
+
+intruder_knowledge = {u,s,h,t,hb,k1}
+
+composition
+session(u,s,k1,h,t,hb)
+/\session(s,u,k1,h,t,hb)
+
+end role
+
+goal
+secrecy_of sert1 
+secrecy_of sert2 
+secrecy_of sert3 
+secrecy_of sert4 
+
+authentication_on ui_sj_ri
+authentication_on ui_sj_t1
+authentication_on ui_sj_pi
+authentication_on sj_ui_rj
+authentication_on sj_ui_t3
+authentication_on sj_ui_pnewi
+end goal
+
+environment()
+
+

@@ -1,0 +1,129 @@
+%%\begin{verbatim}
+%% Push exchange in GSAM
+%% 1. Q -> GM: HDR, SK{SAts,KDts,AUTH}SAa1, KEa, Na
+%%\end{verbatim}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+%%HLPSL:
+role non_designated_router(DR,NDR: agent,
+	   M_id_1: nat,
+	   Func: hash_func,
+           SK_g_a:public_key,
+	   SK_g_e: symmetric_key,
+	   SND_NDR, RCV_NDR: channel (dy))
+played_by NDR
+def=
+
+  local SA,KD,PNN: text, 
+	State: nat
+
+  const sec_a_SK : protocol_id
+
+  init  State := 1
+
+  transition
+
+  %% The IKE_SA_INIT exchange:
+  1. State = 1 	/\ RCV_NDR({M_id_1.SA'.KD'.Func({SA'.KD'.M_id_1}_inv(SK_g_a))}_SK_g_e) =|>
+     State':= 3 /\ PNN':= new()
+			/\ SND_NDR ({M_id_1.PNN'.Func({M_id_1.PNN'}_inv(SK_g_a))}_SK_g_e)
+			/\ request (NDR,DR,m_id_dr_ndr_1,M_id_1)
+			/\ witness (NDR,DR,m_id_ndr_dr_1,M_id_1)
+  
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role designated_router(DR,NDR:agent,
+	     M_id_1: nat,
+	     Func: hash_func,
+	     SK_g_a: public_key,
+	     SK_g_e: symmetric_key,
+	     SND_DR, RCV_DR: channel (dy))
+played_by DR
+def=
+
+  local SAts,KDts: text,
+	State: nat
+	
+  init  State := 0
+
+  transition
+
+  1. State = 0 	/\ RCV_DR( start ) =|>
+     State':=2 	/\ SAts' := new()
+               	/\ KDts' := new()
+              	/\ SND_DR({M_id_1.SAts'.KDts'.Func({SAts'.KDts'.M_id_1}_inv(SK_g_a))}_SK_g_e)
+		/\ witness(DR,NDR,m_id_dr_ndr_1,M_id_1)
+		/\ secret (KDts',kd_dr_ndr, {DR,NDR})
+		/\ secret (SAts',sa_dr_ndr, {DR,NDR})
+		/\ secret (SK_g_e, sk_ge_dr_ndr, {DR,NDR})
+2. State = 2 /\ RCV_DR(({M_id_1.PNN'.Func({M_id_1.PNN'}_inv(SK_g_a))}_SK_g_e) =|>
+  State':= 4 /\ request (DR,NDR,m_id_ndr_dr_1,M_id_1)
+             
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role session(NDR, DR: agent,
+	     M_id_1: nat,
+	     Func: hash_func,
+	     SK_g_a: public_key,
+	     SK_g_e: symmetric_key
+            )
+def=
+
+  local S_NDR, R_NDR, S_DR, R_DR: channel (dy)
+
+  composition
+
+	   non_designated_router(NDR,DR,M_id_1,Func,SK_g_a, SK_g_e,S_NDR,R_NDR)
+	/\ designated_router(DR,NDR,M_id_1,Func,SK_g_a,SK_g_e,S_DR,R_DR)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role environment()
+def=
+ 
+  const m_id_dr_ndr_1,m_id_ndr_dr_1		: protocol_id,
+	kd_dr_ndr, sa_dr_ndr	: protocol_id,
+	sk_ge_dr_ndr    		: protocol_id,	
+        ndr, dr          		: agent,
+	m_id_1			: nat,
+	func             	: hash_func,
+	sk_g_a			: public_key,
+        sk_g_e			: symmetric_key,
+	sk_g_e_i_ndr,sk_g_e_i_dr 	: symmetric_key
+
+  intruder_knowledge = {ndr,dr,i,m_id_1,func,sk_g_a,
+			sk_g_e_i_dr,	sk_g_e_i_ndr
+                       }
+
+  composition
+
+	session(ndr, dr, m_id_1, func,	sk_g_a,	sk_g_e) 
+     /\ session(ndr, i, m_id_1, func,	sk_g_a,	sk_g_e_i_ndr)
+     /\	session(i,  dr, m_id_1, func,	sk_g_a,	sk_g_e_i_dr)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+goal  	
+  %secrecy_of SK
+
+  secrecy_of sa_dr_ndr, kd_dr_ndr 	% secrecy of SAtf and KDtf 
+  secrecy_of sk_ge_dr_ndr 	% secrecy of SK_g_e
+
+
+  %authentication
+  authentication_on m_id_dr_ndr_1 % GM authenticates Q on m_id_1
+authentication_on m_id_ndr_dr_1 
+ 
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+environment()

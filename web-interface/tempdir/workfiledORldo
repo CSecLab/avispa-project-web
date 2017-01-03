@@ -1,0 +1,94 @@
+role ruser (User , Node : agent , Snd , Rcv : channel ( dy )
+, Pkuser , PkAIK, PksubEK , Pknode : public_key
+, PCR : text , H: hash_func ) played_by User
+def=
+local
+ State : nat , 
+  N1 ,N2 ,N3 : text,
+  Ksession : symmetric_key
+
+init State := 0
+transition
+1 . State = 0 /\ Rcv(start)
+=|> State' := 1 /\ N1' :=new( ) /\ Snd( {N1'.Node}_inv(Pkuser) )
+
+2 . State = 1 /\ Rcv({{H(PCR.N1 .N2' . Node)}_inv(PkAIK).N2' }_inv (Pknode ) )
+=|> State' := 2 /\ N3' :=new( )  /\ Snd( { {N1.N2'.N3'.Ksession}_PksubEK}_inv(Pkuser)  )
+
+3 . State = 2 /\ Rcv({N3}_Ksessioon ) =|> State' :=3
+         /\ secret ( Ksession , sec , {User , Node})
+         /\ request (User ,Node ,N3 , valid )
+end role
+
+
+role rnode (Node , User ,TPM : agent , SndUser , RcvUser ,SndTPM, RcvTPM : channel ( dy ) ,
+                 Pkuser , PkAIK, PksubEK, Pknode : public_key , PCR : text , H: hash_func ) played_by Node def=
+
+local State : nat , N1 ,N2 ,N3 : text ,
+Ksession : symmetric_key
+
+init State := 1
+
+transition
+1 . State = 1 /\ RcvUser ( {N1'.Node' }_inv ( Pkuser ) ) =|> State ' := 2 /\ N2' := new( )
+          /\ SndTPM(N1 ' . N2 ' . Node ' )
+
+2 . State = 2 /\ RcvTPM( {H(PCR.N1 .N2 . Node )}_inv (PkAIK) ) =|> State' := 3
+           /\ SndUser ( {{H(PCR.N1 .N2 . Node )}_inv(PkAIK).N2 }_inv(Pknode) )
+
+3 . State = 3 /\ RcvUser ({ {N1 .N2 .N3' . Ksession' }_PksubEK }_inv(Pkuser ) ) =|> State' := 4
+                  /\ SndUser ( {N3'}_Ksession' )
+                  /\ witness (User, Node ,N3 , valid)
+end role
+
+
+role rtpm(TPM ,User , Node : agent , Snd , Rcv : channel ( dy ) , 
+          Pkuser , PkAIK, PksubEK, Pknode : public_key , PCR : text , H: hash_func ) played_by TPM
+def=
+
+local State : nat , N1 ,N2 : text
+
+init State := 10
+
+transition
+
+1 . State = 10 /\ Rcv(N1'.N2'.Node' ) =|> State' := 11 /\ Snd( {H(PCR.N1'.N2'.Node')}_inv(PkAIK) )
+end role
+
+
+role session (User ,Node ,TPM : agent, Pkuser , PkAIK, PksubEK ,Pknode : public_key ,
+PCR : text ,H: hash_func) def=
+
+local 
+SndUser , RcvUser : channel ( dy ) ,
+SndTPM, RcvTPM : channel ( dy )
+
+composition
+ruser (User ,Node , SndUser , RcvUser , Pkuser , PkAIK, PksubEK, Pknode ,PCR,H)
+/\ rnode (Node , User ,TPM, SndUser , RcvUser ,SndTPM, RcvTPM, Pkuser , PkAIK, PksubEK, Pknode ,PCR,H)
+/\ rtpm(TPM, User ,Node ,SndTPM,RcvTPM, Pkuser , PkAIK, PksubEK, Pknode ,PCR,H)
+
+end role
+
+role environment ( ) def=
+const user , tpm, node : agent ,
+pcr , quote , unbind , extend , soft , zeros : text ,
+pkuser , pkAIK ,pksubEK , pknode , pki : public_key ,
+ash : hash_func , 
+sec , valid : protocol_id
+
+intruder_knowledge = {user , tpm, node , pkuser , zeros , pkAIK, pksubEK , pknode , pcr , ash , quote , unbind , extend , pki , inv(pki) } 
+
+composition
+session ( user , node , tpm, pkuser , pkAIK, pksubEK , pknode , pcr , ash )
+/\ session ( user , i , tpm, pkuser , pkAIK, pksubEK , pknode , pcr , ash )
+/\ session ( i , node , tpm, pkuser , pkAIK, pksubEK , pknode , pcr , ash )
+/\ session ( user , node , i , pkuser , pkAIK, pksubEK , pknode , pcr , ash )
+end role
+
+goal
+secrecy_of sec
+authentication_on valid
+end goal
+
+environment ( )

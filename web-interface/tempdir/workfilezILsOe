@@ -1,0 +1,248 @@
+%% PROTOCOL: Srinu Key Exchange
+%% VARIANT: basic
+%% PURPOSE: Encrypted key exchange
+%% REFERENCE:
+%% url{http://citeseer.ist.psu.edu/bellovin92encrypted.html}
+%% MODELER:
+%% begin{itemize}
+%%   item Haykal Tej, Siemens CT IC 3, 2003
+%%   item Sebastian M{"o}dersheim, ETH Z{"u}rich, December 2003
+%% end{itemize}
+%%
+%% ALICE_BOB:
+%% begin{verbatim}
+%% A -> B : {Ea}_Kab        |    Key exchange part
+%% B -> A : {{K}_Ea}_Kab    |
+%% A -> B : {Ca}_K          |
+%% B -> A : {Ca,Cb}_K       |    Challenge/Response
+%% A -> B : {Cb}_K          |    Authentication part
+%% end{verbatim}
+%%
+%% LIMITATIONS: None
+%%
+%% PROBLEMS: 3
+%%
+%% CLASSIFICATION: G2 G12
+%%
+%% ATTACKS: 
+%% begin{verbatim}
+%% i -> (a,3): start
+%% (a,3) -> i: {Ea(1)}_kab
+%% i -> (a,6): {Ea(1)}_kab
+%% (a,6) -> i: {{K(2)}_Ea(1)}_kab 
+%% i -> (a,3): {{K(2)}_Ea(1)}_kab
+%% (a,3) -> i: {Na(3)}_K(2) witness(a,b,na,Na(3))
+%% i -> (a,6): {Na(3)}_K(2)
+%% (a,6) -> i: {Na(3),Nb(4)}_K(2) witness(a,b,nb,Nb(4))
+%% i -> (a,3): {Na(3),Nb(4)}_K(2)
+%% (a,3) -> i: {Nb(4)}_K(2)  request(a,b,nb,Nb(4))
+%% end{verbatim}
+%%
+%% Parallel session attack, man-in-the-middle
+%% between A as initiator and A as responder, attacker
+%% masquerades as B, but no secret nonces are exposed.
+%%
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%HLPSL:
+
+role alice (Ui,Sj: agent,
+               SKuisj: symmetric_key,
+	       %H is the one-way hash function
+               %BH is the Biohashing function
+               H : hash_func,
+%		BH: hash_func,
+               Snd,Rcv: channel(dy))
+played_by Ui
+def=
+
+  local State   : nat,
+	IDi, PWi, B, X, Y :text,
+	SIDj, Ni, Nj:text,
+	 Ai, Bi, Ci, Di, Ei:text
+
+  const alice_bob_b, bob_alice_nj, alice_bob_ni,
+	subs1,subs2,subs3, subs4, subs5: protocol_id
+
+  init  State := 0
+
+  transition
+% User registration phase
+   1. State = 0  / Rcv(start) =|> 
+      State' := 1   / B' := new()
+% Send the registration request message to Sj
+      / Ai':= H(xor(IDi,B',PWi))
+      / secret({PWi,B'}, subs2, Ui)
+      / secret({IDi}, subs3, {Ui, Sj}})
+      / Snd({IDi.Ai'}_SKuisj)
+% Ui has freshly generated the value Ni for Sj
+      / witness(Ui, Sj, alice_bob_b, B')
+% Receive the registration acknowledgement message from Sj
+
+   2. State = 1 / Rcv({H(IDi.H(xor(IDi,B',PWi)).H(Y)).
+					   H(H(H(xor(IDi,B',PWi)).X).H(X.Y)).
+					   xor(H(X.Y),H(H(xor(IDi,B',PWi).X))).
+					   H(Y).H}_SKuisj) =|> 
+% Login phase
+      State' := 2 /secret({X,H(X.Y)},Subs1,Sj)
+      / Ni' := new()
+      / secret({Ni'},subs4,Ui)
+%send the login REQUEST message  to Sj
+      / Snd((xor(H(xor(IDi,B',PWi)),H(H(H(H(xor(IDi,B',PWi)).X).H(X.Y)).SIDj.Ni))).
+	   xor(xor(H(X.Y),H(H(xor(IDi,B',PWi).X))),H(H(SIDj.H(Y)).Ni)).
+	   H(xor(xor(H(X.Y),H(H(xor(IDi,B',PWi).X))),H(H(SIDj.H(Y)).Ni)).(xor(H(xor(IDi,B',PWi)),H(H(H(H(xor(IDi,B',PWi)).X).H(X.Y)).SIDj.Ni))).H(xor(IDi,B',PWi)).Ni').
+	   xor(H(SIDj.H(Y)),Ni'))
+% Ui has freshly generated the value Ni for Sj
+      / witness(Ui,Sj,alice_bob_ni,Ni')
+	  
+% Authentication phase
+% Receive the authentication request message  from Sj
+   3. State = 2 / Rcv({(H(H(H(H(xor(IDi,B',PWi)).X).H(X.Y)).
+					H(xor(IDi,B',PWi))).
+					H(xor(IDi,B',PWi)).
+					SIDj.Nj').
+					(H(H(H(H(xor(IDi,B',PWi)).X).H(X.Y)).
+					H(xor(IDi,B',PWi))).Nj')}) =|>
+% Send the message  to Sj   
+      State' := 3 / Snd(H(H(H(H(H(xor(IDi,B',PWi)).X).H(X.Y)). H(xor(IDi,B',PWi))).    
+					H(xor(IDi,B',PWi)).
+					SIDj.Ni'.Nj'))
+% Ui's acceptance of the value Nj generated for Ui by Sj
+      / request(Sj,Ui,bob_alice_nj,Nj')
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob (Ui,Sj: agent,
+               SKuisj: symmetric_key,
+	       %H is the one-way hash function
+               %BH is the Biohashing function
+               H : hash_func,
+	%	BH: hash_func,
+               Snd,Rcv: channel(dy))
+%played_by the responder: the server Sj
+played_by Sj
+def=
+
+  local State   : nat,
+	IDi, PWi, B, X, Y :text,
+	SIDj, Ni, Nj:text,
+	 Ai, Bi, Ci, Di, Ei:text
+
+  const alice_bob_b, bob_alice_nj, alice_bob_ni,
+	subs1,subs2,subs3, subs4, subs5: protocol_id
+
+  init  State := 0
+  transition
+% User registration phase
+% Receive the registration request message  from Ui
+   1. State = 0 / Rcv({IDi.H(xor(IDi,B',PWi))}_SKuisj) =|> 
+      State' := 1 / request(Ui,Sj,alice_bob_ni,Ni')
+	  / secret({X, H(X.Y)},subs1,Sj)
+      / secret({PWi,B'},subs2,Ui)
+      / secret({IDi},subs3,{Ui,Sj})
+% Send the registration acknowledgement message to Ui 
+      / Snd({H(IDi.H(xor(IDi,B',PWi).H(Y))).
+			H(H(H((xor(IDi,B',PWi)),X).H(X.Y))).
+			xor(H(X.Y),H(H(xor(IDi,B',PWi).X))).
+			H(Y).H}_SKuisj)
+
+	  
+	  
+% Login phase
+% Receive the login request message  from Ui
+   2. State = 1  / Rcv((xor(H(xor(IDi,B',PWi)),H(H(H(H(xor(IDi,B',PWi)).X).H(X.Y)).SIDj.Ni))).
+	   xor(xor(H(X.Y),H(H(xor(IDi,B',PWi).X))),H(H(SIDj.H(Y)).Ni)).
+	   H(xor(xor(H(X.Y),H(H(xor(IDi,B',PWi).X))),H(H(SIDj.H(Y)).Ni)).(xor(H(xor(IDi,B',PWi)),H(H(H(H(xor(IDi,B',PWi)).X).H(X.Y)).SIDj.Ni))).H(xor(IDi,B',PWi)).Ni').
+	   xor(H(SIDj.H(Y)),Ni')) =|>
+   
+   
+   
+% Authentication phase
+      State' := 2 / Nj' := new()
+	  / secret ({Nj'},subs5,Sj)
+% Send the authentication request message  to Ui
+      / Snd({(H(H(H(H(xor(IDi,B',PWi)).X).H(X.Y)).
+					H(xor(IDi,B',PWi))).
+					H(xor(IDi,B',PWi)).
+					SIDj.Nj').
+					(H(H(H(H(xor(IDi,B',PWi)).X).H(X.Y)).
+					H(xor(IDi,B',PWi))).Nj')})
+	  
+	  
+% Sj has freshly generated the value Nj for Ui
+      / witness(Sj,Ui,bob_alice_nj,Nj')
+
+% Receive the message  to from Ui
+3. State=2 / Rcv(H(H(H(H(H(xor(IDi,B',PWi)).X).H(X.Y)). H(xor(IDi,B',PWi))).    
+					H(xor(IDi,B',PWi)).
+					SIDj.Ni'.Nj')) =|>
+					
+%Sj's acceptance of the value Ni generated for Sj by Ui
+State' :=3  / request(Ui,Sj,alice_bob_ni,Ni')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(Ui,Sj: agent,
+	     SKuisj: symmetric_key,
+	     H: hash_func,)
+	     
+def=
+
+  local SI, SJ, RI, RJ: channel (dy)
+
+  composition
+     alice(Ui,Sj,SKuisj,H,SI,RI)
+  / bob(Ui,Sj,SKuisj,H,SJ,RJ)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role environment()
+def=
+
+  const ui, sj   : agent,
+        skuisj    : symmetric_key,
+        h : hash_func, 
+		pwi,x,idi,sidj,ni,nj: text,
+        alice_bob_ni, bob_alice_nj,
+        subs1,subs2, subs3, subs4, subs5 : protocol_id
+
+  intruder_knowledge={ui,sj,h}
+
+  composition
+      session(ui,sj,skuisj,h)
+   / session(ui,sj,skuisj,h)
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+ % Confidentiality (G12)
+ secrecy_of subs1
+ secrecy_of subs2
+ secrecy_of subs3
+ secrecy_of subs4
+ secrecy_of subs5
+ % Message authentication (G2)
+ % EKE_Init authenticates EKE_Resp on nb
+ authentication_on alice_bob_ni
+
+ % Message authentication (G2)
+ % EKE_Resp authenticates EKE_Init on na
+ 
+  authentication_on bob_alice_nj
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+       
+ 

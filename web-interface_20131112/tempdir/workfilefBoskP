@@ -1,0 +1,76 @@
+role alice (A,B : agent,
+	 Kb  : public_key,
+	 SND,RCV : channel (dy))
+  played_by A def=
+     local State : nat,
+	PhNum : text,
+	Kab   : symmetric_key,
+	UDID  : text,
+        Pin   : text,
+        Response : text,
+        Time  : text
+	const sec_k1 : protocol_id
+     init State := 0
+     transition
+     1. State = 0 /\ RCV(start) =|>
+	State' := 2 /\ Kab' :=new() /\ SND ({Kab'}_Kb.{PhNum.UDID.Time}_Kab')
+		% /\ secret(Kab',sec_k1,{A,B})
+     2. State = 2 /\ RCV (Pin) =|>
+	State' := 4 /\ SND ({PhNum.Pin}_Kab)
+     3. State = 4 /\  RCV ({PhNum.UDID.Response}_Kab)=|> 
+      State' := 6
+end role
+
+role bob(B,A : agent,
+	Kb  : public_key,
+	Kab : symmetric_key,
+        SND,RCV : channel (dy))
+played_by B 
+def=
+     local
+	State : nat,
+	Pin   : text,
+        PhNum : text,
+	UDID  : text,
+        Time  : text,
+	Response: text
+
+     init State := 1
+     transition
+     1. State  = 1  /\ RCV({Kab'}_Kb.{PhNum.UDID.Time}_Kab') =|>
+	State' := 3   /\ Pin' := new() /\ SND (Pin')
+     2. State  = 3  /\ RCV ({PhNum.Pin'}_Kab') =|>
+	State' := 5 /\ SND({PhNum.UDID.Response}_Kab')   	
+end role
+
+role session(A,B : agent,
+	Kb   : public_key)
+def=
+    local SA, RA, SB, RB: channel (dy)
+   	
+    composition
+	alice(A,B,Kb,SA,RA)
+%     /\ bob(B,A,Kb,Kab,SB,RB)
+end role
+role environment()
+def=
+ local SA1, SB1, RA1, RB1 : channel (dy)
+const
+bob_alice_nb,
+k1 : protocol_id,
+kab : symmetric_key,
+kb : public_key,
+a,b,s : agent,
+h : hash_func
+intruder_knowledge = {a,b,s,h,k1,kb,kab}
+composition
+session(a,b,kb)
+%/\ session(a,s,kab)
+%/\ session(b,s,kab)
+end role
+goal
+secrecy_of k1
+authentication_on bob_alice_nb
+end goal
+environment()
+                                

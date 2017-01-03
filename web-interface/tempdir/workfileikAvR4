@@ -1,0 +1,93 @@
+role alice(A, B : agent,
+Ka, Ks : public_key,
+KeyRing: (agent.public_key) set,
+SND, RCV: channel(dy))
+played_by A def=
+local State : nat,
+Na, Nb: text,
+Kb:public_key
+init State := 0
+transition
+1. State = 0 /\ RCV(start)/\not(in(B.Kb',KeyRing))
+=|>State' := 1 /\ SND(A.B)
+2. State = 1 /\ RCV({B.Kb'}_inv(Ks))
+=|>State' :=0 /\KeyRing':=cons(B.Kb',KeyRing)
+3. State = 0 /\ RCV(start) /\ in(B.Kb',KeyRing)
+=|>State' := 4 /\ Na':=new() /\ SND({Na'.A}_Kb') /\ secret(Na', na, {A,B}) /\ witness(A,B,bob_alice_na,Na')
+4. State = 4 /\ RCV({Na.Nb'}_Ka)
+=|>State' :=6 /\ SND({Nb'}_Kb) /\ request(A,B,alice_bob_nb, Nb')
+end role
+role bob(A, B : agent,
+Kb, Ks : public_key,
+KeyRing: (agent.public_key) set,
+SND, RCV: channel(dy))
+played_by B def=
+local State : nat,
+Na, Nb: text,
+Ka:public_key
+init State := 2
+transition
+1. State = 2 /\ RCV({Na'.A}_Kb) /\ not(in(A.Ka',KeyRing))
+=|>State' := 3 /\ SND(B.A)
+2. State = 3 /\ RCV({A.Ka'}_inv(Ks))
+=|>State' := 2 /\ KeyRing':=cons(A.Ka',KeyRing)
+3. State = 2 /\ RCV({Na'.A}_Kb) /\ in(A.Ka',KeyRing)
+=|>State' := 5 /\ Nb':=new() /\ SND({Na'.Nb'}_Ka') /\ secret(Nb', nb, {A,B}) /\ witness(B,A,alice_bob_nb,Nb')
+4. State = 5 /\ RCV({Nb}_Kb)
+=|>State' :=7 /\ request(B,A,bob_alice_na,Na)
+end role
+role server(S: agent,
+Ks : public_key,
+KeyMap: (agent.public_key) set,
+SND, RCV: channel(dy))
+played_by S def=
+local State : nat,
+A, B:agent,
+Kb:public_key
+init State := 8
+transition
+req1. State = 8 /\ RCV(A'.B') /\ in(B'.Kb',KeyMap)
+=|>State' := 9 /\ SND({B'.Kb'}_inv(Ks))
+req2. State = 9 /\ RCV(A'.B') /\ in(B'.Kb',KeyMap)
+=|>State' := 10 /\ SND({B'.Kb'}_inv(Ks))
+req3. State = 10 /\ RCV(A'.B') /\ in(B'.Kb',KeyMap)
+=|>State' := 11 /\ SND({B'.Kb'}_inv(Ks))
+end role
+role nspk(SND, RCV: channel(dy),
+Ks : public_key,
+Instances: (agent.agent.public_key.public_key) set,
+KeySet: agent-> (agent.public_key) set)
+def=
+local A,B : agent,
+Ka, Kb:public_key
+composition
+/\_{in(A.B.Ka.Kb,Instances)}
+(alice(A,B,Ka,Ks,KeySet(A),SND,RCV)
+/\ bob(A,B,Kb,Ks,KeySet(B),SND,RCV))
+end role
+role environment() def=
+local KeyMap:(agent.public_key) set,
+SND,RCV: channel(dy)
+const a,b,s,i: agent,
+Ka,Kb,Ki,Ks:public_key,
+na,nb,alice_bob_nb, bob_alice_na: protocol_id
+init KeyMap:= {a.Ka, b.Kb, i.Ki}
+intruder_knowledge= {a,b,Ks,Ka,Kb,Ki,inv(ki)}
+composition
+server(s,Ks,KeyMap,SND,RCV)
+/\ nspk(SND,RCV,Ks,{a.b.Ka.Kb, a.i.Ka.Ki, i.b.Ki.Kb},
+{a.{a.Ka,b.Kb},
+b.{b.Kb},
+i.{i.Ki}})
+end role
+goal
+secrecy_of na, nb
+authentication_on alice_bob_nb
+authentication_on bob_alice_na
+end goal
+environment()
+
+
+
+
+

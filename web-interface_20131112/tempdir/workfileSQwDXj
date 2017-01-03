@@ -1,0 +1,114 @@
+role alice (Ui,SNj: agent,
+              Ea, Ep,Cp Ca  :  symmetric_key,  
+               H : hash_func,
+               Snd,Rcv: channel(dy))
+played_by Ui
+def=
+
+  local State   : nat,
+      
+       N,TK,Cy1,Cy2,Ch : text
+
+  const sub1,sub2,sub3,sub4 : protocol_id
+
+  init  State := 0
+
+  transition
+
+   1. State = 0
+      /\ Rcv(start) =|> 
+      State' := 1
+      /\ Cy1':= {Ea'}_ Cp
+      /\ N':= new()
+      /\ Ch':= H(Ea)
+      /\ Cy2':= {N'.Ch'}_Ep   
+      /\ Snd(Ui.SNj.Cy1'.Cy2')
+      /\ witness(Ui, SNj, sub3, N') 
+
+   2. State = 1
+      /\ Rcv(SNj.Ui.{N'.TK'}_Ea) =|> 
+      State' := 2  /\ secret(TK,sub3,{Ui, SNj})
+                  /\ secret({Ea, Cp},sub2,{Ui, SNj})
+                  /\ secret({Ep,Ca} ,sub1,{Ui, SNj})
+                 /\ request(SNj, Ui, sub4, TK')  
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob (Ui,SNj: agent,
+           Ea, Ep,Cp Ca  :  symmetric_key,  
+           H : hash_func,
+          Snd,Rcv: channel(dy))
+
+played_by SNj
+def=
+  local State   : nat,
+        N,TK,Cy1,Cy2,Ch:text,
+	
+    const sub1,sub2,sub3,sub4 : protocol_id
+
+  init  State := 0
+
+  transition
+
+   1. State = 0 /\ Rcv(Ui.SNj.{Ea}_ Cp.{N'.Ch'}_Ep)=|> 
+      State' := 1 /\ TK' := new() 
+                  /\ Snd(SNj.Ui.{N'.TK'}_Ea) 
+                  /\ request(Ui, SNj, sub3, N')
+      		  /\ secret({Ea, Cp},sub2,{Ui, SNj})
+                  /\ secret({Ep,Ca} ,sub1,{Ui, SNj})
+                  /\ witness(SNj, Ui, sub4, TK') 
+
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(Ui,SNj: agent,
+  Ea, Ep,Cp Ca  :  symmetric_key,  
+ H : hash_func )
+def=
+
+  local SA, RA, SB, RB: channel (dy)
+
+  composition
+     alice(Ui,SNj,Ea,Ep,Cp,Ca,H,SA,RA)
+  /\ bob(SNj,Ui,Ea,Ep,Cp,Ca,H,SB,RB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role environment()
+def=
+
+  const ui, snj   : agent,
+  ea, ep,cp, ca  :  symmetric_key,  
+         h   : hash_func,
+         n,tk,cy1,cy2,ch  : text,
+	
+sub1, sub2,sub3,sub4 : protocol_id
+
+  intruder_knowledge={ui,snj}
+
+  composition
+      session(ui,snj,ea, ep,cp, ca,h)
+   /\ session(snj,ui,ea, ep,cp, ca,h)
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+ secrecy_of sub1
+  secrecy_of sub2
+authentication_on sub3
+authentication_on sub4
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+

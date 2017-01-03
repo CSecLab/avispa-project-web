@@ -1,0 +1,203 @@
+role reader (
+A, S, B				: agent,
+HL,HR				: hash_func,
+SND_BA,SND_SA,RCV_BA,RCV_SA	: channel(dy)
+)
+
+
+
+
+
+played_by A
+
+def=
+
+	local State				: nat,
+	R1					: text,
+	A1,A2					: message
+
+init State := 0
+
+transition
+
+	1. State = 0 /\ RCV_BA(start) =|>
+		   State' := 2 /\ R1' := new() /\ SND_BA(R1')
+
+
+	2. State = 2 /\ RCV_BA(A1'.A2'.HL') =|> 
+		   State' := 4 /\ SND_SA(R1.A1'.A2'.HL') 	       
+		       
+	3. State = 4 /\ RCV_SA(HR') =|>
+		   State' := 6 /\ SND_BA(HR')
+		       
+
+end role
+
+
+
+
+
+
+
+role server (
+A, S, B			: agent,
+Hash,HL,HR		: hash_func,
+K			: symmetric_key,
+TIDOld			: text,
+SND_AS,RCV_AS		: channel(dy)
+)
+
+
+
+
+
+played_by S
+
+def=
+
+	local State				: nat,
+	R1,R2					: text,
+	A1,A2,H,TIDNew,KNew			: message
+
+init State := 1
+
+transition
+
+
+	1. State = 1 /\ RCV_AS(R1.A1'.A2'.HL) =|>
+		   State' := 3 /\ R2' := xor(A1',Hash(xor(K,R1)))
+		       /\ TIDOld' := xor(A2',xor(K,R2'))
+		       /\ H' := Hash(TIDOld'.R1.Hash(xor(K,xor(R2',TIDOld'))))
+		       /\ H' := HL.HR
+		     
+		       
+		       
+	2. State = 3 /\ request(S,B,server_tag_hl,HL) =|>
+		   State' := 5 /\ SND_AS(HR)
+		        
+
+	3. State = 5 /\ witness(S,B,tag_server_hr,HR) =|>
+		   State' := 7  
+		      /\ TIDNew' := xor(TIDOld,xor(R1,R2))
+		      /\ TIDOld' := TIDNew'
+		      /\ KNew' := Hash(K.R1.R2)
+		      /\ K' := KNew'
+		      /\ secret(TIDNew',TIDNew,{S,B})
+		      /\ secret(KNew',KNew,{S,B})
+end role
+
+
+
+
+
+
+role tag(
+	A, S, B				: agent,
+	Hash,HL,HR			: hash_func,
+	K				: symmetric_key,
+	TIDOld				: text,
+	SND_AB,RCV_AB				: channel(dy)
+	)
+	
+
+
+played_by B
+
+def=
+
+	local State						: nat,
+	R1,R2			 	     			: text,
+	A1,A2,H,TIDNew,KNew					: message			      
+	      
+init State := 8
+	
+transition
+	 
+	1. State = 8 /\ RCV_AB(R1') =|>  
+	   	State' := 10 /\ R2' := new()
+		     /\ A1' := xor(Hash(xor(K,R1')),R2')
+		     /\ A2' := xor(K,xor(R2',TIDOld))
+		     /\ H' := Hash(TIDOld.R1'.Hash(xor(K,xor(R2',TIDOld))))
+		     /\ H' := HL.HR
+		     /\ SND_AB(A1'.A2'.HL)
+		     /\ witness(B,S,server_tag_hl,HL)
+		       
+	
+	2. State = 10 /\ RCV_AB(HR) =|>
+		State' := 12 /\ request(B,S,tag_server_hr,HR)
+		          /\ TIDNew' := xor(TIDOld,xor(R1,R2))
+		      /\ TIDOld' := TIDNew'
+		      /\ KNew' := Hash(K.R1.R2)
+		      /\ K' := KNew'
+
+
+end role
+
+ 
+			
+
+
+
+role session(
+
+	A, S, B		: agent,
+	K		: symmetric_key,
+	Hash,HL,HR	: hash_func,
+	TIDOld		: text
+	)
+	
+def=
+
+	local SSA,SBA,SAS,SAB,RAS,RSA,RBA,RAB : channel(dy)
+
+	
+composition
+		reader(A,S,B,HL,HR,SBA,SSA,RBA,RSA)
+		/\ tag(A,S,B,Hash,HL,HR,K,TIDOld,SAB,RAB)
+		/\ server(A,S,B,Hash,HL,HR,K,TIDOld,SAS,RAS)
+
+
+end role
+
+
+
+
+
+
+role environment()
+
+
+def=
+
+	const	a,s,b,i						: agent,
+		tag_server_hr,server_tag_hl,tidnew,knew		: protocol_id,
+		k,ki				: symmetric_key,
+		h,hr,hl					: hash_func,
+		tidold,tidi					: text
+		
+	intruder_knowledge = {a,s,b,h,ki,tidi}
+	
+composition
+
+		session(a,s,b,k,h,hl,hr,tidold)
+		/\ session(a,s,b,k,h,hl,hr,tidold)
+		/\ session(a,s,i,ki,h,hl,hr,tidi)
+		/\ session(i,s,b,ki,h,hl,hr,tidi)
+		
+end role
+
+
+
+
+
+goal
+	secrecy_of tidnew,knew
+	authentication_on server_tag_hl
+	authentication_on tag_server_hr
+
+end goal
+
+
+
+environment()
+  

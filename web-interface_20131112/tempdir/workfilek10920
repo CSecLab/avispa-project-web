@@ -1,0 +1,151 @@
+{\rtf1\ansi\ansicpg1252\deff0\deflang1033{\fonttbl{\f0\fswiss\fcharset0 Arial;}}
+{\*\generator Msftedit 5.41.15.1507;}\viewkind4\uc1\pard\f0\fs20 %% PROTOCOL: (MS-)CHAPv2\par
+%% Challenge/Response Authentication Protocol, version 2\par
+%% PURPOSE:\par
+%% Mutual authentication between a server and a client who share a password.\par
+%% CHAPv2 is the authentication protocol for the Point-to-Point Tunneling Protocol\par
+%% suite (PPTP).\par
+%% REFERENCE:\par
+%% \\cite\{RFC2759\}\par
+%% MODELER:\par
+%%\\begin\{itemize\}\par
+%%\\item Haykal Tej, Siemens CT IC 3, 2003\par
+%%\\item Paul Hankes Drielsma, ETH Z\\"urich\par
+%%\\end\{itemize\}\par
+%%\par
+%% ALICE_BOB:\par
+%% We assume that the server \\verb!B! and client \\verb!A! share \par
+%% password \\verb!k(A,B)! in advance.  The server and client generate\par
+%% nonces \\verb!Nb! and \\verb!Na!, respectively.\par
+%%\\begin\{verbatim\}\par
+%%  1. A -> B : A\par
+%%  2. B -> A : Nb\par
+%%  3. A -> B : Na,H(k(A,B),(Na,Nb,A))\par
+%%  4. B -> A : H(k(A,B),Na)\par
+%%\\end\{verbatim\}\par
+%%\par
+%% LIMITATIONS:\par
+%%\par
+%%Issues abstracted from:\par
+%%\\begin\{itemize\}\par
+%%\\item Message structure: As is standard, we abstract away from the concrete details\par
+%% of message structure such as bit lengths, etc.  What is left after this abstraction\par
+%% contains several redundancies, however (at least in the Dolev-Yao model).\par
+%% We therefore eliminate these redundancies, retaining the core of the data\par
+%% dependencies of the protocol. \par
+%%\\end\{itemize\}\par
+%%\par
+%% PROBLEMS: 3\par
+%% CLASSIFICATION: G1, G2, G12\par
+%% ATTACKS: None\par
+%%\par
+%% NOTES:\par
+%% A cryptanalysis of this protocol in its full complexity can be found\par
+%% in~\\cite\{schneier99cryptanalysis\}.\par
+%%\par
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% \tab\par
+%%HLPSL:
+role chap_Init (C,S   : agent,
+           	Kcs   : symmetric_key,
+		H     : hash_func,
+           	Snd, Rcv: channel(dy))
+played_by C
+def=
+           
+  local State  : nat,
+        Rs, Rc : text
+
+  const sec_kcs1 : protocol_id
+
+  init  State := 0
+
+  transition
+   1. State   = 0 /\\ Rcv(start) =|>
+      State' := 1 /\\ Snd(C)
+
+   2. State   = 1 /\\ Rcv(Rs') =|> 
+      State' := 2 /\\ Rc' := new() /\\ Snd(Rc'.H(Kcs.Rc'.Rs'.C))
+           	/\\ witness(C,S,nc,Rc') 
+		/\\ secret(Kcs,sec_kcs1,{C,S})
+
+   3. State   = 2 /\\ Rcv(H(Kcs.Rc)) =|> 
+      State' := 3 /\\ request(C,S,ns,Rs) 
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role chap_Resp (S,C : agent,
+                Kcs : symmetric_key,
+ 		H: hash_func,
+                Snd, Rcv: channel(dy))
+played_by S
+def=
+           
+  local State  : nat,
+        Rc, Rs : text
+
+  const sec_kcs2 : protocol_id
+
+  init  State := 0
+
+  transition
+   1. State   = 0 /\\ Rcv(C') =|>  
+      State' := 1 /\\ Rs' := new() /\\ Snd(Rs')
+	           /\\ witness(S,C,ns,Rs')
+
+   2. State   = 1 /\\ Rcv(Rc'.H(Rcs.Rc'.Rs.C)) =|>
+      State' := 2 /\\ Snd(H(Kcs.Rc'))
+	           /\\ request(S,C,nc,Rc') 
+		   /\\ secret(Kcs,sec_kcs2,{C,S})
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(C,S: agent,
+      Kcs: symmetric_key,
+      H: hash_func)
+def=
+
+  local LC, LS, MC, MS: channel (dy)
+
+  composition
+           chap_Init(C, S, Kcs, H, LC, MC)
+       /\\  chap_Resp(S, C, Kcs, H, LS, MS)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+
+  const c, s          : agent,
+        kcs, kci, ksi : symmetric_key,
+        h             : hash_func,
+        nc, ns        : protocol_id
+
+  intruder_knowledge = {c, s, h, kci, ksi}
+
+  composition
+ session(c,s,kcs,h) /\ session(c,i,kci,h) /\ session(s,i,ksi,h)
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+ %secrecy of the shared key
+ secrecy_of sec_kcs1, sec_kcs2 % Addresses G12
+                         
+ %CHAP_Init authenticates CHAP_Resp on nb
+ authentication_on ns  % Addresses G1, G2
+ %CHAP_Resp authenticates CHAP_Init on na
+ authentication_on nc  % Addresses G1, G2
+  
+end goal
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+}
+ 

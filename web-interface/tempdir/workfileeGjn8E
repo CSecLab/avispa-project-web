@@ -1,0 +1,147 @@
+%%%%enddevice%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role enddevice(E,L,B:agent,
+               IDe,IDs: text,
+               Kel,Keb: symmetric_key,
+			   Kpubb: public_key,
+			   H: hash_func,
+			   SND,RCV: channel(dy))
+played_by E def=
+
+	local State: nat,
+	      Ne,Nl,Nb,              %nonce
+		  IDl: text  %ID
+		  
+    init State := 0
+
+	transition
+	1. State = 0 /\ RCV(start) =|>
+	   State':=1 /\ Ne':= new()
+	             /\ SND(IDe.Ne')
+	2. State = 1 /\ RCV(IDl'.Nl') =|>
+	   State':=2 /\ Ne':= new()
+	             /\ SND({IDe.IDl'.IDs.Ne'}_Keb.h({IDe.IDl'.IDs.Ne'}_Keb.Kel.IDe.Ne').IDe.Ne')	
+	             /\ secret(Ne',ne,{E,L,B})
+				 /\ witness(E,L,ed_lr_ne,Ne')
+	3. State = 2 /\ RCV({IDl.Nb'}_Keb)=|>
+	   State':=3 /\ request(E,B,br_ed_nb,Nb')
+	
+end role
+
+%%%%router%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role lrouter(E,L,B:agent,
+             IDl,IDs: text,
+             Kel,Klb: symmetric_key,
+			 Kpubb: public_key,
+			 H: hash_func,
+			 SND,RCV: channel(dy))
+played_by L def=
+
+	local State: nat,
+	      Ne,Nl,Nb,              %nonce
+		  IDe: text,  %ID
+		  Kpubl: public_key,
+		  X : {text.text.text.text}_symmetric_key
+
+    init State := 0
+
+	transition
+	1. State = 0 /\ RCV(IDe'.Ne) =|>
+	   State':=1 /\ Nl':= new()
+	             /\ SND(IDl.Nl')	   
+	2. State = 1 /\ RCV(X'.h(X'.Kel.IDe'.Ne').IDe'.Ne') =|>
+	   State':=2 /\ Nl':= new()
+	             /\ SND(X'.h(X'.Klb.IDl.Nl').IDl.Nl')
+				 /\ secret(Nl',nl,{E,B})
+				 /\ witness(L,B,lr_br_nl,Nl')
+    3. State = 2 /\ RCV(Nb'.{IDe.IDs}_inv(Kpubb).{Kpubl'.inv(Kpubl')}_Klb) =|>
+	   State':=3 /\ request(L,E,ed_lr_ne,Ne)
+	             /\ request(L,B,br_lr_nb,Nb')
+				 /\ request(L,B,prikey,inv(Kpubl))
+end role
+
+%%%%edge router%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role brouter(E,L,B:agent,
+             IDs: text,
+             Keb,Klb: symmetric_key,
+			 Kpubb,Kpubl: public_key,
+			 H: hash_func,
+			 IdList: (text)set,
+			 SND,RCV: channel(dy))
+played_by L def=
+
+	local State: nat,
+	      Ne,Nl,Nb,              %nonce
+		  IDe,IDl: text          %ID
+		  
+    init State := 0
+
+	transition
+	1. State = 0 /\ RCV({IDe'.IDl'.IDs.Ne'}_Keb.h({IDe'.IDl'.IDs.Ne'}_Keb.Klb.IDl'.Nl').IDl'.Nl') 
+	             /\ in(IDe',IdList)
+				 /\ in(IDl',IdList)=|>
+	   State':=1 /\ Nb':= new()
+	             /\ SND(Nb'.{IDe'.IDs}_inv(Kpubb).{Kpubl.inv(Kpubl)}_Klb)
+				 /\ secret(inv(Kpubl),prikey,{L,B})
+				 /\ witness(B,L,prikey,inv(Kpubl))
+                 /\ SND({IDl'.Nb'}_Keb)	
+				 /\ secret(Nb',nb,{E,L,B})
+				 /\ witness(B,L,br_lr_nb,Nb')
+				 /\ witness(B,E,br_ed_nb,Nb')
+				 /\ request(B,L,lr_br_nl,Nl')
+				 
+end role				 
+				 
+%%%%session%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(E,L,B:agent,
+             IDe,IDl,IDs: text,
+			 Kel,Klb,Keb: symmetric_key,
+			 Kpubb,Kpubl: public_key,
+			 H: hash_func,
+             IdList: (text)set)
+def=
+	local SE,RE,SL,RL,SB,RB:channel(dy)
+	
+	composition
+	   enddevice(E,L,B,IDe,IDs,Kel,Keb,Kpubb,H)
+	/\ lrouter(E,L,B,IDl,IDs,Kel,Klb,Kpubb,H)
+	/\ brouter(E,L,B,IDs,Keb,Klb,Kpubb,Kpubl,H,IdList)
+
+end role
+
+%%%%environment%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+
+    const 
+	    nel,nl,nb,
+		ed_lr_ne,ed_br_ne,lr_ed_nl,lr_br_nl,br_lr_nb,br_ed_nb,
+		prikey:protocol_id,
+	    e,l,b,i:agent,
+		ide,idl,ids,idi:text,
+		kel,klb,keb,
+		kil,kib,kei,kib,kli,kei:symmetric_key,
+		kpubb,kpubl,ki:public_key,
+		h:hash_func
+
+	intruder_knowledge={e,l,b,ide,idl,ids,kil,kid,kei,kib,kei,ki,inv(ki),h}
+	composition
+		   session(e,l,b,ide,idl,ids,kel,klb,keb,kpubb,kpubl,h,{ide,idl,ids})
+		/\ session(e,l,b,ide,idl,ids,kel,klb,keb,kpubb,kpubl,h,{ide,idl,ids})
+		/\ session(i,l,b,idi,idl,ids,kil,klb,kib,kpubb,kpubl,h,{ide,idl,ids})		
+		/\ session(e,i,b,ide,idi,ids,kei,kib,keb,kpubb,kpubl,h,{ide,idl,ids})		
+		/\ session(e,l,i,ide,idl,ids,kel,kli,kei,kpubb,kpubl,h,{ide,idl,ids})				 
+				 
+%%%%goal%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%				 
+goal
+
+  secrecy_of nel,nl,nb,prikey
+  authentication_on ed_lr_ne
+  authentication_on lr_br_nl
+  authentication_on br_lr_nb
+  authentication_on br_ed_nb  
+
+end goal
+
+%%%%initial%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

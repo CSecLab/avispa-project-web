@@ -1,0 +1,156 @@
+role owner(
+               ON,CS,US:agent,
+               DEK:symmetric_key,
+               Kdu,Kcu,Kcs,Kdc,Kdo:public_key,
+               H:hash_func,
+               SND,RCV:channel(dy))
+         played_by ON def=
+            local
+		 G,Y,T1,T2,T3,S,P1,P2,P3,T11,T22,T33,Y1,UID,E,W,SK,C,I,MK:text,
+                 State:nat,
+                 M,PK,P:message
+            const sabs,subs,on_cs_id,us_on_id:protocol_id
+               init
+                 State:=0
+                 transition 
+                        1.State=0/\RCV(start)=|>
+                                 State':=1/\PK':=H(H(G.inv(Y)).H(G.T1).H(G.T2).H(G.T3))
+                          		  /\MK':=H(Y1.T11.T22.T33)
+                                          /\SND({PK'}_Kcs)
+                                          /\E':=H(I.M.H(H(G.inv(Y)).inv(S)).(H(G.T1).inv(S)).(H(G.T2).inv(S)).(H(G.T3).inv(S)))
+                                          /\SND({{{M}_DEK}_E'}_Kcs)
+	               2.State=1 /\RCV({UID'}_inv(Kdu))=|>
+                                 State':=2 /\W':=new()
+                                           /\SND({W'}_Kdo)
+                                           /\P':=new()
+                                           /\SK':=(H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3)))
+                                           /\C':=H(M.P'.(H(G.inv(Y)).H(G.T1).H(G.T2).H(G.T3)).H(P'.(H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3)))).H(H(G.inv(Y)).H(G.T1).H(G.T2).H(G.T3)).P'.(H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3))))
+                                           /\SND({W'.H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3)).H(M.P'.(H(G.inv(Y)).H(G.T1).H(G.T2).H(G.T3)).H(P'.(H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3)))).H(H(G.inv(Y)).H(G.T1).H(G.T2).H(G.T3)).P'.(H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3)))).W'.H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3)).H(M.P'.(H(G.inv(Y)).H(G.T1).H(G.T2).H(G.T3)).H(P'.(H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3)))).H(H(G.inv(Y)).H(G.T1).H(G.T2).H      
+                                             (G.T3)).P'.(H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3))))}_Kdc)
+                             /\secret(P',subs,{ON,CS})                           
+                             /\witness(ON,CS,on_cs_id,C')
+
+            end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+role cloudserver(
+                   ON,CS,US:agent,
+		   DEK:symmetric_key,
+		   Kcs,Kdo,Kdu,Kcu,Kdc:public_key,
+		   H:hash_func,
+		   SND,RCV:channel(dy))
+          played_by CS def=
+		local
+			State:nat,
+			M,PK,P:message,
+			G,Y,T1,T2,T3,S,P1,P2,P3,T11,T22,T33,Y1,UID,E,W,SK,C,I:text
+                const subs,on_cs_id,sabs,us_on_id:protocol_id
+	         init
+		     State:=0
+		     transition
+			       1.State= 0 /\RCV({W'.H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3)).H(M.P'.(H(G.inv(Y)).H(G.T1).H(G.T2).H(G.T3)).H(P'.(H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3)))).H(H(G.inv(Y)).H(G.T1).H(G.T2).H(G.T3)).P'.(H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3)))).W'.H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3)).H(M.P'.(H(G.inv(Y)).H(G.T1).H(G.T2).H(G.T3)).H(P'.(H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3)))).H(H(G.inv(Y)).H(G.T1).H(G.T2).H      
+                                            (G.T3)).P'.(H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3))))}_inv(Kdc))=|>
+		                            
+                                            State':=1 /\secret(W',sabs,{ON,CS})
+                                         
+                               2.State= 1  /\RCV({{{M}_DEK}_H(I.M.H(H(G.inv(Y)).inv(S)).(H(G.T1).inv(S)).(H(G.T2).inv(S)).(H(G.T3).inv(S)))}_inv(Kcs))=|>
+                                                
+                                           State':=2/\P':=new()
+                                                    /\C':=new()
+                                                    /\SND({H(M.P'.(H(G.inv(Y)).H(G.T1).H(G.T2).H(G.T3)).H(P'.(H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3)))).H(H(G.inv(Y)).H(G.T1).H(G.T2).H(G.T3)).P'.(H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3))))}_Kcu) 
+                                                    /\request(CS,ON,on_cs_id,C')
+
+
+        end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+role user(
+		ON,CS,US:agent,
+		DEK:symmetric_key,
+	        Kcs,Kdo,Kdu,Kcu,Kdc:public_key,
+		H:hash_func,
+		SND,RCV:channel(dy))
+	played_by US def=
+                        local
+                            
+			State:nat,
+                                G,Y,T1,T2,T3,S,P1,P2,P3,T11,T22,T33,Y1,UID,E,W,SK,C,I:text,
+				M,P,PK:message
+                        const subs,on_cs_id,sabs,us_on_id:protocol_id
+		        init
+			       State:=0
+			       transition
+					1.State= 0  /\RCV({H(M.P'.(H(G.inv(Y)).H(G.T1).H(G.T2).H(G.T3)).H(P'.(H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3)))).H(H(G.inv(Y)).H(G.T1).H(G.T2).H      
+                                                      (G.T3)).P'.(H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3))))}_inv(Kcu))=|>
+					             State':=1 /\UID':=new()
+						               /\SND({UID'}_Kdu)
+                                        2.State=1 /\RCV({W'}_inv(Kdo))=|>
+					             State':=2 /\request(US,ON,us_on_id,W')
+             
+				
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(
+
+		ON,CS,US:agent,
+
+                DEK:symmetric_key,
+
+	        Kcs,Kdo,Kdu,Kcu,Kdc:public_key,
+                H:hash_func)
+		
+
+              def=
+
+                   local 
+			SND,RCV:channel(dy)
+                   composition
+
+                         owner(ON,CS,US,DEK,Kdu,Kcu,Kcs,Kdc,Kdo,H,SND,RCV)
+
+                       /\cloudserver(ON,CS,US,DEK,Kdu,Kcu,Kcs,Kdc,Kdo,H,SND,RCV)
+
+                       /\user(ON,CS,US,DEK,Kdu,Kcu,Kcs,Kdc,Kdo,H,SND,RCV)
+
+      end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ 
+role environment()
+ def=
+ const 
+             subs,on_cs_id,sabs,us_on_id:protocol_id,
+                     on,cs,us : agent,
+                      dek:symmetric_key,     
+                      kcu,kcs,kdc,kdo,kdu:public_key,
+		      h:hash_func
+ 
+                      
+	     intruder_knowledge = {on,cs,us,dek,kcu,kcs,kdc,kdo,kdu,h}
+
+                   
+               composition
+
+                             session(on,cs,us,dek,kcu,kcs,kdc,kdo,kdu,h)
+
+                          /\ session(on,cs,us,dek,kcu,kcs,kdc,kdo,kdu,h)
+
+                          /\ session(on,cs,us,dek,kcu,kcs,kdc,kdo,kdu,h)
+
+
+     end role
+ goal
+		secrecy_of subs
+		secrecy_of sabs
+		authentication_on on_cs_id
+		authentication_on us_on_id
+end goal
+environment()

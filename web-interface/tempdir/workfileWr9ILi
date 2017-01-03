@@ -1,0 +1,113 @@
+role server(S, T:agent,
+	 P,K:symmetric_key,
+                 EPC:text,
+                 SND,  RCV: channel(dy))
+
+played_by S def=
+local State:  nat,
+         Nr,Nt:text,
+%Auth1:message
+         Auth1:text
+
+init State :=0
+transition
+
+0. State =0                   /\ RCV(start)
+                                  =|> State' :=2
+                                   /\  Nr' := new() 
+                                   /\  SND(Nr')
+
+
+1.State =2                    /\ RCV(xor(EPC.Nr.Nt',K).Nt')
+=|> State' :=4                /\ Auth1' := xor(EPC.Nr.Nt',K)
+                                    /\ request(S,T,auth_K_EPC,EPC)
+
+2.State=4      /\ SND(xor(EPC.Nt'), P)
+=|> State' := 4 
+                     % /\ witness(S,T,auth_EPC, EPC)
+                     % /\ witness(S,T,auth_P,P)
+                      /\ P' :=new()
+                      /\ K' :=new()
+                     
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role tag( T, S :agent,
+              P, K:  symmetric_key,
+              EPC:text,
+              SND,RCV : channel(dy))
+
+played_by T def=
+
+local  State  : nat ,
+Nr, Nt  :text ,
+Auth1  :text
+
+init State :=1 
+
+transition 
+
+0.State =1 /\ RCV(Nr') 
+=|> State' :=3
+/\ Nt' := new() 
+/\ SND(xor(EPC.Nr'.Nt',K).Nt')
+%/\ witness (T , S , auth_EPC, EPC)
+%/\ witness (T , S , auth_K , K )
+/\ secret (EPC , id , {T , S})
+
+1. State = 3 /\ RCV (xor(EPC.Nt', P))
+=|> State' := 3 /\ Auth1' := xor(EPC.Nt', P)
+	      /\ request(S,T,auth_P_EPC,Auth1')	
+                      /\ K' := new()
+                      /\ P'  := new()
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session( T , S :agent,
+                     K , P: symmetric_key,
+                     EPC :text		)
+def=
+ 
+local SND, RCV : channel(dy)
+
+composition 
+
+tag(T,S,P,K,EPC,SND,RCV)
+/\ server(S,T,P,K,EPC, SND , RCV)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role enviroment() def=
+const 
+id, auth_EPC, auth_K,auth_P,auth_K_EPC,auth_P_EPC : protocol_id,
+
+k,p,kti,ksi :symmetric_key,
+tag,server : agent,
+epc,epci : text
+
+
+intruder_knowledge = { tag , server, i, kti, ksi,epci} 
+composition
+
+session (tag,server, k,p,epc)
+/\ session(tag,i,k,kti,epc)
+/\ session (i,server,ksi,p, epci)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+
+secrecy_of id
+authentication_on auth_EPC
+authentication_on auth_K_EPC
+authentication_on auth_P_EPC
+authentication_on auth_K
+authentication_on auth_P
+end goal 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+enviroment()
+ 
+                         

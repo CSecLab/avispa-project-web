@@ -1,0 +1,127 @@
+%%\begin{verbatim}
+%% Redistribution exchange in GSAM
+%% 1. EU -> EP: IDk, N
+%% 2. EP -> EU: IDk, random
+%% 3. EU -> EP: IDk, N, sign
+%%   
+%%\end{verbatim}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+%%HLPSL:
+role end_user(EU,EP: agent,           
+	   SK: public_key,
+	   IDk: text,
+	   SND_EU, RCV_EU: channel (dy))
+played_by EU
+def=
+
+  local N:	text,
+	R: text,
+	SIGN: text,
+	State: nat
+
+  init  State := 0
+
+  transition
+
+  %% Challenge Request:
+  1. State = 0 	/\ RCV_EU(	start	) =|>
+     State':= 0 /\  N' = new()
+		/\ SND_EU(IDk, N')
+
+  2. State = 0 	/\ RCV_EU(IDk, N', R')=|>
+     State':= 2 /\ 	 witness(EU, EP,r,R')
+		/\ SIGN' := {IDk,N, R'}_inv(SKg)
+		/\ SND_GM(	IDk, N, R', SIGN'	)
+		
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role enforce_point(EP,EU:agent,
+	     SK: public_key,
+	     IDk: text,
+	     SND_EP, RCV_EP: channel (dy))
+played_by EP
+def=
+
+  local N	: text, 
+	R	:	text,
+	State		: nat
+	
+  init  State := 1
+
+  transition
+
+  1. State = 1 	/\ RCV_Q( 	IDk, N'	) =|>
+     State':=3 	/\ random' := new()
+              	/\ SND_Q(	IDk, N', R')
+		
+  2. State = 3 	/\ RCV_Q( 	IDk, N, R', SIGN' ) =|>
+     State':= 5 /\ 	request(EP,EU,r,R')
+		              
+
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role session(EU, EP: agent,
+		IDk: text,
+	     SK: public_key,
+	    )
+def=
+
+  local SND_EP, RCV_EP, SND_EU, RCV_EU: channel (dy)
+
+  composition
+
+	   end_user(EU,EP,IDk,SND_EU,RCV_EU)
+	/\ enforce_point(EP,EU,IDk, SND_EP,RCV_EP)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role environment()
+def=
+ 
+  const r	: protocol_id,
+	
+        eu, ep          			: agent,
+	  idk		: text,
+	
+	sk				: public_key,
+	sk_i_eu: public_key,
+	sk_i_ep: public_key
+
+  intruder_knowledge = {eu, ep, i, idk, sk_i_eu, sk_i_ep
+                       }
+
+  composition
+
+	session(eu, ep, idk, sk)
+     /\ session(eu,i,	idk, sk_i_eu)
+     /\	session(ep,i,idk,sk_i_ep)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+goal  	
+  %secrecy
+
+  	%secrecy_of sa_q_g,kd_q_g 		% secrecy of SAtf and KDtf
+  	%secrecy_of sk_ua_gm_q,sk_ue_gm_q 	% secrecy of SK_u_a and SK_u_e
+  	%secrecy_of sk_ge_q_gm			%secrecy of SK_g_e
+
+
+  %authentication
+	authentication_on r 	%GM authenticates Q on M_id_2
+	 
+ 
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+environment()

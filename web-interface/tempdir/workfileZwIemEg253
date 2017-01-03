@@ -1,0 +1,120 @@
+%%PROTOCOL:ID-based designated verifier signature scheme
+%%ALICE BOB:
+%%Macros:
+%% Key1:Pred(s,Qa)
+%% Key2:Pred(s,Qb)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%HLPSL:
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+role alice(
+A,B:agent,
+ka,kb,Sa,Sb:symmetric_key,
+H,Minus,Union,Pred,Conc,Expr,Ebilinear:hash_func,
+SND,RCV:channel(dy))
+played_by A def=
+local 
+State:nat,
+Qa,Qb,IDa,IDb,ga,gb: public_key,
+P,Ppub:text,
+H1,H2,T,h,U,V :message
+const key_id1:protocol_id
+init State:=0
+transition
+1.State=0/RCV(start)=|>State':=2
+/ka':=new()
+/M'=new()
+/T':=Expr(gb,k)
+/h':=H2(M,T)
+/U'=Union(Pred(k,Ppub),Pred(h,Sa))
+/V':=Ebilinear(U,Qb)
+/SND(T,h,U,V)
+/secret(key1,key_id1,{a,b})
+/equest(A,B,key1,key2)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role bob(
+B,A:agent,
+ka,kb,Sa,Sb: symmetric_key,
+H,Minus,Union,Pred,Conc,Expr,Ebilinear:hash_func,
+SND,RCV:channel(dy))
+played_by A def=
+local 
+State:nat,
+Qa,Qb,IDa,IDb,ga,gb:public_key,
+P,Ppub:text,
+H1,H2,T,h,U,V:message
+const key_id1:protocol_id
+init State:=0
+transition
+1.State=1/RCV(T,h,U,V)=|>State':=3
+/h':=H2(M,T)
+/V'=Pred(T,Expr(Ebilinear(Sb,Qa),h))
+2.State=3/RCV(T,h,U,V)=|>
+ State':=5
+/kb':=new()
+/M'=new()
+/T':=Expr(gb,k)
+/h':=H2(M,T)
+/U'=Union(Pred(k,Ppub),Pred(h,Sa))
+/V':=Ebilinear(U,Qb)
+/secret(key2,key_id2,{b,a})
+/equest(B,A,key2,key1)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(
+A,B:agent,
+ka,kb,Sa,Sb: symmetric_key,
+H,Minus,Union,Pred,Conc,Expr,Ebilinear:hash_func)
+def=
+local
+SendA,ReceiveA:channel(dy),
+SendB,ReceiveB:channel(dy)
+composition
+alice(A,B,ka,kb,Sa,Sb,H,Minus,Union,Pred,Conc,Expr,Ebilinear,SendA,ReceiveA)
+/ob(A,B,ka,kb,Sa,Sb,H,Minus,Union,Pred,Conc,Expr,Ebilinear,SendB,ReceiveB)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+const
+key1:protocol_id,
+key2:protocol_id,
+ka,kb,sa,sb:symmetric_key,
+a,b,i:agent,
+h,minus,union,pred,conc,expr,ebilinear:hash_func
+intruder_knowledge={a,b,i,h,minus,union,pred,conc,expr,ebilinear}
+composition
+session(a,b,ka,kb,sa,sb,h,minus,union,pred,conc,expr,ebilinear)
+/session(a,i,ka,kb,sa,sb,h,minus,union,pred,conc,expr,ebilinear)
+/session (i,b,ka,kb,sa,sb,h,minus,union,pred,conc,expr,ebilinear)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+secrecy_of key_id1,key_id2
+authentication_on key1
+authentication_on key2
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()=
+%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 

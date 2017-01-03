@@ -1,0 +1,152 @@
+% A --> S : A, B, {A + NA }KS
+% A --> S : {NA + B}KS , {NA + c}KS
+% B --> S : B, A, {B + NB }KS
+% B --> S : {NB + A}KS , {NB + c}KS
+% S --> A : K + {NA }KS
+% S --> B : K + {NB }KS
+
+
+%% HLPSL:
+
+role alice (A,B,S     : agent, 
+            Ks  : public_key, 		
+            SND_SA, RCV_SA: channel (dy)) 
+played_by A def=
+
+  local 
+     State  : nat, 
+     Na,Nb  : text, 
+	 C,K: symmetric_key
+
+  init 
+     State:=0
+
+  transition 
+    0. State=0 /\ RCV_SA(start) =|>
+          State':=2
+       /\ Na':=new()
+       /\ SND_SA(A,B,{xor(Na',A)}_Ks)
+	   /\ witness(A,S,alice_server_na,Na')
+
+    2. State=2 =|> 
+          State':=8 
+		  /\ SND_SA({xor(Na',B)}_Ks, {xor(Na',C)}_Ks) 
+		  /\ request(A,S,alice_server_na,Na')
+		  /\ secret(C,sec_c,{A,B})
+		  
+	8. State=8 /\ RCV_SA(xor(K,{Na'}_Ks)) =|>
+		State':=11 
+		 /\ request(A,S,alice_server_na,Na')
+		 /\ witness(A,S,alice_server_k,K)
+		 /\ secret(K,sec_K,{A,B,S})
+
+end role
+
+role server (S, A, B : agent,
+		Ks: public_key,
+		SND_AS, RCV_AS, SND_BS, RCV_BS: channel(dy))
+
+	played_by S def=
+	
+	local State : nat,
+		  Nb,Na : text,
+		  C,K: symmetric_key
+		  
+	init State := 1
+
+	transition
+	
+		1. State = 1 /\ RCV_AS(A,B, xor(A,{Na'}_Ks)) =|>
+				State':= 3
+				/\ witness(A,S,alice_server_na,Na')
+				/\ witness(B,S,bob_server_nb,Nb')
+		3. State = 3 /\ RCV_AS({xor(Na',B)}_Ks, {xor(Na,C)}_Ks) =|>
+				State':=5
+				/\ witness(A,S,alice_server_na,Na')
+				/\ witness(B,S,bob_server_nb,Nb')
+				/\ secret(C,sec_c,{A,B})
+		5. State = 5/\ RCV_BS(B,A,{xor(Nb',B)}_Ks) =|>
+			State':=7
+			/\ witness(B,S,bob_server_nb,Nb')
+		7. State = 7 /\ RCV_AS({xor(Nb',A)}_Ks, {xor(Nb',C)}_Ks) =|>
+			  State':=9 /\ SND_AS (xor(K,{Na'}_Ks))
+			 /\ witness(B,S,bob_server_nb,Nb')
+			 /\ secret(K,sec_K,{A,B,S})
+		9. State = 9 =|> 
+			State':=12
+			/\ SND_BS (xor(K,{Nb'}_Ks))
+			/\ secret(K,sec_K,{A,B,S})
+end role
+
+
+role bob(B, A, S: agent,      
+         Ks: public_key,     
+		 C: symmetric_key,
+         SND, RCV: channel (dy)) 
+played_by B def=
+
+  local State : nat, 
+        Na, Nb: text,
+		C,K: symmetric_key
+	
+  init State := 4
+
+  transition 
+
+    4.  State  = 4 /\ RCV_SB(start) =|> 
+        State':= 6 /\ SND_BS(B,A, {xor(B,Nb')}_Ks)
+
+
+    6.  State  = 6 =|> 
+        State':= 10 
+		/\ SND_BS({xor(A,Nb')}_Ks,{xor(C,Nb')}_Ks)
+		/\ request(B,A,bob_server_nb,Nb')
+		/\ secret(C,sec_c,{A,B})
+		
+	10. State = 10 /\ RCV_SB(K,{Nb'}_Ks) =|> 
+			State':=13 
+			/\ request(B,A,bob_server_nb,Nb')
+			/\ witness(B,S,bob_server_k,K)
+			/\ secret(K,sec_K,{A,B,S})
+
+end role
+
+role session (A,B,S: agent,
+              Ks: public_key)
+			  
+def=
+	
+	local SND_AS, SND_BS,RCV_SA, RCV_SB	: channel(dy) 
+	
+
+  composition
+    alice(A,B,S,Ks, SND_SA,RCV_SA) /\ 
+    bob(B,A,S, Kb, Ks,SND_BS,RCV_SB) /\
+	server(S,A,B,Ks,SND_AS, RCV_AS, SND_BS, RCV_BS) 
+end role
+
+	
+
+role environment() 
+
+def=
+
+  const
+     a, b, s: agent,
+     ks: public_key,
+     alice_server_na, alice_server_k, bob_server_nb, bob_server_k, sec_K, sec_c: protocol_id
+
+  intruder_knowledge = {a,b,i,ki,inv(ki)}
+
+  composition
+    session(a, b, s, ka,c, SND_AS, RCV_AS, SND_BS, RCV_BS) /\
+    session(a, b, i, ka,c, SND_AS, RCV_AS, SND_BS, RCV_BS) 
+
+end role
+
+goal
+secrecy_of sec_K,sec_c
+authentication_on alice_server_na, alice_server_k, bob_server_nb, bob_server_k
+end goal
+
+

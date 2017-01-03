@@ -1,0 +1,70 @@
+role alice (A,B     : agent,
+            P0,P1   : public_key,  
+            SND,RCV : channel(dy) )
+played_by A
+% as conservator
+def=
+   local  State   : nat,
+          S1      : text,   %signed text 
+          Dlist   : text,   % list 
+          Clist   : text    % encrypted list
+const alice_bob_na, bob_alice_nb : protocol_id
+
+init State := 0
+transition
+1. State   = 0 /\ RCV(start) =|>
+   State' := 2 /\ Dlist' := {Clist}_inv(P1) % decrypt list
+               /\ S1'    := {Dlist'}_P0     %verify signature
+               /\ SND(Dlist'.S1')           %send to bank
+               /\ witness(A,B,bob_alice_nb,Dlist')
+end role 
+
+role bob (A,B     : agent,
+          P0,P1   : public_key,  
+          SND,RCV : channel(dy) )
+played_by B  
+% as bank
+def=
+   local  State   : nat,
+          S0,S1   : text,
+          Dlist   : text,
+          Clist   : text
+
+init State := 1
+transition
+1. State   = 1 /\ RCV(Dlist'.S1') =|>
+   State' := 3 /\ Clist' := {Dlist}_P1 %reencryped list   
+               /\ request(B,A,bob_alice_nb,Clist)
+end role
+
+role session (A,  B   : agent,
+              P0,P1   : public_key  )
+def=  
+   local  SA, SB,RA, RB: channel (dy)
+composition
+       alice(A,B,P0,P1,SA,RA)
+       /\bob(A,B,P0,P1,SB,RB)
+end role
+
+role environment()
+def=
+   const a, b ,i       : agent,
+         p0,p1,ki      : public_key,
+         clist         : text,
+         bob_alice_na, 
+         alice_bob_nb,
+         na, nb        : protocol_id
+intruder_knowledge = {a,b,i,p0,p1,clist}
+
+composition
+    session(a,b,p0,p1)
+ /\ session(a,i,p0,p1)
+end role
+
+goal
+secrecy_of na, nb
+authentication_on alice_bob_nb
+authentication_on bob_alice_na
+end goal
+
+environment()

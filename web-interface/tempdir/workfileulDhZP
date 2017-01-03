@@ -1,0 +1,53 @@
+role user_agent_client( 
+                UAC,SS1 : agent, 
+                PWD : text,
+                H : hash_func,
+                CH_SS1_UAC,CH_UAC_SS1:channel(dy)) 
+        
+        played_by UAC 
+        
+        def=
+
+        local   State : nat,
+                Nonce : text
+
+        init State := 1
+        
+        transition
+        
+        14. State = 1
+        /\ CH_SS1_UAC(start)
+        =|> 
+        State':=2
+        /\ CH_UAC_SS1(sipregister.UAC.dest)
+
+        15. State = 2 
+        /\ CH_SS1_UAC(sip401.Nonce')
+        =|>
+        State':= 3
+        /\ CH_UAC_SS1(sipregister.UAC.dest.Nonce'.H(Nonce'.H(UAC.PWD).H(dest)))
+        /\ witness(UAC,UAC,y,H(Nonce'.H(UAC.PWD).H(dest)))
+        
+        16. State = 3
+        /\ CH_SS1_UAC(sip200)
+        =|>  
+        State':= 4
+
+end role
+
+
+role session(UAC,SS1,SS2,DS:agent, H:hash_func, PWD:text) def=
+
+        local   SND_SS1A, RCV_SS1A, SND_SS1B, RCV_SS1B, SND_SS1C, RCV_SS1C: channel(dy),
+                SND_SS2A, RCV_SS2A, SND_SS2B, RCV_SS2B : channel(dy),
+                SND_DSA, RCV_DSA, SND_DSB, RCV_DSB : channel(dy),
+                SND_UACA, RCV_UACA  : channel(dy)
+
+        composition
+
+     sip_server_1(SS1,DS,SND_SS1A,RCV_SS1A,SND_SS1B,RCV_SS1B,SND_SS1C,RCV_SS1C)
+  /\ sip_server_2(SS2,DS,SND_SS2A, RCV_SS2A, SND_SS2B, RCV_SS2B)
+  /\ diameter_server(DS,SS1,SS2,PWD,H,SND_DSA, RCV_DSA, SND_DSB, RCV_DSB)
+  /\ user_agent_client(UAC,SS1,PWD,H,SND_UACA, RCV_UACA) 
+
+end role

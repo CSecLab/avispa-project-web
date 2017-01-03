@@ -1,0 +1,231 @@
+role client (C,S,G,R                  : agent,
+           PRF, PRF1, INT             : hash_func,
+           SND, RCV                   : channel (dy))
+
+played_by C def=
+  local 
+     Np, SessID : text,
+     PMS        : text,
+     Ns, Csus, VerNo, Csu, Pke : text,
+     Ccs	:text,
+     Npc,Nps    :text,
+     Result     :text,
+     Kid        :text,
+     Pmsg       :text,
+     State      : nat,
+     Msk        : hash(text.text.text),
+     Mac        : hash(hash((hash(agent.text.text.hash(text.text.text))).text.text.text).text)
+      
+
+const  nps1, nps2       : protocol_id,
+      sid0              : text, % session id = 0
+      request_id        : text,
+      respond_id        : text,
+      start_eap_fast    : text
+
+init State := 1
+
+transition
+1. State = 1  /\ RCV(start) =|>
+   State':= 3 /\ SND(0)
+3. State = 3  /\ RCV(Nps') =|>
+   State':= 5 /\ Npc' :=new()
+              /\ SND(Npc',request_id)
+5. State =5   /\ RCV(respond_id.S)=|> 
+   State':=7  /\ SND(start_eap_fast) 
+7. State = 7  /\ RCV(VerNo'.sid0.Ns'.Csus')=|>
+   State':=9  /\ Np' := new()%37
+              /\ SessID' := new()
+              /\ Pke' := new()
+              /\ Csu' := new()
+              /\ SND(VerNo'.SessID'.Np'.Csu'.Pke') %encry
+9. State = 9  /\ RCV(Ccs')=|>
+   State':=11 /\ Msk' := PRF(Pke.Ns.Np)%43
+              /\ SND(Ccs')
+11.State =11  /\ RCV(Mac',Kid,Result)
+              /\ Mac' =INT(PRF1((PRF(Pke'.Ns.Np')).Nps.Npc'.Kid).Pmsg)=|>
+   State':=13 /\ SND(Mac',Kid)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role gateway (C,S,G,R                 : agent,
+           PRF, PRF1, INT             : hash_func,
+           SND,RCV                    : channel (dy))
+
+played_by G def=
+  local 
+     Np, SessID : text,
+     PMS        : text,
+     Ns, Csus, VerNo, Csu, Pke : text,
+     Ccs        :text,
+     Npc,Nps    :text,
+     Result     :text,
+     Kid        :text,
+     Pmsg       :text,
+     State      : nat,
+     Msk        : hash(text.text.text),
+     Mac        : hash(hash((hash(agent.text.text.hash(text.text.text))).text.text.text).text)
+const s_mac,s_msk                         : protocol_id,
+      sid0                                : text,
+      request_id                          : text,
+      respond_id                          : text,
+      start_eap_fast                      : text
+
+init State:=21
+
+transition
+1. State  =21 /\ RCV(0) =|>
+   State':=23 /\ SND(0)
+2. State  =23 /\ RCV(Nps') =|>
+   State':=25 /\ SND(Nps')
+3. State  =27 /\ RCV(Npc',request_id)=|>
+   State':=29 /\ SND(Npc',request_id)
+4. State  =29 /\ RCV(respond_id.S) =|>
+   State':=31 /\ SND(respond_id.S)
+5. State  =31 /\ RCV(start_eap_fast) =|>
+   State':=33 /\ SND(start_eap_fast)
+6. State  =35 /\ RCV(VerNo'.sid0.Ns'.Csus')=|>
+   State':=37 /\ SND(VerNo'.sid0.Ns'.Csus')
+7. State  =37 /\ RCV(VerNo'.SessID'.Np'.Csu'.Pke')=|>
+   State':=39 /\ SND(VerNo'.SessID'.Np'.Csu'.Pke')
+8. State  =39 /\ RCV(Ccs')=|>
+   State':=41 /\ SND(Ccs')
+9.  State  =41/\ RCV(Ccs')=|>
+    State':=43/\ SND(Ccs')
+10. State  =43/\ RCV(Mac',Kid,Result)=|>
+    State':=45/\ SND(Mac',Kid,Result)
+11. State  =45/\ RCV(Mac',Kid)=|>
+    State':=47/\ SND(Mac',Kid)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%99
+
+role relay (C,S,G,R                   : agent,
+           PRF, PRF1, INT             : hash_func,
+           SND,RCV                    : channel (dy))
+
+played_by R def=
+  local 
+     Np, SessID : text,
+     PMS        : text,
+     Ns, Csus, VerNo, Csu, Pke : text,
+     Ccs        :text,
+     Npc,Nps    :text,
+     Result     :text,
+     Kid        :text,
+     Pmsg       :text,
+     State      : nat,
+     Msk        : hash(text.text.text),
+     Mac        : hash(hash((hash(agent.text.text.hash(text.text.text))).text.text.text).text)
+const s_mac,s_msk: protocol_id,
+      sid0                                : text,
+      request_id                          : text,
+      respond_id                          : text,
+      start_eap_fast                      : text
+
+init State:=51
+
+transition
+1. State  =51 /\ RCV(0) =|>
+   State':=53 /\ SND(0)
+2. State  =53 /\ RCV(Nps') =|>
+   State':=55 /\ SND(Nps')
+3. State  =55 /\ RCV(Npc',request_id)=|>
+   State':=57 /\ SND(Npc',request_id)
+4. State  =57 /\ RCV(respond_id.S) =|>
+   State':=59 /\ SND(respond_id.S)
+5. State  =59 /\ RCV(start_eap_fast) =|>
+   State':=61 /\ SND(start_eap_fast)
+6. State  =61 /\ RCV(VerNo'.sid0.Ns'.Csus')=|>
+   State':=63 /\ SND(VerNo'.sid0.Ns'.Csus')
+7. State  =63 /\ RCV(VerNo'.SessID'.Np'.Csu'.Pke')=|>
+   State':=65 /\ SND(VerNo'.SessID'.Np'.Csu'.Pke')
+8. State  =65 /\ RCV(Ccs')=|>
+   State':=67 /\ SND(Ccs')
+9.  State  =67/\ RCV(Ccs')=|>
+    State':=69/\ SND(Ccs')
+10. State  =69/\ RCV(Mac',Kid,Result)=|>
+    State':=71/\ SND(Mac',Kid,Result)
+11. State  =71/\ RCV(Mac',Kid)=|>
+    State':=73/\ SND(Mac',Kid)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%150
+role server (C,S,G,R                      : agent,
+                  PRF,PRF1,INT            : hash_func,
+                  SND, RCV                : channel (dy))
+played_by S def=
+  local 
+     Ns, Csus, PMS : text,
+     SessID, Cciphspec        : text,
+     Np, VerNo, Csu, Ccs: text,
+     Pke         : text,
+     Npc,Nps     :text,
+     Result      :text,
+     Kid         :text,
+     Pmsg        :text,
+     State       : nat,
+     Msk         : hash(text.text.text),
+     Mac         : hash(hash((hash(agent.text.text.hash(text.text.text))).text.text.text).text)
+
+const s_mac,s_msk : protocol_id,
+      sid0                                : text,
+      request_id                          : text,
+      respond_id                          : text,
+      start_eap_fast                      : text
+
+init State := 0
+
+transition
+0.State =0    /\ RCV(0)=|>
+  State':=2   /\ Nps':= new()
+              /\ SND(Nps')
+2. State = 2  /\ RCV(Npc',request_id) =|>
+   State':= 4 /\ SND(respond_id.S)
+
+4. State = 4  /\ RCV(start_eap_fast) =|>
+   State':= 6 /\ Ns' := new()
+              /\ Cciphspec' := new()
+              /\ VerNo' := new()
+              /\ SND( VerNo'.sid0.Ns'.Cciphspec' ) %encrypted by private key
+6. State = 6  /\ RCV(VerNo'.SessID'.Np'.Csu'.Pke') =|>
+   State':= 8 /\ Cciphspec' := new()
+              /\ SND(Cciphspec') 
+              /\ Pke' := new()
+              /\ Msk' := PRF(Pke'.Ns.Np)
+              /\ secret(Msk,s_msk,{C,S,G,R})             
+8. State = 8  /\ RCV(Ccs') =|>
+   State':= 10/\ Mac' := INT(PRF1((PRF(Pke'.Ns.Np')).Nps.Npc.Kid).Pmsg)
+              /\ SND(Mac',Kid,Result)
+	      
+9.  State =10 /\ RCV(Mac',Kid) =|>   
+    State':=11/\ secret(Mac,s_mac,{C,S,G,R}) 
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(C, S,G,R: agent,
+PRF, PRF1,INT : hash_func)
+def=
+local SC,RC,SG,RG,SR,RR,SS,RS : channel (dy)
+composition
+    client (C,S,G,R,PRF,PRF1,INT,SC,RC)
+/\  gateway(C,S,G,R,PRF,PRF1,INT,SG,RG)
+%/\  relay  (C,S,G,R,PRF,PRF1,INT,SR,RR)
+/\  server (C,S,G,R,PRF,PRF1,INT,SS,RS)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+const c,s,g,r : agent,
+prf,prf1,int: hash_func
+intruder_knowledge = {c,s,g,r,prf,prf1,int}
+composition
+   session(c,s,g,r,prf,prf1,int)
+ %/\session(c,i,g,r,prf,prf1,int)
+  /\ session(i,s,g,r,prf,prf1,int)
+ %/\session (c,s,i,r,prf,prf1,int)
+ %/\session (c,s,g,i,prf,prf1,int)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+%secrecy_of ClientK, ServerK
+secrecy_of s_mac
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

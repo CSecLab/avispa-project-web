@@ -1,0 +1,115 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilevD5jOl
+
+section signature:
+
+state_tiers: agent * agent * agent * public_key * public_key * nat * public_key * symmetric_key * nat -> fact
+state_server: agent * agent * agent * public_key * public_key * nat * public_key * symmetric_key * nat -> fact
+state_alice: agent * agent * agent * public_key * nat * text * public_key * public_key * symmetric_key * set(agent) * nat -> fact
+
+
+section types:
+
+set_94, set_79: set
+Dummy_Set_24, ASGoal, Set_24: set(agent)
+cleSecrete: protocol_id
+MGoal, start: message
+dummy_nonce, request_id, msg, msgT, Ns: text
+State, 9, 8, 5, SID, 4, 3, 1, Dummy_State, 6, 2, 0, 10, 7: nat
+A, S, T, a, b, s, t, i: agent
+Dummy_K, K, dummy_sk: symmetric_key
+Kca, Kt, Dummy_Kt, Dummy_Ks, Ks, dummy_pk, kt, ks, kca: public_key
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(s).
+ iknows(t).
+ iknows(kt).
+ iknows(ks).
+ iknows(kca).
+ iknows(i).
+ state_alice(a,s,t,kca,0,dummy_nonce,dummy_pk,dummy_pk,dummy_sk,set_79,3).
+ state_server(s,a,t,ks,kca,1,dummy_pk,dummy_sk,4).
+ state_tiers(t,a,s,kt,kca,7,dummy_pk,dummy_sk,5).
+ state_server(s,i,t,ks,kca,1,dummy_pk,dummy_sk,8).
+ state_tiers(t,i,s,kt,kca,7,dummy_pk,dummy_sk,9)
+
+
+section rules:
+
+step step_0 (A,S,T,Kca,Ns,Ks,Kt,K,Set_24,SID) :=
+ state_alice(A,S,T,Kca,0,Ns,Ks,Kt,K,Set_24,SID).
+ iknows(start)
+ =>
+ state_alice(A,S,T,Kca,2,Ns,Ks,Kt,K,Set_24,SID).
+ iknows(request_id)
+
+step step_1 (A,S,T,Kca,Ns,Dummy_Ks,Dummy_Kt,Dummy_K,Dummy_Set_24,SID,Ks,Kt,K) :=
+ state_alice(A,S,T,Kca,2,Ns,Dummy_Ks,Dummy_Kt,Dummy_K,Dummy_Set_24,SID).
+ iknows(crypt(inv(Kt),pair(crypt(inv(Kca),Ks),msgT)))
+=[exists K]=>
+ state_alice(A,S,T,Kca,4,Ns,Ks,Kt,K,Dummy_Set_24,SID).
+ iknows(crypt(Ks,K)).
+ secret(K,cleSecrete,Dummy_Set_24).
+ contains(A,Dummy_Set_24).
+ contains(S,Dummy_Set_24)
+
+step step_2 (A,S,T,Kca,Ns,Ks,Kt,K,Set_24,SID) :=
+ state_alice(A,S,T,Kca,4,Ns,Ks,Kt,K,Set_24,SID).
+ iknows(crypt(inv(Kt),scrypt(K,msg)))
+ =>
+ state_alice(A,S,T,Kca,6,Ns,Ks,Kt,K,Set_24,SID)
+
+step step_3 (S,A,T,Ks,Kca,Dummy_Kt,K,SID,Kt) :=
+ state_server(S,A,T,Ks,Kca,1,Dummy_Kt,K,SID).
+ iknows(crypt(inv(Kt),pair(request_id,msgT)))
+ =>
+ state_server(S,A,T,Ks,Kca,3,Kt,K,SID).
+ iknows(crypt(inv(Kca),Ks))
+
+step step_4 (S,A,T,Ks,Kca,Kt,Dummy_K,SID,K) :=
+ state_server(S,A,T,Ks,Kca,3,Kt,Dummy_K,SID).
+ iknows(crypt(inv(Kt),pair(crypt(Ks,K),msgT)))
+ =>
+ state_server(S,A,T,Ks,Kca,5,Kt,K,SID).
+ iknows(scrypt(K,msg))
+
+step step_5 (T,A,S,Kca,Kt,Ks,K,SID) :=
+ state_tiers(T,A,S,Kca,Kt,7,Ks,K,SID).
+ iknows(request_id)
+ =>
+ state_tiers(T,A,S,Kca,Kt,8,Ks,K,SID).
+ iknows(crypt(inv(Kt),pair(request_id,msgT)))
+
+step step_6 (T,A,S,Kca,Kt,Dummy_Ks,Dummy_K,SID,Ks,K) :=
+ state_tiers(T,A,S,Kca,Kt,8,Dummy_Ks,Dummy_K,SID).
+ iknows(crypt(Ks,K))
+ =>
+ state_tiers(T,A,S,Kca,Kt,9,Ks,K,SID).
+ iknows(crypt(inv(Kt),pair(crypt(Ks,K),msgT)))
+
+step step_7 (T,A,S,Kca,Kt,Ks,K,SID) :=
+ state_tiers(T,A,S,Kca,Kt,9,Ks,K,SID).
+ iknows(scrypt(K,msg))
+ =>
+ state_tiers(T,A,S,Kca,Kt,10,Ks,K,SID).
+ iknows(crypt(inv(Kt),pair(scrypt(K,msg),msgT)))
+
+
+section properties:
+
+property secrecy_of_cleSecrete (MGoal,ASGoal) :=
+ [] ((secret(MGoal,cleSecrete,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_cleSecrete (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,cleSecrete,ASGoal) &
+ not(contains(i,ASGoal))
+

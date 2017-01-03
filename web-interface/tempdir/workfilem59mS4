@@ -1,0 +1,131 @@
+role ifd (Reader, Card : agent,   
+          Key          : symmetric_key,
+           SND, RCV: channel (dy)) played_by Reader def=
+   local
+         State              : nat,
+         TEMP_RND_ICC            : nat,
+         KEY_REF_OF_SHARED_SECRET_KEY : nat
+ 
+ 
+   init
+           State := 0
+ 
+   transition
+        %% Interface Device as a starting POINT to run the protocol
+ 
+     0.  State  = 0  /\ RCV(start) =|>
+         %% MSE (Manage Security Environment) Command (Ins = 22
+                     %%                                P1  = 81
+                     %%                                P2  = B6
+                     %%                                Data = Key Reference
+         State' := 2 /\
+ SND(two_two.eight_one.b_6.KEY_REF_OF_SHARED_SECRET_KEY)    
+ 
+     2.  State   = 2 /\ RCV(ok) =|>
+         State' := 4 %%In order to proof its authenticity dynamically the IFD
+                     %%shall request a challenge (8 bytes )from the ICC.
+ %%The challenge
+                     %% may consists of a simple random number RND_ICC.
+ %%Achieved by
+                     %% the help of Get Challenge Command
+                     %% Get Challenge Command (Ins = 84
+                     %%                        Le  = n)
+                     %% where n = 8 bytes
+                     /\ SND(eight_four.eight)               
+ 
+     4.  State   =  4 /\ RCV(TEMP_RND_ICC') =|>
+         State' :=  6 %% EXTERNAL AUTHENTICATE COMMAND ( INS = 82
+                      %%                                 P1  = 00
+                      %%                                 P2  = 00
+                      %%                                 data =
+ {TEMP_RND_ICC'}_Key)
+                      /\
+ SND(eight_two.zero_zero.zero_zero.({TEMP_RND_ICC'}_Key))
+                      /\ witness(Reader, Card, ifd_icc_run_id,
+ (TEMP_RND_ICC'))
+ 
+     6.  State   =  6 /\ RCV(ok) =|>
+         State' :=  8
+ 
+ 
+ end role
+ 
+ role icc (Reader, Card    : agent,   
+           Key             : symmetric_key,
+           SND, RCV: channel (dy)) played_by Card def=
+ 
+   local
+         State            : nat,
+         RND_ICC,TEMP_RND_ICC          : nat,
+         TEMP_KEY_REF_OF_SHARED_SECRET_KEY : nat
+ 
+   init
+        State := 1
+ 
+   transition
+ 
+     1.  State  = 1 /\
+ RCV(two_two.eight_one.b_6.TEMP_KEY_REF_OF_SHARED_SECRET_KEY') =|>
+         State' := 3 /\ SND(ok)            
+ 
+     3.  State  = 3 /\ RCV(eight_four.eight) =|>
+         State':= 5 /\ RND_ICC' := new()
+                    /\ SND(RND_ICC')
+ 
+     5.  State  = 5 /\
+ RCV(eight_two.zero_zero.zero_zero.({TEMP_RND_ICC'}_Key))
+                    /\ RND_ICC = TEMP_RND_ICC'
+ 
+          =|>
+         State':= 7 /\ SND(ok)
+                    /\ request(Card, Reader, ifd_icc_run_id, (TEMP_RND_ICC'))
+ 
+ 
+ end role
+ 
+ role session(Reader, Card : agent,
+              Key          : symmetric_key
+              )
+ def=
+   local SIFD, RIFD, SICC, RICC: channel (dy)
+   composition
+ 
+         ifd(Reader,Card,Key,SIFD,RIFD)
+      /\ icc(Reader,Card,Key,SICC,RICC)
+ 
+ end role
+ 
+ role environment() def=
+ 
+     const
+         reader, card           : agent,
+         ki, key, kir, kic               : symmetric_key,
+         %% Following constants are used to represent hexadecimal numbers 
+         eight_four    : nat,
+         eight_two     : nat,
+         zero_zero     : nat,
+         eight         : nat,
+         two_two         : nat,
+         b_6             : nat,
+         eight_one       : nat,
+         ok              : message,
+         ifd_icc_run_id    : protocol_id
+ 
+     intruder_knowledge = {reader, card, kir, kic}   %% i represents intruder
+     composition
+ 
+          session(reader,card,key)
+       /\ session(reader,card,key)
+       /\ session(card,reader,key)
+       /\ session(reader,i,kir) % kir means key shared b/w reader and
+ intruder
+       /\ session(i,card,kic)  % kic means key shared b/w card and intruder
+ 
+ end role
+ 
+ goal
+ 
+   authentication_on ifd_icc_run_id
+ 
+ end goal
+environment()

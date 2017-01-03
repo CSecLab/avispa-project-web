@@ -1,0 +1,178 @@
+role smart_meter(
+		
+		SMh,Sh,Sv,TA 			: agent,
+		PK_SMh,PK_Sh,PK_Sv,PK_TA	: public_key,
+		H					: hash_func,
+		Snd,Rcv				: channel(dy)
+
+				)
+
+played_by SMh
+
+def=
+
+local		State						: nat,
+		REQ_Uv,DEC_Sv,Time_SMh,Time1_Sh,Time2_Sh,Time_Sv			: text,
+		C_SMh,C1_Sh,C2_Sh,C_Sv,M_SMh,M1_Sh,M2_Sh,M_Sv,Sig_SMh,Sig1_Sh,Sig2_Sh,Sig_Sv		: message	
+
+
+init State := 0
+
+transition
+
+1. 	State = 0 /\ Rcv(start) =|>
+	State':= 1 /\ REQ_Uv' := new()
+			/\ C_SMh':= {REQ_Uv'}_(PK_Sh)
+			/\ Time_SMh':= new()
+			/\ M_SMh':= Sh.SMh.C_SMh'.Time_SMh'
+			/\ Sig_SMh':= {H(M_SMh')}_inv(PK_SMh)
+			/\ Snd(PK_SMh.SMh.{PK_SMh.SMh}_inv(PK_TA).M_SMh'.Sig_SMh')
+			/\ secret(REQ_Uv',requv,{SMh,Sh,Sv})
+			/\ witness(SMh,Sh,csmh,C_SMh')
+
+2.	State = 1 /\ Rcv(PK_Sh.Sh.{PK_Sh.Sh}_inv(PK_TA).M2_Sh'.Sig2_Sh') =|>
+	State':= 2 /\ wrequest(SMh,Sh,c2sh,C2_Sh')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role supplier_host(
+		
+		SMh,Sh,Sv,TA 			: agent,
+		PK_SMh,PK_Sh,PK_Sv,PK_TA	: public_key,
+		H					: hash_func,
+		Snd,Rcv				: channel(dy)
+
+				)
+
+played_by Sh
+
+def=
+
+local		State						: nat,
+		REQ_Uv,DEC_Sv,Time_SMh,Time1_Sh,Time2_Sh,Time_Sv			: text,
+		C_SMh,C1_Sh,C2_Sh,C_Sv,M_SMh,M1_Sh,M2_Sh,M_Sv,Sig_SMh,Sig1_Sh,Sig2_Sh,Sig_Sv		: message	
+
+
+init State := 0
+
+transition
+
+1. 	State = 0 /\ Rcv(PK_SMh.SMh.{PK_SMh.SMh}_inv(PK_TA).M_SMh'.Sig_SMh') =|>
+	State':= 1 /\ C1_Sh':= {REQ_Uv'}_(PK_Sv)
+			/\ Time1_Sh':= new()
+			/\ M1_Sh':= Sv.Sh.C1_Sh'.Time1_Sh'
+			/\ Sig1_Sh':= {H(M1_Sh')}_inv(PK_Sh)
+			/\ Snd(PK_Sh.Sh.{PK_Sh.Sh}_inv(PK_TA).M1_Sh'.Sig1_Sh')
+			/\ wrequest(Sh,SMh,csmh,C_SMh')
+			/\ witness(Sh,Sv,c1sh,C1_Sh')
+
+2.	State = 1 /\ Rcv(PK_Sv.Sv.{PK_Sv.Sv}_inv(PK_TA).M_Sv'.Sig_Sv') =|>
+	State':= 2 /\ C2_Sh':= {DEC_Sv'}_(PK_SMh)
+			/\ Time2_Sh':= new()
+			/\ M2_Sh':= Sv.Sh.C2_Sh'.Time2_Sh'
+			/\ Sig2_Sh':= {H(M2_Sh')}_inv(PK_Sh)
+			/\ Snd(PK_Sh.Sh.{PK_Sh.Sh}_inv(PK_TA).M2_Sh'.Sig2_Sh')
+			/\ witness(SMh,Sh,c2sh,C2_Sh')
+			/\ request(Sh,Sv,csv,C_Sv')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role supplier_visitor(
+
+		SMh,Sh,Sv,TA 			: agent,
+		PK_SMh,PK_Sh,PK_Sv,PK_TA	: public_key,
+		H					: hash_func,
+		Snd,Rcv				: channel(dy)
+	
+				)
+
+played_by Sv
+
+def=
+
+local		State						: nat,
+		REQ_Uv,DEC_Sv,Time_SMh,Time1_Sh,Time2_Sh,Time_Sv			: text,
+		C_SMh,C1_Sh,C2_Sh,C_Sv,M_SMh,M1_Sh,M2_Sh,M_Sv,Sig_SMh,Sig1_Sh,Sig2_Sh,Sig_Sv		: message
+	
+
+init State := 0
+
+transition
+
+1. 	State = 0 /\ Rcv(PK_Sh.Sh.{PK_Sh.Sh}_inv(PK_TA).M1_Sh'.Sig1_Sh')=|>
+	State':= 1 /\ DEC_Sv' := new()
+			/\ C_Sv':= {DEC_Sv'}_(PK_Sh)
+			/\ Time_Sv':= new()
+			/\ M_Sv':= Sh.Sv.C_Sv'.Time_Sv'
+			/\ Sig_Sv':= {H(M_Sv')}_inv(PK_Sv)
+			/\ Snd(PK_Sv.Sv.{PK_Sv.Sv}_inv(PK_TA).M_Sv'.Sig_Sv')
+			/\ secret(DEC_Sv',decsv,{SMh,Sh,Sv})
+			/\ witness(Sv,Sh,csv,C_Sv')
+			/\ wrequest(Sv,Sh,c1sh,C1_Sh')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role session(
+
+		SMh,Sh,Sv,TA 			: agent,
+		PK_SMh,PK_Sh,PK_Sv,PK_TA	: public_key,
+		H					: hash_func
+		
+               ) 
+
+def=
+
+ local	SndSh,RcvSh,SndSv,RcvSv 	: channel(dy) 
+		
+
+ composition
+   smart_meter(SMh,Sh,Sv,TA,PK_SMh,PK_Sh,PK_Sv,PK_TA,H,SndSh,RcvSh) 
+/\ supplier_host(Sh,SMh,Sv,TA,PK_Sh,PK_SMh,PK_Sv,PK_TA,H,SndSh,RcvSh) 
+/\ supplier_visitor(Sv,SMh,Sh,TA,PK_Sv,PK_SMh,PK_Sh,PK_TA,H,SndSv,RcvSv)
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() 
+
+def=
+
+  const smh,sh,sv,ta,i			: agent,
+        pk_smh,pk_sh,pk_sv,pk_ta,pk_i	: public_key,
+	   h						: hash_func, 
+	  requv,c1sh,c2sh,decsv,csv,csmh	: protocol_id
+      
+        
+ intruder_knowledge = {smh,sh,sv,i,pk_smh,pk_sh,pk_sv,pk_ta,pk_i,inv(pk_i),h}
+
+ composition
+  	session(smh,sh,sv,ta,pk_smh,pk_sh,pk_sv,pk_ta,h)
+   %/\ session(smh,sh,sv,ta,pk_smh,pk_sh,pk_sv,pk_ta,h)
+   %/\ session(i,sh,sv,ta,pk_i,pk_sh,pk_sv,pk_ta,h)
+   %/\ session(smh,i,sv,ta,pk_smh,pk_i,pk_sv,pk_ta,h)
+   %/\ session(smh,sh,i,ta,pk_smh,pk_sh,pk_i,pk_ta,h)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+	%weak_authentication_on csmh
+	%weak_authentication_on c1sh
+	%weak_authentication_on c2sh
+	authentication_on csv
+	secrecy_of requv
+	secrecy_of decsv
+
+end goal
+
+environment()

@@ -1,0 +1,212 @@
+ role source(
+S, R1, R2, D : agent,
+Ksd, KSDs, KDSs : symmetric_key,
+Pks : public_key,
+H : hash_func,
+S_SR1, R_SR1, S_SD, R_SD : channel(dy))
+
+played_by S def=
+
+local
+State : nat,
+T : text,
+SessionID, Auth : message,
+Path: (agent) set
+
+init
+Path := {}
+& State := 0
+
+%knowledge(S) = { Ksd, inv(Pks) }
+
+transition
+1. State = 0 & R_SD(start) =|>
+State' := 2 & Path' := cons(S, Path) 
+& Path' := cons(R1, Path) 
+& Path' := cons(R2, Path) 
+& Path' := cons(D, Path)
+& T' := new()
+& SessionID' := H(Pks.Path'.T')
+& KSDs' := {H(S.D.SessionID')}_Ksd
+& KDSs' := {H(D.S.SessionID')}_Ksd
+& Auth' := {SessionID'.inv(Pks)}_KSDs'
+& S_SR1(Pks.Path'.T'.Auth')
+& secret(Ksd,a1,{S,D})
+
+2. State = 4 & R_SD({K1'.K2'.Kd'.Auth'}_Pks) =|> 
+witness(S,R1,s_r1_k1,K1')
+& witness(S,R2,s_r2_k2,K2')
+& witness(S,D,s_d_kd,Kd')
+
+                                      
+end role
+
+
+ role router1(
+S, R1, R2, D : agent,
+K1 : symmetric_key,
+Kr1, Pks : public_key,
+S_R1S, R_R1S, S_R1R2, R_R1R2 : channel(dy))
+
+played_by R1 def=
+
+local
+State : nat,
+T : text,
+SessionID, EncR1, SigR1 : message,
+Path: (agent) set,
+Auth : {message.inv(public_key)}_session_key
+
+init
+State := 1
+%knowledge(R1) = { inv(Kr1) }
+
+transition
+1. State = 1 & R_R1S(Pks'.Path'.T'.Auth') & in(R1, Path') =|>
+State' := 3 & K1' := new()
+& EncR1' := {K1}_Pks
+& SigR1' := {K1.SessionID}_inv(Kr1)
+& S_R1R2(Pks'.Path'.T'.Auth'.EncR1'.SigR1')
+& secret(K1,a2,{R1,D})
+& request(R1,S,s_r1_k1,K1')
+& request(R1,D,d_r1_k1,K1')
+
+
+                                      
+end role
+
+
+role router2(
+S, R1, R2, D : agent,
+K2 : symmetric_key,
+Kr2, Pks : public_key,
+S_R2R1, R_R2R1, S_R2D, R_R2D : channel(dy))
+
+played_by R2 def=
+
+local
+State : nat,
+T : text,
+Path: (agent) set,
+SessionID, EncR2, SigR2 : message,
+EncR1 : {symmetric_key}_public_key,
+SigR1 : {symmetric_key.message}_inv(public_key),
+Auth : {message.inv(public_key)}_session_key
+
+init
+State := 2
+%knowledge(R2) = { inv(Kr2) }
+
+transition
+1. State = 2 & R_R2R1(Pks'.Path'.T'.Auth'.EncR1'.SigR1') & in(R2, Path') =|>
+State' := 4 & K2' := new()
+& EncR2' := {K2}_Pks
+& SigR' := {K2.SessionID}_inv(Kr2)
+& S_R2D(Pks'.Path'.T'.Auth'.EncR1'.SigR1'.EncR2'.SigR2')
+& secret(K2,a3,{R2,D})
+& request(R2,S,s_r2_k2,K2')
+& request(R2,D,d_r2_k2,K2')
+
+
+                                      
+end role
+
+
+role dest(
+S, R1, R2, D : agent,
+Ksd, Kd, KSDs, KDSs, K1, K2 : symmetric_key,
+Pks : public_key,
+H : hash_func,
+S_DR2, R_DR2, S_DS, R_DS : channel(dy))
+
+played_by D def=
+
+local
+State : nat,
+T : text,
+SessionID : message,
+Path: (agent) set,
+EncR1 : {symmetric_key}_public_key,
+SigR1 : {symmetric_key.message}_inv(public_key),
+EncR2 : {symmetric_key}_public_key,
+SigR2 : {symmetric_key.message}_inv(public_key),
+Auth : {message.inv(public_key)}_session_key
+
+init
+State := 3
+%knowledge(D) = { Ksd, }
+
+transition
+1. State = 3 & R_DR2(Pks'.Path'.T'.Auth'.EncR1'.SigR1'.EncR2'.SigR2') & in(D, Path') =|>
+State' := 5 & Kd' := new()
+& KSDs' := {H(S.D.SessionID')}_Ksd
+& KDSs' := {H(D.S.SessionID')}_Ksd
+& S_DS({K1.K2.Kd.Auth'}_Pks)
+& secret(Kd,a4,{D,S})
+& request(D,S,s_d_kd,Kd')
+& witness(D,R1,d_r1_k1,K1)
+& witness(D,R2,d_r2_k2,K2)
+
+                                      
+end role
+
+
+role session(
+S, R1, R2, D : agent,
+Pks, Kr1, Kr2 : public_key,
+Ksd, KSDs, KDSs, K1, K2, Kd : symmetric_key,
+H : hash_func)
+
+def=
+local 
+S_SR1, R_SR1, 
+S_SD, R_SD,
+S_R1S, R_R1S, 
+S_R1R2, R_R1R2,
+S_R2R1, R_R2R1, 
+S_R2D, R_R2D,
+S_DR2, R_DR2, 
+S_DS, R_DS : channel (dy)
+
+composition
+	source(S, R1, R2, D, Ksd, KSDs, KDSs, Pks, H, S_SR1, R_SR1, S_SD, R_SD)
+& router1(S, R1, R2, D, K1, Kr1, Pks, S_R1S, R_R1S, S_R1R2, R_R1R2)
+& router2(S, R1, R2, D, K2, Kr2, Pks, S_R2R1, R_R2R1, S_R2D, R_R2D)
+& dest(S, R1, R2, D, Ksd, Kd, KSDs, KDSs, K1, K2, Pks, S_DR2, R_DR2, S_DS, R_DS)
+
+end role
+
+
+role environment()
+def=
+const s, r1, r2, d : agent,
+a1, a2, a3, a4, S_r1_k1, s_r2_k2, s_d_kd, d_r1_k1, d_r2_k2 : protocol_id,
+pks, kr1, kr2, ki : public_key,
+ksd, kSDs, kDSs, k1, k2, kd : symmetric_key,
+h : hash_func
+intruder_knowledge = {s, r1, r2, d, h, ki}
+
+composition
+session(s, r1, r2, d, pks, kr1, kr2, ksd, kSDs, kDSs, k1, k2, kd, h)
+& session(s, i, r2, d, pks, ki, kr2, ksd, kSDs, kDSs, k1, k2, kd, h)
+%& session(s, r1, i, d, pks, kr1, ki, ksd, kSDs, kDSs, k1, k2, kd, h)
+%& session(s, r1, r2, i, pks, kr1, kr2, ksd, kSDs, kDSs, k1, k2, kd, h)
+      
+
+end role
+
+goal
+secrecy_of a1
+secrecy_of a2
+secrecy_of a3
+secrecy_of a4
+authentication_on S_r1_k1
+authentication_on s_r2_k2
+authentication_on s_d_kd
+authentication_on d_r1_k1
+authentication_on d_r2_k2 
+
+end goal
+
+environment()
+

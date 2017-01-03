@@ -1,0 +1,258 @@
+role user( U,F,B,D,T:  agent,
+          KU, KFS,KBS,KDS,KT:  public_key,
+         
+ Resource:      hash_func,
+ SUF,RUF,SUT,RUT: channel(dy))
+                         
+played_by U
+def=
+        local   State:  nat,
+                   ID,URI,GUID,TI :      text,
+                   A,B1 : message,
+                   S : text
+                % init S:={UR,SC,P,CL,TOKEN}
+                    
+        const   fs,u_fs_uri ,u_t_guid:  protocol_id
+        
+        init State:=0
+        
+        transition
+                1.State=0
+                /\ RUF(start) =|>
+                State':=2
+                /\ URI':=new()
+                /\ SUF({KU.U.F.URI'}_KFS)
+                2.State=2
+                /\ RUF({A'.{Resource(URI)}_(KFS)}_KU) =|>
+                State':=4
+                /\ SUF({U.F.(TI.URI)}_KFS)
+                3.State=4
+                /\ RUF({U.F.URI}_KFS) =|>
+                State':=6
+                /\ SUF(F.U.{URI}_KFS)
+                /\ witness(U,F,u_fs_uri,(URI.GUID'))
+               4. State=6
+                /\ RUF({{Resource(URI)}_inv(KFS)}_KU) =|>
+               State':=8
+                /\ B':=new()   /\ B1':=(URI'.TI.{(GUID)}_KU)
+                /\ SUT(U.T.B1')
+                /\ witness(U,T,u_t_guid,(URI.GUID'))
+               5. State=8
+                /\ RUT({{Resource((URI.GUID'))}_inv(KT)}_KU) =|>
+               State':=10
+end role
+%******************************************************************************************************
+role cssofs (U,F,B,D,T:  agent,
+               KU, KFS,KBS,KDS,KT:  public_key,
+                  
+          Resource:      hash_func,
+SFU,RFU,SBF,RBF:      channel(dy))
+
+played_by   F
+def=
+        local    State: nat,
+                                ID,URI,TI, HTMLFORM,GUID:     text,
+                              %  Ku:     public_key,
+                              %  URI: text,
+                                A,B1 : message
+        const fs,u_fs_uri :  protocol_id
+                           
+        init State:=1
+        
+        transition
+                1.State=1
+                /\ RFU({KU'.U.F.URI'}_KFS) =|>
+                State':=3
+                /\ ID':=new()
+                /\ RBF({{F.B.ID'.URI'}_inv(KFS)}_KBS) 
+                2.State=3
+                /\ SBF({F.B.A'}_KFS)  =|>
+%67             
+   State':=5
+                /\ SFU  (A'.{Resource(URI)}_KFS)
+                3.State=7
+                /\ RFU({{U.F.(TI.URI)}_inv(KFS)}_KU) =|>
+               State':=9
+                /\ SFU({F.U.URI}_KFS) 
+                4.State=9
+                /\ RFU({{Resource(URI)}_inv(KFS)}_KU) =|>
+           State':=10    
+                /\ request(fs,U,u_fs_uri,URI)
+%request(fs,U,u_fs_uri,(URI.GUID'))
+                /\ secret(Resource(URI.GUID'),u_t_resource,(U.T)) 
+
+end role
+%*********************************************************************************************************
+role cssobs (U,F,B,D,T:  agent,
+                                            KU, KFS,KBS,KDS,KT:  public_key,
+                                               
+                                                  Resource:      hash_func,
+                                            SBF,RBF,SDB,RDB:        channel(dy))
+
+played_by B
+def=
+        local   ID,GUID,T_AP,ACK:     text,
+                   URI, S: text,
+                   A : message,
+                 State: nat
+%85       
+ const fs,u_ds_uri, u_ds_resource:  protocol_id
+                 
+        init State:=13  
+%92
+        
+        transition
+                1.State=13
+                /\ RBF({{{F.B.ID'.URI'}_inv(KFS)}_inv(KBS)}_KDS) =|>
+                State':=15
+                /\ SDB({B.D.(U.URI')}_KBS)
+                2.State=15
+                /\ RDB(D.B.{(URI.S)}_KDS)  =|> 
+                State':=17
+                /\ GUID':=new()
+                /\ SDB({B.D.{(URI'.GUID')}_KBS})
+                /\ request(D,U,u_ds_uri,URI)
+                /\ secret  (Resource(URI),u_ds_resource,(U.D))
+%107              
+  3.State=17
+                /\ RDB(D.B.{(URI.ACK')}_KDS) =|> 
+
+
+                State':=19
+                /\ A':=new()
+                /\ A':={ACK'.S.T_AP}
+                /\ SBF(B.F.(A'.URI))
+               
+end role
+%*******************************************************************************************************
+role cssods (U,F,B,D,T:  agent,
+                                            KU, KFS,KBS,KDS,KT:  public_key,
+                                              
+                                                 Resource:      hash_func,
+                                                  RBD,SBD:        channel(dy))
+played_by D
+def=
+        local   ID,GUID,T_AP,ACK:     text,
+                   URI, S: text,
+                 State: nat
+                 
+        init State:=21
+        transition
+      %130 
+       1.State=21
+              /\ RBD ({{B.D.(U.URI')}_inv(KDS)}_KBS) =|>
+              State':=23
+              /\ SBD({D.B.{(URI'.S)}_KBS})
+          2.    State=23 
+              /\ RBD({B.D.{(URI'.GUID')}_inv(KBS)}_KDS) =|>
+              State':=25
+              /\ SBD(D.B.{(URI.ACK')}_KDS) 
+end role 
+%*******************************************************************************************************
+role t (U,F,B,D,T:  agent,
+                                             KU, KFS,KBS,KDS,KT:  public_key,
+                                             
+                                                 Resource:      hash_func,
+                                                    STU,RTU:      channel(dy))
+played_by  T
+def=
+        local   ID,GUID:     text,
+                   URI: text,
+                   B1: message,
+                   State: nat
+                 
+        init State:=27
+        transition
+              1.State=27
+%154
+              /\ RTU(U.T.{B1'}_KT) =|>
+              State':=29
+              /\ STU({{Resource(GUID)}_inv(KT)}_KU)
+              /\ request(T,U,u_t_guid,(URI.GUID'))
+              /\ secret(Resource(URI.GUID'),u_t_resource,(U.T))  
+end role 
+%***160****************************************************************************************************
+role session ( U,F,B,D,T:  agent,
+                     KU, KFS,KBS,KDS,KT:  public_key,
+       %    SUF,RUF,SUT,RUT,SFU,RFU,SBF,RBF,SDB,RDB,RBD,SBD,STU,RTU   : channel(dy),
+
+Resource:    hash_func,
+SUF,RUF,SUT,RUT,SFU,RFU,SBF,RBF,SDB,RDB,RBD,SBD,STU,RTU   : channel(dy))                  
+def=
+
+%local 
+%SFS,RFS,SBS,RBS,SDS,RDS,SF,RF,SB,RB, SNDB,RCVB,SNDD,RCVD,RCV,SND: 
+
+%SUF,RUF,SUT,RUT,SFU,RFU,SBF,RBF,SDB,RDB,RBD,SBD,STU,RTU   : channel(dy)
+        composition
+                user(U,F,B,D,T,KU,KFS,KBS,KDS,KT,Resource,SUF,RUF,SUT,RUT)
+                /\ cssofs (U,F,B,D,T,KU,KFS,KBS,KDS,KT,Resource,SFU,RFU,SBF,RBF)
+                /\ cssobs(U,F,B,D,T,KU,KFS,KBS,KDS,KT,Resource,SBF,RBF,SDB,RDB)
+                /\ cssods(U,F,B,D,T,KU, KFS,KBS,KDS,KT,Resource,RBD,SBD)
+                /\ t(U,F,B,D,T,KU, KFS,KBS,KDS,KT,Resource,STU,RTU)
+end role
+%******175**************************************************************************************************
+
+
+role environment() def=
+
+  const      u,f,b,d,t:     agent,
+          ku,kfs,kbs,kds,kt,ki : public_key,
+%190
+%suf,ruf,sut,rut,sfu,rfu,sbf,rbf,sdb,rdb,rbd,sbd,stu,rtu,
+%sif,rif,sit,rit,sfi,rfi,sti,rti,
+%sui,rui,siu,riu,sbi,rbi,sdi,rdi,rid,sid,sib,rib   : channel(dy),
+     resource:     hash_func,
+ 
+%suf,ruf,sut,rut,sfu,rfu,sbf,rbf,sdb,rdb,rbd,sbd,stu,rtu,
+%sif,rif,sit,rit,sfi,rfi,sti,rti,
+%sui,rui,siu,riu,sbi,rbi,sdi,rdi,rid,sid,sib,rib   : channel(dy),
+
+suf,ruf,sut,rut,sfu,rfu,sbf,rbf,sdb,rdb,rbd,sbd,stu,rtu,
+sif,rif,sit,rit,sfi,rfi,sti,rti,
+sui,rui,siu,riu,sbi,rbi,sdi,rdi,rid,sid,sib,rib
+
+ : channel(dy),
+u_fs_resource,u_fs_aa,id, u_t_guid ,u_t_resource : protocol_id
+                     
+                 
+   intruder_knowledge={ u,f,b,d,t,ki,resource}
+
+            
+        composition
+   session(u,f,b,d,t,ku,kfs,kbs,kds,kt,resource,suf,ruf,sut,rut,sfu,rfu,sbf,rbf,sdb,rdb,rbd,sbd,stu,rtu)
+            /\ session(i,f,b,d,t,ku,kfs,kbs,kds,kt,resource,sif,rif,sit,rit,sfi,rfi,sbf,rbf,sdb,rdb,rbd,sbd,sti,rti)
+            /\  session(u,i,b,d,t,ku,kfs,kbs,kds,kt,resource,sui,rui,sut,rut,siu,riu,sbi,rbi,sdb,rdb,rbd,sbd,stu,rtu)
+       /\  session(u,f,i,d,t,ku,kfs,kbs,kds,kt,resource,suf,ruf,sut,rut,sfu,rfu,sif,rif,sdi,rdi,rid,sid,stu,rtu)
+       /\  session(u,f,b,i,t,ku,kfs,kbs,kds,kt,resource,suf,ruf,sut,rut,sfu,rfu,sbf,rbf,sib,rib,rbi,sbi,stu,rtu)
+      /\ session(u,f,b,d,i,ku,kfs,kbs,kds,kt,resource,suf,ruf,sui,rui,sfu,rfu,sbf,rbf,sdb,rdb,rbd,sbd,siu,riu)
+
+%session(u,f,b,d,t,ku,kfs,kbs,kds,kt,resource)
+%/\  session(i,f,b,d,t,ki,kfs,kbs,kds,kt,resource)
+%/\  session(u,i,b,d,t,ku,ki,kbs,kds,kt,resource)
+%/\  session(u,f,i,d,t,ku,kfs,ki,kds,kt,resource)
+%/\  session(u,f,b,i,t,ku,kfs,kbs,ki,kt,resource)
+%/\  session(u,f,b,d,i,ku,kfs,kbs,kds,ki,resource)
+end role
+             
+%*******************************************************************************************************
+goal
+
+ % Confidentiality (G12)
+ secrecy_of   u_fs_resource
+ secrecy_of   u_ds_resource
+secrecy_of   u_t_resource
+
+ % Message authentication (G2)
+ authentication_on  u_fs_uri
+ authentication_on  u_ds_uri
+ authentication_on   u_t_guid
+
+end goal
+%*******************************************************************************************************
+
+environment()
+
+
+
+              

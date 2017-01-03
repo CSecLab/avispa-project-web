@@ -1,0 +1,75 @@
+role initiator (A, B : agent, 
+ Kca : public_key, 
+ 
+ Snd, Rcv: channel(dy))
+played_by A
+def=
+ local State : nat,
+ Ku : public_key,
+ Ks,Na ,CHKSUM: text
+ const b_a ,a_b,sub1: protocol_id
+ 
+ init State := 0
+ transition
+ 1. State = 0 /\ Rcv(start) =|>
+ State' := 1 /\ Na' := new()
+ /\ CHKSUM' := new()
+ /\ Snd({Ku}_inv(Kca).{Na'.CHKSUM'
+}_inv(Ku)) 
+ /\ witness (A, B, a_b, Na')
+ 2. State = 1 /\ Rcv({Ks'.Na'}_Ku) =|> 
+ State' := 2 /\ secret({Ks'}, sub1, {A,B}) 
+ /\ request (B, A, b_a,Ks')
+ 
+ end role
+role responder (A, B : agent,
+ 
+ 
+ Kca : public_key, 
+ Snd, Rcv: channel(dy))
+played_by B
+def= 
+ local State : nat,
+ Ku : public_key,
+ Ks, Na, CHKSUM: text
+ const b_a,sub1,a_b: protocol_id init State := 0
+ transition 
+ 1. State = 0 /\ Rcv({Ku}_inv(Kca).{Na'.CHKSUM'
+}_inv(Ku)) =|> 
+ State' := 1 /\ request (A, B, a_b, Na')
+ /\ Ks' := new() 
+ /\ secret({Ks'}, sub1, {A,B}) 
+ 
+ /\ Snd({Ks'.Na'}_Ku)
+ /\ witness (B, A, b_a, Ks')
+ 
+end role
+role session(A,B: agent,
+ Kuca: public_key
+ )
+def=
+ local SA, SB, RA, RB: channel (dy)
+ 
+ 
+ 
+ const a_b,b_a,sub1,sub2: protocol_id
+ 
+ composition
+ initiator(A, B,Kuca,SA, RA)
+ /\ responder(A, B,Kuca,SB, RB)
+end role 
+role environment()
+def=
+ const a, b : agent,
+ kca : public_key,
+ a_b, b_a ,sub1: protocol_id
+ intruder_knowledge = {a,b} composition
+ session(a, b,kca) 
+ /\ session(a, b,kca) 
+end role
+goal
+secrecy_of sub1
+ authentication_on a_b
+ authentication_on b_a
+end goal
+environment()

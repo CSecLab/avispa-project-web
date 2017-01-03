@@ -1,0 +1,172 @@
+%%OUR_PROTOCOL_TEST_WITH_AVISPA
+%%%%%%%%%%%%%%%%%USER%%%%%%%%%%%%%%%%%%%
+role user(
+	U,S	:agent,
+	H,H1,H2	:function,
+	SND,RCV	:channel(dy),
+	SKus	:symmetric_key,
+	Qs	:public_key
+)played_by U
+def=
+	local State	:nat,
+	PW,R,Ra,Rb,Rc,Rr	:text,
+	X,K,SK,Auths,Authu,V,W,P	:text,
+	Username,Realm	:text
+		
+const ns,nu,nus,sec_ra,sec_rb,sec_rc,sec_rr,sec_pw	:protocol_id
+
+init State:=0
+
+transition
+%%%%%Registration phase
+1.State=0 /\ RCV(start)=|>
+  State':=1 /\ Ra':=new()
+%%send the registration request to server S
+	/\ SND({H(PW.Ra').Username}_SKus)
+	/\ secret({PW.Ra'}_SKus, nu, U)
+	/\ secret({Username},nus,{U,S})
+	 
+	/\ witness(U,S,sec_ra,Ra')
+	/\ witness(U,S,sec_pw,PW)
+%%receive the registration aknowledgment message from server S	
+2.State=1 
+	%/\ R':={H(H(PW.Ra').Username).inv(Qs)}_P
+	%/\ X':={H(Username.inv(Qs))}_P
+	%/\ RCV(R'.X')  =|>
+	/\ RCV({H(H(PW.Ra').Username).inv(Qs)}_P.{H(Username.inv(Qs))}_P)  =|>
+%%%Login & authentication phase
+% Send the REQUEST message  to S
+ State' := 2 
+	/\ Rb':=new()
+	/\ V':={Rb'}_R'.X'
+	/\ W':={Rb'.H(H(PW.Ra').Username)}_Qs
+	/\ SND(Username.V'.W')
+	
+	/\ request(S, U, sec_rb, Rb')
+%%% Receive the CHALLENGE message )  from S  
+3.State=2
+	%/\ K':={Rb'.H(H(PW.Ra').Username).Rc'}_P
+	%/\ SK':=H1(K'.Rr'.Username.X')
+	%/\ Auths':=H2(K'.W'.Rr'.SK'.X')
+	%/\ RCV(Realm.Auths'.{Rc'}_P.Rr')  =|>
+        /\ RCV(Realm.H2({Rb'.H(H(PW.Ra').Username).Rc'}_P.W'.Rr'.H1({Rb'.H(H(PW.Ra').Username).Rc'}_P.Rr'.Username.X').X').{Rc'}_P.Rr')  =|>
+  % U’s acceptance of the value random r and c generated  by S (Rr'&Rc') 
+  State' := 3 
+	/\ request(S, U, sec_rc, Rc') 
+	/\ request(S, U, sec_rr, Rr')
+	/\ request(S, U, sec_rb, Rb') 
+%% Send the RESPONSE message )  to S 
+%4.State=3
+%	/\ W':={Rb'.H(H(PW.Ra').Username)}_Qs
+        %/\ Authu':=H2({Rb'.H(H(PW.Ra').Username).Rc'}_P.{Rb'.H(H(PW.Ra').Username)}_Qs.Rr'.H1({Rb'.H(H(PW.Ra').Username).Rc'}_P.Rr'.Username.{H(Username.inv(Qs))}_P).{H(Username.inv(Qs))}_P)
+%	/\ SND(Realm.H2({Rb'.H(H(PW.Ra').Username).Rc'}_P.{Rb'.H(H(PW.Ra').Username)}_Qs.Rr'.H1({Rb'.H(H(PW.Ra').Username).Rc'}_P.Rr'.Username.{H(Username.inv(Qs))}_P).{H(Username.inv(Qs))}_P))
+  % State' := 4 
+     %   /\ request(S, U, sec_rc, Rc') 
+	%/\ request(S, U, sec_rr, Rr') 
+	%/\ witness(U, S, sec_rr, Rr')
+  
+  
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%	SERVER
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role server(
+	U,S	:agent,
+	H,H1,H2	:function,
+	SND,RCV	:channel(dy),
+	SKus	:symmetric_key,
+	Qs	:public_key
+)played_by U
+def=
+	local State	:nat,
+	PW,R,Ra,Rb,Rc,Rr	:text,
+	X,K,SK,Auths,Authu,V,W,P	:text,
+	Username,Realm	:text
+		
+const ns,nu,nus,sec_ra,sec_rb,sec_rc,sec_rr,sec_pw	:protocol_id
+     
+init State:=0
+     
+transition
+%%%%%Registration phase
+%%receive the registration request message from user U
+ 1.State=0 /\ RCV({H(PW.Ra').Username}_SKus) =|>
+% S’s acceptance of the value Ra (a) generated for S by U
+  State':=1
+	/\ request(U,S,sec_ra,Ra')
+	/\ request(U,S,sec_pw,PW)
+	/\ secret({PW.Ra'}_SKus,nu,U)
+	/\ secret({Username},nus,{U,S}) 
+%%send the registration aknowledment message to user U
+	/\ R':={H(H(PW.Ra').Username).inv(Qs)}_P
+	/\ X':={H(Username.inv(Qs))}_P
+	/\ SND(R'.X') 
+	
+%%%Login  authentication phase
+%%% Receive the REQUEST message  message   from S
+ 2.State=1
+        %/\ V':={Rb'}_R'.X'
+	%/\ W':={Rb'.H(H(PW.Ra').Username)}_Qs
+	%/\ RCV(Username.V'.W')=|>
+	/\ RCV(Username.{Rb'}_R'.X'.{Rb'.H(H(PW.Ra').Username)}_Qs)=|>
+   State':=2
+%%Send the CHALLENGE message )  to U  
+ %3.State=2  
+%	/\ witness(S, U, sec_rr, Rr')
+%	/\ witness(S, U, sec_rc, Rc')
+%
+%	/\ request(U,S,sec_rb,Rb')
+%	/\ request(U,S,sec_ra,Ra')
+%	/\ request(U,S,sec_pw,PW)
+%	/\ SND(Realm.H2({Rb'.H(H(PW.Ra').Username).Rc'}_P.{Rb'.H(H(PW.Ra').Username)}_Qs.Rr'.H1({Rb'.H(H(PW.Ra').Username).Rc'}_P.Rr'.Username.{H(Username.inv(Qs))}_P).{H(Username.inv(Qs))}_P).{Rc'}_P.Rr')  
+  % U’s acceptance of the value random r and c generated  by S (Rr'&Rc') 
+ % State' := 3 
+%	/\ request(S, U, sec_rc, Rc') 
+%	/\ request(S, U, sec_rr, Rr')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Session
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(
+	U,S	:agent,
+	H,H1,H2	:function,
+	SKus	:symmetric_key,
+	Qs	:public_key
+)
+def=
+local	CHsR,CHsS,CHuR,CHuS	:channel(dy)
+composition
+	user(U,S,H,H1,H2,CHuS,CHuR,SKus,Qs)
+	/\ server(U,S,H,H1,H2,CHuS,CHuR,SKus,Qs)
+	
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% environment
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=	
+ const u,s,i	:agent,
+		h,h1,h2	:function,
+		skus	:symmetric_key,
+		qs	:public_key,
+		ns,nu,nus	:protocol_id
+		 
+	  intruder_knowledge = {u, s, h, h1, h2, qs}
+composition
+	session(u,s,h,h1,h2,skus,qs)
+	/\ session(u,s,h,h1,h2,skus,qs)
+end role
+
+%%%%%%%%%%%%%%%%%
+goal
+  secrecy_of ns
+  secrecy_of nu
+  secrecy_of nus
+   %%authentication_on sec_ra
+   %%authentication_on sec_pw  
+  %%%authentication_on bob_alice_t3   
+end goal
+environment()

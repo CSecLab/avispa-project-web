@@ -1,0 +1,53 @@
+role subscriber_station(A,B:agent,H:symmetric_key,Snd, Rcv: channel(dy)) 
+  played_by  A def=         
+  local State  : nat,Na, Nb : text
+  init  State := 0
+  transition
+   1. State   = 0 /\ Rcv(start) =|>
+      State' := 1 /\ Snd(A)
+   2. State   = 1 /\ Rcv(Nb') =|> 
+       State' := 2 /\ Na' := new() /\
+       Snd({Na'.Nb'.A}_H) /\ 
+       witness(A,B,na,Na')    	 
+   3. State   = 2 /\ Rcv(Na) =|> 
+       State' := 3 /\ request(A,B,nb,Nb) 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+role base_station (B,A : agent, H:symmetric_key, Snd, Rcv: channel(dy))
+  played_by B def=       
+  local State  : nat,  Na, Nb : text
+  init  State := 0
+  transition
+   1. State   = 0 /\ Rcv(A') =|>  
+       State' := 1 /\ Nb' := new() /\Snd(Nb') /\
+       witness(B,A,nb,Nb')
+   2. State   = 1 /\ Rcv({Na'.Nb.A}_H) =|>
+       State' := 2 /\ Snd(Na') /\ request(B,A,na,Na') 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+role session(A,B: agent,H:symmetric_key) def=  local SA, SB, RA, RB: channel (dy)
+  composition
+     subscriber_station (A, B,H, SA, RA)
+ /\  base_station (B, A,H, SB, RB)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+  const a, b  : agent,      hai,hbi,hab:symmetric_key,  na, nb  : protocol_id 
+ intruder_knowledge = {a, b,hai,hbi }
+  composition
+	session(a,b,hab)
+             /\ session(a,i,hai)
+              /\session(b,i,hbi)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+authentication_on nb
+authentication_on na 
+end goal
+environment()
+            

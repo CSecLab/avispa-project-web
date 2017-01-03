@@ -1,0 +1,236 @@
+%%%%%%%%%%% Role for server Sj %%%%%%%%%%%%%%%%%%%%
+role server (Sj, RC, Ui : agent,
+% symmetric key between Sj and RC
+        SKsjrc : symmetric_key,
+% symmetric key between Ui and RC
+        SKuirc : symmetric_key,
+% H is hash function
+         H : hash_func,
+         SEND, RECV: channel(dy))
+played_by Sj
+def=
+ local State : nat,
+     SIDj, IDi, Ri, Rj, PWi, Bi : text,
+     Ki, Kj, Xi, SSj, N1, N2 : text,
+     Gen, Rep : hash_func,
+     F : hash_func
+ const user_server_n1, server_rc_n2, user_rc_n1,
+       s1, s2, s3, s4, s5, s6 : protocol_id
+init State := 0
+transition
+% Server registration phase
+1. State = 0 /\ Rcv(start) =|>
+% Sj sends  to RC via a secure channel
+State' := 1  /\ SEND({SIDj}_SKsjrc)
+             /\ secret({PWi,Bi}, s1, Ui)
+             /\ secret(K, s2, RC)
+% Sj receives < kj, sj > from RC via a secure channel
+2. State = 1 /\ RECV({H(SIDj.K.Rj').
+               H(K.Rj'.H(SIDj.K.Rj').SIDj)}_SKsjrc) =|>
+State' := 2  /\ secret(Xi', s3, Ui)
+             /\ secret(Ki, s4, {Ui,RC})  
+% Login phase
+% Sj receives < M1 > from Ui via a public channel
+3. State = 2 /\ RECV({IDi.SIDj.SSj.N1'}_F(H(Xi'.Ki.N1').F(K.P)).
+                F(H(Xi'.Ki.N1').P). H(IDi.SIDj.SSj.N1'.Ki.
+                F(H(Xi'.Ki.N1').P).F(H(Xi'.Ki.N1').F(K.P)))) =|>
+% Authentication and key establishment phase
+State' := 3  /\ N2' := new()
+% Sj sends < M2 > to RC via a public channel
+             /\ SEND({IDi.SIDj.SSj.N1'}_F(H(Xi'.Ki.N1').F(K.P)).
+                F(H(Xi'.Ki.N1').P).H(IDi.SIDj.SSj.N1'.Ki.
+                F(H(Xi'.Ki.N1').P).F(H(Xi'.Ki.N1').F(K.P))).
+                {N2}_(H(Kj.H(IDi.SIDj.Sj.N1'.Ki.F(H(Xi'.Ki.N1').P).
+                F(H(Xi'.Ki.N1').F(K.P))))).
+                H({IDi.SIDj.SSj.N1'}_F(H(Xi'.Ki.N1').F(K.P)).
+                F(H(Xi'.Ki.N1').P).H(IDi.SIDj.SSj.N1'.Ki.
+                F(H(Xi'.Ki.N1').P).F(H(Xi'.Ki.N1').F(K.P))).
+                SIDj.Kj.SSj.N2'))
+             /\ secret({Kj}, s5, Sj)
+% Sj receives < M3 > from RC via a public channel
+4. State = 3 /\ RECV({SIDj.H(Ki.F(K.F(H(Xi.Ki.N1').P)).N1')}_(H(Kj.
+                H(IDi.SIDj.SSj.N1'.Ki.F(H(Xi.Ki.N1').P).
+                F(H(Xi.Ki.N1').F(K.P))).N2')).
+                H(Kj.H({IDi.SIDj.Sj.N1'}_(F(H(Xi.Ki.N1').F(K.P))).
+                F(H(Xi.Ki.N1').P).H(IDi.SIDj.SSj.N1'.Ki.F(H(Xi.Ki.N1').P).
+                F(H(Xi.Ki.N1').F(K.P))).SIDj.Kj.SSj.N2').{SIDj.H(Ki.
+                F(K.F(H(Xi.Ki.N1').P)).N1')}_(H(Kj.H(IDi.SIDj.SSj.N1'.Ki.
+                F(H(Xi.Ki.N1').P).F(H(Xi.Ki.N1').F(K.P))).N2')).SIDj.
+                H(Ki.F(K.F(H(Xi.Ki.N1').P)).N1').F(H(Xi.Ki.N1').P).N2')) =|>
+% Sj sends < M4 > to Ui via a public channel
+State' := 4 /\ Y' := new()
+            /\ secret(Y', s6, Sj)
+            /\ SEND(F(Y'.P).H(SIDj.SSj.H(IDi.SIDj.SSj.N1'.Ki.
+               F(H(Xi'.Ki.N1').P).F(H(Xi'.Ki.N1').F(K.P))).H(Ki.F(K.
+               F(H(Xi'.Ki.N1').P)).N1').F(H(Xi'.Ki.N1').P).F(Y'.P).
+               H(F(Y'.F(H(Xi'.Ki.N1').P)).H(Ki.F(K.F(H(Xi'.Ki.N1')
+               .P)).N1').SSj)))
+% Sj has freshly generated the value N2' for RC
+           /\ witness(Sj, RC, server_rc_n2, N2')
+% Sj receives < M5 > from Ui via a public channel
+5. State = 4 /\ RECV(H(SIDj.H(Ki.F(H(Xi'.Ki.N1').F(K.P)).N1').
+              F(H(Xi'.Ki.N1').P).F(Y'.P).H(F(H(Xi'.Ki.N1').
+              F(Y'.P)).H(Ki.F(H(Xi'.Ki.N1').F(K.P)).N1').SSj))) =|>
+% Sj’s acceptance of the value N1 generated for Sj by Ui
+State' := 5 /\ request(Ui, Sj, user_server_n1, N1')               
+end role
+
+%%%%%%%%%%% Role for RC %%%%%%%%%%%%%%%%%%%%
+role rc (Sj, RC, Ui : agent,
+% symmetric key between Sj and RC
+        SKsjrc : symmetric_key,
+% symmetric key between Ui and RC
+        SKuirc : symmetric_key,
+% H is hash function
+         H : hash_func,
+         SEND, RECV: channel(dy))
+played_by RC
+def=
+ local State : nat,
+     SIDj, IDi, Ri, Rj, PWi, Bi : text,
+     Ki, Kj, Xi, SSj, N1, N2 : text,
+     Gen, Rep : hash_func,
+     F : hash_func
+ const user_server_n1, server_rc_n2, user_rc_n1, 
+       s1, s2, s3, s4, s5, s6 : protocol_id
+init State := 0
+transition
+% Server registration phase
+% RC receives  from Sj via a secure channel
+1. State = 0 /\ Rcv({SIDj}_SKsjrc) =|>
+State' := 1  /\ secret({PWi,Bi}, s1, Ui)
+             /\ secret(K, s2, RC)
+             /\ Rj' := new()
+% RC sends < kj, sj > to Sj via a secure channel
+            /\ SEND({H(SIDj.K.Rj').
+               H(K.Rj'.H(SIDj.K.Rj').SIDj)}_SKsjrc)
+% User registration phase
+% RC receives < Reg > from Ui via a secure channel
+2. State = 1 /\ RECV({IDi.H(PWi.Gen(Bi))}_SKuirc) =|>
+% RC sends  to Ui via a secure channel
+State' := 2 /\ Ri' := new()
+           /\ SEND({xor(H(IDi.K.Ri'.H(IDi.K)),H(PWi.Gen(Bi))).
+           H(H(IDi.K.Ri'.H(IDi.K)).IDi.H(PWi.Gen(Bi)))}_SKuirc)
+% Authentication and key establishment phase
+% RC receives < M2 > to Sj via a public channel
+3. State = 2 /\ RECV({IDi.SIDj.SSj.N1'}_F(H(Xi'.Ki.N1').F(K.P)).
+                F(H(Xi'.Ki.N1').P).H(IDi.SIDj.SSj.N1'.Ki.
+                F(H(Xi'.Ki.N1').P).F(H(Xi'.Ki.N1').F(K.P))).
+                {N2}_(H(Kj.H(IDi.SIDj.SSj.N1'.Ki.F(H(Xi'.Ki.N1').P).
+                F(H(Xi'.Ki.N1').F(K.P))))).
+                H({IDi.SIDj.SSj.N1'}_F(H(Xi'.Ki.N1').F(K.P)).
+                F(H(Xi'.Ki.N1').P).H(IDi.SIDj.SSj.N1'.Ki.
+                F(H(Xi'.Ki.N1').P).F(H(Xi'.Ki.N1').F(K.P))).
+                SIDj.Kj.SSj.N2')) =|>
+State' := 3  /\ secret({Kj}, s5, Sj)
+% RC sends < M3 > to Sj via a public channel
+4. State = 3 /\ SEND({SIDj.H(Ki.F(K.F(H(Xi.Ki.N1').P)).N1')}_H(Kj.
+                H(IDi.SIDj.SSj.N1'.Ki.F(H(Xi.Ki.N1').P).
+                F(H(Xi.Ki.N1').F(K.P))).N2').
+                H(Kj.H({IDi.SIDj.SSj.N1'}_(F(H(Xi.Ki.N1').F(K.P))).
+                F(H(Xi.Ki.N1').P).H(IDi.SIDj.SSj.N1'.Ki.F(H(Xi.Ki.N1').P).
+                F(H(Xi.Ki.N1').F(K.P))).SIDj.Kj.SSj.N2').{SIDj.H(Ki.
+                F(K.F(H(Xi.Ki.N1').P)).N1')}_(H(Kj.H(IDi.SIDj.SSj.N1'.Ki.
+                F(H(Xi.Ki.N1').P).F(H(Xi.Ki.N1').F(K.P))).N2')).SIDj.
+                H(Ki.F(K.F(H(Xi.Ki.N1').P)).N1').F(H(Xi.Ki.N1').P).N2'))
+% RC's acceptance of the value N1 generated for RC by Ui
+             /\ request(Ui, RC, user_rc_n1, N1')
+% RC's acceptance of the value N2 generated for RC by Sj
+             /\ request(Sj, RC, server_rc_n2, N2') 
+end role
+
+%%%%%%%%%%% Role for user Ui %%%%%%%%%%%%%%%%%%%% 
+role user (Sj, RC, Ui : agent,
+% symmetric key between Sj and RC
+        SKsjrc : symmetric_key,
+% symmetric key between Ui and RC
+        SKuirc : symmetric_key,
+% H is hash function
+         H : hash_func,
+         SEND, RECV: channel(dy))
+played_by Ui
+def=
+ local State : nat,
+     SIDj, IDi, Ri, Rj, PWi, Bi : text,
+     Ki, Kj, Xi, SSj, N1, N2 : text,
+     Gen, Rep : hash_func,
+     F : hash_func
+ const user_server_n1, server_rc_n2, user_rc_n1, 
+       s1, s2, s3, s4, s5, s6 : protocol_id
+init State := 0
+ transition
+% User registration phase
+% Ui sends < Reg > to RC via a secure channel
+1. State = 0 /\ SEND({IDi.H(PWi.Gen(Bi))}_SKuirc)
+             /\ secret({PWi,Bi}, s1, Ui)
+             /\ secret(K, s2, RC)
+% Ui receives  from RC via a secure channel
+      /\ RECV({xor(H(IDi.K.Ri'.H(IDi.K)),H(PWi.Gen(Bi))).
+         H(H(IDi.K.Ri'.H(IDi.K)).IDi.H(PWi.Gen(Bi)))}_SKuirc) =|>
+% Login phase
+% Ui sends < M1 > to Sj via a public channel
+State' := 1 /\ Xi' := new()
+             /\ N1' := new()
+             /\ SEND({IDi.SIDj.SSj.N1'}_F(H(Xi'.Ki.N1').F(K.P)).
+                F(H(Xi'.Ki.N1').P). H(IDi.SIDj.SSj.N1'.Ki.
+                F(H(Xi'.Ki.N1').P).F(H(Xi'.Ki.N1').F(K.P))))
+% Ui has freshly generated the value N1' for Sj
+            /\ witness(Ui, Sj, user_server_n1, N1')
+% Ui has freshly generated the value N1' for RC
+            /\ witness(Ui, RC, user_rc_n1, N1')
+% Authentication and key establishment phase
+% Ui receives < M4 > from Sj via a public channel
+2. State = 1 /\ RECV(F(Y'.P).H(SIDj.SSj.H(IDi.SIDj.SSj.N1'.Ki.
+               F(H(Xi'.Ki.N1').P).F(H(Xi'.Ki.N1').F(K.P))).H(Ki.F(K.
+               F(H(Xi'.Ki.N1').P)).N1').F(H(Xi'.Ki.N1').P).F(Y'.P).
+               H(F(Y'.F(H(Xi'.Ki.N1').P)).H(Ki.F(K.F(H(Xi'.Ki.N1')
+               .P)).N1').SSj))) =|>
+% Ui sends < M5 > to Sj via a public channel
+State' := 2 /\ SEND(H(SIDj.H(Ki.F(H(Xi'.Ki.N1').F(K.P)).N1').
+              F(H(Xi'.Ki.N1').P).F(Y'.P).H(F(H(Xi'.Ki.N1').
+              F(Y'.P)).H(Ki.F(H(Xi'.Ki.N1').F(K.P)).N1').SSj)))
+end role
+
+role session(Sj, RC, Ui : agent,
+% symmetric key between Sj and RC
+        SKsjrc : symmetric_key,
+% symmetric key between Ui and RC
+        SKuirc : symmetric_key,
+% H is hash function
+         H : hash_func )
+def=
+  local SN1, SN2, SN3, RV1, RV2, RV3: channel (dy)
+composition
+server(Sj, RC, Ui, SKsjrc, SKuirc, H, SN1, RV1)
+/\ rc(Sj, RC, Ui, SKsjrc, SKuirc, H, SN2, RV2)
+/\ user(Sj, RC, Ui, SKsjrc, SKuirc, H, SN3, RV3)
+end role
+
+role environment()
+def=
+  const sj, rc, ui: agent, sksjrc : symmetric_key,
+      skuirc : symmetric_key, h : hash_func,
+      gen, rep : hash_func, 
+      f : hash_func, user_server_n1, server_rc_n2, 
+      user_rc_n1, s1, s2, s3, s4, s5, s6 : protocol_id
+intruder_knowledge = {sj, rc, ui, h, f, gen, rep}
+composition
+   session(sj, rc, ui, sksjrc, skuirc, h)
+/\ session(sj, rc, ui, sksjrc, skuirc, h)
+/\ session(sj, rc, ui, sksjrc, skuirc, h)
+end role
+goal
+  secrecy_of s1
+  secrecy_of s2
+  secrecy_of s3
+  secrecy_of s4
+  secrecy_of s5
+  secrecy_of s6
+  authentication_on server_rc_n2
+  authentication_on user_server_n1
+  authentication_on user_rc_n1
+end goal
+environment()
+
+
+

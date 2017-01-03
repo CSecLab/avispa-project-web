@@ -1,0 +1,165 @@
+role user (U, S, RC: agent, Vi, Ki : symmetric_key, ID, SID : text, H : hash_func, SND_URC, RCV_URC, SND_US, RCV_US : channel(dy))
+
+played_by U 
+
+def=
+
+
+local State : nat,
+           A1, R1, K1, C, Msg2, SK, GA1, Msg3, G : text,
+		   Succ : hash_func
+
+
+
+init State := 0
+
+transition
+
+1. State = 0 /\ RCV_URC(start) =|>
+
+   State' := 2 /\ A1' := new()
+			 /\ R1' := new()
+			 /\ GA1' := exp(G,A1')
+             /\ SND_URC(ID.{GA1'.R1.Ki}_Vi)
+             /\ secret(GA1', ga1,{U,RC}) 
+			 /\ witness(U,RC,u_rc_gaki,GA1'.Ki')
+			 
+			 
+2.   State = 2 /\ RCV_URC(ID.{C'}_Vi) =|>
+   
+ State' := 4 /\ K1' := exp(C',A1')
+             /\ SND_US(ID.SID.{ID.SID.R1'.Ki}_K1')
+             /\ secret(K1',k1,{U,S}) 	 
+
+3.    State = 4 /\ RCV_US(ID.SID.{Msg2'.ID.SID.R1.Ki}_K1.H(ID.SID.Msg3')) =|>
+			  
+			 
+  State' := 8 /\ SK' := exp(Msg2',A1')
+              /\ SND_US(H(Succ(SK').ID.SID))  
+			  /\ witness(U,S,s_u_sk,SK')
+
+
+end role
+
+
+role registrationCenter (U, S, RC: agent, Vi, Vj, Ki : symmetric_key, ID, SID : text, H : hash_func, SND_RCS, RCV_RCS, RCV_URC, SND_URC : channel(dy) )
+
+played_by RC 
+def=
+
+local State : nat,
+          Ri : message,
+          C1, C2, X, R1, A, B, R2, GC1, GA1, GB1, G, K1 : text 
+
+
+
+init State :=1
+
+transition
+
+1. State = 1 /\ RCV_URC(ID.{A'.R1'.Ki}_Vi) =|>
+
+   State' := 3 /\ C1':= new()  
+               /\ K1' := exp(A',C1')  
+			   /\ GC1' := exp(G,C1')
+			   /\ X':= new()  
+               /\ Ri' := xor(Vi,H(ID.X')) 
+               /\ SND_URC(ID.{GC1'}_Vi) 
+			   /\ secret(GC1', gc1, {U,RC})
+			   /\ request (RC,U,u_rc_gaki,GA1'.Ki')
+
+
+2. State = 3 /\ RCV_RCS(ID.SID.{ID.SID.R1'.Ki}_K1'.{B'.H({ID.SID.R1'.Ki}_K1).ID.SID.R2'}_Vj) 
+
+             /\ request(RC,S,s_rc_r2,R2')   =|>
+
+   State' := 6 /\ C2' := new()
+               /\ SND_RCS(SID.{exp(A',C2').ID.SID.{exp(B',C2').ID.SID.R1'.Ki}_K1' } )
+
+end role
+
+
+role server (U, S, RC: agent, Vj : symmetric_key, ID, SID : text, H : hash_func, SND_RCS, RCV_RCS, SND_US, RCV_US : channel(dy) )
+
+played_by S 
+def=
+
+local State : nat,
+          Ri : message,
+          C1, X, R1, A, B1, R2, Msg, Msg1, Msg2, Msg3, Msg4,Msun, G, GB1 : text, 
+		  K1 : symmetric_key,
+		  Succ : hash_func
+
+
+init State := 5
+
+transition
+
+1. State = 5 /\ RCV_US(ID.SID.Msg) =|>
+
+   State' := 7 /\ B1' := new()
+               /\ R2' := new()
+			   /\ GB1' := exp(G,B1')
+               /\ SND_RCS(ID.SID.Msg.{GB1'.H(Msg).ID.SID.R2'}_Vj)
+			   /\ secret(GB1', gb1, {S,RC})
+			   /\ witness(S,RC,s_rc_r2, R2')
+			   
+2.   State = 7 /\ RCV_RCS(SID.{Msg1.ID.SID.Msun'.R2}_Vj)	=|>   
+			   
+   State' := 9 /\ Msg3' := exp(Msg1,B1')
+               /\ SND_US(ID.SID.Msun'.H(ID.SID.Msg3'))
+			   /\ secret(Msg3',msg3,{S,RC}) 
+               /\ witness(S,U)   			   
+
+3.   State = 9 /\ RCV_US(H(Succ(Msg3').ID.SID)) =|>
+
+     State' := 11  /\ request(S,U,s_u_sk,Msg3')
+
+end role
+
+
+role session (U, S, RC : agent, Vi,Vj, Ki : symmetric_key, ID, SID : text, H : hash_func) 
+
+def=
+			  
+local 	S_URC,R_URC, S_RCS, R_RCS, S_US, R_US : channel (dy)		  
+			  
+composition 
+
+     user (U, S, RC, Vi, Ki, ID, SID, H, S_URC, R_URC, S_US, R_US)
+  /\ registrationCenter (U, S, RC, Vi,Vj, Ki, ID, SID, H, S_RCS, R_RCS, R_URC, S_URC)
+  /\ server (U, S, RC, Vj, Ki, ID, SID, H, S_URC, R_URC, S_US, R_US)  
+  
+end role
+
+
+role environment()
+def=
+
+	const u, rc, s : agent,
+	      vi,vj, ki, kii, vii, vij  : symmetric_key, 
+		  id, sid : text, 
+		  h : hash_func,
+		  s_rc_r2, u_rc_gaki, s_u_sk, ga1, gb1, gc1, k1, msg3 : protocol_id
+		  
+
+	intruder_knowledge = {u, rc, s, kii, vii, vij}
+
+	composition
+
+	   session(u,rc,s,vi,vj,ki,id,sid,h)
+	/\ session(i,rc,s,vii,kii,vj,id,sid,h)
+	/\ session(u,rc,i,vi,ki,vij,id,sid,h)
+
+end role
+
+
+
+goal
+
+secrecy_of ga1, gb1, gc1, k1, msg3
+authentication_on s_rc_r2, u_rc_gaki, s_u_sk
+
+end goal
+
+environment()

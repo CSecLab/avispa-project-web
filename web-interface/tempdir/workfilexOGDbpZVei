@@ -1,0 +1,293 @@
+
+role a1(
+		A,B,Hidp	:agent,
+		SND,RCV		:channel(dy))
+played_by A
+def=
+	local
+		State:nat,
+		Na		:text,
+		Fa		:function
+
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ SND(Fa(Na'))
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Role of Decice  %%%%%%%%%%%%%%%%%%%%
+%% 		a2(A,B,Hidp,Nb,Fb,SND1,RCV1)   changed
+
+role a2(
+		A,B,Hidp	:agent,
+		%Nb		:text,
+		%Fb		:function,
+		SND,RCV		:channel(dy))
+played_by B
+
+def=
+	local
+		State:nat,T1:text,Na,Nb:text,Fa,Fb:function,T8:text,M:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(Fa(Na')) 
+		=|> State':=1 /\ T1':=new()  /\ SND(Fa(Na').T1')
+		2. State=1 /\ RCV(M'.T8') =|> State':=2
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%   role of registory1 &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+%%  reg1(R1,P1,Hidp,Lidp,Kr1,Kp1,Khidp,SND6,RCV6)
+
+
+role reg1(	R1,P1,Hidp,Lidp	:agent,
+		Kr1, Kp1,Khidp		:public_key,
+
+		SND,RCV:channel(dy))
+
+played_by R1
+def=
+	local
+		State:nat,T2,T3:text,
+		Adrs1,Adrs2		:text,
+		ALp1,ALp2		:text,
+		Tagents1		:(agent.text.text.public_key) set
+	init
+		State := 0
+	transition
+		3. State=0 /\ RCV({P1.Hidp'.T2'}_Kr1) 
+		/\ (in(Hidp',Tagents1))                      %%%%%% compare with ln 82
+		=|> 
+		State':=1 /\ T3':=new() 
+			/\ SND({Hidp'.Adrs2.ALp2.Khidp.T3'}_Kp1)
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%   role of Registory2   %%%%%%%%%%%%%%%%%%%%%
+%%  Reg2(R2,P1,ALp2,Kr2,Khidp,SND7,RCV7)
+
+
+role reg2(	R2,P1		:agent,
+		ALp2	:text,
+		Kr2,Khidp		:public_key,
+		SND,RCV			:channel(dy))
+played_by R2
+def=
+	local
+		State:nat,T5,T6:text,
+		Lidp,Hidp	:agent,
+		Kp1	:public_key,
+		Adrs1,Adrs2,ALp1	:text,
+		Tagents2		:(agent.text.text.public_key) set
+	init
+		State := 0
+	transition
+		10. State=0 /\ RCV({Hidp.P1.T5'}_Kr2)
+		/\  in((P1.Adrs1.ALp1.Kp1),Tagents2)
+		=|> 
+		State':=1 /\ T6':=new() 
+		/\ SND({P1.Adrs1.ALp1.Kp1.T6'}_Khidp)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Role of a foreign SP  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%    P1(A,B,P1,R1,Lidp,Kp1,Kr1,KLidp,ALp1,SND2,RCV2)
+
+
+role p1(
+		A,B,P1,R1,Lidp	:agent,			% P1 =sp in a visited domain
+		Kp1,Kr1,KLidp	:public_key,
+		ALp1		:text,
+	%	P1TAgents	:agent set,
+		SND,RCV		:channel(dy))
+played_by P1
+def=
+		
+	local
+		State:nat,
+		T1,T2,T3,T4,T5,T7,T8:text,
+		Adrs1,Adrs2		:text,
+		P2,Hidp		:agent,
+		ALp2,ALh		:text,
+		Fb,Fa			:function,
+		Na,Nb			:text,
+		Khidp			:public_key,
+		Info2,Info1,M	:text,
+		P1TAgents	:agent set,	
+		Ver		:bool
+	init
+		State := 0
+
+
+	transition    %%%%%%%%%%%%%%%%%%%%  
+
+		2. State=0 /\ RCV(A'.B'.Hidp'.Fa(Na').Fb(Nb').T1') /\ not(in(Hidp', P1TAgents))
+			=|> State':=1 /\ T2':=new() /\ SND({P1.Hidp'.T2'}_Kr1)
+
+		4. State=1 /\ RCV({Hidp.Adrs2'.ALh'.Khidp'.T3'}_Kp1) 
+			=|> State':=2 /\ T4':=new() /\ SND({P1.A.Fa(Na).B.Fb(Nb).T4'}_Khidp')
+											
+	%%%%%%%%%%%%%%%%%%%%%%% may use one step for 4,6 need to check
+
+		8. State=2 /\ RCV({Hidp.A.B.Ver'.Info1'.Info2'.T7'}_Kp1) 
+			=|> State':=3 /\ T8':=new() /\ M':=new() /\ SND(M'.T8')
+end role
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Role of Home SP      %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role p2(P2:agent,SND,RCV:channel(dy))
+played_by P2
+def=
+	local
+		State:nat
+	init
+		State := 0
+	transition
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Role of Local Idp %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%  Lidp(Lidp,P1,KLidp,Kp1,LTAgents,SND4,RCV4)    
+
+role lidp(
+		Lidp,P1		:agent,
+		KLidp,Kp1	:public_key,
+		LTAgents	:(agent.text.text.public_key) set,
+		SND,RCV		:channel(dy))
+
+	played_by Lidp
+def=
+	local
+		State	:nat,
+		Hidp	:agent,
+		Khidp	:public_key,
+		Adrs1,ALh:text,
+		T2,T3	:text
+	init
+		State := 0
+
+	transition
+
+		4. State=0 /\ RCV({P1'.Hidp'.T2'}_KLidp) /\ in(Hidp',LTAgents) 
+			=|> State':=1 /\ T3':=new()
+			/\ SND({Hidp'.Adrs1'.ALh'.Khidp'.T3'}_Kp1')
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Role of Home Idp  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%  Hidp(A,B,Hidp,R2,P1,Lidp,Khidp,Kr2,Kp1,ALh,Na,Nb,Fa,Fb,SND5,RCV5)
+
+role hidp(
+		A,B,Hidp,R2,P1,Lidp	:agent,
+		Khidp,Kr2,Kp1		:public_key,
+		ALh,Na,Nb		:text,
+		Fa,Fb			:function,
+				SND,RCV			:channel(dy))
+
+	played_by Hidp
+def=
+		
+	local
+		State:nat,
+		T4,T5,T6,T9			:text,
+		Adrs1,ALp1,Info1,Info2		:text,
+		HAgents				:agent set,
+		HTAgents			:(agent.text.text.public_key) set,
+		Clients				:(agent.agent.text.text) set,
+		Ver			:bool
+
+
+	const	true,false 			:bool	
+	init
+		State := 0
+	transition
+		5. State=0 /\ RCV({P1'.A.Fa(Na).B.Fb(Nb).T4'}_Khidp) /\ not(in(P1', HAgents))	 
+			=|> 
+			State':=1 /\ T5':=new() /\ SND({Hidp.P1'.T5'}_Kr2)
+
+		7. State=1 /\ RCV({P1.Adrs1'.ALp1'.Kp1'.T6'}_Khidp) 
+			/\ in((A.B.Na),Clients) /\ in((B.A.Nb),Clients)
+			=|> State':=2 /\ T9':=new() /\ Ver':= true 
+				/\ SND({Hidp.A.B.Ver'.Info1.Info2.T9'}_Kp1') %%%% intiliz info1,2
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% session
+
+role session(	A,B,R1,R2,P1,P2,Hidp,Lidp	:agent,		%8
+		Na,Nb,Info1,Info2,ALh		:text,		%13
+		ALp1,ALp2,Adrs1,Adrs2		:text,		%17
+		Fa,Fb				:function,	%19
+		P1TAgents			:agent set,	%
+		LTAgents,			
+		HTAgents,
+		Tagents1,
+		Tagents2			:(agent.text.text.public_key) set,  %24
+		Clients				:(agent.agent.text.text) set,
+		Ver				:bool,
+		Kr1,Kr2,Khidp,Kp1,KLidp		:public_key)
+	def=
+	local
+		SND7,RCV7,SND6,RCV6,SND5,RCV5,SND4,RCV4,SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+	
+
+	composition
+		a1(A,B,Hidp,SND1,RCV1)
+		/\ a2(A,B,Hidp,SND2,RCV2)		
+		/\ p1(A,B,P1,R1,Lidp,Kp1,Kr1,KLidp,ALp1,SND3,RCV3)
+		/\ lidp(Lidp,P1,KLidp,Kp1,LTAgents,SND4,RCV4) 
+		/\ hidp(A,B,Hidp,R2,P1,Lidp,Khidp,Kr2,Kp1,ALh,Na,Nb,Fa,Fb,SND5,RCV5)
+		/\ reg1(R1,P1,Hidp,Lidp,Kr1,Kp1,Khidp,SND6,RCV6)
+		/\ reg2(R2,P1,ALp2,Kr2,Khidp,SND7,RCV7)
+	end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%      Environment 
+
+role environment()
+def=
+%%% Define the environment components
+
+	local	Na,Nb,Info1,Info2,Alh,Alp1,Alp2,Adrs1,Adrs2	:text,
+		P1TAgents 			:agent set,
+		LTAgents 			:(agent.text.text.public_key) set,
+		HTAgents			:(agent.text.text.public_key) set,
+		Clients				:(agent.agent.text.text) set,
+		TAgents1			:(agent.text.text.public_key) set,
+		TAgents2			:(agent.text.text.public_key) set,
+		Ver				:bool
+	
+	const	a,b,dr1,dr2,p1,p2,h_idp,l_idp	:agent,
+		fa,fb				:function,
+		ki,kr1,kr2,khidp,kp1,kLidp		:public_key
+
+
+	intruder_knowledge = {i,b,dr1,dr2,p1,h_idp,l_idp,kr1,kr2,khidp,kp1}
+	
+
+	composition
+	
+	session(a,b,dr1,dr2,p1,p2,h_idp,l_idp,
+		Na,Nb,Info1,Info2,Alh,
+		Alp1,Alp2,Adrs1,Adrs2,
+		fa,fb,
+		P1TAgents,LTAgents,HTAgents,TAgents1,TAgents2,Clients,Ver,	
+
+		kr1,kr2,khidp,kp1,kLidp)
+
+
+		
+
+	%/\session(a,i,dr1,dr2,p1,p2,h_idp,l_idp,
+	%	Na,Nb,Info1,Info2,Alh,
+	%	Alp1,Alp2,Adrs1,Adrs2,
+	%	fa,fb,
+	%	kr1,kr2,khidp,kp1)
+
+
+
+
+end role
+
+environment()

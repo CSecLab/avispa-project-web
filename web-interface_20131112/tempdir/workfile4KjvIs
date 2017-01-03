@@ -1,0 +1,104 @@
+role deviceA( IDa,IDb	:	agent,
+			CertA	:	public_key,
+			Hash	:	hash_func,
+			SND,RCV: channel(dy) )
+played_by IDa def=
+
+	local	State	:	nat,
+			Ssid,Ra,Rb	:	text, %Ssid to secret session ID 
+			Rc	:	text,
+			K24,K56	:	symmetric_key,
+			CertB	:	public_key
+
+	const	a_b_hasz,b_a_rarb,k5,sid,ra,rb : protocol_id
+	init State := 0
+
+	transition
+		step0.	State = 0
+			/\ RCV(start)
+			=|> State' := 2
+			/\ Ra' := new()
+			/\ SND(Ra'.IDa)
+
+		step2.	State = 2
+			/\ RCV(Rb'.IDb.{Hash(Rb'.Ra.IDa)}_inv(CertB).CertB) 
+			=|> State' := 3
+			/\ K24' := new()
+			/\ K56' := new()
+			/\ Rc'	:= new()
+			/\ SND(IDb.{ K56'.Ra.Rb'.Rc'.IDb.{Hash(Ra.Rb'.K56') }_inv(CertA) }_K24'.{K24'.IDb}_CertB.CertA)
+			/\ witness(IDa,IDb,a_b_hasz,Hash(Rb'.Ra.IDa)) /\ secret(K56',k5,{IDa,IDb})
+
+		step4.	State = 4 
+			/\ RCV({Rc.Ssid'.IDa}_K56)
+			=|> State' := 5 /\ request(IDa,IDb,rc,Rc)
+			/\ secret(Ssid',sid,{IDa,IDb}) /\ secret(K56,k5,{IDa,IDb})
+end role
+
+role deviceB( IDa, IDb	:	agent,
+			CertB	:	public_key,
+			Hash	:	hash_func,
+			SND, RCV	:	channel(dy) )
+played_by IDb def=
+
+	local	State	:	nat,
+			Ra,Rc,Rb,Ssid	:	text,
+			K24,K56	:	symmetric_key,
+			CertA	:	public_key
+
+	init State := 1
+
+	transition
+		step1.	State = 1
+			/\ RCV(Ra'.IDa) 
+			=|> State' := 3
+			/\ Rb' := new()
+			/\ SND(Rb'.IDb.{Hash(Ra'.Rb'.IDa)}_inv(CertB).CertB)
+			/\ witness(IDb,IDa,ra,Ra')
+				
+		step3.	State = 3
+			/\ RCV(IDb.{K56'.Ra.Rb.Rc.IDb.{Hash(Ra.Rb.K56')}_inv(CertA)}_K24'.{K24'.IDb}_CertB.CertA) 
+			=|> State' := 5
+			/\ Ssid' := new()
+			/\ SND( {Rc.Ssid'.IDa}_K56' )
+			/\ secret(Ssid',sid,{IDa,IDb}) /\ secret(K56,k5,{IDa,IDb})
+			/\ witness(IDb,IDa,b_a_rarb,Ra.Rb)
+			/\ request(IDb,IDa,rb,Rb)
+end role
+
+role session (IDa,IDb	:	agent,
+				CertA,CertB	: public_key,
+				Hash	:	hash_func )
+def=
+	local	SAB,RAB,SBA,RBA	:	channel(dy)
+	
+	composition
+		deviceA(IDa,IDb,CertA,Hash,SAB,RAB)
+		/\deviceB(IDa,IDb,CertB,Hash,SBA,RBA)
+end role
+
+role environment() def=
+	const	certa, certb, certi : public_key,
+			a,b : agent,
+			hasz : hash_func,
+			k2,k5 : symmetric_key,
+			a_b_hasz,b_a_rarb,k5,sid,ra,rb : protocol_id
+			
+			%intruder_knowledge = {certa,certb,a,b, certi, inv(certi)}				%przypadek nr 1
+			intruder_knowledge = {certa,certb,inv(certa),a,b,certi, inv(certi)}		%przypadek nr 2
+			%intruder_knowledge = {certa,certb,inv(certb),a,b,certi, inv(certi)}		%przypadek nr 3
+
+			composition
+				session(a,b,certa,certb,hasz)
+				/\ session(b,a,certb,certa,hasz)
+				/\ session(a,i,certa,certi,hasz)
+				/\ session(i,b,certi,certb,hasz)
+end role
+
+goal
+	secrecy_of k5
+	authentication_on ra
+	authentication_on rb
+end goal
+
+environment()

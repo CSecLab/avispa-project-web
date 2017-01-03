@@ -1,0 +1,146 @@
+%% PROTOCOL: (EAP-) SMART
+%%
+%% PURPOSE:
+%% Mutual authentication between a sensor and a AAA backend
+%% suite (PPTP).
+%%
+%% ALICE_BOB:
+%% We assume that the server \verb!B! and client \verb!A! share
+%% password \verb!psk! in advance.  The server and client generate
+%% nonces \verb!Ns! and \verb!Nn!, respectively.
+%%\begin{verbatim}
+%%  1. A -> B : A
+%%  2. B -> A : Ns
+%%  3. A -> B : Nn,H(psk,nn,ns)
+%%  4. B -> A : Nk,H(psk,nn,nk)
+%%\end{verbatim}
+%%
+%% LIMITATIONS:
+%%
+%%Issues abstracted from:
+%%\begin{itemize}
+%%\item Message structure: As is standard, we abstract away from the concrete details
+%% of message structure such as bit lengths, etc.  What is left after this abstraction
+%% contains several redundancies, however (at least in the Dolev-Yao model).
+%% We therefore eliminate these redundancies, retaining the core of the data
+%% dependencies of the protocol.
+%%\end{itemize}
+%%
+%% PROBLEMS: 3
+%% CLASSIFICATION: G1, G2, G12
+%% ATTACKS: None
+%%
+%% NOTES:
+%% A cryptanalysis of this protocol in its full complexity can be found
+%% in~\cite{schneier99cryptanalysis}.
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%HLPSL:
+role smart_Init (A,B   : agent,
+                Psk : symmetric_key,
+                H     : hash_func,
+                Snd, Rcv: channel(dy))
+played_by A
+def=
+
+  local State  : nat,
+        Nn, Ns, Nk, Sk : text
+
+  const sec_psk1, sec_sk1 : protocol_id
+
+  init  State := 0
+
+  transition
+   1. State   = 0 /\ Rcv(start) =|>
+      State' := 1 /\ Snd(A)
+
+   2. State   = 1 /\ Rcv(Ns') =|>
+      State' := 2 /\ Nn' := new() /\ Snd(Nn'.H(Psk.Nn'.Ns'.A))
+                  /\ witness(A,B,nn,Nn')
+                  /\ secret(Psk,sec_psk1,{A,B})
+
+   3. State   = 2 /\ Rcv(Nk'.H(Psk.Nn'.Nk')) =|>
+      State' := 3 /\ request(A,B,ns,Ns)
+                  /\ Sk' := H(Nn'.Psk.Nk')
+                  /\ secret(Sk',sec_sk1,{A,B})
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role smart_Resp (B,A : agent,
+                Psk : symmetric_key,
+                H: hash_func,
+                Snd, Rcv: channel(dy))
+played_by B
+def=
+
+  local State  : nat,
+        Nn, Ns, Nk, Sk : text
+
+  const sec_psk2, sec_sk2 : protocol_id
+
+  init  State := 0
+
+  transition
+   1. State   = 0 /\ Rcv(A') =|>
+      State' := 1 /\ Ns' := new() /\ Snd(Ns')
+                  /\ witness(B,A,ns,Ns')
+
+   2. State   = 1 /\ Rcv(Nn'.H(Psk.Nn'.Ns.A)) =|>
+      State' := 2 /\ Nk' := new() /\ Snd(Nk'.H(Psk.Nn'.Nk'))
+                  /\ request(B,A,nn,Nn')
+                  /\ secret(Psk,sec_psk2,{A,B})
+                  /\ Sk' := H(Nn'.Psk.Nk')
+                  /\ secret(Sk',sec_sk2,{A,B})
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(A,B: agent,
+             Psk: symmetric_key,
+             H: hash_func)
+def=
+
+  local SA, SB, RA, RB: channel (dy)
+
+  composition
+           smart_Init(A, B, Psk, H, SA, RA)
+       /\  smart_Resp(B, A, Psk, H, SB, RB)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+
+  const a, b          : agent,
+        psk, kai, kbi : symmetric_key,
+        h             : hash_func,
+        nn, ns        : protocol_id
+
+  intruder_knowledge = {a, b, h, kai, kbi}
+
+  composition
+        session(a,b,psk ,h) /\
+        session(a,i,kai,h) /\
+        session(b,i,kbi,h)
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+ %secrecy of the shared key
+ secrecy_of sec_psk1, sec_psk2, sec_sk1, sec_sk2        % Addresses G12
+
+ %SMART_Init authenticates SMART_Resp on nb
+ authentication_on ns  % Addresses G1, G2
+ %SMART_Resp authenticates SMART_Init on na
+ authentication_on nn  % Addresses G1, G2
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

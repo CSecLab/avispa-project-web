@@ -1,0 +1,58 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilelQh84n
+
+section signature:
+
+state_ha: agent * agent * agent * symmetric_key * symmetric_key * symmetric_key * symmetric_key * hash_func * text * text * text * text * text * text * text * text * text * text * nat * nat -> fact
+state_mn: agent * agent * agent * symmetric_key * symmetric_key * symmetric_key * symmetric_key * hash_func * text * text * text * text * text * text * text * text * text * text * nat * nat -> fact
+state_fa: agent * agent * agent * symmetric_key * symmetric_key * symmetric_key * symmetric_key * hash_func * text * text * text * text * text * text * text * text * text * text * nat * nat -> fact
+
+
+section types:
+
+start: message
+HASHE, ha: hash_func
+mnpk, hapk, fapk, kmnha, MNPK, HAPK, FAPK, KMNHA: symmetric_key
+mn1, fa1, ha1, FA, MN, HA, i: agent
+6, 4, State, 3, 1, 5, 2, 0, SID, Dummy_State: nat
+IDFA, MNCOA, NFA, NHA, NMN, IDHA, IDMN, Advertisement, TMN, TMNSTAR, Dummy_TMNSTAR, Dummy_TMN, Dummy_IDMN, Dummy_IDHA, Dummy_NMN, Dummy_NHA, Dummy_Advertisement, Dummy_NFA, Dummy_MNCOA, Dummy_IDFA, dummy_nonce: text
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(i).
+ state_fa(fa1,mn1,ha1,mnpk,hapk,fapk,kmnha,ha,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,0,3).
+ state_mn(mn1,fa1,ha1,mnpk,hapk,fapk,kmnha,ha,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,1,4).
+ state_ha(ha1,fa1,mn1,mnpk,hapk,fapk,kmnha,ha,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,4,5)
+
+
+section rules:
+
+step step_0 (FA,MN,HA,MNPK,HAPK,FAPK,KMNHA,HASHE,Dummy_IDFA,Dummy_MNCOA,Dummy_NFA,NHA,NMN,IDHA,IDMN,Dummy_Advertisement,TMN,TMNSTAR,SID,IDFA,MNCOA,NFA,Advertisement) :=
+ state_fa(FA,MN,HA,MNPK,HAPK,FAPK,KMNHA,HASHE,Dummy_IDFA,Dummy_MNCOA,Dummy_NFA,NHA,NMN,IDHA,IDMN,Dummy_Advertisement,TMN,TMNSTAR,0,SID).
+ iknows(start)
+=[exists NFA,MNCOA,IDFA,Advertisement]=>
+ state_fa(FA,MN,HA,MNPK,HAPK,FAPK,KMNHA,HASHE,IDFA,MNCOA,NFA,NHA,NMN,IDHA,IDMN,Advertisement,TMN,TMNSTAR,2,SID).
+ iknows(pair(Advertisement,pair(IDFA,pair(MNCOA,NFA))))
+
+step step_1 (FA,MN,HA,MNPK,HAPK,FAPK,KMNHA,HASHE,Dummy_IDFA,Dummy_MNCOA,NFA,Dummy_NHA,Dummy_NMN,Dummy_IDHA,Dummy_IDMN,Advertisement,Dummy_TMN,Dummy_TMNSTAR,SID,IDFA,MNCOA,NHA,NMN,IDHA,IDMN,TMN,TMNSTAR) :=
+ state_fa(FA,MN,HA,MNPK,HAPK,FAPK,KMNHA,HASHE,Dummy_IDFA,Dummy_MNCOA,NFA,Dummy_NHA,Dummy_NMN,Dummy_IDHA,Dummy_IDMN,Advertisement,Dummy_TMN,Dummy_TMNSTAR,2,SID).
+ iknows(pair(IDHA,pair(IDMN,pair(MNCOA,pair(NHA,pair(NMN,pair(scrypt(KMNHA,pair(IDHA,pair(IDMN,pair(MNCOA,pair(NHA,NMN))))),pair(TMN,apply(HASHE,pair(IDMN,pair(IDFA,pair(TMN,TMNSTAR))))))))))))
+ =>
+ state_fa(FA,MN,HA,MNPK,HAPK,FAPK,KMNHA,HASHE,IDFA,MNCOA,NFA,NHA,NMN,IDHA,IDMN,Advertisement,TMN,TMNSTAR,5,SID)
+
+step step_2 (MN,FA,HA,MNPK,HAPK,FAPK,KMNHA,HASHE,Dummy_IDFA,MNCOA,Dummy_NFA,Dummy_NHA,Dummy_NMN,Dummy_IDHA,Dummy_IDMN,Dummy_Advertisement,Dummy_TMN,Dummy_TMNSTAR,SID,IDFA,NFA,NHA,NMN,IDHA,IDMN,Advertisement,TMN,TMNSTAR) :=
+ state_mn(MN,FA,HA,MNPK,HAPK,FAPK,KMNHA,HASHE,Dummy_IDFA,MNCOA,Dummy_NFA,Dummy_NHA,Dummy_NMN,Dummy_IDHA,Dummy_IDMN,Dummy_Advertisement,Dummy_TMN,Dummy_TMNSTAR,1,SID).
+ iknows(pair(Advertisement,pair(IDFA,pair(MNCOA,NFA))))
+=[exists TMNSTAR,TMN,NMN,NHA,IDMN,IDHA]=>
+ state_mn(MN,FA,HA,MNPK,HAPK,FAPK,KMNHA,HASHE,IDFA,MNCOA,NFA,NHA,NMN,IDHA,IDMN,Advertisement,TMN,TMNSTAR,3,SID).
+ iknows(pair(IDHA,pair(IDMN,pair(MNCOA,pair(NHA,pair(NMN,pair(scrypt(KMNHA,pair(IDHA,pair(IDMN,pair(MNCOA,pair(NHA,NMN))))),pair(TMN,apply(HASHE,pair(IDMN,pair(IDFA,pair(TMN,TMNSTAR))))))))))))
+
+step step_3 (HA,FA,MN,MNPK,HAPK,FAPK,KMNHA,HASHE,Dummy_IDFA,Dummy_MNCOA,Dummy_NFA,NHA,NMN,IDHA,IDMN,Dummy_Advertisement,TMN,TMNSTAR,SID,IDFA,MNCOA,NFA,Advertisement) :=
+ state_ha(HA,FA,MN,MNPK,HAPK,FAPK,KMNHA,HASHE,Dummy_IDFA,Dummy_MNCOA,Dummy_NFA,NHA,NMN,IDHA,IDMN,Dummy_Advertisement,TMN,TMNSTAR,4,SID).
+ iknows(pair(Advertisement,pair(IDFA,pair(MNCOA,NFA))))
+ =>
+ state_ha(HA,FA,MN,MNPK,HAPK,FAPK,KMNHA,HASHE,IDFA,MNCOA,NFA,NHA,NMN,IDHA,IDMN,Advertisement,TMN,TMNSTAR,6,SID)
+
+

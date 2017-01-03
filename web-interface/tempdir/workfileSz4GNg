@@ -1,0 +1,178 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role user (U, GWN, SN : agent,
+				H : hash_func,
+				Snd_U, Rcv_U,Snd_GWN, Rcv_GWN, Snd_SN, Rcv_SN: channel(dy))
+played_by U
+def=
+         local State  : nat,
+		 IDS, Ni, Ai, Bi, PW, HPW, Nb, DID, X, Ei, T, Data:  text
+         const u_gwn, gwn_u , sn_gwn, gwn_sn, sn_u, u_sn, k, xs, pw, sec_Ni, ni, sec_Ai, ai, sec_Bi, bi : protocol_id
+
+   init  State := 0
+transition
+	1. State   = 0 	/\ Rcv_U(start) =|>
+       State' := 1 	/\ HPW' := H(PW)
+					/\ Snd_GWN(U.HPW') 
+					/\ secret(PW,pw, U)
+					/\ witness (U, GWN, u_gwn, Nb)
+					
+	2. State = 1   	/\ Rcv_U(IDS'.U.H.Ni'.Ai'.Bi') =|>
+       State' := 2  /\ request(U, GWN, ni, Ni') 
+					/\ secret(Ni',sec_Ni,{U, GWN})
+					/\ request(U, GWN,  ai, Ai') 
+					/\ secret(Ai',sec_Ai,{U, GWN})
+					/\ request(U, GWN, bi, Bi') 
+					/\ secret(Bi',sec_Bi,{U, GWN})
+					/\ X' := xor(Bi',H(IDS'.HPW'))
+					/\ T' := new()
+					/\ HPW' := H(PW)
+					/\ DID' := xor(H(U.HPW'.X'),H(X'.T'))
+					/\ Ei' := H(Ni'.X'.T')
+					/\ Snd_GWN(DID'.Ei'.T')
+					
+	3. State = 2    /\ Rcv_U(Data') =|> 
+	   State' := 3  /\ request (SN, U, sn_u, Nb)
+	  
+                  
+
+                    
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role gateway (U, GWN, SN : agent,
+				H : hash_func,
+				Snd_U, Rcv_U,Snd_GWN, Rcv_GWN, Snd_SN, Rcv_SN: channel(dy))
+played_by GWN
+def= 
+         local State  : nat,
+         K, HPW, Ni, Ai, Bi, IDS, Mu, Wi, Xs, Nb, T, T1, Gam, Sig, Si, Ei, DID, Ack, T2:  text
+         const u_gwn, gwn_u , sn_gwn, gwn_sn, sn_u, u_sn, k, xs, pw, sec_Ni, ni, sec_Ai, ai, sec_Bi, bi: protocol_id
+
+   init  State := 0
+  transition 
+    1. State   = 0 	/\ Rcv_GWN(U.HPW')  =|>     
+       State' := 1 	/\ Xs' := new()
+					/\ IDS' := new()
+					/\ Ni' := xor(H(U.HPW'.Xs'),H(K))
+					/\ Ai' := H(xor(HPW',Xs'))
+					/\ Bi' := xor(Xs',H(IDS.HPW'))                
+					/\ Snd_U({IDS'.U.H.Ni'.Ai'.Bi'})
+					/\ witness (GWN, U, gwn_u, Nb)
+					/\ secret(Xs', xs, {GWN})
+					/\ request(U, GWN, ni, Ni') 
+					/\ secret(Ni',sec_Ni,{U, GWN})
+					/\ request(U, GWN,  ai, Ai') 
+					/\ secret(Ai',sec_Ai,{U, GWN})
+					/\ request(U, GWN, bi, Bi') 
+					/\ secret(Bi',sec_Bi,{U, GWN})
+				  
+					/\ witness (GWN, U, gwn_u, Nb)
+    2. State = 1   	/\ Rcv_GWN(DID'.Ei'.T') =|>
+       State' := 2   /\ Gam' := xor(DID',H(Xs.T'))
+					/\ T1' := new()
+					/\ Si' := new()
+					/\ Ei' := H(xor(Gam',H(K))).Xs.T'
+					/\ Sig' := H(DID'.Si'.Xs.T1')
+					/\ Snd_SN(DID'.Sig'.T1')
+					/\ witness (GWN, SN, gwn_sn, Nb)
+					
+    3. State = 2   	/\ Rcv_GWN(Wi'.T2') =|>
+       State' := 3   /\ Mu' := xor(Sig,Xs)
+					/\ Wi' := H(Mu'.Xs.T2')
+					/\ Ack' := new()
+					/\ Snd_SN(Ack')
+					/\ witness (GWN, SN, gwn_sn, Nb)
+                  
+
+                    
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role sensor (U, GWN, SN : agent,
+				H : hash_func,
+				Snd_U, Rcv_U,Snd_GWN, Rcv_GWN, Snd_SN, Rcv_SN: channel(dy))
+played_by SN
+def= 
+         local State  : nat,
+         K, HPW, Ni, Ai, Bi, IDS, Xs, Nb, T, T1, Gam, Sig, Si, Mu, Wi, T2, Ack, Data, DID:  text
+         const u_gwn, gwn_u , sn_gwn, gwn_sn, sn_u, u_sn, k, xs, pw, sec_Xs: protocol_id
+
+   init  State := 0
+  transition 
+    1. State   = 0 	/\ Rcv_SN(DID'.Sig'.T1')  =|>     
+       State' := 1 	/\ Xs' := new()
+					/\ Si' := new()
+					/\ T2' := new()
+					/\ Sig' := H(DID'.Si'.Xs'.T1')
+					/\ Mu' := xor(Sig',Xs')
+					/\ Wi' := H(Mu'.Xs'.T2')
+					/\ request(SN, GWN, xs, Xs)
+					/\ secret(Xs,sec_Xs,{SN, GWN})					
+					/\ Snd_GWN(Wi'.T2')
+					/\ witness (SN, GWN, sn_gwn, Nb)
+					
+    2. State   = 1 	/\ Rcv_SN(Ack')  =|>     
+       State' := 2 	/\ Data' := new()             
+					/\ Snd_U(Data')
+					/\ witness (SN, U, sn_u, Nb)
+                  
+
+                    
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(U, GWN, SN: agent,
+			H: hash_func
+	)
+def=
+
+  local  Su, Sgwn, Ssn, Ru, Rgwn,Rsn: channel (dy)
+         const u_gwn, gwn_u , sn_gwn, gwn_sn, sn_u, u_sn, k, xs, pw: protocol_id
+           
+  composition
+           user(U, GWN ,SN, H, Su, Ru, Sgwn, Rgwn, Ssn, Rsn)
+       /\  gateway(U, GWN ,SN, H, Su, Ru, Sgwn, Rgwn, Ssn, Rsn)
+	   /\  sensor(U, GWN ,SN, H, Su, Ru, Sgwn, Rgwn, Ssn, Rsn)
+end role 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+
+  const u, gwn, sn,i   : agent,
+		h   : hash_func,
+		u_gwn, gwn_u , sn_gwn, gwn_sn, sn_u, u_sn, k, xs, pw: protocol_id
+
+  intruder_knowledge = {u,gwn,sn}
+
+  composition
+	session(u, gwn, sn, h)/\	session(i, gwn, sn, h) 
+end role
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+  secrecy_of pw
+  secrecy_of k
+  secrecy_of xs
+  secrecy_of ni
+  secrecy_of ai
+  secrecy_of bi
+  
+  
+  authentication_on u_gwn
+  authentication_on gwn_u
+  authentication_on gwn_sn
+  authentication_on sn_gwn
+  authentication_on u_sn
+  authentication_on sn_u
+  
+  authentication_on sec_Ni
+  authentication_on sec_Ai
+  authentication_on sec_Bi
+  authentication_on sec_Xs
+  
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

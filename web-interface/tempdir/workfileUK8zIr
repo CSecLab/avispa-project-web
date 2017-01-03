@@ -1,0 +1,73 @@
+role alice(A,B : agent,
+Kpa, Kpb : public_key,
+SND, RCV : channel (dy))
+played_by A def=
+local State: nat,
+Na,Nb : text,
+
+init State :=0
+
+transition
+step1. State =0/\RCV(start)=|>
+State' := 2/\Na':=new()/\SND({A.Na'}_Kpb)/\secret(Na',{A,B})
+
+step2. State = 2 /\ RCV({xor(Na,B).Nb'}_Kpa)=|>
+State':= 4/\SND({Nb'}_Kpb)
+
+end role
+
+
+
+role bob(A,B : agent,
+Kpa, Kpb : public_key,
+SND, RCV : channel (dy))
+played_by B def=
+local State: nat,
+Na,Nb : text,
+
+init State :=1
+
+transition
+step1. State =1/\RCV({A.Na'}_Kpb)=|>
+State' := 3/\Nb':=new()/\SND({xor(Na',B).Nb'}_Kpa)
+
+step2. State = 3 /\ RCV({Nb}_Kpb)=|>
+State':= 5
+
+end role
+
+
+role session(A,B : agent,
+Kpa, Kpb : public_key) def=
+
+local SA, SB, RA, RB : channel (dy)
+
+composition
+  alice(A,B,Kpa,Kpb,SA,RA)
+/\bob(A,B,Kpa,Kpb,SB,RB)
+
+end role 
+
+
+role environment()
+def=
+
+const a,b,i : agent,
+kpa,kpb,ki : public_key
+
+intruder_knowledge={a,b,i,kpa,kpb,ki}
+
+composition
+  session(a,b,kpa,kpb)
+%/\Session()
+%/\session()
+
+end role
+
+
+goal
+secrecy_of Na
+end goal
+
+
+environment()

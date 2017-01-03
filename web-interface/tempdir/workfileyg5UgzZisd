@@ -1,0 +1,118 @@
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role ahe (
+	AHE,KGC	: agent,
+	H1			: function,
+	H2			: function,
+	SKKGCAHE		: symmetric_key,
+	Snd,Rcv		: channel(dy),
+P: text)
+			
+played_by AHE  def=
+local 
+	State     : nat,
+	Rahe 		: text ,
+Ppub	: message,
+	Yahe	  : message,
+	Idm		: text,
+	Tm	: message,
+	B         : text,
+	Tahe	  : message,
+	Temp	: message,
+	Kahem	: message,
+	M1		  : message,
+	M2		  : message
+const seck : protocol_id
+init  
+	State := 1
+
+transition
+
+1. State  = 1 /\ Rcv(start)  =|>
+         State' = 2 /\ Rahe ' := new()
+                    /\ Snd(Rahe ')	
+	
+	
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role kgc (
+	AHE,KGC	: agent,
+	H2			: function,
+	SKKGCAHE		: symmetric_key,
+	SKKGCMETER		: symmetric_key,
+	Snd,Rcv		: channel(dy),
+P,X	: text)
+			
+played_by KGC  def=
+local 
+	State     : nat,
+	Rahe	  : text,
+Ppub	: message,
+	Yahe	  : message,
+	Idm	: text,
+	Temp : message,
+	Ym	 	  : message
+	
+init  
+	State := 11
+
+transition
+      1. State  = 11 /\ Rcv(Rahe') =|> 
+         State' = 12 /\ Rahe' := new()	
+	
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(
+			AHE,KGC	: agent,
+			H1,H2			: function,
+SKKGCMETER	, SKKGCAHE		: symmetric_key,
+P,X	: text
+			)
+def=
+
+local 		Sndm, Recm, Sndahe, Recahe, Sndkgc, Reckgc  : channel (dy)
+			
+%%%%  init
+	
+composition
+	
+		ahe(AHE,KGC,H1,H2, SKKGCAHE, Sndahe, Recahe,P)
+		/\ kgc(AHE,KGC, H2, SKKGCAHE, SKKGCMETER, Sndkgc, Reckgc,P,X)
+end role	
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment() 
+def=
+
+
+const 
+ ahe,kgc    : agent,
+	 h1			 : function,
+	 h2		     : function,
+       	skkgcmeter,skkgcahe	 : symmetric_key,
+ zero, one,p,x    : text
+	
+	intruder_knowledge = {ahe,kgc,h1,h2,zero,one,p}
+	              
+composition
+	session(ahe,kgc,h1,h2, skkgcmeter,skkgcahe,p,x)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+    secrecy_of seck
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()
+
+	
+
+

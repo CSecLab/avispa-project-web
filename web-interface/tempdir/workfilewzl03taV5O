@@ -1,0 +1,89 @@
+role alice (SNi, SNj, BS : agent, Kij: symmetric_key,
+H : hash_func,Ti, RNi, Vi, CSNi,Qi,LVi : text,
+Snd, Rcv: channel(dy))
+played_by SNi
+def=
+local State : nat, Tj, Vj,LVj, RNj, PM : text,
+CSNj, Xi, Xj, Q, Qj, P, SKij : text
+const alice_bob_nj, bob_alice_ni,
+subs, sub1, sub2 : protocol_id
+init State := 0
+transition
+1. State = 0 /\ Rcv(start) =|>
+State' := 1 /\ RNi' := new() /\ Ti' := new( )
+/\ CSNi' := H(Xi.P)/\ Qi' := H(H(Ti').CSNi'.Q)
+/\ secret({CSNi, CSNj',Q}, subs, BS)
+/\ secret({Ti, Xi}, sub1, {SNi,BS})
+/\ Snd(SNi. RNi'.Ti'.Vi.CSNi'.Qi'.LVi.
+H(Ti.CSNi'.Vi.RNi.Qi'.LVi))
+/\ witness( SNi, SNj, alice_bob_nj, RNi')
+/\ witness( SNi, SNj, alice_bob_nj, Ti')
+2. State = 1/\ Rcv(SNj.SNi.Tj'.Vj.RNj'.H(Xj.P)
+.H(H(Tj'.Vj).H(Xj.P).Q).{PM}_H(Kij.Ti'.Tj'.Vi.Vj.RNi'.RNj').H(H(Ti'.
+Vi).H(Xi.P).Q).Ti'.Tj'.RNi'.RNj'.Vi.
+Vj.LVj.H(H(Tj'.Vj).H(Xj.P).Q).H(Xj.P).PM)=|>
+State' := 2 /\ request(SNi, SNj, bob_alice_ni, RNj')
+/\ request(SNi, SNj, bob_alice_ni, Tj')
+/\ Snd(SNj.SNi.RNj'.H(H(Kij.Ti'.Tj'.Vi.Vj.RNi'.
+RNj').PM.RNj'.H(H(Tj'.Vj).H(Xj.P).Q)))
+end role
+role bob (SNi,SNj,BS : agent,
+Kij : symmetric_key, H : hash_func,
+Tj, RNj, Vj, CSNj,Qj,LVj : text, Snd, Rcv:channel(dy))
+played_by SNj
+def=
+local State : nat, Ti,LVi,Vi, RNi, PM: text,
+CSNi, Xi,Xj, Q,Qi, P, SKij : text
+const bob_alice_ni, alice_bob_nj,
+sub1, sub2 : protocol_id
+init State := 0
+transition
+1. State = 0 /\ Rcv(SNi. RNi'.Ti'.Vi.H(Xi.P).
+H(H(Ti'.Vi).CSNi'.Q) .LVi.H(Ti.H(Xi.P).Vi.RNi‘.H(H(Ti').
+CSNi'.Q.LVi))) =|>
+State' := 1 /\ RNj' := new() /\ Tj' := new()
+/\ CSNj' := H(Xj.P)
+/\ Qj' := H(H(Tj'.Vj).CSNj'.Q)
+/\ SKij' := H(Kij.Ti'.Tj'.Vi'.Vj'.RNi'.RNj')
+/\ secret(Q, subs, BS)
+/\ secret({Tj,qj, Xj}, sub2, {SNj,BS})
+/\ Snd(SNj.SNi.Tj'.Vj.LVj.RNj'.H(Xj.P).
+Qj'.{PM}_SKij'.H(H(H(Ti'.Vi). H(Xi.P).Q).
+Ti'.Tj'.RNi'.RNj'.Vi.Vj.LVj.Qj'.CSNj'.PM))
+/\ witness(SNj, SNi, bob_alice_ni, RNj')
+/\ witness(SNj, SNi, bob_alice_ni, Tj')
+2. State = 1 /\Rcv(SNj.SNi.RNj'.H(H(Kij.Ti'.Tj'.Vi.Vj.
+RNi'.RNj').PM.RNj'.H(H(Tj'.Vj).H(Xj.P).Q)))=|>
+State' := 2 /\ request(SNj,SNi,alice_bob_nj,RNi')
+/\ request(SNj,SNi,alice_bob_nj,Ti' )
+end role
+role session(SNi,SNj, BS: agent,
+Kij: symmetric_key,
+Ti, RNi, Vi, CSNi,Tj, RNj, LVi, LVj,Vj, CSNj,Qi,Qj : text,
+H : hash_func)
+def=
+local SI, SJ, RI, RJ: channel (dy)
+composition
+alice(SNi, SNj, BS, Kij, H, Ti, RNi, Vi,LVi, CSNi,Qi, SI, RI) /\ bob(SNj, SNi, BS, Kij, H, Tj, RNj, Vj,LVj, CSNj, Qj, SJ, RJ)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+const sni,snj,bs : agent,
+kij: symmetric_key,
+h : hash_func,
+ti,vi,tj,vj,lvi,lvj,csni,csnj,rni,rnj,qi,qj : text,
+alice_bob_nj, bob_alice_ni, subs, sub1, sub2 : protocol_id
+intruder_knowledge = {sni, snj, h, ti, tj, lvi,lvj,vi, vj, rni, rnj}
+composition
+session(sni, snj, bs, kij, ti,vi,lvi,tj,vj,lvj,csni,csnj,rni,rnj,qi,qj,h)
+/\ session(snj,sni, bs, kij, ti,vi,lvi,tj,vj,lvj,csni,csnj,rni,rnj,qi,qj,h)
+end role
+goal
+secrecy_of subs
+secrecy_of sub1
+secrecy_of sub2
+authentication_on alice_bob_nj
+authentication_on bob_alice_ni
+end goal
+environment()

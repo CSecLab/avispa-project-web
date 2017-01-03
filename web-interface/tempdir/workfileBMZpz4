@@ -1,0 +1,130 @@
+role alice(
+A,S,B	 :agent,
+Ksa,Khsa :symmetric_key,
+Hash	 :hash_func,
+SND_BA,RCV_SA   :channel(dy))
+
+played_by A def=
+
+local
+ State                  :nat,
+ Na                     :text,
+ SKab,Ksa,Khsa     :  symmetric_key
+
+init
+ State :=0 
+
+transition 
+
+1. State =0 /\ RCV(start) =|>
+   State':=2 /\  Na' : =new()
+                /\ SND_BA (Na'.A) 
+
+2.State =2 /\ RCV_SA ({SKab}_Ksa.Hash(Khsa.Na.B.{SKab}_Ksa))
+                 
+                 /\witness(A,B,bob_alice_nb,Kab)  
+end role
+
+
+
+role server (
+     A,S,B	                                    : agent,
+     Ksa,Khsa,Ksb,Khsb 	         : symmetric_key,
+     Hash	                                        : hash_func,
+    SND_AS,SND_BS, RCV_BS	:channel (dy))
+
+played_by S def=
+
+
+local
+    State                                           : nat,
+       Na                                            : text,
+    SKab,Ksa,Ksb,Khsa,Khsb         : symmetric_key
+
+init 
+ State :=1 
+
+transition
+
+1. State =1  /\  RCV_BS (Na.Nb'.A.B.Hash(Khbs.Na.Nb.A.B))
+   State' :=3 /\ SKab' : =new()
+                  /\SND_AS ({SKab}_Ksa.Hash(Khsa.Na.B.{SKab}_Ksa))
+
+ 2.  State=  /\ SND_BS   ({SKab}_Ksb.Hash(Khsb.Na.B.{SKab}_Ksb))
+ 
+
+end role
+
+
+
+
+role bob(
+A,S,B	 :agent,
+Ksb,Khsb :symmetric_key,
+Hash	 :hash_func,
+SND_SB,RCV_AB, RCV_SB   :channel(dy))
+
+played_by B def=
+
+local
+ State                      :nat,
+ Na,Nb                      :text,
+ SKab,Ksb,Shsb         :symmetric_key
+
+init
+ State :=0 
+
+transition 
+
+1. State =0 /\  RCV_AB(Na'.A)
+
+    
+   State':=2 /\  Nb' : =new()
+
+                /\ SND_SB(Na.Nb'.A.B.Hash(Khbs.Na.Nb.A.B)) 
+
+2.State =2 /\  RCV_SB ({SKab}_Ksb.Hash(Khsb.Na.B.{SKab}_Ksb))
+                 
+                 /\witness(A,B,bob_alice_nb,Kab)  
+end role
+
+role session(
+A,B	: agent,
+Kab,Km	: symmetric_key,
+Hash	: hash_func)
+def=
+
+local SA,RB : channel(dy)
+
+composition
+
+	alice (A,B,Kab,Km,Hash,SA)
+           /\  bob (A,B,Kab,Km,Hash,RB)
+end role
+
+role environment()
+      def=
+
+ const a,b	                              : agent,
+ bob_alice_nb,k	                               : protocol_id,
+ kab, kai, kib	                            : symmetric_key,
+ h		                           : hash_func
+
+intruder_knowledge={a,b,h,kai,kib}
+
+composition
+	
+	session(a,b,kab,h)
+	/\session(a,i,kai,h)
+	/\session(i,b,kib,h)
+
+end role
+
+goal
+   secrecy_of k
+   authentication_on bob_alice_nb
+end goal
+
+
+environment()
+

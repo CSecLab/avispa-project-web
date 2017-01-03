@@ -1,0 +1,148 @@
+% The Four-Way Handshake Protocol 
+% Alice&Bob Notation 
+%%% A Authenticator, B Supplicant 
+% 1. A ---> B :   ANonce||(SQN)||msg1 				% B derives PTK
+% 2. A  B :   ANonce||GTK||(SQN+1)||msg3||MIC 	% GTK is encrypted with PTK    
+% 4. A  
+		State' := 2 / 	Anonce' := new() 
+					/  Snd(Anonce'.Sqn.Msg1) 
+					%%%%%%%%%%%%%%
+
+	2.  State = 2 / Rcv(Snonce'.B_rsnie.Sqn.Msg2.MIC1') / MIC1' = MIC_Hash(PMK.Snonce'.Sqn.Msg2) 
+	=|> 
+		State' := 4 /  PTK' := PTK_PRF(PMK.Anonce.Snonce'.A.B) 
+					/  MIC2' := MIC_Hash(PMK.Anonce.Succ(Sqn).Msg3)
+					/  GTK' := new() 
+					/  Snd(Anonce.A_rsnie.{GTK'}_PTK'.Succ(Sqn).Msg3.MIC2') 
+					%%%%%%%%%%%%%%
+					/  secret(GTK',gtk1,{A,B})					%%% [1] 
+					/  witness(A,B,bob_alice_mic2,MIC2')		%%% [4]
+					/  request(A,B,alice_bob_mic1,MIC1') 		%%% [3] 
+		
+	3.  State = 4 / Rcv(Succ(Sqn).Msg4.MIC3') / MIC3' = MIC_Hash(PMK.Succ(Sqn).Msg4)
+	=|> 
+					%%%%%%%%%%%%%%
+		State' := 6 /  request(A,B,alice_bob_mic3,MIC3') 		%%% [7] 
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob( 
+        A, B 		: agent,		
+        PMK 		: symmetric_key, 
+		PTK_PRF 	: hash_func, 	
+        MIC_Hash 	: hash_func, 	
+		Succ 		: hash_func, 	
+        Snd, Rcv 	: channel(dy)   )
+	played_by B def=
+
+	local 
+  
+		State 		: nat,
+        Anonce 		: text,
+        Snonce 		: text,
+        Sqn 		: text,
+        GTK 		: text,
+        A_rsnie 	: text,
+        B_rsnie 	: text,
+        Msg1, Msg2 	: text,
+        Msg3, Msg4 	: text,
+        PTK 		: message, 
+        MIC1 		: message, 
+        MIC2 		: message, 
+        MIC3 		: message 
+		
+	init  
+		State := 1
+
+	transition
+
+	1.  State = 1 / Rcv(Anonce'.Sqn.Msg1) 
+    =|> 
+		State' := 3 / 	Snonce' := new() 
+					/  PTK' := PTK_PRF(PMK.Anonce'.Snonce'.A.B)
+					/  MIC1' := MIC_Hash(PMK.Snonce'.Sqn.Msg2)
+					/  Snd(Snonce'.B_rsnie.Sqn.Msg2.MIC1') 
+					%%%%%%%%%%%%%%%%	
+					/  witness(B,A,alice_bob_mic1,MIC1')			%%% [2]
+
+	2.  State = 3 / Rcv(Anonce.A_rsnie.{GTK'}_PTK'.Succ(Sqn).Msg3.MIC2') / MIC2' = MIC_Hash(PMK.Anonce.Succ(Sqn).Msg3)
+	=|> 
+		State' := 5 /  MIC3' := MIC_Hash(PMK.Succ(Sqn).Msg4)
+					/  Snd(Succ(Sqn).Msg4.MIC3')
+					%%%%%%%%%%%%%%%%
+					/  witness(B,A,alice_bob_mic3,MIC3')			%%% [6] 
+					/  request(B,A,bob_alice_mic2,MIC2')			%%% [5] 
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(
+		A, B 		: agent,		
+        PMK 		: symmetric_key, 
+		PTK_PRF 	: hash_func, 	
+        MIC_Hash 	: hash_func, 
+		Succ 		: hash_func   )
+def=
+
+	local 
+		
+		SA, RA, SB, RB : channel (dy)
+
+	composition
+	
+			alice (A,B,PMK, PTK_PRF, MIC_Hash, Succ,SA,RA) 
+		/	bob   (A,B,PMK, PTK_PRF, MIC_Hash, Succ,SB,RB) 
+		
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+def=
+ 
+	const 
+	
+		a, b 			: agent,
+		gtk1, 
+		alice_bob_mic1, 
+		bob_alice_mic2, 
+		alice_bob_mic3 	: protocol_id, 
+		pmk_a_b,
+		pmk_a_i,
+		pmk_i_b 		: symmetric_key,
+		ptk_prf 		: hash_func, 	
+        mic_hash 		: hash_func, 
+		succ 			: hash_func
+		
+	intruder_knowledge = {a,b,ptk_prf,mic_hash,succ,pmk_a_i,pmk_i_b}                  
+
+	composition
+        
+			session(a,b, pmk_a_b, ptk_prf, mic_hash, succ)
+		/	session(a,i, pmk_a_i, ptk_prf, mic_hash, succ)
+		/	session(i,b, pmk_i_b, ptk_prf, mic_hash, succ)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+	secrecy_of  gtk1
+	authentication_on  alice_bob_mic1
+	authentication_on  bob_alice_mic2
+	authentication_on  alice_bob_mic3
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+ 

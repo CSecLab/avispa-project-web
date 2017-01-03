@@ -1,0 +1,109 @@
+role client (A, S     : agent,
+             K        : symmetric_key,
+             H        : function,
+             M1       : text,
+             Tag1,Tag2 :text,
+             SND, RCV : channel(dy))
+  played_by A def=
+
+  local  State : nat,
+         N1, N2, M2 : text
+  init State:=0
+
+  transition     
+    step1. State=0
+           /  RCV(start) 
+          =|> 
+           State':=1 
+           / N1':=new()
+           / SND(Tag1.M1.{H(Tag1.M1).N1'}_K) 
+           / witness(A,S,server_client_k_ab,Tag1.M1.{H(Tag1.M1).N1'}_K)
+% witness(A,B,id,E): for a (weak) authentication property of A by B on E, declares that agent A is witness
+%for the information E; this goal will be identified by the constant id in the goal section;
+
+
+    step2. State=1
+           / RCV(Tag2.M1.M2'.{H(Tag2.M1.M2').N2'}_K) 
+          =|> 
+           State':=2 
+           / wrequest(A,S,client_server_k_ba,Tag2.M1.M2'.{H(Tag2.M1.M2').N2'}_K)
+end role
+
+
+
+role server(S        : agent,      
+            A        : agent,
+            K        : symmetric_key,
+            H        : function,
+            M2       : text,
+            Tag1,Tag2: text,
+            SND, RCV : channel(dy))
+  played_by S def=
+
+  local State : nat, 
+        N1,M1,N2 : text
+  init State:=0
+
+  transition 
+    step1. State=0
+           / RCV(Tag1.M1'.{H(Tag1.M1').N1'}_K) 
+          =|> 
+           State':=1
+           / N2':=new()
+           / SND(Tag2.M1'.M2.{H(Tag2.M1'.M2).N2'}_K) 
+
+           / witness(S,A,client_server_k_ba,Tag2.M1'.M2.{H(Tag2.M1'.M2).N2'}_K) 
+           / wrequest(S,A,server_client_k_ab,Tag1.M1'.{H(Tag1.M1').N1'}_K)
+end role
+
+
+
+role session(A,S         : agent,
+             K           : symmetric_key,
+             M1,M2       : text,
+             H           : function,
+             Tag1,Tag2   : text,
+             Se,Re,Sf,Rf : channel(dy)) def=  
+
+  const server_client_k_ab, client_server_k_ba: protocol_id
+
+  
+
+  composition 
+     client(A,S,K,H,M1,Tag1,Tag2,Se,Re)
+  / server(S,A,K,H,M2,Tag1,Tag2,Sf,Rf)
+
+end role
+
+
+
+role environment() def=
+
+  local Ra,Rs,Sa,Ss,Si,Ri : channel(dy)
+
+  const a,s,i         : agent,
+        kia,kis,kas        : symmetric_key,
+        m1,m2,mi1,mi2,tag1,tag2 : text,
+        h             : function
+
+  intruder_knowledge = {i,a,s,h,kia,kis,mi1}
+
+  composition
+            session(a,s,kas,m1,m2,h,tag1,tag2,Sa,Ra,Ss,Rs)
+        /  session(a,s,kas,m1,m2,h,tag1,tag2,Sa,Ra,Ss,Rs)
+        /  session(i,s,kis,m1,m2,h,tag1,tag2,Si,Ri,Ss,Rs)
+        /  session(a,i,kia,m1,m2,h,tag1,tag2,Si,Ri,Ss,Rs)
+
+end role
+
+
+
+goal 
+  weak_authentication_on server_client_k_ab % addresses G1,G2 
+  weak_authentication_on client_server_k_ba % addresses G1,G2 
+
+
+end goal
+
+environment()
+ 

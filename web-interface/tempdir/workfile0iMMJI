@@ -1,0 +1,79 @@
+
+role alice(
+               A,B:agent,
+               SK1:symmetric_key,
+                H:hash_func,
+               SND,RCV:channel(dy))
+         played_by A def=
+             local
+                 State:nat,
+                 Ka,Kb,Na,Nb,Ki,Kj,M1,M2: text,
+                 SK:message
+           const bob_alice_nb,subs: protocol_id
+            init
+                 State:=0
+                 transition 
+                          1.State= 0 /RCV(start)=|>
+                                    State':=1 / Na' := new( )
+                                                   / Ka':=H(Ki)
+                                                  /SND({Ka'.Na'}_SK1)
+                           2.State=1   /RCV({Nb'.H(Kj)}_SK1)=|>
+                              State':=2 /SK':=H(Na'.Nb'.H(Ki).H(Kj))
+                                            /SND({M1}_SK')
+                          3. State=2 /RCV({M2}_H(Na'.Nb'.H(Ki).H(Kj)))=|>
+                               State':=3/secret(Ki,subs, A)
+                                            /witness(A,B,bob_alice_nb,M2)
+                   end role
+role bob( 
+             A,B:agent,
+             SK1:symmetric_Key,
+              H:hash_func,
+              SND,RCV:channel(dy))
+              played_by B def=
+               local
+                               State:nat,
+                              Ka,Kb,Na,Nb,Ki,Kj,M1,M2:text,
+                              SK:message
+                             const bob_alice_nb,sabs: protocol_id
+                               init 
+                                State:=1
+                                  transition
+                                        1.State=1 /RCV({H(Ki).Na'}_SK1)=|>
+                                               State':=2 /Nb' :=new()
+                                                             /Kb':=H(Kj)
+                                                             /SND(A.B.{Kb'.Nb'}_SK1)
+                   
+                                        2.State=2  /RCV({M1}_H(Na'.Nb'.H(Ki).Kb'))=|>
+                                          State':=3 /SND({M2}_H(Na'.Nb'.H(Ki).Kb')) 
+                                                        /secret(Kj,sabs,B)
+                                                         /equest(B,A,bob_alice_nb,M1)
+end role
+                 role session(
+                                     A,B:agent,
+                                      SK1:symmetric_Key,
+                                       H:hash_func)
+                                 def=
+                                    local SA,RA,SB,RB:channel(dy)
+                                     composition 
+                                    alice(A,B,SK1,H,SA,RA)
+                                          /ob (A,B,SK1,H,SB,RB)
+                         end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment() def=
+                        const  bob_alice_nb,sabs,subs: protocol_id,
+                       sk1 : symmetric_key,
+                       a,b : agent,
+                       h : hash_func
+     
+ intruder_knowledge = {a,b,h}
+   composition
+             session(a,b,sk1,h)
+           / session(a,b,sk1,h)
+    end role 
+ goal
+          secrecy_of subs
+	secrecy_of sabs
+          authentication_on bob_alice_nb
+ end goal
+environment()
+ 

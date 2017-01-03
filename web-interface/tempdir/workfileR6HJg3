@@ -1,0 +1,101 @@
+role patient( A,B:agent,
+              ID_A,ID_B:message,
+	      MS: symmetric_key,
+	      Kb:public_key,
+	      F1:hash_func,
+	      SND,RCV:channel(dy))
+
+played_by A def=
+
+local State:nat,
+      Req_ID,Type,TN:text
+init State:=0
+
+
+transition
+
+0. State=0 /\ RCV(start) =|>
+	State' :=2    /\ SND(ID_A)
+
+2. State =2 /\ RCV({Req_ID'.Type'.TN'.ID_A.ID_B.{F1(Req_ID'.Type'.TN'.ID_A.ID_B)}_inv(Kb)}_MS) =|>
+	State':=3
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role ra( A,B:agent,
+              ID_A,ID_B:message,
+	      MS: symmetric_key,
+	      Kb:public_key,
+	      F1:hash_func,
+	      SND,RCV:channel(dy))
+
+played_by A def=
+
+local State:nat,
+      Req_ID,Type,TN:text
+
+init State:=1
+
+transition
+
+0. State=1 /\ RCV(ID_A) =|>
+	State' := 4   /\ Req_ID':=new()
+		/\ Type':=new()
+		/\ TN':=new()
+		/\SND({Req_ID'.Type'.TN'.ID_A.ID_B.{F1(Req_ID'.Type'.TN'.ID_A.ID_B)}_inv(Kb)}_MS)
+		/\secret(Req_ID',ri,{A,B})
+		/\secret(Type',tp,{A,B})
+		/\secret(TN',tn,{A,B})
+		
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session( A,B:agent,
+		ID_A,ID_B:message,
+		MS:symmetric_key,
+		Kb:public_key,
+		F1:hash_func)  def=
+local SA,SB,RA,RB : channel (dy)
+
+composition 
+
+ patient(A,B,ID_A,ID_B,MS,Kb,F1,SA,RA)
+/\ ra(A,B,ID_A,ID_B,MS,Kb,F1,SB,RB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+    const a, b         : agent,
+          id_A,id_B:message,
+           ms:symmetric_key,	  
+           kb  : public_key,
+           f1:hash_func,
+	   ri,tp,tn: protocol_id
+
+    intruder_knowledge = {a, b,id_A,id_B,kb,f1}
+
+    composition
+
+	session(a,b,id_A,id_B,ms,kb,f1)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of ri,tp,tn
+  
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

@@ -1,0 +1,98 @@
+role masterstation(SM, MS              : agent,
+                     Dms, G, Rsm : text,
+                            SK: symmetric_key,
+                    Hsh    : hash_func,
+                    SND, RCV : channel(dy))
+played_by MS
+
+def=
+
+  local                 State            : nat,
+                        Qms, Aums, Ack, Qsm, Ausm        : message,
+                                Dsm, Rsmn      :text
+const  smartmeter_masterstation_aums,smartmeter_masterstation_ack,masterstation_smartmeter_ausm : protocol_id
+                     init State := 0
+
+transition
+1. State = 0  /\ RCV(start) =|>
+   State':= 2 /\ Qms':= exp(Dms,G)
+              /\ Aums':= Hsh(Qms.SK)
+              /\ SND({Qms'.Aums'}_SK)
+              /\ secret(Qms',qms,{SM,MS})
+              /\ witness(MS,SM,smartmeter_masterstation_aums,Aums')
+2. State = 2  /\ RCV({Qms'.xor(Rsmn',Hsh(Rsm).Ausm'}_SK) =|>
+   State':= 4 /\ Ack':=Hsh(Hsh(Rsmn',Qms').SK)
+              /\ SND({Hsh(Rsmn',Qms').Ack'}_SK)
+              /\ request(MS,SM,masterstation_smartmeter_ausm,Ausm')
+              /\ witness(MS,SM,smartmeter_masterstation_ack,Ack')
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role smartmeter(SM, MS              : agent,
+                      Rsm, G : text,
+                            SK: symmetric_key,
+                    Hsh    : hash_func,
+                    SND, RCV : channel(dy))
+played_by SM
+
+def=
+
+  local                 State            : nat,
+                        Qsm, Ausm,  Qms, Aums, Ack        : message,
+                                Dsm, Rsmn      :text
+const  smartmeter_masterstation_aums,smartmeter_masterstation_ack,masterstation_smartmeter_ausm : protocol_id
+                     init State := 1
+transition
+
+1. State = 1  /\ RCV({Qms'.Aums'}_SK) =|>
+   State':= 3 /\ Dsm':= new()
+              /\ Qsm':= exp(Dsm',G)
+              /\ Rsmn':= new()
+              /\ Ausm':=Hsh(Dsm'.xor(Rsmn',Hsh(Rsm)).SK)
+              /\ SND({Qms'.xor(Rsmn',Hsh(Rsm).Ausm'}_SK)
+              /\ secret(Rsmn',rsmn,{SM,MS})
+              /\ secret(Qsm',qsm,{SM,MS})
+              /\ request(SM,MS,smartmeter_masterstation_aums,Aums')
+              /\ witness(SM,MS,masterstation_smartmeter_ausm,Ausm')
+2. State = 3  /\ RCV({Hsh(Rsmn',Qms').Ack'}_SK) =|>
+   State':= 5 /\ request(SM,MS,smartmeter_masterstation_ack,Ack')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(SM, MS              : agent,
+                      Rsm, G, Dms : text,
+                            SK: symmetric_key,
+                    Hsh    : hash_func)
+def=
+local SMS, RMS,
+SSM, RSM : channel (dy)
+composition
+   masterstation(SM, MS, Dms, G, Rsm,SK, Hsh, SMS, RMS)
+/\ smartmeter (SM, MS, Rsm, G, SK, Hsh, SSM, RSM)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+const  smartmeter_masterstation_aums,smartmeter_masterstation_ack,masterstation_smartmeter_ausm,qms,qsm,rsmn :protocol_id,
+                               ms, sm       : agent,
+                        sk, kism, kmsi: symmetric_key,
+                                  hsh: hash_func
+intruder_knowledge = {sm, ms, kism, kmsi}
+composition
+     session(sm, ms, rsm, g,dms, sk, hsh)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+  secrecy_of qms,qsm,rsmn
+  authentication_on smartmeter_masterstation_aums
+  authentication_on smartmeter_masterstation_ack
+  authentication_on masterstation_smartmeter_ausm
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

@@ -1,0 +1,97 @@
+%PROTOCOL: Identity-based Authentication and Access Control in Wireless Sensor Networks.%
+%PURPOSE: To establish user authentication.%
+%A -> B : %
+%B -> A : %
+%To simulate man-in-the-middle attack on this protocol.%
+
+role initiator (A,B : agent,
+		K   : symmetric_key,
+		Hash: hash_func,
+		SND,RCV : channel(dy))
+
+% A = sender, B = receiver
+played_by A
+def=
+	local State : nat,
+	UIDA,SK,TK,TS,R,Kba:text
+	const sub2,kab : protocol_id
+
+init
+
+State := 0
+
+transition
+1.State=0 /\RCV(start)=|>
+   State':=1 /\R':=new()
+	/\TK':=(R.Hash(UIDA))
+	/\TS':=new()
+   	/\SND(TS.TK.UIDA)
+2.State=1 /\ RCV({Kba}_TK)=|>
+  	SK':=(kab.TS)
+	/\ secret({Kba}, kab, A)
+	/\SND({SK}_TK)
+
+end role
+
+role responder (A,B : agent,
+		K   : symmetric_key,
+		Hash: hash_func,
+		SND,RCV : channel(dy))
+
+   	
+played_by B
+def=
+	local State : nat,
+	UIDA,SK,TM,TK,TS,R,Kba:text
+	const  sub2,kab : protocol_id
+
+init
+
+State := 0
+
+transition
+
+1.State=0 /\RCV(TS.TK.UIDA)=|>
+   State':=1 /\R':=new()/\Kba':=(R.Hash(TK.UIDA))/\secret({Kba'}, sub2, B)
+	/\SND({Kba}_TK)
+2.State=1 /\ RCV({kab}_TK)=|>
+  SK':=(kab.TS)/\SND({SK}_TK)
+
+end role
+   	
+role session(A,B : agent,
+		K   : symmetric_key,
+		Hash: hash_func
+	)
+def=
+local
+SA, SB, RA, RB: channel (dy),
+UIDA,SK,TM,TK,TS,R,Kba: text
+const kab, sub2 : protocol_id
+composition
+initiator(A, B,K,Hash, SA, RA)
+/\ responder(A, B,K,Hash, SB, RB)
+end role
+
+
+role environment()
+def=
+const   a,b  : agent,
+	uida,sk,tm,tk,ts,r,kba : text,
+	kab, sub2 : protocol_id,
+	K   : symmetric_key,
+	Hash: hash_func
+
+composition
+session(a, b,K,Hash) /\
+session(a, b,K,Hash)
+end role
+
+
+goal
+
+secrecy_of sub2
+secrecy_of kab
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

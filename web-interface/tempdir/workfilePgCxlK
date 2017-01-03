@@ -1,0 +1,85 @@
+% A and B is communicating
+role arun (A,B        : agent,
+            SND,RCV    : channel(dy),
+            Hash       : hash_func,
+            PK_A , PK_B      : public_key,
+            SeqIDAB1,SeqIDAB2  : text)
+played_by A
+def=
+  local
+    State      : nat,
+    Msg        : text,
+Timestamp     : text,
+    Nonce      : text
+  init  State := 0
+  transition
+ 1. State  = 0 /\ RCV(start) =|>
+    State':= 2 /\ Msg' := new()/\ SND({ B.{SeqIDAB1.Msg'}_inv(PK_A).Hash(PK_A.Timestamp')}_PK_B)
+               /\ witness(A,A,msg,Msg')
+
+ 3. State  = 2 /\ RCV({{Nonce'}_inv(PK_B).Hash(Nonce'. Timestamp')}_PK_A) =|>
+    State':= 4 /\ SND({{SeqIDAB2.Nonce'}_inv(PK_A).Hash(SeqIDAB2. Timestamp')}_PK_B)
+end role
+
+
+role brijesh (B,A        : agent,
+          SND,RCV    : channel(dy),
+          Hash       : hash_func,
+          PK_A , PK_B      : public_key,
+          SeqIDAB1,SeqIDAB2  : text)
+played_by B
+def=
+
+  local
+    State      : nat,
+    Nonce      : text,
+Timestamp      : text,
+    Msg        : text
+  init State := 1
+  transition
+ 1. State  = 1 /\ RCV( {B.{SeqIDAB1.Msg'}_inv(PK_A).Hash(PK_A.Timestamp')}_PK_B)  =|>
+    State':= 5 /\ Nonce' := new()/\
+SND({{Nonce'}_inv(PK_B).Hash(Nonce'. Timestamp')}_PK_A)
+
+ 3. State  = 5 /\ RCV({SeqIDAB2.Nonce}_inv(PK_A)) =|>
+    State':= 7 /\ request(A,A,msg,Msg)
+    
+end role
+
+
+role session(A,B        : agent,
+             Hash       : hash_func,
+             PK_A, PK_B : public_key,
+             SeqIDAB1,SeqIDAB2  : text)
+def=
+  local SNDA,RCVA,SNDB,RCVB  : channel (dy)
+  composition
+     arun(A,B,SNDA,RCVA,Hash,PK_A,PK_B,SeqIDAB1,SeqIDAB2)
+  /\ brijesh(B,A,SNDB,RCVB,Hash,PK_A,PK_B,SeqIDAB1,SeqIDAB2)
+end role
+
+role environment() def=
+  const
+    a,b            : agent,
+    h              : hash_func,
+    msg            : protocol_id,
+    pk_a,pk_b,pk_i : public_key,
+       seqIDAB1,seqIDAB2      : text
+
+  intruder_knowledge = {a,b,h,pk_a,pk_b,pk_i,inv(pk_i)}
+
+  composition
+    session(a,b,h,pk_a,pk_b,seqIDAB1,seqIDAB2)
+ /\ session(a,b,h,pk_a,pk_b,seqIDAB1,seqIDAB2)
+
+end role
+
+
+goal
+  % Sender Invariance (G16)
+  authentication_on msg
+end goal
+environment()
+
+
+

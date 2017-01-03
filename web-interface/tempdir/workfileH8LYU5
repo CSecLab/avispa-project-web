@@ -1,0 +1,127 @@
+%%HLPSL:
+%reader
+role lwAKE_Init (A,B: agent,
+               Kab: symmetric_key,
+	       TID : text,
+               Snd,Rcv: channel(dy))
+played_by A
+def=
+
+  local State   : nat,
+	H       : hash_func,
+        Na,Nb,K   : text
+
+  const sec_k1 : protocol_id
+
+  init  State := 0
+
+  transition
+
+   1. State = 0
+      /\ Rcv(start)
+      =|> 
+      State' := 1
+      /\ Na' := new()
+      /\ Snd(Na') 
+
+   2. State = 1
+      /\ Rcv({xor(xor(TID,Nb'),H(K'.Na'))}_Kab)
+      =|> 
+      State' := 2
+      /\ K' := H(Kab,Nb',Na')
+      /\ Snd({xor(Nb',H(K'.Na'.TID))}_Kab)
+      /\ secret(K',sec_k1,{A,B})
+      /\ witness(A,B,na,Na')
+      /\ request(A,B,nb,Nb')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%tag
+role lwAKE_Resp (B,A: agent,
+               Kab: symmetric_key,
+	       TID : text,
+ 	       Snd,Rcv: channel(dy))
+played_by B
+def=
+
+  local State   : nat,
+        Na,Nb,K   : text,
+	H       : hash_func
+
+  const sec_k2 : protocol_id
+
+  init  State := 0
+
+  transition
+
+   1. State = 0 /\ Rcv(Na')
+      =|> 
+      State' := 1
+      /\ Nb' := new()
+      /\ K' := H(Kab,Nb',Na')
+      /\ Snd({xor(xor(TID,Nb'),H(K'.Na'))}_Kab)
+      /\ secret(K',sec_k2,{A,B})
+
+   2. State = 1 /\ Rcv({xor(Nb',H(K'.Na'.TID))}_Kab)
+      =|> 
+      State' := 2
+      /\ witness(B,A,nb,Nb')
+      /\ request(B,A,na,Na)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(A,B: agent,
+	     Kab: symmetric_key,
+	     TID: text)
+def=
+
+  local SA, RA, SB, RB: channel (dy)
+
+  composition
+     lwAKE_Init(A,B,Kab,TID,SA,RA)
+  /\ lwAKE_Resp(B,A,Kab,TID,SB,RB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role environment()
+def=
+
+  const a, b   : agent,
+        kab    : symmetric_key,
+        tid,k  : text, 
+        na, nb : protocol_id
+
+  intruder_knowledge={a,b}
+
+  composition
+      session(a,b,kab,tid)
+   /\ session(b,a,kab,tid)
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+ % Confidentiality (G12)
+ secrecy_of sec_k1, sec_k2
+
+ % Message authentication (G2)
+ % lwAKE_Init authenticates lwAKE_Resp on nb
+ authentication_on nb
+
+ % Message authentication (G2)
+ % lwAKE_Resp authenticates lwAKE_Init on na
+ authentication_on na
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

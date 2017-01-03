@@ -1,0 +1,198 @@
+%%%%%%% Role for mobile user MU %%%%%
+
+role mobileuser (MU, HA, FA : agent,
+            SKmuha : symmetric_key,
+            % H is one-way hash function
+            H: hash_func,
+            Send, Recv: channel(dy))
+% Player: the mobile user MU
+played_by MU
+def=
+ local State  : nat,
+       IDmu, PWmu, B, Amu, PIDmu, MSK : text,
+       P, Z, X, Rm, Rmm, AIDmu, K, M1  : text,
+       F : hash_func
+ const mu_fa_x, fa_mu_y, s1, s2, s3: protocol_id
+
+init  State := 0
+transition
+% Mobile user registration phase
+1. State = 0 /\ Recv(start) =|>
+State' := 2 /\ B' := new()
+            /\ PIDmu' := H(IDmu.B')
+            /\ Amu' := H(PWmu.B')
+% Send registration request  to HA securely
+            /\ Send({PIDmu'.Amu'}_SKmuha)
+            /\ secret({IDmu}, s1, {MU,HA})
+            /\ secret({PWmu,B'}, s2, {MU})
+% Receive smart card SC from HA securely
+2. State = 2 /\ Recv({IDha.H(H(IDmu.B').MSK).H(H(IDmu.B').H(PWmu.B').
+                      H(H(IDmu.B').MSK)).P.F(Z'.P).H}_SKmuha)=|>
+ State' := 4 /\ secret({MSK}, s3, {HA}) 
+% Login phase 
+             /\ X' := new()
+             /\ Rm' := F(X'.P)
+             /\ Rmm' := F(X'.F(Z'.P))
+             /\ AIDmu' := xor(H(IDmu.B'), Rmm')
+             /\ K' := H(H(H(IDmu.B').MSK).Rmm')
+             /\ M1' := H(K'.IDfa.H(IDmu.B').H(H(IDmu.B').MSK).Rmm')
+% Send login request  to FA via open channel
+             /\ Send(IDha.AIDmu'.M1'.P.Rm') 
+% MU has freshly generated random x for FA
+            /\ witness(MU, FA, mu_fa_x, X')
+% Authentcation phase
+% Receive message  from FA via open channel
+3. State = 4 /\ Recv(H(IDha.IDfa.H(IDmu.B').H(H(IDmu.B')
+               .MSK).F(Y'.P)).H(H(F(Y'.F(X'.P)).F(Y'.P).
+               F(X'.P).IDha.IDfa).IDfa.H(IDha.IDfa.H(IDmu.B').
+               H(H(IDmu.B').MSK).F(Y'.P))).F(Y'.P)) =|>
+State' := 8 /\ SK' := H(F(Y'.F(X'.P)).F(Y'.P).F(X'.P).IDha.IDfa)
+            /\ M4' := H(SK'.IDfa.IDha)
+% Send message  to FA via open channel           
+            /\ Send(M4')
+% MU's acceptance of the value y generated for MU by FA  
+            /\ request(FA, MU, fa_mu_y, Y')
+end role
+
+
+
+%%%%%%% Role for HA %%%%%
+
+role homeagent (MU, HA, FA : agent,
+            SKmuha : symmetric_key,
+            % H is one-way hash function
+            H: hash_func,
+            Send, Recv: channel(dy))
+% Player: the home agent HA
+played_by HA
+def=
+ local State  : nat,
+       IDmu, PWmu, B, Mbu, Cmu, Rl, MSK : text,
+       P, Z, IDha : text, 
+
+       F : hash_func
+  const s1, s2, s3: protocol_id
+
+init  State := 0
+transition
+% Mobile user registration phase
+% Receive registration request  to from MU securely
+1. State = 0 /\ Recv({H(IDmu.B').H(PWmu.B')}_SKmuha) =|>
+State' := 3 /\ secret({IDmu}, s1, {MU,HA})
+           /\ secret({PWmu,B'}, s2, {MU})
+           /\ Bmu' := H(H(IDmu.B').MSK)
+           /\ Cmu' := H(H(IDmu.B').H(PWmu.B').Bmu')
+           /\ Z' := new()
+           /\ Rl' := F(Z'.P)
+           /\ secret({MSK}, s3, {HA})
+% Send smart card SC to MU securely
+          /\ Send({IDha.Bmu'.Cmu'.P.Rl'.H}_SKmuha)
+% Authentication phase 
+% Receive message  from FA via open channel
+2. State = 3 /\ Recv(xor(H(IDmu.B'), F(X'.F(Z'.P))).
+               H(H(H(H(IDmu.B').MSK).F(X'.F(Z'.P))).IDfa.H(IDmu.B').
+               H(H(IDmu.B').MSK).F(X'.F(Z'.P))).F(X'.P).F(Y'.P).IDfa)=|>
+% Send message  to FA via open channel 
+State' := 5  /\ M2' := H(IDha.IDfa.H(IDmu.B').H(H(IDmu.B').MSK).F(Y'.P))
+             /\ Send(IDha.ACK.M2')
+end role
+
+
+%%%%%%% Role for FA %%%%%
+
+role foreignagent (MU, HA, FA : agent,
+            % H is one-way hash function
+            H: hash_func,
+            Send, Recv: channel(dy))
+% Player: the foreign agent FA
+played_by FA
+def=
+ local State  : nat,
+       IDmu, PWmu, B, Mbu, Cmu, Rl, MSK : text,
+       P, Z, IDha, Y, IDfa, SK : text, 
+
+       F : hash_func
+ const 
+       s1 : protocol_id
+
+init  State := 0
+transition
+% Login phase 
+% Receive login request  from MU via open channel
+1. State = 0 /\ Recv(IDha.xor(H(IDmu.B'),F(X'.F(Z'.P))).
+                H(H(H(H(IDmu.B').MSK).F(X'.F(Z'.P))).IDfa.H(IDmu.B').
+                H(H(IDmu.B').MSK).F(X'.F(Z'.P))).P.F(X'.P)) =|>
+% Authentication phase
+State' := 1 /\ Y' := new()
+           /\ Rb' := F(Y'.P) 
+           /\ secret({IDmu}, s1, {MU,HA})
+           /\ secret({PWmu,B'}, s2, {MU})
+           /\ secret({MSK}, s3, {HA})
+% Send message  to HA via open channel
+           /\ Send(xor(H(IDmu.B'), F(X'.F(Z'.P))).
+               H(H(H(H(IDmu.B').MSK).F(X'.F(Z'.P))).IDfa.H(IDmu.B').
+               H(H(IDmu.B').MSK).F(X'.F(Z'.P))).F(X'.P).Rb'.IDfa)
+% FA has freshly generated random y for HA
+           /\ witness(FA, HA, fa_ha_y, Y')
+% Receive message   from HA via open channel
+2. State = 1 /\ Recv(IDha.ACK.H(IDha.IDfa.H(IDmu.B').H(H(IDmu.B')
+               .MSK).F(Y'.P))) =|>
+State' := 2 /\ SK' := H(F(Y'.F(X'.P)).F(Y'.P).F(X'.P).IDha.IDfa)
+            /\ M3' := H(SK'.IDfa.M2')
+% Send message  to MU via open channel
+            /\ Send(H(IDha.IDfa.H(IDmu.B').H(H(IDmu.B')
+               .MSK).F(Y'.P)).M3'.F(Y'.P))
+% Receive message  from MU via open channel
+3. State = 2 /\ Recv(H(F(Y'.F(X'.P)).F(Y'.P).F(X'.P).IDha.IDfa).
+                IDfa.IDha) =|>
+% FA's acceptance of the value x generated for FA by MU  
+State' := 3 /\ request(MU, FA, mu_fa_x, X')
+end role
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session (MU, HA, FA : agent,
+            SKmuha : symmetric_key,
+            % H is one-way hash function
+            H: hash_func)
+def=
+  local  SD1, SD2, SD3, RV1, RV2, RV3 : channel (dy)
+  composition
+      mobileuser (MU, HA, FA, SKmuha, H, SD1, RV1)
+   /\ homeagent (MU, HA, FA, SKmuha, H, SD2, RV2)
+   /\ foreignagent (MU, HA, FA, H, SD3, RV3)
+end role 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role environment()
+def=
+  const mu, ha, fa: agent,
+        skmuha: symmetric_key,
+        h, f : hash_func,
+        idha, idfa, aidmu, rm, rb, p : text,
+        mu_fa_x, fa_mu_y: protocol_id,
+        s1, s2, s3: protocol_id
+  intruder_knowledge = {mu, ha, fa, h, f, idha, 
+                        idfa, aidmu, rm, rb, p}
+  composition
+	   session(mu, ha, fa, skmufa, h) 
+	/\ session(i, ha, fa, skmufa, h)
+        /\ session(mu, i, fa, skmufa, h)
+        /\ session(mu, ha, i, skmufa, h)
+end role
+
+goal
+  secrecy_of s1
+  secrecy_of s2
+  secrecy_of s3
+  
+  authentication_on mu_fa_x
+  authentication_on fa_mu_y
+end goal
+environment()
+

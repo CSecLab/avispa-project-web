@@ -1,0 +1,101 @@
+%% IF specification of /home/friends/drwho/Desktop/Archivio/Work/Science/AVISPA/AVISPA-FET-EU-02/shared/testsuite/hlpsl/IKEv2-MACx.hlpsl
+
+section signature:
+
+state_Bob: agent * agent * text * function * symmetric_key * text * text * text * text * text * message * message * nat * text * text * message * nat -> fact
+state_Alice: agent * agent * text * function * symmetric_key * text * text * text * text * text * message * message * nat * text * text * message * nat -> fact
+
+
+section types:
+
+auth_a, auth_b : protocol_id
+kab, kbi, kai, PSK : symmetric_key
+f, F : function
+3, CID, CID2, CID1, 7, 5, State, 8, 6, 4, 2, 1, 0, 10 : nat
+AGoal, b, a, A, B, i : agent
+dummy_msg, MGoal, AUTH_A, SK, KEi, AUTH_B, KEr, Dummy_AUTH_A, Dummy_KEi, Dummy_AUTH_B, start, Dummy_SK, Dummy_KEr : message
+Dummy_SA2, Dummy_DHX, Dummy_SA1, Dummy_Ni, dummy_nonce, g, G, MB, MA, Nr, DHY, Ni, SA1, SA2, DHX, Dummy_DHY, Dummy_MB, Dummy_MA, Dummy_Nr : text
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(g).
+ iknows(f).
+ iknows(a).
+ iknows(b).
+ iknows(kai).
+ iknows(kbi).
+ iknows(start).
+ iknows(i).
+ state_Alice(a,b,g,f,kab,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,0,dummy_nonce,dummy_nonce,dummy_msg,3).
+ state_Bob(b,a,g,f,kab,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,1,dummy_nonce,dummy_nonce,dummy_msg,4).
+ state_Alice(a,i,g,f,kai,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,0,dummy_nonce,dummy_nonce,dummy_msg,6).
+ state_Bob(b,i,g,f,kbi,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,1,dummy_nonce,dummy_nonce,dummy_msg,10)
+
+
+section rules:
+
+step step_0 (A,B,G,F,PSK,Dummy_Ni,Dummy_SA1,SA2,Dummy_DHX,Nr,KEr,SK,MA,MB,AUTH_B,Ni,SA1,DHX,CID) :=
+ state_Alice(A,B,G,F,PSK,Dummy_Ni,Dummy_SA1,SA2,Dummy_DHX,Nr,KEr,SK,0,MA,MB,AUTH_B,CID).
+ iknows(start)
+=[exists Ni,DHX,SA1]=>
+ state_Alice(A,B,G,F,PSK,Ni,SA1,SA2,DHX,Nr,KEr,SK,2,MA,MB,AUTH_B,CID).
+ iknows(pair(pair(SA1,exp(G,DHX)),Ni))
+
+step step_1 (A,B,G,F,PSK,Ni,SA1,Dummy_SA2,DHX,Dummy_Nr,Dummy_KEr,Dummy_SK,MA,MB,AUTH_B,SA2,Nr,KEr,CID) :=
+ state_Alice(A,B,G,F,PSK,Ni,SA1,Dummy_SA2,DHX,Dummy_Nr,Dummy_KEr,Dummy_SK,2,MA,MB,AUTH_B,CID).
+ iknows(pair(pair(SA1,KEr),Nr))
+=[exists SA2]=>
+ state_Alice(A,B,G,F,PSK,Ni,SA1,SA2,DHX,Nr,KEr,apply(F,pair(pair(pair(Ni,Nr),SA1),exp(KEr,DHX))),4,MA,MB,AUTH_B,CID).
+ iknows(scrypt(apply(F,pair(pair(pair(Ni,Nr),SA1),exp(KEr,DHX))),pair(pair(A,apply(F,pair(pair(pair(pair(PSK,SA1),exp(G,DHX)),Ni),Nr))),SA2)))
+
+step step_2 (A,B,G,F,PSK,Ni,SA1,SA2,DHX,Nr,KEr,SK,Dummy_MA,MB,Dummy_AUTH_B,MA,CID) :=
+ state_Alice(A,B,G,F,PSK,Ni,SA1,SA2,DHX,Nr,KEr,SK,4,Dummy_MA,MB,Dummy_AUTH_B,CID).
+ iknows(scrypt(SK,pair(pair(B,apply(F,pair(pair(pair(pair(PSK,SA1),KEr),Ni),Nr))),SA2)))
+=[exists MA]=>
+ state_Alice(A,B,G,F,PSK,Ni,SA1,SA2,DHX,Nr,KEr,SK,6,MA,MB,apply(F,pair(pair(pair(pair(PSK,SA1),KEr),Ni),Nr)),CID).
+ iknows(scrypt(SK,pair(MA,0)))
+
+step step_3 (A,B,G,F,PSK,Ni,SA1,SA2,DHX,Nr,KEr,SK,MA,Dummy_MB,AUTH_B,MB,CID) :=
+ state_Alice(A,B,G,F,PSK,Ni,SA1,SA2,DHX,Nr,KEr,SK,6,MA,Dummy_MB,AUTH_B,CID).
+ iknows(scrypt(SK,pair(MB,1)))
+ =>
+ state_Alice(A,B,G,F,PSK,Ni,SA1,SA2,DHX,Nr,KEr,SK,8,MA,MB,AUTH_B,CID).
+ request(A,B,sk,SK,CID)
+
+step step_4 (B,A,G,F,PSK,Dummy_Ni,Dummy_SA1,SA2,Dummy_Nr,Dummy_DHY,Dummy_SK,Dummy_KEi,MA,MB,AUTH_A,Ni,SA1,Nr,DHY,KEi,CID) :=
+ state_Bob(B,A,G,F,PSK,Dummy_Ni,Dummy_SA1,SA2,Dummy_Nr,Dummy_DHY,Dummy_SK,Dummy_KEi,1,MA,MB,AUTH_A,CID).
+ iknows(pair(pair(SA1,KEi),Ni))
+=[exists Nr,DHY]=>
+ state_Bob(B,A,G,F,PSK,Ni,SA1,SA2,Nr,DHY,apply(F,pair(pair(pair(Ni,Nr),SA1),exp(KEi,DHY))),KEi,3,MA,MB,AUTH_A,CID).
+ iknows(pair(pair(SA1,exp(G,DHY)),Nr))
+
+step step_5 (B,A,G,F,PSK,Ni,SA1,Dummy_SA2,Nr,DHY,SK,KEi,MA,MB,Dummy_AUTH_A,SA2,CID) :=
+ state_Bob(B,A,G,F,PSK,Ni,SA1,Dummy_SA2,Nr,DHY,SK,KEi,3,MA,MB,Dummy_AUTH_A,CID).
+ iknows(scrypt(SK,pair(pair(A,apply(F,pair(pair(pair(pair(PSK,SA1),KEi),Ni),Nr))),SA2)))
+ =>
+ state_Bob(B,A,G,F,PSK,Ni,SA1,SA2,Nr,DHY,SK,KEi,5,MA,MB,apply(F,pair(pair(pair(pair(PSK,SA1),KEi),Ni),Nr)),CID).
+ iknows(scrypt(SK,pair(pair(B,apply(F,pair(pair(pair(pair(PSK,SA1),exp(G,DHY)),Ni),Nr))),SA2))).
+ witness(B,A,sk,SK)
+
+step step_6 (B,A,G,F,PSK,Ni,SA1,SA2,Nr,DHY,SK,KEi,Dummy_MA,Dummy_MB,AUTH_A,MA,MB,CID) :=
+ state_Bob(B,A,G,F,PSK,Ni,SA1,SA2,Nr,DHY,SK,KEi,5,Dummy_MA,Dummy_MB,AUTH_A,CID).
+ iknows(scrypt(SK,pair(MA,0)))
+=[exists MB]=>
+ state_Bob(B,A,G,F,PSK,Ni,SA1,SA2,Nr,DHY,SK,KEi,7,MA,MB,AUTH_A,CID).
+ iknows(scrypt(SK,pair(MB,1)))
+
+
+section goals:
+
+goal authenticate_SK (B,A,SK,CID) :=
+ request(A,B,sk,SK,CID).
+ not(witness(B,A,sk,SK)) &
+ not(equal(B,i))
+goal replay_protection_SK (B,A,SK,CID1,CID2) :=
+ request(A,B,sk,SK,CID1).
+ request(A,B,sk,SK,CID2) &
+ not(equal(CID1,CID2)) &
+ not(equal(B,i))
+

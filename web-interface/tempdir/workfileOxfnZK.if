@@ -1,0 +1,113 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileOxfnZK
+
+section signature:
+
+state_server: agent * agent * symmetric_key * hash_func * hash_func * hash_func * nat * text * text * text * text * apply(hash_func,pair(symmetric_key,pair(agent,pair(text,text)))) * apply(hash_func,pair(symmetric_key,pair(agent,pair(text,text)))) * apply(hash_func,pair(apply(hash_func,pair(symmetric_key,pair(agent,pair(text,text)))),text)) * set(agent) * set(agent) * nat -> fact
+state_client: agent * agent * symmetric_key * hash_func * hash_func * hash_func * nat * text * text * text * text * apply(hash_func,pair(symmetric_key,pair(agent,pair(text,text)))) * apply(hash_func,pair(symmetric_key,pair(agent,pair(text,text)))) * apply(hash_func,pair(apply(hash_func,pair(symmetric_key,pair(agent,pair(text,text)))),text)) * set(agent) * set(agent) * nat -> fact
+
+
+section types:
+
+Dummy_Set_55, Dummy_Set_54, Dummy_Set_34, Dummy_Set_32, ASGoal, Set_55, Set_54, Set_34, Set_32: set(agent)
+dummy_msg, MGoal, start: message
+auths, ns, nc, autha, sec_PSK, sec_AK: protocol_id
+Dummy_EK, Dummy_AK, EK, AK: apply(hash_func,pair(symmetric_key,pair(agent,pair(text,text))))
+Dummy_ID, Dummy_Nc, Dummy_Ns, Dummy_T, dummy_nonce, T, Ns, Nc, ID: text
+prf, mica, mics, PRF, MICA, MICS: hash_func
+psk_ps, psk_pi, psk_is, PSK: symmetric_key
+4, SID, Dummy_State, 3, State, 2, 1, 0, 10, 6: nat
+Dummy_A, a, s, A, S, i: agent
+set_95, set_94, set_79, set_78, set_110, set_109, set_108, set_107, set_106, set_105, set_103, set_102: set
+Dummy_AuthS, AuthA, AuthS, Dummy_AuthA: apply(hash_func,pair(apply(hash_func,pair(symmetric_key,pair(agent,pair(text,text)))),text))
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(s).
+ iknows(mica).
+ iknows(mics).
+ iknows(prf).
+ iknows(psk_pi).
+ iknows(psk_is).
+ iknows(i).
+ state_client(a,s,psk_ps,prf,mica,mics,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,set_78,set_79,3).
+ state_server(s,a,psk_ps,prf,mica,mics,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,set_94,set_95,4).
+ state_client(a,i,psk_pi,prf,mica,mics,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,set_102,set_103,6).
+ state_server(s,i,psk_is,prf,mica,mics,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,set_109,set_110,10)
+
+
+section rules:
+
+step step_0 (A,S,PSK,PRF,MICA,MICS,T,Ns,Nc,ID,AK,EK,AuthS,Set_32,Set_34,SID) :=
+ state_client(A,S,PSK,PRF,MICA,MICS,0,T,Ns,Nc,ID,AK,EK,AuthS,Set_32,Set_34,SID).
+ iknows(start)
+ =>
+ state_client(A,S,PSK,PRF,MICA,MICS,1,T,Ns,Nc,ID,AK,EK,AuthS,Set_32,Set_34,SID).
+ iknows(A)
+
+step step_1 (A,S,PSK,PRF,MICA,MICS,Dummy_T,Dummy_Ns,Dummy_Nc,ID,Dummy_AK,Dummy_EK,AuthS,Dummy_Set_32,Dummy_Set_34,SID,T,Ns,Nc) :=
+ state_client(A,S,PSK,PRF,MICA,MICS,1,Dummy_T,Dummy_Ns,Dummy_Nc,ID,Dummy_AK,Dummy_EK,AuthS,Dummy_Set_32,Dummy_Set_34,SID).
+ iknows(pair(Ns,pair(T,S)))
+=[exists Nc]=>
+ state_client(A,S,PSK,PRF,MICA,MICS,2,T,Ns,Nc,ID,apply(PRF,pair(PSK,pair(S,T))),apply(PRF,pair(PSK,pair(A,Ns))),AuthS,Dummy_Set_32,Dummy_Set_34,SID).
+ iknows(scrypt(apply(PRF,pair(PSK,pair(A,Ns))),pair(Nc,apply(MICA,pair(apply(PRF,pair(PSK,pair(S,T))),Ns))))).
+ secret(PSK,sec_PSK,Dummy_Set_32).
+ secret(apply(PRF,pair(PSK,pair(S,T))),sec_AK,Dummy_Set_34).
+ contains(A,Dummy_Set_32).
+ contains(S,Dummy_Set_32).
+ contains(A,Dummy_Set_34).
+ contains(S,Dummy_Set_34)
+
+step step_2 (A,S,PSK,PRF,MICA,MICS,T,Ns,Dummy_Nc,Dummy_ID,Dummy_AK,Dummy_EK,Dummy_AuthS,Set_32,Set_34,SID,Nc,ID,AK,EK) :=
+ state_client(A,S,PSK,PRF,MICA,MICS,2,T,Ns,Dummy_Nc,Dummy_ID,Dummy_AK,Dummy_EK,Dummy_AuthS,Set_32,Set_34,SID).
+ iknows(scrypt(EK,pair(ID,apply(MICS,pair(AK,Nc)))))
+ =>
+ state_client(A,S,PSK,PRF,MICA,MICS,3,T,Ns,Nc,ID,AK,EK,apply(MICS,pair(AK,Nc)),Set_32,Set_34,SID)
+
+step step_3 (S,Dummy_A,PSK,PRF,MICA,MICS,Dummy_T,Dummy_Ns,Nc,ID,Dummy_AK,Dummy_EK,AuthA,Dummy_Set_54,Dummy_Set_55,SID,A,T,Ns) :=
+ state_server(S,Dummy_A,PSK,PRF,MICA,MICS,0,Dummy_T,Dummy_Ns,Nc,ID,Dummy_AK,Dummy_EK,AuthA,Dummy_Set_54,Dummy_Set_55,SID).
+ iknows(A)
+=[exists T,Ns]=>
+ state_server(S,A,PSK,PRF,MICA,MICS,1,T,Ns,Nc,ID,apply(PRF,pair(PSK,pair(S,T))),apply(PRF,pair(PSK,pair(Dummy_A,Ns))),AuthA,Dummy_Set_54,Dummy_Set_55,SID).
+ iknows(pair(Ns,scrypt(apply(PRF,pair(PSK,pair(Dummy_A,Ns))),pair(T,S)))).
+ secret(PSK,sec_PSK,Dummy_Set_54).
+ secret(apply(PRF,pair(PSK,pair(S,T))),sec_AK,Dummy_Set_55).
+ contains(Dummy_A,Dummy_Set_54).
+ contains(S,Dummy_Set_54).
+ contains(Dummy_A,Dummy_Set_55).
+ contains(S,Dummy_Set_55)
+
+step step_4 (S,A,PSK,PRF,MICA,MICS,T,Dummy_Ns,Dummy_Nc,Dummy_ID,Dummy_AK,Dummy_EK,Dummy_AuthA,Set_54,Set_55,SID,Ns,Nc,ID,AK,EK) :=
+ state_server(S,A,PSK,PRF,MICA,MICS,1,T,Dummy_Ns,Dummy_Nc,Dummy_ID,Dummy_AK,Dummy_EK,Dummy_AuthA,Set_54,Set_55,SID).
+ iknows(scrypt(EK,pair(Nc,apply(MICA,pair(AK,Ns)))))
+=[exists ID]=>
+ state_server(S,A,PSK,PRF,MICA,MICS,2,T,Ns,Nc,ID,AK,EK,apply(MICA,pair(AK,Ns)),Set_54,Set_55,SID).
+ iknows(scrypt(EK,pair(ID,apply(MICS,pair(AK,Nc)))))
+
+
+section properties:
+
+property secrecy_of_sec_PSK (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_PSK,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_sec_AK (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_AK,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_sec_PSK (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_PSK,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_sec_AK (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_AK,ASGoal) &
+ not(contains(i,ASGoal))
+

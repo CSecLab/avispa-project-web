@@ -1,0 +1,60 @@
+role role_A(A:agent,B:agent,S:agent,KPa:public_key,KPb:public_key,KPs:public_key,SND,RCV:channel(dy))
+played_by A
+def=
+	local
+		State:nat,Na:text,Nb:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ SND(A.B)
+		2. State=1 /\ RCV({KPb.B}_inv(KPs)) =|> State':=2 /\ Na':=new() /\ witness(A,B,auth_1,Na') /\ SND({Na'.A}_KPb)
+		6. State=2 /\ RCV({Na.Nb'.B}_KPa) =|> State':=3 /\ SND({Nb'}_KPb)
+end role
+
+role role_B(A:agent,B:agent,S:agent,KPa:public_key,KPb:public_key,KPs:public_key,SND,RCV:channel(dy))
+played_by B
+def=
+	local
+		State:nat,Na:text,Nb:text
+	init
+		State := 0
+	transition
+		3. State=0 /\ RCV({Na'.A}_KPb) =|> State':=1 /\ request(B,A,auth_1,Na') /\ SND(B.A)
+		5. State=1 /\ RCV({KPa.A}_inv(KPs)) =|> State':=2 /\ Nb':=new() /\ SND({Na.Nb'.B}_KPa)
+		7. State=2 /\ RCV({Nb}_KPb) =|> State':=3
+end role
+
+role role_S(A:agent,B:agent,S:agent,KPa:public_key,KPb:public_key,KPs:public_key,SND,RCV:channel(dy))
+played_by S
+def=
+	local
+		State:nat
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(A.B) =|> State':=1 /\ SND({KPb.B}_inv(KPs))
+		4. State=1 /\ RCV(B.A) =|> State':=2 /\ SND({KPa.A}_inv(KPs))
+end role
+
+role session1(A:agent,B:agent,S:agent,KPa:public_key,KPb:public_key,KPs:public_key)
+def=
+	local
+		SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_S(A,B,S,KPa,KPb,KPs,SND3,RCV3) /\ role_B(A,B,S,KPa,KPb,KPs,SND2,RCV2) /\ role_A(A,B,S,KPa,KPb,KPs,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		hash_0:function,pk2:public_key,serveur:agent,alice:agent,bob:agent,pk1:public_key,pk3:public_key,auth_1:protocol_id
+	intruder_knowledge = {}
+	composition
+		session1(alice,bob,serveur,pk1,pk2,pk3)
+end role
+
+goal
+	authentication_on auth_1
+end goal
+
+environment()

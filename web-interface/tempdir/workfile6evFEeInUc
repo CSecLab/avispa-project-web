@@ -1,0 +1,140 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+%%HLPSL:
+role client (
+                U,Srvr  : agent,
+           	Ks    : symmetric_key,
+	   	H     : hash_func,
+           	Snd, Rcv: channel(dy))
+played_by U
+def=
+           
+  local State, R, X, S  : nat,
+        V, Regi, Randi, Ni, Pwi, Sn, Rt : text,
+        Ti, Y, Ts, Tr, Ki, Sk, Ri, AUi, AUs,  C1, C2, C3 : message
+
+  const  u_s_sk       : protocol_id
+
+  init  State := 0  
+                   
+
+  transition
+   1. State   = 0 /\ Rcv(start) =|>
+      State' := 2 /\ Ni' := H(U.Randi)
+                  /\ Regi' := xor(H(U.H(Pwi)),H(xor(Ks,H(U.Randi))))
+                  /\ V' := new() /\ Ri' := new() /\ X' := new() /\ R' := new()
+                  /\ Y' := xor( Regi,H(V') )
+                  /\ Ki' := xor( H(U.H(Pwi)),H(v) )
+                  /\ Ti' := H( {X}_R' ).{X}_R'
+                  /\ C1' := {U.Ri'.Ti'}_Ki'
+                  /\ Snd( Sn.X'.Randi.Ni.Y'.C1')
+                  /\ request(U,srvr,u_s_ti,Ti')
+%                  /\ request(U,srvr,u_s_ni,Ni')                  
+
+   2. State   = 2 /\ Rcv(Sn.Srvr.{U.Ri'.{X}_S'}_Ki) =|> 
+      State' := 4 /\ C3'  := {U.Ri'.{X}_R}_Ki
+	          /\ Sk' := {{X}_S'}_R 
+		  /\ AUi'  := H(Srvr.Ri'.Rt.Sk')
+                  /\ Snd( Sn.AUi'.C3' )
+                  /\ request(U,srvr,u_s_au,AUi')
+
+   3. State   = 4 /\ Rcv( Sn.AUs' ) =|> 
+      State' := 6 /\ request(U,Srvr,u_s_aus,AUs')
+                  /\ wrequest(U, Srvr, u_s_sk,Sk) 
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role server( 
+                Srvr, U : agent,
+           	Ks       : symmetric_key,
+	   	H        : hash_func,
+           	Snd, Rcv : channel(dy))
+played_by Srvr
+def=
+           
+  local State, R, X, S  : nat,
+        V, Regi, Randi, Ni, Pwi, Sn, Rt, Ni1 : text,
+        Ti, Ti1, Y, Tr, Ki, Sk, Ri, AUi, AUs, Aui1, C1, C2, C3 : message
+
+  const  u_s_sk       : protocol_id
+
+  init  State := 1 
+
+  transition
+   1. State   = 1 /\ Rcv(Sn.X'.Randi.Ni'.Y'.{U.Ri'.Ti'}_Ki') =|>
+      State' := 3 /\ Ki' := xor(Y',H(xor(Ks,Ni'))) 
+                  /\ Ni1' := H(U.Randi)
+%                  /\ witness(Srvr, U, u_s_ni, Ni1')
+                 
+
+   2. State   = 3 /\ Ni = Ni1 =|>
+      State' := 5 /\ S' := new() /\ Rt' := new()
+                  /\ C2' := {U.Rt'.{X}_S}_Ki
+                  /\ Snd( Sn.srvr.C2')
+
+   3. State   = 5 /\ Rcv(Sn.AUi'.{U.Ri.{X}_R}_Ki') =|> 
+      State' := 7 /\ Ti1'  := H({X}_R)
+                  /\ Sk':= {{X}_S}_R
+                  /\ Aui1' := H(Srvr.Ri.Rt.Sk')
+                  /\ witness(Srvr, U, u_s_ti, Ti1')
+                  /\ witness(Srvr, U, u_s_aui, Aui1') 
+                   
+   4. State   = 7 /\ Ti1'= Ti /\ Aui1'= AUi' =|> 
+      State' := 9 /\ AUs' := H( U.Ri.Rt.Sk)
+                  /\ Snd( Sn.AUs')
+                  /\ request(srvr, U, u_s_aus,AUs')
+                  /\ wrequest(U, Srvr, u_s_sk,Sk) 
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(Srvr,U: agent,
+	     Ks: symmetric_key,
+	     H: hash_func)
+def=
+
+  local SA, SB, RA, RB: channel (dy)
+
+  composition
+           client(U, Srvr, Ks, H, SA, RA)
+       /\ server(Srvr, U, Ks, H, SB, RB)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+
+  const srvr, u      : agent,
+        ks, ki,kj           : symmetric_key,
+        h             : hash_func,
+        u_s_ni, u_s_ti, u_s_aui, u_s_aus       : protocol_id
+
+  intruder_knowledge = {srvr, u, h }
+
+  composition
+	session(srvr, u,ks, h) /\
+        session(srvr, i, ki, h) /\
+        session(u, i, kj, h)
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+ %secrecy of the shared key
+ secrecy_of u_s_sk	% Addresses G12
+                         
+ %CHAP_Init authenticates CHAP_Resp on nb
+ authentication_on u_s_aus   % Addresses G1, G2
+ %CHAP_Resp authenticates CHAP_Init on na
+ authentication_on u_s_ni, u_s_aui, u_s_ti  % Addresses G1, G2
+  
+end goal
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+     

@@ -1,0 +1,96 @@
+role alice(A, B: agent,
+	Kpa, Kpb: public_key,
+	Ksab: symmetric_key,
+	SND, RCV: channel (dy),
+	GenKsab: hash_func)
+
+played_by A def=
+
+  local 
+	State : nat, 
+	Na, Nb: text,
+	Kpra: symmetric_key
+
+init State := 0
+
+  transition
+	
+	0.  State  = 0 /\ RCV(start) =|> 
+            State':= 2 /\ Kpa' := new() /\ Kpra' := new() /\ Na' := new() 
+		   /\ SND(Na'.Kpa')
+
+    2.  State  = 2 /\ RCV(Nb'.Kpb') =|> 
+            State':= 4
+		   /\ Ksab' := GenKsab(Kpra,Kpb)
+		   /\ secret(Ksab,ksab,{A,B}) 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob(A, B: agent,
+	Kpa, Kpb: public_key,
+	Ksab: symmetric_key,
+	SND, RCV: channel (dy),
+	GenKsab: hash_func)
+		
+played_by B def=
+
+  local 
+	State : nat, 
+	Na, Nb: text,
+	Kprb: symmetric_key
+
+init State := 1
+
+  transition
+	
+	1.  State  = 1 /\ RCV(Na'.Kpa') =|> 
+            State':= 3 /\ Kpb' := new() /\ Kprb' := new() /\ Nb' := new() /\
+		    SND(Na'.Kpb')
+	3.  State  = 3 
+		/\ Ksab' := GenKsab(Kprb',Kpa')
+		/\ secret(Ksab, ksab, {A,B})
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(A, B: agent,
+	Kpa, Kpb: public_key,
+	Ksab: symmetric_key,
+	GenKsab: hash_func)
+def=
+local SA, RA, SB, RB: channel(dy)
+
+composition
+
+	alice(A,B,Kpa,Kpb,Ksab,GenKsab,SA,RA)
+	/\
+	bob(A,B,Kpa,Kpb,Ksab,GenKsab,SB,RB)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() 
+def=
+	const 
+		a, b : agent,
+        ka, kb, ki: public_key,
+		ksab, ksi: symmetric_key,
+		GenKsab: hash_func,
+       
+    intruder_knowledge = {a,b,ki,ksi,GenKsab}
+
+    composition
+
+        session(a,b,ka,kb,ksab)
+     /\ session(a,i,ka,ki,ksab)
+     /\ session(i,b,ka,ki,ksi)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+  secrecy_of ksab
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

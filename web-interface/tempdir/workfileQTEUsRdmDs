@@ -1,0 +1,263 @@
+role sdSrc (SrcTEE, SDsrc, SDtgt, SP: agent,
+
+            PKSrcTEE, PKSDsrc, PKSDtgt, PKSP: public_key,
+
+            SDCred: text,
+
+            SND, RCV: channel (dy))
+
+    played_by SDsrc def=
+
+    local
+
+        State: nat,
+
+        EncSD: text,
+
+        KProxy: public_key
+
+    init State:=0
+
+    transition
+
+    0.State=0 /\ RCV(start) =|>  EncSD':={SDCred}_PKSDsrc /\ State':=1
+
+    1.State=1 =|> SND(EncSD)      
+
+    /\ secret(SDCred,transfer,{SDsrc, SP, SDtgt})
+
+    /\ equal({EncSD}_KProxy, {SDCred}_PKSDtgt)
+
+end role
+
+ 
+
+role src (SrcTEE, SDsrc, TgtTEE, TEEAdmin, SP: agent,            
+
+          PKSrcTEE, PKSDsrc, PKTgtTEE, PKTEEAdmin, PKSP : public_key,
+
+          SK : symmetric_key,
+
+          SND, RCV: channel (dy))
+
+    played_by SrcTEE def=
+
+    local
+
+        State : nat,
+
+        TimeStamp,EncSD: text,
+
+        Ack: message,
+
+        KProxy: public_key
+
+    init State := 0
+
+    transition 
+
+    0.State  = 0 /\ RCV(EncSD) =|> State':= 1 /\ TimeStamp':= new()/\SND(SrcTEE.TEEAdmin.PKSP.PKSDsrc. PKSrcTEE. PKTgtTEE.{PKSP. PKSDsrc. PKSrcTEE. PKTgtTEE.TimeStamp'}_inv(PKSrcTEE))
+
+    1.State= 1 /\ RCV(SrcTEE.TEEAdmin.KProxy.{PKSP.PKSrcTEE. PKTgtTEE}_inv(PKSP).{KProxy.{ PKSP.PKSrcTEE. PKTgtTEE. TimeStamp}_inv(PKSP)}_inv(PKTEEAdmin)) =|> State':= 2
+
+    2.State=2/\SND(SrcTEE.TgtTEE.{{EncSD}_KProxy.PKSP}_SK) =|> RCV({SrcTEE.TgtTEE.Ack.TimeStamp}_SK)
+
+end role
+
+ 
+
+role teeAdmin (SrcTEE, TgtTEE, TEEAdmin, SP: agent,            
+
+               PKSrcTEE, PKTgtTEE, PKTEEAdmin, PKSP: public_key,     
+
+               SND, RCV: channel (dy))
+
+    played_by TEEAdmin def=
+
+    local
+
+        State : nat,
+
+        SDCreate, Param, Ack: message,
+
+        TimeStamp: text,
+
+        PKSDsrc, KProxy: public_key
+
+    init State := 0
+
+    transition 
+
+    0.State=0 /\ RCV(TEEAdmin.SrcTEE.PKSP.PKSDsrc.PKSrcTEE.PKTgtTEE.{PKSP. PKSDsrc.PKSrcTEE. PKTgtTEE.TimeStamp}_inv(PKSrcTEE))=|> State':= 1 /\ SND(TEEAdmin.SP.PKSDsrc.PKSrcTEE. PKTgtTEE)
+
+    1.State=1 /\ RCV(TEEAdmin.SP .SDCreate .PKTgtTEE) =|> State':=2 /\ TimeStamp':=new()/\SND(TEEAdmin. TgtTEE. SDCreate. {SDCreate.TimeStamp'}_inv(PKTEEAdmin))
+
+    2.State=2 /\RCV(TEEAdmin. TgtTEE.Ack.Param.{ Ack.Param.TimeStamp}_inv(PKTgtTEE)) =|> State':=3 /\ SND(TEEAdmin.SP.Param)
+
+    3.State=3 /\RCV(TEEAdmin.SP.KProxy.{PKSP.PKSrcTEE. PKTgtTEE. TimeStamp}_inv(PKSP))=|> SND(TEEAdmin. SrcTEE.KProxy.{ PKSP.PKSrcTEE. PKTgtTEE. TimeStamp}_inv(PKSP).{ KProxy.{PKSP.PKSrcTEE. PKTgtTEE.TimeStamp}_inv(PKSP)}_inv(PKTEEAdmin))
+
+end role
+
+ 
+
+role sp(TEEAdmin, SP: agent,            
+
+        PKTEEAdmin, PKSP: public_key,     
+
+        SND, RCV: channel (dy))
+
+    played_by SP def=
+
+    local
+
+        State : nat,
+
+        SDCreate, Param: message,
+
+        TimeStamp: text,
+
+        PKSrcTEE, PKTgtTEE, PKSDsrc, PKSDtgt, KProxy: public_key
+
+    init State := 0
+
+    transition 
+
+    0.State=0 /\ RCV(SP.TEEAdmin.PKSDsrc.PKSrcTEE.PKTgtTEE) =|> State':=1 /\ SND(SP.TEEAdmin.SDCreate.PKTgtTEE)
+
+    1.State=1/\RCV(Param) =|> TimeStamp':=new()/\PKSDtgt':=new()/\ KProxy':=new()/\SND(KProxy'.{PKSP.PKSrcTEE.PKTgtTEE.TimeStamp'}_inv(PKSP))
+
+end role
+
+ 
+
+role tgt(SrcTEE, TgtTEE, TEEAdmin, SDTgt: agent,            
+
+         PKTgtTEE, PKTEEAdmin, PKSP, PKSDtgt: public_key,
+
+         SK : symmetric_key,
+
+         SND, RCV: channel (dy))
+
+    played_by TgtTEE def=
+
+    local
+
+        State : nat,
+
+        TimeStamp, EncSD: text,
+
+        SDCreate, Ack, Param: message,
+
+        KProxy: public_key
+
+    init State := 0
+
+    transition 
+
+    0.State=0/\RCV(TgtTEE.TEEAdmin.SDCreate.{SDCreate.TimeStamp}_inv(PKTEEAdmin)) =|> State':=1/\TimeStamp':=new()/\SND(TgtTEE.TEEAdmin.Ack.Param.{Ack.Param.TimeStamp'}_inv(PKTgtTEE))
+
+    1.State=1/\RCV(TgtTEE.SrcTEE.{{EncSD}_KProxy.PKSP}_SK)=|>State':=2/\TimeStamp':=new()/\SND(TgtTEE.SrcTEE.{Ack.TimeStamp'}_SK)
+
+    2.State=2 =|>SND(TgtTEE.SDTgt.{EncSD}_KProxy)
+
+end role
+
+ 
+
+role sdTgt(TgtTEE, SDTgt: agent,
+
+           PKTgtTEE, PKSDsrc, PKSDtgt: public_key,
+
+           SND, RCV: channel (dy))
+
+    played_by SDTgt def=
+
+    local
+
+        State: nat,
+
+        EncSD: text,
+
+        KProxy: public_key
+
+    init State:=0
+
+                transition
+
+    0.State= 0 =|> RCV({EncSD}_KProxy) 
+
+end role
+
+ 
+
+role session(SDsrc, SDtgt, SrcTEE, TgtTEE, TEEAdmin, SP: agent,
+
+          PKSDsrc,PKSDtgt,PKSrcTEE,PKTgtTEE,PKTEEAdmin,PKSP: public_key,     
+
+          SK : symmetric_key,
+
+          SDCred: text)
+
+    def=
+
+    local S0, R0, S1, R1, S2, R2, S3, R3, S4, R4, S5, R5 : channel (dy)
+
+    composition
+
+    sdSrc (SrcTEE, SDsrc, SDtgt, SP, PKSrcTEE, PKSDsrc, PKSDtgt, PKSP, SDCred, S0, R0)
+
+    /\ src (SrcTEE, SDsrc, TgtTEE, TEEAdmin, SP, PKSrcTEE, PKSDsrc, PKTgtTEE, PKTEEAdmin, PKSP, SK, S1, R1)
+
+    /\ teeAdmin (SrcTEE, TgtTEE, TEEAdmin, SP, PKSrcTEE, PKTgtTEE, PKTEEAdmin, PKSP,S2, R2)
+
+    /\ sp (TEEAdmin, SP, PKTEEAdmin, PKSP, S3, R3)
+
+    /\ tgt (SrcTEE, TgtTEE, TEEAdmin, SDtgt, PKTgtTEE, PKTEEAdmin, PKSP, PKSDtgt, SK, S4, R4)
+
+    /\ sdTgt(TgtTEE, SDtgt, PKTgtTEE, PKSDsrc, PKSDtgt, S5, R5)
+
+end role
+
+ 
+
+role environment()
+
+  def=
+
+  const
+
+      sdsrc, sdtgt, srctee, tgttee, teeadmin, spagent, i: agent,
+
+      pksdsrc,pksdtgt,pksrctee,pktgttee,pkteeadmin,pksp,ki: public_key,
+
+      sk: symmetric_key,
+
+      transfer : protocol_id,
+
+      sdcred: text
+
+  intruder_knowledge={pksrctee, pktgttee, pkteeadmin, pksp, ki, inv(ki)}
+
+  composition
+
+  session(sdsrc, sdtgt, srctee, tgttee, teeadmin, spagent, pksdsrc, pksdtgt, pksrctee, pktgttee, pkteeadmin, pksp, sk, sdcred)
+
+ % /\ session(sdsrc, sdtgt, i, tgttee, teeadmin, spagent, pksdsrc, pksdtgt, pksrctee, pktgttee, pkteeadmin, pksp, sk, sdcred)
+
+  % /\ session(sdsrc, sdtgt, srctee, i, teeadmin, spagent, pksdsrc, pksdtgt, pksrctee, pktgttee, pkteeadmin, pksp, sk, sdcred)
+
+  % /\ session(sdsrc, sdtgt, srctee, tgttee, i, spagent, pksdsrc, pksdtgt, pksrctee, pktgttee, pkteeadmin, pksp, sk, sdcred)
+
+end role
+
+ 
+
+goal
+
+    secrecy_of transfer
+
+end goal
+
+ 
+
+environment()

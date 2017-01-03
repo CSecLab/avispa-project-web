@@ -1,0 +1,100 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileMOTB1M
+
+section signature:
+
+state_dhcp_Delayed_Client: agent * agent * hash_func * hash_func * text * nat * text * apply(hash_func,pair(agent,pair(protocol_id,pair(apply(hash_func,text),text)))) * set(agent) * nat -> fact
+state_dhcp_Delayed_Server: agent * agent * hash_func * hash_func * text * nat * text * apply(hash_func,pair(agent,pair(protocol_id,pair(apply(hash_func,text),text)))) * nat -> fact
+
+
+section types:
+
+set_77, set_74, set_70: set
+sig, sec_k, delayedAuthReq: protocol_id
+Sig, Dummy_Sig: apply(hash_func,pair(agent,pair(protocol_id,pair(apply(hash_func,text),text))))
+State, 9, 7, 4, 2, SID, 1, 0, Dummy_State, 3, SID2, SID1: nat
+Set_24, Dummy_Set_24, ASGoal: set(agent)
+start, dummy_msg, MGoal: message
+KeyID, H, succ, h, keyid: hash_func
+Time1, K, Dummy_Time1, dummy_nonce, k1, k2, k3: text
+b, S, C, A2Goal, A1Goal, i, a: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(k2).
+ iknows(delayedAuthReq).
+ iknows(keyid).
+ iknows(h).
+ iknows(succ).
+ iknows(k3).
+ iknows(i).
+ state_dhcp_Delayed_Server(b,a,h,keyid,k1,0,dummy_nonce,dummy_msg,3).
+ state_dhcp_Delayed_Client(a,b,h,keyid,k1,0,dummy_nonce,dummy_msg,set_70,4).
+ state_dhcp_Delayed_Client(a,i,h,keyid,k2,0,dummy_nonce,dummy_msg,set_74,7).
+ state_dhcp_Delayed_Server(b,i,h,keyid,k3,0,dummy_nonce,dummy_msg,9)
+
+
+section rules:
+
+step step_0 (S,C,H,KeyID,K,Dummy_Time1,Dummy_Sig,SID,Time1) :=
+ state_dhcp_Delayed_Server(S,C,H,KeyID,K,0,Dummy_Time1,Dummy_Sig,SID).
+ iknows(pair(C,pair(delayedAuthReq,Time1)))
+ =>
+ state_dhcp_Delayed_Server(S,C,H,KeyID,K,1,Time1,apply(H,pair(S,pair(delayedAuthReq,pair(apply(succ,Time1),K)))),SID).
+ iknows(pair(S,pair(delayedAuthReq,pair(apply(succ,Time1),pair(apply(KeyID,K),apply(H,pair(S,pair(delayedAuthReq,pair(apply(succ,Time1),K))))))))).
+ witness(S,C,sig,apply(H,pair(S,pair(delayedAuthReq,pair(apply(succ,Time1),K)))))
+
+step step_1 (C,S,H,KeyID,K,Dummy_Time1,Sig,Set_24,SID,Time1) :=
+ state_dhcp_Delayed_Client(C,S,H,KeyID,K,0,Dummy_Time1,Sig,Set_24,SID).
+ iknows(start)
+=[exists Time1]=>
+ state_dhcp_Delayed_Client(C,S,H,KeyID,K,1,Time1,Sig,Set_24,SID).
+ iknows(pair(C,pair(delayedAuthReq,Time1)))
+
+step step_2 (C,S,H,KeyID,K,Time1,Dummy_Sig,Dummy_Set_24,SID) :=
+ state_dhcp_Delayed_Client(C,S,H,KeyID,K,1,Time1,Dummy_Sig,Dummy_Set_24,SID).
+ iknows(pair(S,pair(delayedAuthReq,pair(apply(succ,Time1),pair(apply(KeyID,K),apply(H,pair(S,pair(delayedAuthReq,pair(apply(succ,Time1),K)))))))))
+ =>
+ state_dhcp_Delayed_Client(C,S,H,KeyID,K,2,Time1,apply(H,pair(S,pair(delayedAuthReq,pair(apply(succ,Time1),K)))),Dummy_Set_24,SID).
+ request(C,S,sig,apply(H,pair(S,pair(delayedAuthReq,pair(apply(succ,Time1),K)))),SID).
+ secret(K,sec_k,Dummy_Set_24).
+ contains(S,Dummy_Set_24)
+
+
+section properties:
+
+property secrecy_of_sec_k (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_k,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_sig (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,sig,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,sig,MGoal))
+     /\ ((request(A1Goal,A2Goal,sig,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,sig,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_sec_k (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_k,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_sig (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,sig,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,sig,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_sig (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,sig,MGoal,SID1).
+ request(A1Goal,A2Goal,sig,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

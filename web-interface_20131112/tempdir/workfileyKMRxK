@@ -1,0 +1,109 @@
+role server(S, T: agent, 
+            H:hash_func,
+            SND, RCV: channel(dy))
+played_by S def=
+
+  local State: nat,
+        R3,R2, ID, K:text
+        
+
+init State := 1
+
+transition
+
+0. State = 1 /\ RCV (start)
+             /\ R3':= new()  
+             /\ SND(R3')
+
+1. State = 2   /\ Rcv(h(K',R3',R2').xor(R2',ID'))
+       =|> State':= 2        /\ request(S,T,id3,ID')
+          =|> State':= 3     /\ request(S,T.id4,K')
+
+2. State=3 /\ SND(h(ID',R3',R2'))
+        =|> State':= 3   /\ witness(S, T, TRID, ID')
+        
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role tag(T,S: agent,
+          H: hash_func,
+         Snd,Rcv: channel(dy))
+played_by T def=
+
+        local State   : nat,
+        R3,R2 , ID, K: text
+       
+  init  State := 0
+
+  transition
+
+   0. State = 0
+      /\ Rcv(R3')
+      =|> 
+      State' := 1
+      /\ R2' := new()
+      /\ Snd(h(K',R3',R2').xor(R2',ID')) 
+      /\ witness( T, S, TRID,ID')
+      /\ witness( T, S, TRK, K')
+      /\ secret(ID',id, {T,  S})
+      /\ secret (R2', id2, {T, S})
+      /\ secret(K',id5, {T, S})
+   1. State = 1 /\ Rcv(h(ID',R3',R2'))
+      =|> State':= 2 /\ request(T, S, TRID, ID')
+      
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+role session( T,S : agent,
+
+              Hash : hash_func)
+def=
+
+local SND, RCV: channel(dy)
+
+composition
+
+   tag(T,S,Hash,SND, RCV)
+/\ server (S,T,Hash,SND, RCV)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+role environment( ) def=
+const
+id, id2, id3, id4, id5,TRID, TRK: protocol_id,
+tag, server: agent,
+h : hash_func
+
+intruder_Knowledge = {tag,server,h}
+composition
+
+   session(tag,server,h)
+/\ session(tag,i,h)
+/\ session(i,server,h)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+goal
+
+secrecy_of id, id2, id5
+
+authentication_on TRID
+authentication_on id4
+authentication_on id3
+
+authentication_on TRK
+
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

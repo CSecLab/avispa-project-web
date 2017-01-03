@@ -1,0 +1,139 @@
+%MyProtocol
+
+role alice (A, S, B : agent,
+            Kas : symmetric_key,
+			Snd, Rcv : channel(dy),
+			SndB, RcvB: channel(dy)) played_by A def=
+			
+	local
+		State: nat,
+		Na: message, 
+		Nas: text,
+		Kab: text
+	
+	
+	init
+		State:=0
+	
+	
+	transition
+		1. State=0 / Rcv(start) =|>
+				State'=1
+			/ Na':= new()
+			/ Snd({Na'.B}_Kas)
+			
+	
+		2. State=1 / Rcv({Nas.Kab}_Kas)=|>
+			State'=2 /
+			SndB({Nas}_Kab)
+   
+		3. State=2 / RcvB({Na}_Kas) =|> 
+			State'=3 /
+			request(A,B, alice_bob_nb, Na)
+	
+end_role
+
+
+
+role bob (B, S, A: agent,
+		  Kbs : symmetric_key,
+		  Snd, Rcv: channel(dy),
+		  Snda, Rcva: channel(dy)) played_by B def=
+
+	local
+		State: nat,
+		Nb : message,
+		Nas: text,
+		Kas: text
+	
+	init
+		State:=0
+
+	transition
+	1.	State = 0 =|>
+		Nb'= new() /
+		State'=1 /
+		Snd({Nb'.A}_Kbs)
+
+	2.  State=1 / Rcv({Nas.Kab}_Kbs) / Rcva({Nb}_Kab) =|>
+		State'=2 /
+		Snda({Nas}_Kab) /
+		request(A,B, bob_alice_nb, Nb) /
+		secret(Kab, skab, {A,B,S})
+		
+	
+end_role
+
+role server (A, B, S: agent,
+			 Kas, Kbs: symmetric_key,
+			 Snda, Rcva: channel(dy),
+			 Sndb, Rcvb: channel(dy)) played_by S def=
+
+	local
+		State :nat,
+		Nb : text,
+		Na : text,
+		Nas : message,
+		Kab : message
+
+	init
+		State:=0
+	
+	transition
+		1. State = 0 / Rcva({Na.B}_Kas) =|>
+		   State'=1 /
+		   Kab'= new() /
+		   Nas'= new() /
+		   Snda({Nas'.Kab}_Kas)
+		   
+		2. State = 1 / Rcvb({Nb.A}_Kbs) =|>
+		   State'=2 /
+		   Sndb({Na.Kab}_Kbs)
+	   
+end_role
+
+role session(A,B,S: agent,
+			 Kas, Kbs: symmetric_key,
+			 SndAS, RcvAS: channel(dy),
+			 SndBS, RcvBS: channel(dy),
+			 SndAB, RcvAB: channel(dy)) def =
+			 
+	composition
+		alice(A,S,B, Kas, SndAS, RcvAS, SndAB, RcvAB) /
+		bob(B,S,Aa, Kbs, SndBS, RcvBS, SndAB, RcvAB) /
+		server(A,B,S,Kas, Kbs, SndAS, RcvAS, SndAB, RcvAB)
+		  
+end_role		  
+
+
+role environment() def=
+
+  local
+      SndAS, RcvAS: channel(dy),
+	  SndBS, RcvBS: channel(dy),
+	  SndAB, RcvAB: channel(dy),
+	  alice_bob_nb, bob_alice_nb, skab: protocol_id
+  const
+     a, b, s, i: agent,
+     kas, kbs: symmetric_key,
+     
+
+  intruder_knowledge = {a,b,s}
+
+  composition
+    session(a,b,s,kas,kbs,SndAS, RcvAS, SndBS, RcvBS, SndAB, RcvAB) /
+    session(a,b,s,kas,kbs,SndAS, RcvAS, SndBS, RcvBS, SndAB, RcvAB)
+  
+end role
+
+
+goal 
+     authentication_on alice_bob_nb
+	 authentication_on bob_alice_nb
+     secrecy_of skab
+
+end goal
+
+
+environment()
+ 

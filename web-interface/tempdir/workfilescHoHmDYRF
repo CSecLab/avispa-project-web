@@ -1,0 +1,252 @@
+%% PROTOCOL: H.530: Symmetric security procedures for H.323 mobility in H.510
+%% VARIANT: Original version
+%% PURPOSE: Establish an authenticated (Diffie-Hellman) shared-key
+%% between a mobile terminal (MT) and a visited gate-keeper (VGK), who do not
+%% know each other in advance, but who have a "mutual friend", an 
+%% authentication facility (AuF) in the home domain of MT. 
+%%
+%% REFERENCE: \url{http://www.itu.int/rec/recommendation.asp?type=folders&lang=e&parent=T-REC-H.530} \\
+%% (original version without "corrigendum")
+%% MODELER: Sebastian M\"odersheim, ETH Z\"urich
+%% ALICE_BOB:
+%% \begin{verbatim}
+%%  Macros
+%%  M1 = MT,VGK,NIL,CH1,exp(G,X)
+%%  M2 = M1,F(ZZ,M1),VGK,exp(G,X) XOR exp(G,Y)
+%%  M3 = VGK,MT,F(ZZ,VGK),F(ZZ,exp(G,X) XOR exp(G,Y))
+%%  M4 = VGK,MT,CH1,CH2,exp(G,Y),F(ZZ,exp(G,X) XOR exp(G,Y)),F(ZZ,VGK)
+%%  M5 = MT,VGK,CH2,CH3
+%%  M6 = VGK,MT,CH3,CH4
+%%-------------------------------------------------------------------
+%%  1. MT  -> VGK : M1,F(ZZ,M1)
+%%  2. VGK -> AuF : M2,F(ZZ_VA,M2) 
+%%  3. AuF -> VGK : M3,F(ZZ_VA,M3) 
+%%  4. VGK -> MT  : M4,F(exp(exp(G,X),Y),M4) 
+%%  5. MT  -> VGK : M5,F(exp(exp(G,X),Y),M5)
+%%  6. VGK -> MT  : M6,F(exp(exp(G,X),Y),M6)
+%% \end{verbatim}
+%%
+%% PROBLEMS: 3
+%% ATTACKS: 
+%%   A replay attack, as $AuF$'s reply to the authentication request from
+%%   $VGK$ does not contain enough information that $VGK$ can read. The 
+%%   attack works by first observing a session between honest agents and
+%%   then replaying messages from this session to $VGK$, posing both as
+%%   $MT$ and $AuF$. Use option sessco to find this attack with OFMC.
+%%   Another attack recently discovered with OFMC is based on the fact that
+%%   $VGK$ cannot distinguish messages (2) and (3). 
+%%
+%% NOTES:
+%%
+%% The fixed version, also included in this library, is not vulnerable to
+%% the attacks. 
+%%
+%% In the original protocol description there is a chain of intermediate
+%% hops between VGK and AuF, where the length of this chain depends on
+%% the concrete setting. Each of the hops shares a symmetric key with its
+%% neighbouring hops and forwards messages in the chain decrypting and
+%% re-encrypting them accordingly. All the hops and AuF have to be
+%% honest, since if one of them modifies messages or inserts new ones,
+%% the protocol trivially cannot provide authentication. In our
+%% formalisation we have modelled no intermediate hops (so VGK and AuF
+%% directly share a key) and a simple reduction proof shows that all
+%% attacks possible in a setting with an arbitrary number of intermediate
+%% hops can be simulated in our model with no intermediate hops. Note,
+%% however, that it is not possible to take this idea further and "merge" an
+%% honest VGK with AuF, as demonstrated by the attacks we have discovered
+%% where the intruder eavesdrops and replays messages (that he cannot
+%% decrypt) exchanged between VGK and AuF.
+%%
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+%%  HLPSL:
+role ch(
+    A,B,N : agent,
+    SND,RCV    : channel(dy),
+    F          : function,
+    PSK, KAN	       : symmetric_key,  %%PSK
+    G      : text)
+played_by A def=
+
+  local
+State: nat,
+ 	Ni, SA1, SA2, DHX: text, 
+        Nr: text,
+        KEr: message, %% more spefic: exp(text,text)
+        SK: hash(text.text.text.message),
+        AUTH_B: message
+
+  const sec_a_SK : protocol_id
+    
+  init  State := 0
+
+  transition
+
+ 1. State  = 0 /\ RCV(start) =|>
+    State':= 1	      /\SA1' := new()
+                      /\ DHX' := new()
+                      /\ Ni' := new()
+                      /\ SND(SA1'.exp(G,DHX').Ni' )
+
+
+
+
+ 2. State  = 1 /\RCV(SA1.KEr'.Nr')  =|>
+    State':= 2 	/\ SA2' := new()
+                /\ SK' := F(Ni.Nr'.SA1.exp(KEr',DHX))
+                /\ SND( {A.F(PSK.SA1.exp(G,DHX).Ni.Nr').SA2'}_SK' )
+             %%  /\ witness(A,B,sk2,F(Ni.Nr'.SA1.exp(KEr,DHX)))
+
+
+ 3. State  = 2 /\ RCV({B.F(PSK.SA1.KEr.Ni.Nr).SA2}_SK) =|>
+    State':= 3 /\AUTH_B' := F(PSK.SA1.KEr.Ni.Nr)
+               /\ secret(SK,sec_a_SK,{A,B}) %% ,N}
+               /\ request(A,B,sk1,SK)
+	       /\ SND({A.SA2.SK}_KAN)
+       	       /\ witness(A,B,sk1,SK)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role host (
+    A,B,N : agent,
+    SND,RCV    : channel(dy),
+    F          : function,
+    PSK, KBN      : symmetric_key,
+    G      : text)
+played_by B def=
+
+  local
+
+	State: nat,
+	Ni, SA1, SA2: text, 
+        Nr, DHY, MN, MB : text,
+        SK: hash(text.text.text.message),
+        KEi: message,
+        AUTH_A : message
+
+  const sec_b_SK : protocol_id
+
+  init  State := 0
+
+  transition
+
+  1. State = 0  /\ RCV( SA1'.KEi'.Ni' ) =|>
+  
+
+   State':= 1  	     /\ DHY' := new()
+                     /\ Nr' := new()
+                     /\ SND(SA1'.exp(G,DHY').Nr')
+                     /\ SK' := F(Ni'.Nr'.SA1'.exp(KEi',DHY'))
+ 
+  2. State = 1 /\ RCV( {A.F(PSK.SA1.KEi.Ni.Nr).SA2'}_SK ) =|>
+     State':= 2 /\ AUTH_A' := F(PSK.SA1.KEi.Ni.Nr)
+		/\ SND( {B.F(PSK.SA1.exp(G,DHY).Ni.Nr).SA2'}_SK )
+                /\ witness(B,A,sk2,SK)
+           %%   /\ secret(SK,sec_b_SK,{A,B})
+           %%   /\ request(B,A,sk2,SK)
+
+
+
+  3. State = 2 /\ RCV({N.MN'}_SK) =|>  %% _SK
+			
+     State':= 3  	 /\ MB':=new() 
+			%% /\ witness(B,N,sk3,SK)
+			 /\ SND({B.MB'}_SK)  %% SK
+     			 /\ secret(SK,sec_b_SK,{A,B}) %% N
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role cm(
+   A,B,N : agent,
+    SND,RCV    : channel(dy),
+    F          : function,
+    KAN, KBN   : symmetric_key,
+    G      : text)
+played_by N def=
+
+  local
+  	SA2: text, 
+        SK: hash(text.text.text.message),
+        State: nat,
+        MN,MB : text
+
+
+  init
+    State := 0
+
+  transition
+
+  1. State = 0  /\ RCV({A.SA2'.SK'}_KAN) =|> 
+
+
+     State':= 1 
+			   /\ MN':=new() 
+			   /\ SND({N.MN'}_SK')    %%_SK'
+
+ 1. State = 1  /\ RCV({B.MB'}_SK) =|> 
+
+
+     State':= 2 
+			   /\ MN':=new() 
+			  /\ SND({N.MN'}_KBN)    %%_SK'
+end role 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(
+    A,B,N : agent,
+    F          : function,
+    PSK,KAN,KBN   : symmetric_key,
+    G      : text)
+def=
+
+  local SND,RCV : channel (dy)
+
+  composition
+    ch(A,B,N,SND,RCV,F,PSK,KAN,G)
+ /\ host(A,B,N,SND,RCV,F,PSK,KBN,G)
+ /\ cm(A,B,N,SND,RCV,F,KAN,KBN,G)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+def=
+
+  const
+    a,b,n      : agent,
+    f            : function,
+    sk1,sk2,sk3     : protocol_id,
+    kab,kna,kbn,kai,kbi, kni  : symmetric_key,
+    g        : text
+
+  intruder_knowledge = {a,b,n,f,kai,g}
+
+composition
+     session(a,b,n,f,kab,kna,kbn,g)
+%%  /\ session(n,a,b,f,kna,kbn,g)
+ %% /\ session(b,a,n,f,kbn,kab,g)
+%%  /\ session(i,a,n,f,kni,kna,kai,g)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  %MobileTerminal    authenticates VisitedGateKeeper on key
+  authentication_on sk1
+  %VisitedGateKeeper authenticates MobileTerminal    on key1
+  authentication_on sk2
+  authentication_on sk3
+  %secrecy_of Key
+  secrecy_of sec_a_SK, sec_b_SK
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

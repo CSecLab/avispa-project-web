@@ -1,0 +1,80 @@
+% Role of the key server:
+role keyserver (D, KS: agent,             
+            K: symmetric_key,  
+           Attribute : (text.text) set,
+            Snd, Rcv: channel(dy))
+played_by KS def=
+
+  local State : nat
+
+
+  init State := 0
+
+  transition
+
+   10. State  = 0 /\ Rcv(doctor.dhaka)  /\    (in(doctor.dhaka, Attribute)) 
+       =|> State':= 1 /\ Snd(K)
+
+end role
+
+
+% Role of the doctor:
+role doctor(D, KS: agent,      
+         Snd, Rcv: channel(dy))
+played_by D def=
+
+  local State: nat,
+        K: symmetric_key
+
+
+  init State := 2
+
+  transition 
+
+   15.    State  = 2 /\ Rcv(start) 
+       =|> State':= 3 /\  Snd(doctor.dhaka)
+
+   25.  State  = 3 /\ Rcv(K')
+       =|> State':= 4 
+
+ end role
+
+
+
+
+
+% The main role:
+role environment() def=
+
+  local  %Profession: (text) set,
+           Attribute: (text.text) set,    %City: (text) set,
+         SndD, RcvD, SndS, RcvS: channel(dy)
+         
+
+  const d, ks, i: agent,
+        doctor, professor, nurse, judge, worker, dhaka, chittagong, rajshahi, khulna, bogra, barisal, sylhet : text, 
+        k : symmetric_key
+        
+  
+       
+
+ init 
+      Attribute := {doctor.dhaka, nurse.dhaka, doctor.chittagong}
+
+ % intruder_knowledge = {d, ks, dhaka, doctor}
+
+  composition
+        doctor(d, ks,  SndD, RcvD)
+     /\   keyserver (d, ks, k, Attribute , SndS, RcvS)       %keyserver (d, ks, k, Profession, City, SndS, RcvS)   
+   %  /\  doctor(i, ks,  SndD, RcvD)
+    
+        
+end role
+
+
+
+
+
+% Call of the main role:
+environment()
+

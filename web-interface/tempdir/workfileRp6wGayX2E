@@ -1,0 +1,109 @@
+% Role of a new client C
+role client (   C, AS : agent, 
+		PUc, PUas : public_key,
+		H : hash_func ,
+		SND_ASC, RCV_ASC : channel(dy))
+played_by C
+def = 
+
+		local 	State					: nat,
+			IPc, EMAILu, Crt, ACCEXPu, Tc	   	: text,
+			Kc					: symmetric_key,
+			MsgNAc					: agent.text.{text}_symmetric_key.{symmetric_key}_public_key, 
+			
+
+
+init 		State := 0
+
+transition
+
+%  do another try in which no use for compound variable except for receiving variable
+1. State   = 0 /\ RCV_ASC(start) =|>
+   State' := 2 /\ Kc' := new() /\ Tc' := new()
+	       /\ MsgNAc' := C.Tc'.{EMAILu}_Kc'.{Kc'}_(PUas)	       
+	       /\ SND_ASC(MsgNAc'.{H(MsgNAc')}_inv(PUc))
+               /\ secret (Kc',kc,{C,AS})
+	       /\ secret (EMAILu',emailu,{C,AS})
+
+
+end role
+
+
+%-----Modelling the Authentication Server------------------
+
+% Role of a new Authentication Server
+
+role authenrication_server (    C, AS : agent, 
+				PUc, PUas: public_key,
+				H : hash_func,
+				SND_CAS, RCV_CAS : channel(dy))
+played_by AS
+def = 
+
+		local 	State					: nat,
+			IPc, EMAILu, Crt, ACCEXPu, Tc	   	: text,
+			Kc					: symmetric_key
+			MsgNAc					: agent.text.{text}_symmetric_key.{symmetric_key}_public_key 
+			
+
+
+init 		State := 1
+
+transition
+
+%  do another try in which no use for compound variable except for receiving variable 
+
+1. State   = 1 /\ RCV_CAS(Msg_C'.MsgNAc'.{H(MsgNAc')}_inv(PUc)) 
+
+
+
+
+%------Modelling the Session --------------------------------
+
+
+role session(
+		C, AS			 : agent,
+		PUc, PUas		 : public_key,
+		H 			 : hash_func)
+def=
+	local 	SNDASC, RCVASC, SNDCAS, RCVCAS : channel (dy)
+
+composition
+
+alice(C,AS,PUc,PUas,H,SNDASC,RCVASC)
+/\ bob (C,AS,PUc,PUas,H,SNDCAS,RCVCAS)
+
+
+end role
+
+
+%-------Modelling the Environment----------------------------
+
+role environment()
+def=
+	const	c, as, i	: agent,
+	puc, puas, pui		: public_key, 
+	H		: hash_func
+
+
+
+intruder_knowledge = {c, as, puc, puas, pui, inv(pui)}
+
+composition
+session(c,as,puc,puas,H)
+
+%----- Modelling the security Goals -----
+
+goal
+
+secrecy_of kc, emailu
+
+end goal
+
+% --------Call of the Main Role---------------------------------
+
+environment()
+
+%------------------------------------------
+
+

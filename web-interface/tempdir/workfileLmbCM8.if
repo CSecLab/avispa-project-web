@@ -1,0 +1,86 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileLmbCM8
+
+section signature:
+
+state_bob: agent * agent * hash_func * public_key * nat * text * text * nat -> fact
+state_alice: agent * agent * hash_func * public_key * nat * text * text * nat -> fact
+
+
+section types:
+
+msg: protocol_id
+f, Hash: hash_func
+Msg, Nonce, Dummy_Nonce, Dummy_Msg, dummy_nonce: text
+start, MGoal: message
+7, 5, State, 4, 2, 12, 1, 10, 0, 6, SID, Dummy_State, 3: nat
+a, b, B, A, A2Goal, i, A1Goal: agent
+pk_b, pk_i, PK_A, pk_a: public_key
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(f).
+ iknows(pk_a).
+ iknows(pk_b).
+ iknows(pk_i).
+ iknows(inv(pk_i)).
+ iknows(i).
+ state_alice(a,b,f,pk_a,0,dummy_nonce,dummy_nonce,3).
+ state_bob(b,a,f,pk_a,1,dummy_nonce,dummy_nonce,4).
+ state_alice(b,a,f,pk_b,0,dummy_nonce,dummy_nonce,6).
+ state_bob(a,b,f,pk_b,1,dummy_nonce,dummy_nonce,7).
+ state_bob(b,i,f,pk_i,1,dummy_nonce,dummy_nonce,10).
+ state_alice(a,i,f,pk_a,0,dummy_nonce,dummy_nonce,12)
+
+
+section rules:
+
+step step_0 (A,B,Hash,PK_A,Dummy_Msg,Nonce,SID,Msg) :=
+ state_alice(A,B,Hash,PK_A,0,Dummy_Msg,Nonce,SID).
+ iknows(start)
+=[exists Msg]=>
+ state_alice(A,B,Hash,PK_A,2,Msg,Nonce,SID).
+ iknows(pair(crypt(inv(PK_A),Msg),apply(Hash,PK_A))).
+ witness(A,A,msg,Msg)
+
+step step_1 (A,B,Hash,PK_A,Msg,Dummy_Nonce,SID,Nonce) :=
+ state_alice(A,B,Hash,PK_A,2,Msg,Dummy_Nonce,SID).
+ iknows(Nonce)
+ =>
+ state_alice(A,B,Hash,PK_A,4,Msg,Nonce,SID).
+ iknows(crypt(inv(PK_A),Nonce))
+
+step step_2 (B,A,Hash,PK_A,Dummy_Nonce,Dummy_Msg,SID,Nonce,Msg) :=
+ state_bob(B,A,Hash,PK_A,1,Dummy_Nonce,Dummy_Msg,SID).
+ iknows(pair(crypt(inv(PK_A),Msg),apply(Hash,PK_A)))
+=[exists Nonce]=>
+ state_bob(B,A,Hash,PK_A,5,Nonce,Msg,SID).
+ iknows(Nonce)
+
+step step_3 (B,A,Hash,PK_A,Nonce,Msg,SID) :=
+ state_bob(B,A,Hash,PK_A,5,Nonce,Msg,SID).
+ iknows(crypt(inv(PK_A),Nonce))
+ =>
+ state_bob(B,A,Hash,PK_A,7,Nonce,Msg,SID).
+ wrequest(A,A,msg,Msg,SID)
+
+
+section properties:
+
+property weak_authentication_on_msg (A1Goal,A2Goal,MGoal,SID) :=
+ [] ((wrequest(A1Goal,A2Goal,msg,MGoal,SID)
+      /\ ~ equal(A2Goal,i))
+     => witness(A2Goal,A1Goal,msg,MGoal))
+
+
+section attack_states:
+
+attack_state weak_authentication_on_msg (A1Goal,A2Goal,MGoal,SID) :=
+ wrequest(A1Goal,A2Goal,msg,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,msg,MGoal)) &
+ not(equal(A2Goal,i))
+

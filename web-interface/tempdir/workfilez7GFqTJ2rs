@@ -1,0 +1,80 @@
+role server(S, T: agent,
+H:hash_func,
+SND, RCV: channel(dy))
+played_by S def=
+local State: nat,
+r2, xT: text,
+R1, R2, m, TK2, TK1, Auts: message
+const server_tag_atus, server_tag_xT: protocol_id
+init State := 0
+transition
+1. State = 0 /\ RCV(start) =|>
+   State' := 2
+/\ r2' := new()
+/\ R2' := exp(r2',p)
+/\ SND(R2')
+2. State = 2 /\ RCV(TK1'.TK2') =|>
+ State' := 4 /\ R1' := exp(inv(r2),TK1')
+             /\ m' := Hsh(R1'.R2.TK1')
+             /\ xT' := xor(TK2',(not(m))
+             /\ request(S,T,server_tag_xt,XT')
+             /\ Auts' := Hsh(xT'.R1')
+             /\ SND(Auts')
+             /\ witness(S,T,server_tag_auts,ATUS')
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role tag( T,S: agent,
+ps: public_key,
+xs: text,
+H: hash_func,
+SND,RCV: channel(dy))
+played_by T def=
+local State : nat,
+r1, xT: text,
+R1 ,R2 ,xT , m, TK2, TK1, Auts: message: text,
+Auth : hash(text. text.text)
+init State := 1
+transition
+1. State = 1   /\ RCV(R2') =|>
+   State' := 3 /\ r1' := new()
+               /\ R1' := exp(r1',p)
+               /\ TK1' := exp(r1',ps)
+               /\ m' := Hsh(R1'.R2'.TK1')
+               /\ TK2' := xor(xT',m')
+               /\ SND(TK1'.TK2')
+               /\ witness(T,S,tag_server_xt,XT')
+2. State = 3   /\ RCV(Auts') =|>
+   State' := 5 /\ Auts' := Hsh(xT'.R1')
+               /\ request(T,S,tag_server_auts,Auts')
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session( T,S : agent,
+ps: public_key,
+xs: text,
+Hash : hash_func)
+def=
+local SS, RS, ST, RT: channel (dy)
+composition
+tag(T, S, xs, ps, Hash, SS, RS)
+/\ server (S, T, xs, ps, Hash, ST, RT)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment( ) 
+def=
+const server_tag_atus, server_tag_xT, xT, zT: protocol_id,
+h : hash_func,
+ps, ki: symmetric_key,
+tag, server: agent
+intruder_Knowledge = {tag,server,h,i,ki}
+composition
+session(tag,server,zT,h)
+/\ session(tag,i,ki,h)
+/\ session(i,server,ki,h)
+end role
+goal
+secrecy_of xT, zT
+authentication_on atus
+authentication_on xT
+end goal
+environment()

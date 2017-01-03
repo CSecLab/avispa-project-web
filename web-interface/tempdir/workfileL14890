@@ -1,0 +1,121 @@
+%%C <- S: Rs
+%%C -> S: {Rc}_Es, {f(Rs), P, C}_Kcs, in which Kcs = f(Rc, Rs)
+%%C <- S: {f(Rc)}_Kcs. 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role server     (S, C    : agent,
+	   	 f       : function,
+           	 Snd, Rcv: channel(dy))
+played_by S
+def=
+           
+  local State    : nat,
+        Ns, Nc   : text,
+	Es       : Public_key,
+	Kcs      : symmetric_key,
+  const P, ID    : text
+  
+  init  State := 0
+
+  transition
+   1. State   = 0 /\ Rcv(start) =|>
+			State' := 2 /\ Ns' := new() /\ Snd(Ns')   
+   2. State   = 2 /\ Rcv({Nc'}_Es.{f(Ns).P.ID}_Kcs') 
+   	              /\ Kcs':= f(Nc',Ns)
+   		State' := 4 /\ Snd({f(Nc)}_Kcs)
+   	              /\ request(S,C,s_c_ns,Ns)
+   	              /\ request(S,C,s_c_kcs,Kcs')
+   	              /\ witness(S,C,s_c_p,P)
+   	              /\ witness(S,C,s_c_id,ID)=|>
+   								/\ secret(Kcs,kcs,{S,C})
+   								/\ secret(P,p,{S,C})
+   								/\ secret(ID,id,{S,C})
+   								/\ secret(Nc,nc,{S,C}) 
+   
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role Client    (S,C   : agent,
+	   						f     : hash_func,
+        				Es    : Public_key,
+           			Snd, Rcv: channel(dy))
+%%played_by C
+def=
+           
+  local State  : nat,
+        Ns, Nc : text,
+				Kcs    : symmetric_key,
+
+  init  State := 0
+
+  transition
+   1. State   = 1 /\ Rcv(Ns') =|>
+			State' := 3 /\ Nc' := new()
+									/\ Kcs':= f(Nc',Ns)
+									/\ Snd({Nc'}_Es.{f(Ns).P.ID}_Kcs')
+									/\ witness(C,S,cs_ns,Ns')
+									/\ request(C,S,c_s_kcs,Kcs')
+									/\ witness(C,S,c_s_nc,Nc')	
+									
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role session(S, C: agent, 
+             Es  : Public_key,
+             f   : hash_func) 
+def=
+
+  local SS, RS, SC, RC: channel (dy)
+
+  composition 
+
+	Server (S,C,f,SS,RS)
+     /\ Client  (S,C,f,Es,SC,RC)
+
+end role	
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role environment() def=
+
+    const s, c	 : agent,
+	  Kcs, Ksi, Kci: symmetric_key,
+	  Es           : Public_key,	
+	  f            : hash_func,
+	  const s_c_ns, s_c_kcs, s_c_p, s_c_id, c_s_kcs, c_s_nc,
+	        kcs, p, id, nc: protocol_id;
+
+    intruder_knowledge = {s, c, f, Es, Ksi, Kci }
+
+    composition
+
+	      session(s,c,Es,f)
+     /\ session(i,s,Es,f)
+     /\ session(i,c,Es,f)
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+goal
+
+  secrecy_of p, id, kcs, nc
+  authentication_on s_c_ns
+  authentication_on s_c_kcs
+  authentication_on s_c_p
+  authentication_on s_c_id
+  authentication_on c_s_kcs
+  authentication_on c_s_nc  
+
+end goal
+                                                

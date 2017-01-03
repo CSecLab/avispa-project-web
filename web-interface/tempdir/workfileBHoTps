@@ -1,0 +1,322 @@
+role electric_vehicle(
+
+		EVv,EVSEh		: agent,
+		Snd,Rcv		: channel(dy)
+				)
+
+played_by EVv
+
+def=
+
+local		State				: nat,
+		PSD				: text set
+
+const psid1_EVv,psid2_EVv,psid3_EVv : text
+
+init State := 0
+	
+transition
+ 
+1. 	State = 0 	/\ Rcv(start) =|>
+	State':= 1	/\ Snd(psid1_EVv)
+			/\ PSD':=delete(psid1_EVv,PSD)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role electric_vehicle_supply_equipment(
+		
+		EVSEh,SCv,SMh		: agent,
+		K_EVSEhSMh			: symmetric_key,
+		H				: hash_func,
+		Snd,Rcv			: channel(dy)
+
+				)
+
+played_by EVSEh
+
+def=
+
+local		State						: nat,
+		DEC_Sv 				: text,
+		T_EVSEh,T2_SMh				: text,
+		C_EVSEh,C2_SMh				: text,
+		REQ_SCv : agent.text.text.text.{{agent.public_key.{agent.public_key}_inv(public_key).agent.text.text.text}_inv(public_key)}_symmetric_key,		
+		L						: text set	
+
+const p_Sh : text
+
+init State := 0
+
+transition
+
+1. 	State = 0 	/\ Rcv(psid1_EVv) =|>
+	State':= 1 /\ T_EVSEh':= new()
+			/\ Snd(psid1_EVv.p_Sh.T_EVSEh')
+
+2. 	State = 1 	/\ Rcv(REQ_SCv') =|>
+	State':= 2 /\ C_EVSEh':= {REQ_SCv'}_(K_EVSEhSMh)
+			/\ T_EVSEh':= new()
+			/\ Snd(EVSEh.SMh.C_EVSEh'.T_EVSEh'.H(EVSEh.SMh.C_EVSEh'.T_EVSEh'.K_EVSEhSMh))
+			/\ witness(EVSEh,SMh,smh_auth_evseh,T_EVSEh')
+
+3.	State = 2 	/\ Rcv(SMh.EVSEh.C2_SMh'.T2_SMh'.H(SMh.EVSEh.C2_SMh'.T2_SMh'.K_EVSEhSMh)) /\ not(in(T2_SMh',L)) =|>
+	State':= 3 /\ L':= cons(T2_SMh',L)
+			/\ request(EVSEh,SMh,evseh_auth_smh,T2_SMh')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role smart_card(
+
+		SCv,EVSEh,Sv,Sh,SMh		: agent,
+		K_SCvSv				: symmetric_key,
+		H					: hash_func,
+		PK_SCv,PK_TA			: public_key,
+		Snd,Rcv				: channel(dy)
+				)
+
+played_by SCv
+
+def=
+
+local		State					: nat,
+		T_EVSEh      	: text,
+		M_SCv : agent.text.text.text,
+		Sig_SCv : {agent.public_key.{agent.public_key}_inv(public_key).agent.text.text.text}_inv(public_key),
+C_SCv : {{agent.public_key.{agent.public_key}_inv(public_key).agent.text.text.text}_inv(public_key)}_symmetric_key,
+REQ_SCv : agent.text.text.text.{{agent.public_key.{agent.public_key}_inv(public_key).agent.text.text.text}_inv(public_key)}_symmetric_key
+
+init State := 0
+
+transition
+
+1. 	State = 0 	/\ Rcv(psid1_EVv.p_Sh.T_EVSEh') =|>
+	State':= 1 /\ M_SCv' := Sv.psid1_EVv.p_Sh.T_EVSEh'
+			/\ Sig_SCv':= {H(M_SCv')}_inv(PK_SCv)
+			/\ C_SCv':= {SCv.PK_SCv.{SCv.PK_SCv}_inv(PK_TA).Sig_SCv'}_(K_SCvSv)
+			/\ REQ_SCv':= M_SCv'.C_SCv'
+			/\ Snd(REQ_SCv')
+			/\ secret(Sig_SCv',sigscv,{SCv,Sv})
+			/\ witness(SCv,Sv,sv_auth_scv,Sig_SCv')
+			
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role smart_meter(
+		
+		EVSEh,SMh,Sh,Sv,TA 	: agent,
+		PK_SMh,PK_Sh,PK_TA	: public_key,
+		K_EVSEhSMh			: symmetric_key,
+		H				: hash_func,
+		Snd,Rcv			: channel(dy)
+
+				)
+
+played_by SMh
+
+def=
+
+local		State							: nat,
+		DEC_Sv 						: text,
+		T1_SMh,T2_SMh,T1_Sh,T2_Sh,T_EVSEh	: text,
+		C1_SMh,C2_SMh,C1_Sh,C2_Sh,C_EVSEh 	: text,
+REQ_SCv : agent.text.text.text.{{agent.public_key.{agent.public_key}_inv(public_key).agent.text.text.text}_inv(public_key)}_symmetric_key,	
+		L							: text set	
+
+init State := 0
+
+transition
+
+1. 	State = 0 	/\ Rcv(EVSEh.SMh.C_EVSEh'.T_EVSEh'.H(EVSEh.SMh.C_EVSEh'.T_EVSEh'.K_EVSEhSMh)) /\ not(in(T_EVSEh',L)) =|>
+	State':= 1 /\ L':= cons(T_EVSEh',L)
+			/\ C1_SMh':= {REQ_SCv'}_(PK_Sh)
+			/\ T1_SMh':= new()
+			/\ Snd(PK_SMh.SMh.{PK_SMh.SMh}_inv(PK_TA).Sh.C1_SMh'.T1_SMh'.{Sh.C1_SMh'.T1_SMh'}_inv(PK_SMh))
+			/\ witness(SMh,Sh,sh_auth_smh,T1_SMh')
+			/\ request(SMh,EVSEh,smh_auth_evseh,T_EVSEh')
+
+2.	State = 1 	/\ Rcv(PK_Sh.Sh.{PK_Sh.Sh}_inv(PK_TA).SMh.C2_Sh'.T2_Sh'.{SMh.C2_Sh'.T2_Sh'}_inv(PK_Sh)) /\ not(in(T2_Sh',L)) =|>
+	State':= 2 /\ L':= cons(T2_Sh',L)
+			/\ C2_SMh':= {DEC_Sv'}_(K_EVSEhSMh)
+			/\ T2_SMh':= new()
+			/\ Snd(SMh.EVSEh.C2_SMh'.T2_SMh'.H(SMh.EVSEh.C2_SMh'.T2_SMh'.K_EVSEhSMh))
+			/\ witness(SMh,EVSEh,evseh_auth_smh,T2_SMh')
+			/\ request(SMh,Sh,smh_auth_sh,T2_Sh')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role supplier_host(
+		
+		SMh,Sh,Sv,TA 			: agent,
+		PK_SMh,PK_Sh,PK_Sv,PK_TA	: public_key,
+		Snd,Rcv				: channel(dy)
+
+				)
+
+played_by Sh
+
+def=
+
+local		State						: nat,
+		DEC_Sv 				: text,
+		T1_SMh,T1_Sh,T2_Sh,T_Sv		: text,
+		C1_SMh,C1_Sh,C2_Sh,C_Sv 		: text,
+REQ_SCv : agent.text.text.text.{{agent.public_key.{agent.public_key}_inv(public_key).agent.text.text.text}_inv(public_key)}_symmetric_key,			
+		L						: text set	
+
+
+init State := 0
+
+transition
+
+1. 	State = 0 	/\ Rcv(PK_SMh.SMh.{PK_SMh.SMh}_inv(PK_TA).Sh.C1_SMh'.T1_SMh'.{Sh.C1_SMh'.T1_SMh'}_inv(PK_SMh)) /\ not(in(T1_SMh',L)) =|>
+	State':= 1 /\ L':= cons(T1_SMh',L)
+			/\ C1_Sh':= {REQ_SCv'}_(PK_Sv)
+			/\ T1_Sh':= new()
+			/\ Snd(PK_Sh.Sh.{PK_Sh.Sh}_inv(PK_TA).Sv.C1_Sh'.T1_Sh'.{Sv.C1_Sh'.T1_Sh'}_inv(PK_Sh))
+			/\ witness(Sh,Sv,sv_auth_sh,T1_Sh')
+			/\ request(Sh,SMh,sh_auth_smh,T1_SMh')
+
+2.	State = 1 	/\ Rcv(PK_Sv.Sv.{PK_Sv.Sv}_inv(PK_TA).Sh.C_Sv'.T_Sv'.{Sh.C_Sv'.T_Sv'}_inv(PK_Sv)) /\ not(in(T_Sv',L)) =|>
+	State':= 2 /\ L':= cons(T_Sv',L)
+			/\ C2_Sh':= {DEC_Sv'}_(PK_SMh)
+			/\ T2_Sh':= new()
+			/\ Snd(PK_Sh.Sh.{PK_Sh.Sh}_inv(PK_TA).SMh.C2_Sh'.T2_Sh'.{SMh.C2_Sh'.T2_Sh'}_inv(PK_Sh))
+			/\ witness(SMh,Sh,smh_auth_sh,T2_Sh')
+			/\ request(Sh,Sv,sh_auth_sv,T_Sv')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role supplier_visitor(
+
+		SCv,EVSEh,SMh,Sh,Sv,TA	: agent,
+		PK_Sh,PK_Sv,PK_TA,PK_SCv	: public_key,
+		K_SCvSv				: symmetric_key,
+		Snd,Rcv				: channel(dy)
+	
+				)
+
+played_by Sv
+
+def=
+
+local		State					: nat,
+		DEC_Sv 				: text,
+		T1_SMh,T1_Sh,T2_Sh,T_Sv		: text,
+		C1_SMh,C1_Sh,C2_Sh,C_Sv 		: text,
+Sig_SCv : {agent.public_key.{agent.public_key}_inv(public_key).agent.text.text.text}_inv(public_key),
+REQ_SCv : agent.text.text.text.{{agent.public_key.{agent.public_key}_inv(public_key).agent.text.text.text}_inv(public_key)}_symmetric_key,					
+L,PSD						: text set
+	
+
+init State := 0
+
+transition
+
+1. 	State = 0 	/\ Rcv(PK_Sh.Sh.{PK_Sh.Sh}_inv(PK_TA).Sv.C1_Sh'.T1_Sh'.{Sv.C1_Sh'.T1_Sh'}_inv(PK_Sh)) /\ not(in(T1_Sh',L)) /\ in(psid1_EVv,PSD) =|>
+	State':= 1 /\ L':= cons (T1_Sh',L)
+			/\ PSD':=delete(psid1_EVv,PSD)
+			/\ DEC_Sv' := new()
+			/\ C_Sv':= {DEC_Sv'}_(PK_Sh)
+			/\ T_Sv':= new()
+			/\ Snd(PK_Sv.Sv.{PK_Sv.Sv}_inv(PK_TA).Sh.C_Sv'.T_Sv'.{Sh.C_Sv'.T_Sv'}_inv(PK_Sv))
+			/\ secret(DEC_Sv',decsv,{EVSEh,SMh,Sh,Sv})
+			/\ witness(Sv,Sh,sh_auth_sv,T_Sv')
+			/\ request(Sv,Sh,sv_auth_sh,T1_Sh')
+			/\ request(Sv,SCv,sv_auth_scv,Sig_SCv')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role session(
+
+		EVv,EVSEh,SCv,SMh,Sh,Sv,TA 		: agent,
+		PK_SCv,PK_SMh,PK_Sh,PK_Sv,PK_TA	: public_key,
+		K_EVSEhSMh,K_SCvSv			: symmetric_key,
+		H						: hash_func,
+		LEVSEh,LSMh,LSh,LSv			: text set
+		
+               ) 
+
+def=
+
+	local	 SndEVv,RcvEVv,SndEVSEh,RcvEVSEh,SndSCv,RcvSCv,SndSMh,RcvSMh,SndSh,RcvSh,SndSv,RcvSv : channel(dy) 
+	
+	const	 sv_auth_scv,evseh_auth_smh,smh_auth_evseh,sh_auth_smh,smh_auth_sh,sv_auth_sh,sh_auth_sv,decsv,sigscv : protocol_id	
+
+composition
+
+electric_vehicle(EVv,EVSEh,SndEVv,RcvEVv)
+/\ electric_vehicle_supply_equipment(EVSEh,SCv,SMh,K_EVSEhSMh,H,SndEVSEh,RcvEVSEh)
+/\ smart_card(SCv,EVSEh,SMh,Sh,Sv,K_SCvSv,H,PK_SCv,PK_TA,SndSCv,RcvSCv)
+/\ smart_meter(SMh,EVSEh,Sh,Sv,TA,PK_SMh,PK_Sh,PK_TA,K_EVSEhSMh,H,SndSMh,RcvSMh)
+/\ supplier_host(Sh,SMh,Sv,TA,PK_Sh,PK_SMh,PK_Sv,PK_TA,SndSh,RcvSh)
+/\ supplier_visitor(Sv,EVSEh,SCv,SMh,Sh,TA,PK_Sh,PK_Sv,PK_TA,PK_SCv,K_SCvSv,SndSv,RcvSv)
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() 
+
+def=
+
+  local	LEVSEh,LSMh,LSh,LSv,PSDEVV,PSDSV		: text set
+
+  const 	scv,evv,evseh,smh,sh,sv,ta,i		: agent,
+        	pk_uv,pk_smh,pk_sh,pk_sv,pk_ta,pk_i	: public_key,
+k_evsehsmh,k_evsehi,k_ismh,k_scvsv,k_isv,k_scvi  : symmetric_key,
+	   	h							: hash_func 
+	 
+init	LEVSEh:= {} /\ LSMh:= {} /\ LSh:= {} /\ LSv:= {} /\ PSDEVV := {psid1_EVv,psid2_EVv,psid3_EVv} /\ PSDSV := {psid1_EVv,psid2_EVv,psid2_EVv}         
+        
+ intruder_knowledge = {evv,evseh,smh,sh,sv,i,k_ismh,k_evsehi,k_isv,k_scvi,pk_smh,pk_sh,pk_sv,pk_ta,pk_i,inv(pk_i),h}
+
+composition
+
+session(evv,evseh,scv,smh,sh,sv,ta,pk_uv,pk_smh,pk_sh,pk_sv,pk_ta,k_evsehsmh,k_scvsv,h,LEVSEh,LSMh,LSh,LSv)
+
+/\ session(evv,evseh,scv,smh,sh,sv,ta,pk_uv,pk_smh,pk_sh,pk_sv,pk_ta,k_evsehsmh,k_scvsv,h,LEVSEh,LSMh,LSh,LSv)
+
+/\ session(i,evseh,scv,smh,sh,sv,ta,pk_uv,pk_smh,pk_sh,pk_sv,pk_ta,k_evsehsmh,k_scvsv,h,LEVSEh,LSMh,LSh,LSv)
+
+/\ session(evv,evseh,i,smh,sh,sv,ta,pk_i,pk_smh,pk_sh,pk_sv,pk_ta,k_evsehsmh,k_isv,h,LEVSEh,LSMh,LSh,LSv)
+
+/\ session(evv,i,scv,smh,sh,sv,ta,pk_uv,pk_smh,pk_sh,pk_sv,pk_ta,k_ismh,k_scvsv,h,LEVSEh,LSMh,LSh,LSv)
+ 
+/\ session(evv,evseh,scv,i,sh,sv,ta,pk_uv,pk_i,pk_sh,pk_sv,pk_ta,k_evsehi,k_scvsv,h,LEVSEh,LSMh,LSh,LSv)
+
+/\ session(evv,evseh,scv,smh,i,sv,ta,pk_uv,pk_smh,pk_i,pk_sv,pk_ta,k_evsehsmh,k_scvsv,h,LEVSEh,LSMh,LSh,LSv)
+
+/\ session(evv,evseh,scv,smh,sh,i,ta,pk_uv,pk_smh,pk_sh,pk_i,pk_ta,k_evsehsmh,k_scvsv,h,LEVSEh,LSMh,LSh,LSv)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+	authentication_on sv_auth_scv	
+	authentication_on evseh_auth_smh	
+	authentication_on smh_auth_evseh	
+	authentication_on sh_auth_smh
+	authentication_on smh_auth_sh 	
+	authentication_on sv_auth_sh	
+	authentication_on sh_auth_sv 
+	secrecy_of decsv
+	secrecy_of sigscv
+
+end goal
+
+environment()

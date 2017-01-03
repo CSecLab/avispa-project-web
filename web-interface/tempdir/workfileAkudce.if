@@ -1,0 +1,77 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileAkudce
+
+section signature:
+
+state_board: agent * agent * public_key * public_key * nat * text * nat -> fact
+state_user: agent * agent * public_key * public_key * nat * text * set(agent) * nat -> fact
+
+
+section types:
+
+data: protocol_id
+MGoal, start: message
+ku, kb, ki, Ku, Kb: public_key
+set_48, set_59, set_57: set
+ASGoal, Set_17, Dummy_Set_17: set(agent)
+dummy_nonce, Data, Dummy_Data: text
+u, b, U, B, i: agent
+4, 2, State, 5, 3, 1, 9, 7, SID, Dummy_State: nat
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(u).
+ iknows(b).
+ iknows(ku).
+ iknows(kb).
+ iknows(ki).
+ iknows(inv(ki)).
+ iknows(i).
+ state_user(u,b,ku,kb,1,dummy_nonce,set_48,3).
+ state_board(b,u,ku,kb,2,dummy_nonce,4).
+ state_board(b,i,ki,kb,2,dummy_nonce,7).
+ state_user(u,i,ku,ki,1,dummy_nonce,set_59,9)
+
+
+section rules:
+
+step step_0 (U,B,Ku,Kb,Dummy_Data,Dummy_Set_17,SID,Data) :=
+ state_user(U,B,Ku,Kb,1,Dummy_Data,Dummy_Set_17,SID).
+ iknows(start)
+=[exists Data]=>
+ state_user(U,B,Ku,Kb,3,Data,Dummy_Set_17,SID).
+ secret(Data,data,Dummy_Set_17).
+ iknows(crypt(Kb,crypt(inv(Ku),Data))).
+ contains(U,Dummy_Set_17).
+ contains(B,Dummy_Set_17)
+
+step step_1 (U,B,Ku,Kb,Dummy_Data,Set_17,SID,Data) :=
+ state_user(U,B,Ku,Kb,3,Dummy_Data,Set_17,SID).
+ iknows(crypt(Ku,crypt(inv(Kb),Data)))
+ =>
+ state_user(U,B,Ku,Kb,5,Data,Set_17,SID)
+
+step step_2 (B,U,Ku,Kb,Dummy_Data,SID,Data) :=
+ state_board(B,U,Ku,Kb,2,Dummy_Data,SID).
+ iknows(crypt(Kb,crypt(inv(Ku),Data)))
+ =>
+ state_board(B,U,Ku,Kb,4,Data,SID).
+ iknows(crypt(Ku,crypt(inv(Kb),Data)))
+
+
+section properties:
+
+property secrecy_of_data (MGoal,ASGoal) :=
+ [] ((secret(MGoal,data,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_data (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,data,ASGoal) &
+ not(contains(i,ASGoal))
+

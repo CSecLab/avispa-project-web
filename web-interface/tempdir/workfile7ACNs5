@@ -1,0 +1,113 @@
+%Definicion de roles
+role cliente(
+	C, B, T		: agent, 	%%Agentes
+	Pkc, Pkb	: public_key,	%Llaves públicas
+	Hash		: hash_func,	%Función hash
+	SND, RCV	: channel(dy))	%Canal y modelo de ataque
+
+	played_by C def=
+		local
+			State	 : nat,
+			enrolreq, url, downloadreq, finish, package : message
+		init
+			State := 1
+		transition
+			1. State   = 1 /\ RCV(start) =|>
+			   State' := 3 /\ SND(enrolreq)
+
+			2. State   = 3 /\ RCV(url') =|>
+			   State' := 5 /\ SND(downloadreq)
+			
+			3. State   = 5 /\ RCV(package') =|>
+			   State' := 6 /\ SND(finish)
+			
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role banco(
+	C,B,T		: agent,
+	pkc, pkb	: public_key,
+	Hash		: hash_func,
+	SND, RCV	: channel(dy))
+
+	played_by B def=
+		local
+			State	 : nat,
+			enrolreq, url : message
+			
+		init
+			State := 2
+		transition
+			1. State   = 2 /\ RCV(enrolreq') =|>
+			   State' := 6 /\ SND(url)
+			
+			2. State := 6 /\ RCV(finish')
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role tienda(
+	C,B,T		: agent,
+	pkc, pkb	: public_key,
+	Hash		: hash_func,
+	SND, RCV	: channel(dy))
+
+	played_by T def=
+		local
+			State	: nat,
+			downloadreq, package, finish : message
+			
+		init
+			State := 4
+		transition
+			1. State   = 4 /\ RCV(downloadreq') =|>
+			   State' := 5 /\ SND(package)		
+			
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+role session (C, B, T : agent,
+	      Hash: hash_func,
+	      pkc, pkb  : public_key) 
+	def=
+		local RC, SC, RB, SB, RT, ST : channel (dy),
+
+  const na : protocol_id
+
+  composition
+
+	  cliente(C,B,T,pkc,pkb,Hash,SC,RC)
+       /\ banco(C,B,T, pkc,pkb,Hash,SB,RB)
+       /\ tienda(C,B,T,pkc,pkb,Hash,ST,RT)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment() def=
+
+  const C, B, T     : agent,
+	Hash : hash_function, 
+	pkc, pkb : public_key
+
+  intruder_knowledge={c,b,t,pkc,pkb}
+
+  composition
+
+	session(C,B,T,Hash,pkc,pkb)
+     /\	session(C,B,T,Hash,pkc,pkb)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+goal
+
+   secrecy_of url
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+environment()
+
+	

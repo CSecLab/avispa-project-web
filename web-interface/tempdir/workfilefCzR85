@@ -1,0 +1,172 @@
+role domain(
+A, CA1, C, ILS1, V : agent,
+Ka, Kca1, Kils1, Kv : public_key,
+S_ACA1, R_ACA1, S_AILS1, R_AILS1, S_AC, R_AC, S_AV, R_AV : channel(dy))
+
+played_by A def=
+local
+State : nat,
+AddReq : message,
+Root, Hval, OK : message,
+Cert : {agent.public_key}_inv(public_key)
+
+init
+State := 0
+
+transition
+1. State = 0 & R_AC(start) =|>
+State':= 2 & S_ACA1(A.Ka)
+
+2. State = 4 & R_ACA1(Cert') =|> 
+State':=6 & AddReq' := ({Cert'}_inv(Ka))
+& S_AILS1(AddReq') 
+
+
+3. State = 6 & R_AILS1({Root'.Hval'}_inv(Kils1)) =|>
+State':= 8 & S_AV({Root'.Hval'}_inv(Kils1))
+
+4. State = 8 & R_AV({OK}_inv(Kv)) =|>
+State' := 10 & S_AC(Cert'.{Root'.Hval'}_inv(Kils1).{OK}_inv(Kv))
+                                      
+end role
+
+
+role cert_agency1(
+CA1, A, ILS1 : agent,
+Kca1, Ka : public_key,
+S_CA1A, R_CA1A, S_CA1ILS1, R_CA1ILS1 : channel(dy))
+
+played_by CA1 def=
+local
+State : nat,
+Checkmsg : message,
+CRes : {message}_inv(public_key),
+Cert : message
+
+init
+State := 1
+
+transition
+1. State = 1 & R_CA1A(A.Ka) =|>
+State':=3 & Checkmsg' := new() 
+	    & S_CA1ILS1({Checkmsg'}_inv(Kca1))
+
+2. State = 3 & R_CA1ILS1(CRes') =|>
+State' := 5 & Cert' := {A.Ka}_inv(Kca1) 
+	      & S_CA1A(Cert')
+                                      
+end role
+
+role int_log_server1(
+ILS1, CA1, A, V : agent,
+Kils1, Kca1 : public_key,
+S_ILS1CA1, R_ILS1CA1, S_ILS1A, R_ILS1A, S_ILS1V, R_ILS1V : channel(dy))
+
+
+played_by ILS1 def=
+%exists Db: (message) list
+
+local
+State : nat,
+X : {message}_inv(public_key),
+R, Root, Hval : message,
+AddReq : {message}_inv(public_key) 
+
+init
+Db := []
+State := 2
+
+transition
+1. State = 2 & R_ILS1CA1(X') =|>
+State' := 4 & R':= new() 
+	      & S_ILS1CA1({R'}_inv(Kils1))
+
+2. State = 5 & R_ILS1A(AddReq') =|>
+State':= 7 & Root' := new()
+	     & Db' := cons(Root', Db)
+	     & Db' := cons(Hval, Db)  
+	     & S_ILS1A({Root'.Hval}_inv(Kils1))
+	     & S_ILS1V(Db')
+	    
+
+                                      
+end role	
+	
+role validator(
+V, A, ILS1 : agent,
+Kv, Ka, Kils1 : public_key,
+S_VA, R_VA, S_VILS1, R_VILS1 : channel(dy))
+
+played_by V def=
+%exists Db: (message) list
+
+local
+State : nat,
+Root, Hval, OK : message
+
+init
+State := 7
+
+transition
+1. State = 7 & R_VA({Root'.Hval'}_inv(Kils1)) & R_VILS1(Db') & in(Root', Db') & in(Hval', Db') =|>
+State':=9 & S_VA({OK}_inv(Kv))
+
+                                      
+end role
+
+role session(
+A, CA1, ILS1, V, C : agent,
+Ka, Kca1, Kils1, Kv: public_key)
+
+def=
+local 
+S_ACA1, R_ACA1, 
+S_AILS1 R_AILS1,
+S_AC, R_AC,
+S_AV R_AV, 
+S_CA1A, R_CA1A, 
+S_CA1ILS1, R_CA1ILS1, 
+S_ILS1CA1, R_ILS1CA1, 
+S_ILS1A, R_ILS1A, 
+S_VA R_VA : channel (dy)
+
+composition
+	domain(A, CA1, C, ILS1, V, Ka, Kca1, Kils1, Kv, S_ACA1, R_ACA1, S_AILS1, R_AILS1, S_AC, R_AC, S_AV, R_AV) 
+& cert_agency1(CA1, A, ILS1, Kca1, Ka, S_CA1A, R_CA1A, S_CA1ILS1, R_CA1ILS1)
+& int_log_server1(ILS1, CA1, A, V, Kils1, Kca1, S_ILS1CA1, R_ILS1CA1, S_ILS1A, R_ILS1A)
+& validator(V, A, ILS1, Kv, Ka, Kils1, S_VA, R_VA)
+ 
+end role
+
+
+role environment()
+def=
+const a, ca1, ils1, v, c : agent,
+%k1, k2, k3, k4, k5 : protocol_id,
+ka, kca1, kils1, kv, ki : public_key,
+intruder_knowledge = {a, ca1, ils1, v, ki}
+
+composition
+session(a, ca1, ils1, v, c, ka, kca1, kils1, kv)
+ & session(i, ca1, ils1, v, c, ki, kca1, kils1, kv)
+%& session(a, i, ils1, v, c, ka, ki, kils1, kv)
+%& session(a, ca1, i, v, c, ka, kca1, ki, kv)
+%& session(a, ca1, ils1, i, c, ka, kca1, kils1, ki)
+
+
+      
+
+end role
+
+goal
+%secrecy_of k1
+%secrecy_of k2
+%secrecy_of k3
+%secrecy_of k4
+%secrecy_of k5
+
+end goal
+environment()
+           
+
+    

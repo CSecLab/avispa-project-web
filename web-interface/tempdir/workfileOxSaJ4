@@ -1,0 +1,58 @@
+%%PROTOCOL The authorization document installation
+%%
+%% 1. DT -> SC: req-nounce
+%% 2. SC -> DT: nounce1
+%% 3. DT -> SC: {{authourization_doc}puBE , current_car_mileage, nounce1}K
+%%
+%%
+role deskterminal(
+  DT, SC : agent,
+  puBE, K : symmetric_key,
+  Hash : hash_func,
+  SND, RCV : channel(dy))
+played_by DT def=
+
+local State: nat, % remembers local protocol state
+  nounce1 : text, % the nounce generated
+  req-nounce: message % the key to be generated
+
+init  State := 0 % initialize state to 0
+
+transition
+1. State = 0 /\ RCV(start) =|>
+State':= 2 /\ req_nounce' := new()
+/\ SND(req_nounce')
+
+2. State = 2 /\ RCV({nounce1) =|>
+State':= 4 /\ k' := Hash(req-nounce.nounce1')
+/\ SND({nounce1}_K) /\
+witness(DT,SC,teskterminal_smartcard_nounce1,nounce1')
+
+end role
+
+role smartcard(
+  DT, SC : agent,
+  puBE, K : symmetric_key,
+  Hash : hash_func,
+  SND, RCV : channel(dy))
+played_by SC def=
+
+local State: nat, % remembers local protocol state
+  nounce1 : text, % the nounce generated
+  req-nounce: message % the key to be generated
+
+init  State :=1 % initialize state to 1
+
+transition
+1. State = 1 /\ RCV(req_nounce) =|>
+State':= 3 /\ nounce1' := new()
+/\ SND(nounce') k' := Hash(req_nounce'.nounce1')
+/\ secret (k',k, {DT, SC})
+
+2. State = 3 /\ RCV({nounce1) =|>
+State':= 5 /\ K' := Hash(req-nounce.nounce1')
+request(DT,SC,teskterminal_smartcard_nounce1,nounce1')
+
+end role
+
+enviroment()

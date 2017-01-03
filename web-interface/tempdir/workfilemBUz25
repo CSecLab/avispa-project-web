@@ -1,0 +1,28 @@
+role keyDistributionCentre(
+               A,C,G    : agent,
+               Kca,Kag  : symmetric_key,
+               SND, RCV : channel(dy))
+  played_by A
+  def=
+
+    local State   : nat,
+          N1      : text,
+          U       : text,
+          Kcg     : symmetric_key,
+          T1start : text,
+          T1expire: text
+
+    const sec_k_Kcg : protocol_id
+
+    init  State := 11
+
+    transition
+      1. State  = 11 / RCV(U'.G.N1') =|> 
+         State':= 12 / Kcg' := new()
+                     / T1start' := new()
+                     / T1expire' := new()
+                     / SND(U'.{U'.C.G.Kcg'.T1start'.T1expire'}_Kag.
+                           {G.Kcg'.T1start'.T1expire'.N1'}_Kca)
+                     / witness(A,C,n1,Kcg'.N1')
+                     / secret(Kcg',sec_k_Kcg,{A,C,G})
+  end role 

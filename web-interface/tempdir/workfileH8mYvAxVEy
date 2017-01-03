@@ -1,0 +1,218 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%% RA %%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role ra(
+RA, FS,FU: agent,
+Krafs,Kbfu: symmetric_key,
+Kpub_b : public_key,
+Sign: function,
+Request,
+Initiation_Required,Success: text,
+SND_RAFS, RCV_RAFS,SND_RAFU, RCV_RAFU : channel(dy))
+
+played_by RA def=
+local State : nat,
+Pkg_param : nat set,
+IDfs,IDfu,VIDfu,IDf: text,
+SV: text set,
+Kpub_fu,Kpub_fs:public_key,
+C1,Y1,C3,Y2:nat
+const sec_b_krafs ,sec_b_kbfu: protocol_id,
+auth_RA:protocol_id
+
+init  State := 0
+transition
+
+%%%%%%%%%%%%%%%%%%%  Communication between RA and FS  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+1. State =0 / RCV_RAFS(Request) =|>
+   State':= 1 / SND_RAFS(Initiation_Required)
+		/ SV':=new()
+2. State = 1 / SND_RAFS({Kpub_fs.IDf.Sign(SV'.inv(Kpub_fs))}_Krafs)=|>
+   State':= 2  / SND_RAFS(Success)
+		/secret(Krafs,sec_b_krafs,{RA,FS})
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%% authentication RA FS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	/ witness(RA,FS,auth_RA,Sign(SV'.inv(Kpub_fs)))
+     /equest(RA,FS,auth_RA,Sign(SV'.inv(Kpub_fs)))
+
+%%%%%%%%%%%%%%%%%%%  Communication between RA and FU %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+3. State =2 / RCV_RAFU(Request) =|>
+   State':= 3 / SND_RAFU(Initiation_Required)
+4. State = 3 / SND_RAFU(Kpub_b.Pkg_param')=|>
+   State':= 4  
+5. State= 4 / RCV_RAFU({Kpub_fu.IDfu.VIDfu.inv(Kpub_fu)}_Kbfu)=|>          
+   State':= 5 / RCV_RAFU(Success)/secret(Kbfu,sec_b_kbfu,{RA,FU}) 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%FU authenticates FS via RA %%%%%%%%%%%%%%%%%%%
+6. State =5/ RCV_RAFU(IDfs) =|>
+    State':= 6/ Y2':=new()
+                / C3':=new()
+            / SND_RAFU(Kpub_fs.C3'.Y2')
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%% FS %%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role fs(
+RA, FS,FU: agent,
+Krafs: symmetric_key,
+Kpub_b,Kpub_fs,Kpub_fu: public_key,
+Sign: function,
+Request,
+Initiation_Required,Success: text,
+SND_FSRA, RCV_FSRA,RCV_FSFU,SND_FSFU : channel(dy))
+
+played_by FS def=
+local State : nat,
+Pkg_param: nat set,
+
+
+IDfs ,VIDfu,IDf : text,
+SV : text set,
+%init SV := {VIDfu},
+C1,Y1,C2,C4,Y2:nat
+const sec_s_krafs : protocol_id,
+auth_RA:protocol_id
+
+init State := 11
+transition
+
+
+
+1. State =11 / RCV_FSRA(start) =|>
+   State':= 12 / SND_FSRA(Request)
+2. State = 12 / RCV_FSRA(Initiation_Required)=|>
+   State':= 13  
+3. State = 13 / RCV_FSRA({Kpub_fs.IDf.SV'.inv(Kpub_fs)}_Krafs)=|>
+   State':= 14 / RCV_FSRA(Success)
+              /secret(Krafs,sec_s_krafs,{RA,FS})
+ / witness(FS,RA,auth_RA,Sign(SV'.inv(Kpub_fs)))
+     /equest(FS,RA,auth_RA,Sign(SV'.inv(Kpub_fs)))
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% FS authenticates FU via SV %%%%%%%%%%%%%%%%
+
+4. State = 14 / RCV_FSFU(VIDfu) / in(VIDfu,SV') =|> 
+   State':= 15 /SND_FSFU(Success)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+5. State = 15 / RCV_FSFU(Y2') =|>
+    State':= 16 /SND_FSFU(C4)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%% FU %%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role fu(
+RA, FS,FU: agent,
+Kbfu: symmetric_key,
+Kpub_b,Kpub_fu,Kpub_fs: public_key,
+
+Sign: function,
+Request,
+Initiation_Required,Success: text,
+SND_FURA, RCV_FURA,RCV_FUFS,SND_FUFS : channel(dy))
+
+played_by FU def=
+local State : nat,
+Pkg_param: nat set,
+
+
+IDfu ,VIDfu,IDfs,IDf: text,
+SV : text set,
+Y1,C2,C3,C4,Y2:nat
+
+const sec_fu_kbfu : protocol_id
+
+init State := 21
+transition
+
+
+1. State =21 / RCV_FURA(start) =|>
+   State':= 22 / SND_FURA(Request)
+2. State = 22 / RCV_FURA(Initiation_Required)=|>
+   State':= 23 / RCV_FURA(Kpub_b.Pkg_param') 
+3. State = 23 / SND_FURA({Kpub_fu.IDfu.VIDfu.inv(Kpub_fu)}_Kbfu)=|>
+   State':= 24 / SND_FURA(Success)
+              /secret(Kbfu,sec_fu_kbfu,{RA,FU})
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+4. State = 24 / SND_FUFS(VIDfu) =|>
+    State':= 25
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%authenticates FS%%%%%%%%%%%%%%%%%%
+5. State =25/SND_FURA(IDfs) =|>
+    State':= 26 
+6. State =26/RCV_FURA(Kpub_fs.C3'.Y2') =|>
+   State':= 27 /SND_FUFS(Y2')
+
+7.State = 27/RCV_FUFS(C4) =|>
+    State':= 28 / C3'= C4
+              /SND_FUFS(Success)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%% Session %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session (
+RA,FS,FU : agent,
+Krafs,Kbfu: symmetric_key,
+Kpub_b,Kpub_fu,Kpub_fs: public_key,
+Sign: function,
+
+Request,
+Initiation_Required,
+Success: text
+)
+def=
+local
+SFSRA,SRAFS: channel(dy),
+RFSRA,RRAFS : channel(dy),
+RFURA,RRAFU : channel(dy),
+RFSFU,RFUFS:channel(dy),
+SFSFU,SFUFS:channel(dy),
+SFURA,SRAFU: channel(dy)
+
+composition
+
+ra(RA,FS,FU,Krafs,Kbfu,Kpub_b,Sign,Request,Initiation_Required,Success, SRAFS, RRAFS,SRAFU,RRAFU)
+/ fs(RA,FS,FU,Krafs,Kpub_b,Kpub_fs,Kpub_fu,Sign,Request,Initiation_Required,Success,SFSRA, RFSRA,RFSFU,SFSFU)
+/ fu(RA,FS,FU,Kbfu,Kpub_b,Kpub_fu,Kpub_fs,Sign,Request,Initiation_Required,Success, SFURA,RFURA,RFUFS,SFUFS)
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%% Environment %%%%%%%%%%%%%%%%%
+
+
+role environment()
+def=
+const ra1,fs1,fu1 : agent,
+krafs,kifs,kbfu,kifu : symmetric_key,
+kpub_b,kpub_fu,kpub_fs:public_key,
+y1:nat,
+sign :function,
+req,initiation,succ : text
+
+intruder_knowledge = {ra1,fs1,fu1,kpub_b,kpub_fu,y1,sign,req,initiation,succ}
+composition
+session(ra1,fs1,fu1,krafs,kbfu,kpub_b,kpub_fu,kpub_fs,sign,req,initiation,succ)
+/ session(i,fs1,fu1,kifs,kifu,kpub_b,kpub_fu,kpub_fs,sign,req,initiation,succ)
+/ session(ra1,i,fu1,kifs,kifu,kpub_b,kpub_fu,kpub_fs,sign,req,initiation,succ)
+end role
+
+goal
+
+secrecy_of sec_b_krafs, sec_s_krafs ,sec_b_kbfu, sec_fu_kbfu
+authentication_on auth_RA
+end goal
+
+environment()
+
+ 

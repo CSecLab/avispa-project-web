@@ -1,0 +1,75 @@
+role reader ( R,T: agent, ID: text, 
+             
+			  Fg,Phi : hash_func,
+	          KG: public_key, 
+              Snd,Rec: channel(dy))
+    played_by R
+    def=
+      local  State  : nat,
+             Nr, X, RNew : text,
+			 E: hash(text),
+             DID,DNew : {text.text}_public_key      
+      init State := 0 
+      transition
+       1. State = 0
+          /\ Rec(start)  =|>  State' := 1 /\ Nr' := new() 
+          /\ Snd(Nr') /\ witness(R,T,aut_reader,Nr')
+       2. State = 1
+          /\ Rec({DID}_E'.Fg(Nr.X'.DID)) =|> State' := 2 /\ RNew':=new() 
+		  /\ DNew':={ID.RNew'}_KG  
+		  /\ Snd(xor(DNew',E').Fg(Nr.DNew'.X')) /\ secret({DNew'},sec_did2, {R,T})        
+          /\ request(R,T,aut_tag,X') /\ DID':= DNew'
+end role
+
+role tag ( T,R: agent, DID: {text.text}_public_key,
+	       Fg,Phi : hash_func,
+	       Snd,Rec: channel(dy))
+    played_by T
+    def=
+      local  State  : nat,
+             Nr, X, RNew : text,
+             E: hash(text),
+			 DNew: {text.text}_public_key         
+    init State := 0       
+    transition
+     1. State = 0 /\ Rec(Nr') =|> State' := 1
+        /\ X' := new()  /\ E':=Phi(X')
+        /\ Snd({DID}_E'.Fg(Nr'.X'.DID))
+        /\ witness(T,R,aut_tag,X') /\ secret({DID},sec_did1, {T,R})        
+     2. State = 1 /\ Rec(xor(DNew',E).Fg(Nr.DNew'.X'))
+          =|> State' := 2       
+        /\ request(T,R,aut_reader,Nr) /\ DID' := DNew'
+end role
+
+role session(R,T: agent, ID,Rinit: text, 
+             Fg, Phi : hash_func, KG: public_key) 
+def=
+local Se,Re,Sf,Rf : channel(dy)
+const aut_reader, aut_tag, sec_did1, sec_did2 : protocol_id
+composition
+tag(T,R,{ID.Rinit}_KG,Fg,Phi,Se,Re)
+/\ reader(R,T,ID,Fg,Phi,KG, Sf,Rf)    
+end role
+
+role environment() def=
+const t,r,i : agent, id,rinit,idit,idri: text,   
+     g,phi : hash_func,
+      kG,kGi: public_key
+ 
+ intruder_knowledge = {t,r,i,g,kG,phi,kgi,idit,idri}
+composition
+% To detection a replay attack: 
+session(r,t,id,rinit,g,phi,kG)
+/\ session(r,t,id,rinit,g,phi,kG)
+/\ session(i,t,idit,rinit,g,phi,kGi)
+/\ session(r,i,idri,rinit,g,phi,kG)
+end role
+
+    goal
+	 secrecy_of sec_did1 % confidentiality of DID
+	 secrecy_of sec_did2 % confidentiality of DNew
+	 authentication_on aut_reader % Reader's authentication 
+     authentication_on aut_tag % Tag's authentication
+    end goal
+
+    environment()

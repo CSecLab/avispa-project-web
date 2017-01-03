@@ -1,0 +1,62 @@
+role a(A,B:agent,K:symmetric_key, SND, RCV:channel(dy)) played_by A def=
+
+local
+	Na,Nb,Ka,Kb:text,
+	State:nat
+init
+	State := 0
+transition
+	0.	State = 0 /\ RCV(start) =|>
+		State':= 2 /\ Na' := new() /\ SND(Na') /\ witness(A,B, b_a_na, Na')
+	2.	State = 2 /\ RCV(Nb') =|>
+		State' := 4 /\ Kb' := Nb'.Na /\ K' := new() /\ SND({K'}_Kb') /\ secret(K',k, {A,B})
+	4.	State = 4 /\ RCV(hf(K)) =|>
+		State':= 6 /\ request(A,B, a_b_nb, Nb)
+end role
+
+role b(A,B:agent, K:symmetric_key, SND, RCV:channel(dy)) played_by B def=
+
+local	
+	Na,Nb,Ka,Kb:text,
+	State:nat
+init
+	State := 1
+transition
+	1.	State = 1 /\ RCV(Na') =|>
+		State' := 3 /\ Nb' := new() /\ SND(Nb') /\ witness(B,A, a_b_nb, Nb')
+	3.	State = 3 /\ RCV({K'}_Kb') =|>
+		State' := 5 /\ SND(hf(K')) /\ request(B,A,b_a_na,Na)
+end role
+
+role session(A, B: agent, K: symmetric_key) def=
+
+	local
+		SA, RA, SB, RB: channel(dy)		
+	composition
+		a(A, B, K, SA, RA)
+		/\
+		b(A, B, K, SB, RB)
+end role
+
+role environment() def=
+
+	const
+		a, b: agent,
+		k: symmetric_key,
+		hf:hash_func,
+		b_a_nb, a_b_na: protocol_id
+	
+	intruder_knowledge = {a,b,hf}
+	
+    composition
+		session(a, b, k)
+end role
+
+goal
+
+	secrecy_of k
+	authentication_on a_b_nb
+	authentication_on b_a_na
+end goal
+
+environment()

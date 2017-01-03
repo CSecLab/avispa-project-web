@@ -1,0 +1,79 @@
+role userA(
+        A,B    :agent,
+        H    :hash_func,
+        Snd,Rcv    :channel(dy))
+played_by A def=
+
+local
+    State    :nat,
+    TS,TK,SK,SIDB,UIDA    :text
+init
+    State := 0
+
+transition
+1. State = 0 /\ Rcv(start) =|>
+   State':= 1/\ TK':=h(UIDA)
+         /\ TS':=new()
+         /\ Snd(TS'.TK'.UIDA)
+         /\ witness(A,B,a_b,UIDA)
+2. State = 1 /\ Rcv(SIDB) =|>
+   State':=2 /\ request(B,A,b_a,SIDB)
+         /\ SK':= new()
+         /\ secret(SK',k1,{A,B})
+         /\ Snd(SK')
+
+end role
+
+role sensornodeB(
+            A,B    :agent,
+            H    :hash_func,
+            Snd,Rcv    :channel(dy))
+played_by B def=
+
+local
+    State    :nat,
+    UIDA,SIDB,TS,TK	:text
+    
+
+init
+    State:=0
+transition
+1. State = 0 /\ Rcv(TS'.TK'.UIDA) =|>
+   State':=1 /\ request(A,B,a_b,UIDA)
+         /\ Snd(SIDB)
+         /\ witness(B,A,b_a,SIDB)
+
+end role
+
+role session(
+        A,B    :agent,
+        UIDA    :text,
+        H    :hash_func)
+def=
+local SA,SB,RA,RB    :channel(dy)
+
+composition
+    userA(A,B,h,SA,RA)
+    /\sensornodeB(A,B,h,SB,RB)
+
+end role
+
+role environment()
+def=
+const
+    a,b            :agent,
+    k1,a_b,b_a        :protocol_id,
+    h            :hash_func,
+    sidb,uida,sk,tk,r    :text
+
+intruder_knowledge = {a,b,h}
+composition
+    session(a,b,h)
+end role
+
+goal
+    secrecy_of k1
+    authentication_on a_b
+    authentication_on b_a
+end goal
+environment()

@@ -1,0 +1,112 @@
+role mobilenode(MN,KGC,CN,HA: agent, 
+                          Kcn: public_key, 
+	            Hashv: hash_func, 
+               SND,RCV,SND1,RCV1: channel(dy)) 
+	played_by MN def= 
+	local CoA, HAA, HoA, OldCoA, CNA,RPP,Dcn,KGCA, Blt, N0,BA,BU, Msglen, Type, DcnReq, SIDCN, K1, N1, N2: text , State: nat  
+	init State := 0 
+	transition   
+    	0.State = 0 /\ RCV(start) =|>
+     	  State' := 6 /\N0' :=new() /\ SND(CoA.HAA.HoA.OldCoA.CNA.{N0'}_Kcn.KGCA) /\SND1(CoA.CNA.OldCoA.{ N0'}_Kcn.KGCA)
+				
+	 
+                6.State = 6 /\ RCV(CNA.CoA.{N0.N1'}_Kcn) =|>
+	 State' := 8 /\BU':=new()/\SND(CoA.CNA.{N1'}_Kcn.BU) 
+		  /\witness(MN,CN,cn_mn_n1,N1')
+		 /\secret(BU',bu,{MN,CN})   
+
+	    8.State = 8 /\ RCV(CNA.CoA.BA') 	=|> State' := 10  /\ SND(CNA.CoA)
+  
+	 
+	end role 
+
+role homeagent(MN,KGC,CN,HA:agent, 
+                      Kcn: public_key, 
+	           Hashv: hash_func, 
+              SND,RCV: channel(dy)) 
+	played_by HA def= 
+	local State: nat, CoA, HAA, HoA, OldCoA, CNA, RPP, KGCA, Blt, N0, Msglen, Type,Dcn, DcnReq, SIDCN, K1,BU,BA, N1, N2: text 
+	 
+
+	init State := 1 
+	transition 
+	1.State = 1 /\ RCV(CoA.HAA.HoA.OldCoA.CNA.{N0'}_Kcn.KGCA)
+	=|>State' := 3 /\ SND(HoA.CNA.OldCoA.{N0'}_Kcn.KGCA) 
+		      
+
+	end role 
+
+role correspondingnode(MN,CN,HA,KGC: agent, 
+                   Kcn: public_key, 
+                   Hashv: hash_func, 
+                   SND,RCV,SND1,RCV1: channel(dy)) 
+               played_by CN def= 
+				local State: nat, CoA, HAA, HoA, OldCoA, CNA, Dcn, RPP, KGCA, Blt, N0, Msglen, Type,  DcnReq, SIDCN,BU,BA, K1, N1, N2: text 
+	       
+	init State := 2 
+	transition 
+	2.State = 2 /\ RCV(HoA.CNA.OldCoA.{N0'}_Kcn.KGCA)
+	=|>State' := 3
+	
+	3.State=3/\RCV1(CoA.CNA.OldCoA.{N0'}_Kcn.KGCA)
+	=|>State':=5/\SND(CNA.KGCA.DcnReq) 
+
+	5.State=5/\RCV(KGCA.CNA.Dcn)  
+	=|>State':=7/\N1':=new()/\SND(CNA.CoA.{N0.N1'}_Kcn)
+			       /\witness(CN,MN,mn_cn_n0,N0)
+
+	7.State = 7 /\ RCV(CoA.CNA.{N1}_Kcn.BU') 
+	=|>State' := 9 /\BA':=new()/\ SND(CNA.CoA.BA)
+			          /\secret(BA',ba,{MN,CN}) 
+
+	
+
+	end role 
+
+role keygeneratingcenter(MN,CN,HA,KGC:agent,
+	Hashv: hash_func,
+	SND,RCV : channel(dy)) 
+	played_by KGC def= 
+	local State: nat, CoA, HAA, HoA,OldCoA, CNA, RPP, KGCA, Blt, N0, Msglen, Type,Dcn, DcnReq, SIDCN, K1, N1, BU,BA,N2: text 
+	init State := 4 
+	transition 
+ 	  4.State = 4 /\ RCV(CNA.KGCA.DcnReq) 
+	=|>State' := 6 /\ SND(KGCA.CNA.Dcn) 
+
+	end role 
+
+role session( MN,CN,HA,KGC: agent, Kcn: public_key,  Hashv: hash_func)
+	 
+def= 
+
+	local SMN,SCN,SKGC,SHA,RMN,RCN,RKGC,RHA: channel(dy) 
+
+	composition 
+	mobilenode(MN,CN,HA,KGC,Kcn,Hashv,SMN,SCN,RMN,RCN) /\ homeagent(MN,CN,HA,KGC,Kcn,Hashv,SMN,SCN)
+/\correspondingnode(MN,CN,HA,KGC,Kcn,Hashv,SMN,SCN,RMN,RCN) /\ keygeneratingcenter(MN,CN,HA,KGC,Hashv,SMN,SCN) 
+	 
+	end role 
+
+
+role environment() 
+def= 
+
+const  mn,cn,ha,kgc: agent, 
+        kcn: public_key,
+	mn_cn_n0,cn_mn_n1,bu,ba:protocol_id,
+	has:hash_func
+     
+
+composition 
+	session(mn,cn,ha,kgc,kcn,has) 
+
+end role 
+
+goal
+	secrecy_of bu,ba
+	authentication_on mn_cn_n0
+	authentication_on cn_mn_n1
+end goal
+
+environment() 
+

@@ -1,0 +1,136 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%	OpendID Connect Core 1.0	%
+%					%
+%					%
+%					%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role relyingParty 	(
+	RP,OP,TE		:	agent,
+	ClientId, URI		:	text,
+	ROKey,RTKey		:	symmetric_key,
+	TEKey			:	public_key,
+	AuthReq,AuthRes,
+	TokenReq,TokenRes	:	protocol_id,
+	SND,RCV			:	channel(dy) 
+			)
+played_by RP
+def=
+	local
+		State		:	nat,
+		Stat,Code,IdToken:	text
+	init
+		State := 0
+	transition
+		1. 	State=0 /\ RCV(start) =|>
+			State':=1 
+			/\ Stat':=new() 
+			/\ secret(Stat',sec_1,{RP,OP}) 
+			/\ SND({AuthReq.ClientId.Stat'.URI}_ROKey)
+		2. 	State=1 /\ RCV({AuthRes.Code'.Stat'}_ROKey) =|> 
+			State':=2 
+			/\ secret(Stat',sec_1,{RP,OP}) 
+			/\ SND({TokenReq.Code'.URI}_RTKey)
+		3. 	State=2 /\ RCV({TokenRes.{IdToken'}_inv(TEKey)}_RTKey) =|> 
+			State':=3 
+end role
+
+role openIDProvider	(
+	OP,RP,TE		:	agent,
+	ClientId, URI		:	text,
+	ROKey			:	symmetric_key,
+	AuthReq,AuthRes		:	protocol_id,
+	SND,RCV			:	channel(dy)
+			)
+played_by OP
+def=
+	local
+		State		:	nat,
+		Code,Stat	:	text
+	init
+		State := 0
+	transition
+		1. 	State=0 /\ RCV({AuthReq.ClientId'.Stat'.URI'}_ROKey) =|> 
+			State':=1 
+			/\ witness(OP,RP,auth_1,ClientId')
+			/\ witness(OP,RP,auth_2,URI')
+			/\ secret(Stat',sec_1,{RP,OP}) 
+			/\ Code':=new() 
+			/\ SND({AuthRes.Code'.Stat'}_ROKey)
+end role
+
+role tokenEndPoint	(
+	TE,RP,OP		:	agent,
+	URI			: 	text,
+	RTKey			:	symmetric_key,
+	TEKey			:	public_key,
+	TokenReq,TokenRes	:	protocol_id,
+	SND,RCV			:	channel(dy)
+			)
+played_by TE
+def=
+	local
+		State		:	nat,
+		Code,IdToken	:	text
+	init
+		State := 0
+	transition
+		1. 	State=0 /\ RCV({TokenReq.Code'.URI'}_RTKey) =|> 
+			State':=1 
+			/\ witness(TE,RP,auth_3,Code') 
+			/\ witness(OP,RP,auth_4,URI')
+			/\ IdToken':=new() 
+			/\ SND({TokenRes.{IdToken'}_inv(TEKey)}_RTKey)
+end role
+
+role session 	(
+	RP,OP,TE		:	agent,
+	ClientId,URI		:	text,
+	ROKey,RTKey		:	symmetric_key,
+	TEKey			:	public_key,
+	AuthReq,AuthRes,
+	TokenReq,TokenRes	:	protocol_id
+		)
+def=
+	local
+		SND1,RCV1,SND2,RCV2,SND3,RCV3 :	channel(dy)
+	composition
+		relyingParty(RP,OP,TE,ClientId,URI,ROKey,RTKey,TEKey,
+				AuthReq,AuthRes,TokenReq,TokenRes,SND1,RCV1) 
+	     /\ openIDProvider(OP,RP,TE,ClientId,URI,ROKey,AuthReq,AuthRes,SND2,RCV2) 
+	     /\ tokenEndPoint(TE,RP,OP,URI,RTKey,TEKey,TokenReq,TokenRes,SND3,RCV3)
+end role
+
+role environment()
+def=
+	const
+		rp,op,te	:	agent,
+		clientid,uri	:	text,
+		rokey,rtkey,rikey:	symmetric_key,
+		tekey		:	public_key,
+		authreq,authres,	
+		tokenreq,tokenres,	
+		auth_1,				
+		auth_2,				
+		auth_3,	
+		auth_4,			
+		sec_1		:	protocol_id
+	intruder_knowledge = {rp,op,te,rikey,tekey,i}
+	composition
+		session(rp,op,te,clientid,uri,rokey,rtkey,tekey,authreq,authres,tokenreq,tokenres)		
+	     /\ session(i,op,te,clientid,uri,rikey,rikey,tekey,authreq,authres,tokenreq,tokenres)
+	     /\ session(rp,i,te,clientid,uri,rikey,rtkey,tekey,authreq,authres,tokenreq,tokenres)
+	     /\ session(rp,op,i,clientid,uri,rokey,rikey,tekey,authreq,authres,tokenreq,tokenres)
+ 
+		
+end role
+
+goal
+	authentication_on auth_1	% Autentica RP su OP con ClientID
+	authentication_on auth_2	% Autentica RP su OP con URI
+	authentication_on auth_3	% Autentica RP su TE con Code
+	authentication_on auth_4	% Autentica RP su OP con URI
+	secrecy_of sec_1
+end goal
+
+environment()

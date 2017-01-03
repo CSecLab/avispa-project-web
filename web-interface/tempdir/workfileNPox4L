@@ -1,0 +1,115 @@
+role user(
+	A,B : agent,
+	Key: symmetric_key,
+	Hash : hash_func,
+	SND,RCV : channel(dy))
+	
+	played_by A 
+	def=
+	local
+		 State,T : nat,
+		 Cid,Bi,C,Pwi,Y,Ni : text
+	init State := 0
+	
+	transition
+%Registration
+	1. State = 0 /\ RCV(start) =|> 
+					State' := 1 /\ Pwi' := new() /\ SND({Pwi'}_Key) 
+					/\ secret(Pwi',pwi,{A,B}) /\ witness(A,B,system_user_pwi,Pwi')% User A has freshly generated the Value Pwi for user A
+%Login
+	2. State = 1 /\ RCV({Ni'.Y.Pwi.Hash}_Key) =|> 
+					State' := 2 /\  request(A,B,user_system_niy,Ni'.Y.Pwi.Hash) %A make sure message received from B
+/\ T' := new() /\ witness(A,B,system_user_t,T')
+					/\ Cid' := xor(Hash(Pwi),Hash(xor(xor(Ni',Y)),T' ))
+					/\ Bi' :=  Hash(xor(Cid',Hash(Pwi))) /\ C' :=Hash(xor(T',xor(Ni',xor(Bi',Y))))
+					/\ SND(Cid'.Ni'.C'.T') /\ secret(Pwi,pwd,{A,B})%Password for smart card should not be revealed to intruder 
+					/\ secret(Y,secretnumber,{A,B})%secret Number for smart card should not be revealed to intruder
+	
+
+%Password change request
+	3. State = 2 =|> State' := 1 /\ Pwi' := new() /\ SND({Pwi'}_Key) 
+	/\ secret(Pwi',newpwi,{A,B}) %Password for smart card should not be revealed to intruder 
+	/\ witness(A,B,system_user_newpwi,Pwi')% User A has freshly generated the Value Pwi for user A
+
+
+	end role
+
+%System Authenticating the user
+role system(
+	A,B : agent,
+	Key: symmetric_key,
+	X : text,
+	Hash : hash_func,
+	SND,RCV : channel(dy))
+	played_by B 
+	def=
+		local
+		State,T : nat,
+		Cid,C,Y,Ni,Pwi : text
+		
+	init State := 0
+	transition
+%Registration Phase and Password change phase
+	1. State = 0 /\ RCV({Pwi'}_Key) =|> 
+					State' := 1 /\ Ni':= Hash(Pwi',X) /\ witness(B,A,user_system_ni,Ni')% User B has freshly generated the value Nonce for user A
+					/\ SND({Ni'.Y.Pwi'.Hash}_Key) /\ secret(Y,y,{A,B})%secret Number for smart card should not be revealed to intruder
+%Login Phase
+ 	2. State = 1 /\ RCV(Cid'.Ni.C'.T') =|>  State' := 3 
+		
+	3. State = 3 =|> State' :=1
+
+	end role
+
+
+role session( A,B : agent,
+	X : text,
+	Hash : hash_func)
+
+	def=
+	local
+		SA, SB, RA, RB: channel (dy),
+		Key: symmetric_key
+	composition
+	user(A,B,Key,Hash,SA, RA)
+	/\ system(A, B,Key,X,Hash,SB, RB)
+end role	
+
+role environment()
+
+def=
+	const a, b: agent,
+	h : hash_func,
+	x : text,
+	y, pwd, pwi,newpwi,
+              secretnumber,system_user_pwi,user_system_niy,system_user_t,user_system_ni,system_user_newpwi : protocol_id
+	intruder_knowledge = {a,b,h}
+
+	composition
+		session(a,b,x,h) /\
+		session(a,b,x,h)
+end role
+
+goal
+%make sure The password is not Revelaed in Login Phase	
+	secrecy_of pwd
+%make sure The password is not Revelaed in Registration Phase	
+	secrecy_of pwi
+%make sure The password is not Revelaed in Password change Phase	
+	secrecy_of newpwi
+%make sure secret number is not revealed in Login phase
+	secrecy_of secretnumber	
+%make sure secret number is not revealed in registration phase
+	secrecy_of y
+
+	authentication_on user_system_niy
+
+	authentication_on system_user_pwi
+
+	authentication_on system_user_newpwi
+
+	authentication_on system_user_t
+
+	authentication_on user_system_ni
+end goal
+
+environment()

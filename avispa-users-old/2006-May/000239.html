@@ -1,0 +1,189 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Avispa-users] iknows
+   </TITLE>
+   <LINK REL="Index" HREF="index.html" >
+   <LINK REL="made" HREF="mailto:avispa-users%40avispa-project.org?Subject=%5BAvispa-users%5D%20iknows&In-Reply-To=">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000238.html">
+   <LINK REL="Next"  HREF="000240.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Avispa-users] iknows</H1>
+    <B>Jon Fredrik Pettersen</B> 
+    <A HREF="mailto:avispa-users%40avispa-project.org?Subject=%5BAvispa-users%5D%20iknows&In-Reply-To="
+       TITLE="[Avispa-users] iknows">jon.pettersen at hig.no
+       </A><BR>
+    <I>Fri May 19 17:38:46 CEST 2006</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000238.html">[Avispa-users] A quick Question
+</A></li>
+        <LI>Next message: <A HREF="000240.html">[Avispa-users] iknows
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#239">[ date ]</a>
+              <a href="thread.html#239">[ thread ]</a>
+              <a href="subject.html#239">[ subject ]</a>
+              <a href="author.html#239">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi
+
+I have a question regarding the intruder knowledge function(iknows).
+
+My protocol has a symmetic key K_ENC known by A and B.
+I want to verify that my protocol is working, as spesified.
+So I tried to introduce iknows(K_ENC) into the protocol.
+
+But avispa does not find an attack trace, although  the encryption key
+is known to the intruder.
+
+How is that possible?
+
+The goal of secrecy of K_icc and K_ifd sould also be broken, right?
+
+The protocol:
+
+role alice (A, B: agent,
+    K_MAC: symmetric_key,
+    K_ENC: symmetric_key,
+    Hash : hash,
+    SND, RCV: channel (dy))
+
+played_by A def=
+
+local
+    State : nat,
+    Rnd_icc, Rnd_ifd : text (fresh),
+    K_icc, M_icc, K_ifd, M_ifd : text
+   
+    init State := 0
+   
+
+transition
+
+0.    State = 0    /\ RCV(start) =|&gt;
+     State' := 1     /\ Rnd_icc' := new()
+                        /\ SND(Rnd_icc')
+                        /\ witness(A,B,alice_bob_rnd_icc,Rnd_icc')
+           
+           
+2.        State = 2        /\ RCV ({Rnd_ifd.Rnd_icc.K_ifd}_K_ENC.M_ifd) =|&gt;
+          State' := 3        /\ K_icc' := new()
+                                    /\ secret (K_icc',k_icc,{A,B})
+                                    /\ M_icc' := Hash
+(Rnd_icc.Rnd_ifd.K_icc')
+                                    /\ M_icc' := {M_icc'}_K_MAC
+
+                                    /\
+SND({Rnd_icc.Rnd_ifd.K_icc}_K_ENC.M_icc')
+                                    /\ witness(A,B,alice_bob_k_icc,K_icc')
+                                    /\ request(A,B,alice_bob_k_ifd,K_ifd)
+
+end role
+
+role bob (A, B: agent,
+         K_MAC: symmetric_key,
+         K_ENC: symmetric_key,
+    Hash : hash,
+         SND, RCV: channel (dy))
+
+played_by B def=
+
+local
+
+State : nat,
+    Rnd_ifd, Rnd_icc : text (fresh),
+    K_ifd, M_ifd, K_icc, M_icc : text
+
+
+init State := 1
+
+transition
+
+                             % IFD sends get challenge command.
+1.    State = 1        /\ RCV(Rnd_icc) =|&gt;
+    State' := 2         /\ Rnd_ifd' := new()
+                            /\ K_ifd' := new()
+                            /\ secret (K_ifd',k_ifd,{A,B})
+                            /\ M_ifd' := Hash (Rnd_ifd.Rnd_icc.K_ifd)
+                            /\ M_ifd' := {M_ifd'}_K_MAC
+                            /\ SND ({Rnd_ifd.Rnd_icc.K_ifd}_K_ENC.M_ifd)
+                            /\ witness(B,A,alice_bob_k_ifd,K_ifd')
+                            /\ request (B,A,alice_bob_rnd_icc,Rnd_icc)
+3.     State = 3       /\ RCV({Rnd_icc.Rnd_ifd.K_icc}_K_ENC.M_icc) =|&gt;
+        State' := 4     /\ request(B,A,alice_bob_k_icc,K_icc)
+           
+end role
+
+role session(
+    A,B : agent,
+    K_ENC, K_MAC : symmetric_key,
+    Hash : function)
+
+def=
+
+local SA, RA, SB, RB : channel(dy)
+
+composition
+
+      alice(A, B, K_ENC, K_MAC, Hash, SA, RA)
+    /\bob(B, A, K_ENC, K_MAC, Hash, SB, RB)
+
+end role
+
+role environment()
+def=
+
+    const a, b : agent,
+    k_enc, k_mac : symmetric_key,
+    alice_bob_k_icc, alice_bob_k_ifd, alice_bob_rnd_icc : protocol_id,
+    h : hash
+
+intruder_knowledge = {a, b, h}
+
+composition
+
+      session(a, b, k_enc, k_mac, h)
+    /\session(a, i, k_enc, k_mac, h)
+    /\session(i, b, k_enc, k_mac, h)
+
+end role
+
+goal
+    secrecy_of k_icc, k_ifd
+    authentication_on alice_bob_k_icc
+    authentication_on alice_bob_k_ifd
+    authentication_on alice_bob_rnd_icc
+end goal
+
+environment()
+
+
+</PRE>
+
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000238.html">[Avispa-users] A quick Question
+</A></li>
+	<LI>Next message: <A HREF="000240.html">[Avispa-users] iknows
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#239">[ date ]</a>
+              <a href="thread.html#239">[ thread ]</a>
+              <a href="subject.html#239">[ subject ]</a>
+              <a href="author.html#239">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="http://www.avispa-project.org/mailman/listinfo/avispa-users">More information about the Avispa-users
+mailing list</a><br>
+</body></html>

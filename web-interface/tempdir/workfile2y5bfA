@@ -1,0 +1,112 @@
+role client (C, B, S: agent,             
+            PKc, PKb, PKs, QRC: public_key,  
+            Snd, Rcv: channel(dy))
+played_by C def=
+
+  local State    : nat,
+        X        : text
+
+  init State := 0
+
+  transition
+
+   ask.    State  = 0 /\ Rcv(start)
+       =|> State':= 1 /\ X' := new() /\ Snd(C.X') /\ secret(X',sx,{C,S})
+
+   show.   State  = 1 /\ Rcv({{C.X'.B}_inv(PKs)}_QRC)
+       =|> State':= 2 /\ Snd({{C.X'.B}_inv(PKs)}_QRC)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Rôle de la borne:
+role borne(C, B, S: agent,
+	 Ack : hash_func,      
+         PKc, PKb, PKs, QRC: public_key,
+         Snd, Rcv: channel(dy))
+played_by B def=
+
+  local State         : nat, 
+	X             : text
+
+  init State := 0
+
+  transition 
+
+   receiveQRC.    State  = 0 /\ Rcv({{C.X'.B}_inv(PKs)}_QRC)
+              =|> State':= 1 /\ Snd({C.X'.B}_inv(PKs)) /\ secret(X',sx,{B,S})
+
+   receiveAck.    State  = 1 /\ Rcv({Ack(C.X'.B)}_PKb)
+	      =|> State':= 2
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Role of the key server:
+role server(C, B, S: agent,
+	    Ack : hash_func,
+            PKc, PKb, PKs, QRC: public_key,
+            Snd, Rcv: channel(dy))
+played_by S def=
+
+  local State    : nat,
+        X        : text
+
+  transition
+   
+   asked.   State   = 0 /\ Rcv({C.X'}_PKs)
+        =|> State' := 1 /\ Snd({{C.X'.B}_inv(PKs)}_QRC) /\ secret(X',sx,{S,C})
+
+   receiveData. State  = 1 /\ Rcv({C.X'.B}_inv(PKs))
+	    =|> State':= 2 /\ Snd({Ack(C.X'.B)}_PKb) /\ secret(X',sx,{S,B})
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Role representant une session
+role session(C, B, S: agent,
+      Ack : hash_func,
+      PKc, PKb, PKs, QRC: public_key,
+      Snd, Rcv: channel(dy))
+def=
+
+  composition
+     client(C,B,S,PKc,PKb,PKs,QRC,Snd,Rcv)
+     /\ borne(C,B,S,Ack,PKc,PKb,PKs,QRC,Snd,Rcv)
+     /\ server(C,B,S,Ack,PKc,PKb,PKs,QRC,Snd,Rcv)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% The main role:
+role environment() def=
+
+  local Snd, Rcv: channel(dy)
+
+  const c, b, s, i: agent,
+	ack : hash_func,
+        pkc, pkb, pki, pks, qrc: public_key,
+        sx, client_borne_nb, borne_client_nc: protocol_id
+
+  intruder_knowledge = {c, b, s, pks, pkc, pkb, pki, inv(pki), qrc}
+
+  composition
+     session(c,b,s,ack,pkc,pkb,pks,qrc,Snd,Rcv)
+   /\session(c,i,s,ack,pkc,pki,pks,qrc,Snd,Rcv)
+   /\session(c,b,i,ack,pkc,pkb,pki,qrc,Snd,Rcv)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Description of goal properties:
+goal
+
+  secrecy_of sx % represented by the secret() predicate in the protocol
+  %authentication_on client_borne_nb % represented by the witness() and request() predicates in the protocol
+  %authentication_on borne_client_nc % represented by the witness() and request() predicates in the protocol
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Call of the main role:
+environment() 
+ 

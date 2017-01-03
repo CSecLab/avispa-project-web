@@ -1,0 +1,130 @@
+role user (U, S : agent, Ui : symmetric_key, IDu, IDs,  G : text, H : hash_func, SND, RCV : channel(dy))
+
+played_by U 
+
+def=
+
+
+local State : nat,
+           Va, Vb, Beta, Beta1, Msg, M1 :  message,
+		   A, Ra, K1, T : text
+
+
+
+init State := 0
+
+transition
+
+1. State = 0 /\ RCV(start) =|>
+
+   State' := 2 /\ Va' := exp(G,Ui)
+               /\ A' := new()
+			   /\ Ra' := exp(G, A')
+			   /\ M1' := (Ra'.IDu)
+			   /\ T' := new()
+			   /\ SND(IDu.xor(Va', Ra'.H(M1'.T')))
+			   /\ secret(Ra', ra, {U,S})
+			 
+2. State = 2 /\ RCV({Vb'.Beta'}_Ra)
+              %%
+			  =|>
+			  
+	State' := 4 /\ K1' := exp(Vb',A)
+			    /\ Beta1' := H(K1'.IDu.IDs) 
+	            /\ request(U,S, u_s_k1, K1')		  
+
+
+end role
+
+
+
+
+
+
+
+
+
+
+role server (U, S : agent, Ui : symmetric_key, IDu, IDs,  G : text, H : hash_func, SND, RCV : channel(dy) )
+
+played_by S 
+def=
+
+local State : nat,
+           Va, Vb, MAC, Beta, Y, M1 :  message,
+		   A, Ra, X, Z, T, B, Theta : text,
+		   K : symmetric_key
+		 
+
+
+          
+
+
+init State := 1
+
+transition
+
+1. State = 1 /\ RCV(IDu.xor(Va',(Ra'.H(M1'.T')))) =|>
+			 
+   State' := 3 /\ MAC' := Ra'.H(Ra'.IDu.T')
+			   /\ B' := new()
+			   /\ Va' := exp(G,Ui) 
+			   /\ Vb' := exp(G,B')
+			   /\ K' := exp(Ra',B')
+			   /\ Beta' := H(K'.IDu.IDs)
+			   /\ Theta' := {Vb'.Beta'}_Ra'
+               /\ SND(Theta') 
+			   /\ secret(K',k,U,S)
+			   /\ witness(S,U,u_s_k1,K')
+
+
+
+end role
+
+
+role session (U, S : agent, Ui : symmetric_key, IDu, IDs, G : text, H : hash_func) 
+
+def=
+			  
+local 	SE,RE : channel (dy)		  
+			  
+composition 
+
+     user (U, S, Ui,  IDu, IDs, G, H, SE, RE)
+  
+  /\ server(U, S, Ui,  IDu, IDs, G, H, SE, RE)
+  
+end role
+
+role environment() def=
+
+  const  u_s_k1, ra, k : protocol_id,
+         u,s        : agent,
+        ui, ku,ks   : symmetric_key,
+        g, idu,ids  : text,
+        h           : hash_func
+
+  intruder_knowledge  = {u,s,ku,ks}
+
+  composition
+
+        session(u,s,ui,idu,ids,g,h) /\
+        session(i,s,ks,idu,ids,g,h) /\
+        session(u,i,ku,idu,ids,g,h)
+
+end role
+
+
+
+goal
+
+secrecy_of ra, k
+ 
+authentication_on u_s_k1
+
+end goal
+
+
+
+environment()
+

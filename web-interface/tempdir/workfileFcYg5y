@@ -1,0 +1,101 @@
+role alice( A,B : agent,
+			Hash : hash_func,
+			Kap, Kbp: public_key,
+			K: symmetric_key,
+			SND, RCV :channel(dy))
+	played_by A def=
+		local State: nat, 
+		Ka, Kb : symmetric_key,
+		Na, Nb : text,
+		K1 : message
+		
+		init State := 0
+		
+		transition
+		
+		step0. 	State 	=  0 	/\ RCV(start) =|>
+				State' 	:= 2 	/\ Na' := new() 
+								/\ SND({Na'}_Kbp)
+								
+			  
+		step2. 	State 	=  2  	/\ RCV({Nb'.Na'}_Kap) =|>
+				State' 	:= 4  	/\ Kb' := Na.Nb' 
+								/\ K' := new() 
+								/\ SND({K'.Nb'}_Kb')			
+								/\  request(A, B, alice_bob_na, Na')									
+								/\  witness(A, B, alice_bob_nb, Nb')
+			  
+		step4. 	State  =  4		/\ RCV(K1') =|>
+				State' := 6  	/\ secret(K, k, {A,B})
+			  
+end role
+			  
+			  
+role bob( A,B : agent,
+		  Hash : hash_func,
+		  Kap, Kbp: public_key,
+		  K: symmetric_key,
+		  SND, RCV: channel(dy))
+		  
+		  played_by B def=
+		  local State: nat, 
+		  Ka, Kb: symmetric_key,
+		  Na, Nb: text,
+		  K1: message
+		  
+		  init State := 1
+		  
+		  transition
+		  step1.	State  =  1		/\ RCV({Na'}_Kbp) =|>
+					State' := 3 	/\ Nb' := new() 
+									/\ SND({Nb'.Na'}_Kap)
+									/\ Ka' := Na'.Nb'
+									/\ witness(B,A, alice_bob_na, Na')
+									
+		  step3.	State = 3  	/\ RCV({K.Nb'}_Ka') =|>
+					State':= 5 	/\ K1' := Hash(K)
+								/\ SND(K1')
+								/\ request(B,A, alice_bob_nb, Nb')
+					 
+end role
+
+
+role session(	A, B : agent, 
+				Hash : hash_func, 
+				K: symmetric_key,
+				Kap, Kbp: public_key) def=
+	local SAB, RAB, SBA, RBA : channel (dy)
+	composition
+	    alice(A, B, Hash,  Kap, Kbp, K, SAB, RAB)
+	  /\ bob (A, B, Hash,  Kap, Kbp, K, SBA, RBA)
+end role
+
+
+role environment()
+ def= 
+
+	const alice_bob_k, alice_bob_na, alice_bob_nb : protocol_id,
+		  a, b : agent,
+		  k : symmetric_key,
+		  kap, kbp, kip : public_key,
+		  h : hash_func
+		  
+		  intruder_knowledge = {a, b, h, kap, kbp, kip, inv(kip)}
+		  
+		  composition
+		  
+		  session(a, b, h, k, kap, kbp) /\
+		  session(a, i, h, k, kap, kip) /\
+		  session(i, b, h, k, kip, kbp)
+
+end role
+
+goal
+		  
+	secrecy_of alice_bob_k
+	authentication_on alice_bob_nb
+	authentication_on alice_bob_na
+		  
+end goal
+	
+environment()  

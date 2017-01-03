@@ -1,0 +1,203 @@
+role alice (Ui, MRS, MS, PS : agent,
+SKuisj : symmetric_key,
+SK1: symmetric_key,
+% H is hash function
+H: hash_func, Snd, Rcv: channel(dy))
+played_by Ui
+def=
+local State : nat,
+IDi, IDmsj, IDk, PWi, Bi, Xc, Xj, Xk, Fi, PWDi, Aj, Pj, REGi, Rc, Rms, Rk: text,
+Ci, Di, Ei, Gi, Li, Nj, Oj,Sj,RANj, Qj, Tk, RANk, Vk, SK: message,
+Inc : hash_func
+const alice_server, server_mserver, mserver_pserver, pserver_alice, alice_mserver,
+subs1, subs2, subs3, subs4, subs5 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(start) =|>
+State' := 1 /\ PWDi' := H(IDi.PWi)
+/\ Snd({IDi.PWDi'.Bi}_SKuisj)
+%send registration request message to MRS
+/\ secret({PWi}, subs2, Ui)
+/\ secret({IDi}, subs3, {Ui,MRS,MS,PS})
+2. State = 1 /\ Rcv({Fi'. REGi'. Aj'. Pj'}_SKuisj) =|>
+% Receive smart card securely from the MRS
+% Start login phase
+State' := 2 /\ Rc' := new() 
+/\ IDmsj' := new()
+/\ IDk' := new()
+/\ Ci' := xor(Aj', REGi')
+/\ Di' := H(Ci'.Rc')
+/\ Ei' := xor(Pj', H(REGi'.Fi'))
+/\ Gi' := xor(IDi, Ei') 
+/\ Li' := xor(Ei', Rc')
+/\ Snd(Fi'. Di'. Gi'. Li'. IDmsj'.IDk') 
+%sends login message to the MRS through public channel
+/\ witness(Ui, MS, alice_mserver, Rc') 
+/\secret({Rc'},subs6,{Ui,MS,PS})
+% Receive reply message from the PS
+3. State = 2 /\ Rcv(Tk'.RANk'.Vk') =|>
+State' := 3 /\  Rk' := new()
+/\ request(PS, Ui, pserver_alice, Rk')
+end role
+
+%******************************
+
+role server (MRS, Ui, MS, PS  : agent,
+SKuisj : symmetric_key,
+SK1: symmetric_key,
+% H is hash function
+H : hash_func,
+Snd, Rcv: channel(dy) )
+played_by MRS
+def=
+local State : nat,
+IDi, IDmsj, IDk, PWi, Bi, Xc, Xj, Xk, Fi, PWDi, Aj, Pj, REGi, Rc, Rms, Rk: text,
+Ci, Di, Ei, Gi, Li, Nj, Oj,Sj,RANj, Qj, Tk, RANk, Vk, SK: message,
+Inc : hash_func
+const alice_server, server_mserver, mserver_pserver, pserver_alice, alice_mserver,
+subs1, subs2, subs3, subs4, subs5 : protocol_id
+init State :=0
+transition
+
+1. State = 0 /\ Rcv(IDmsj') =|>
+State' := 1 /\ secret({Xj}, subs1, {MRS, MS})
+/\ secret({Xc}, subs4, {MRS})
+/\ Xj' := H(IDmsj' . Xc)
+/\ Snd({Xj'}_SK1)
+% send secret key to the MRS securely
+
+2. State = 1 /\ Rcv({IDi.H(IDi.PWi).Bi}_SKuisj) =|>
+State' := 2 /\ secret({Xj}, subs1, {MRS, MS})
+/\ secret({PWi}, subs2, Ui)
+/\ secret({IDi}, subs3, {Ui, MRS, MS, PS })
+/\ secret({Xc}, subs4, {MRS})
+/\ Fi' := H(Bi)
+/\ REGi' := H(IDi.H(IDi.PWi))
+/\ Aj':= xor(H(IDi.Xj), REGi')
+/\ Pj' := xor(H(IDmsj.Xj.Fi'), H(REGi'. Fi'))
+/\ Snd({Fi'. REGi'. Aj'. Pj'}_SKuisj)
+% Send registration reply message to the Ui
+end role
+
+
+role mserver (MS, Ui, MRS, PS : agent,
+SKuisj : symmetric_key,
+SK1: symmetric_key,
+% H is hash function
+H : hash_func,
+Snd, Rcv: channel(dy) )
+played_by MS
+def=
+local State : nat,
+IDi, IDmsj, IDk, PWi, Bi, Xc, Xj, Xk, Fi, PWDi, Aj, Pj, REGi, Rc, Rms, Rk: text,
+Ci, Di, Ei, Gi, Li, Nj, Oj,Sj,RANj, Qj, Tk, RANk, Vk, SK: message,
+Inc : hash_func
+const alice_server, server_mserver,
+mserver_pserver, pserver_alice, alice_mserver,
+subs1, subs2, subs3, subs4, subs5 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(start) =|>
+State' := 1 /\ IDmsj' := new()
+/\ Snd(IDmsj')
+2. State = 1 /\ Rcv({Xj'}_SK1, Fi'.Di'.Gi'.Li'.IDmsj'.IDk') =|>
+% Receive secret key including login message parameter
+State' := 2 /\ Rms' := new() 
+/\ Ei' := H(IDmsj.Xj'.Fi')
+/\ IDi' := xor(Gi', Ei')
+/\ Rc' := xor(Li', Ei')
+/\ Xk' := H(IDk' . Xj') 
+/\ Nj' := H(IDk'.Xk'.Fi')
+/\ Oj' := xor(IDi', Nj')
+/\ Sj' := xor(H(IDk'.Xk'), Rms')
+/\Qj'  := H(IDi' . Xk' . Nj' . Rms')
+/\RANj' := xor(Rc',Rms')
+/\ Snd (Oj'. Sj' . Qj'. IDk'. Fi'. RANj')
+/\ Snd({Xk'}_SK1)
+% send secret key Xk including authentication message to the PS
+/\ secret({Xk}, subs5, {MRS,PS})
+/\ secret({Rms'}, subs7, {Ui,MS,PS})
+/\ witness(MS, PS, mserver_pserver_rms, Rms')
+/\ request(MS, PS, mserver_pserver, Rms') 
+end role
+
+
+
+role pserver (PS, Ui, MRS, MS  : agent,
+SKuisj : symmetric_key,
+SK1: symmetric_key,
+% H is hash function
+H: hash_func,
+Snd, Rcv: channel(dy) )
+played_by PS
+def=
+local State : nat,
+IDi, IDmsj, IDk, PWi, Bi, Xc, Xj, Xk, Fi, PWDi, Aj, Pj, REGi, Rc, Rms, Rk: text,
+Ci, Di, Ei, Gi, Li, Nj, Oj,Sj,RANj, Qj, Tk, RANk, Vk, SK: message,
+Inc : hash_func
+const alice_server, server_mserver, mserver_pserver, pserver_alice, alice_mserver,
+subs1, subs2, subs3, subs4, subs5 : protocol_id
+init State :=0
+transition
+% Receive authentication message including secret key from the MS
+1. State = 0 /\ Rcv({Xk'}_SK1,Oj'. Sj' . Qj'. IDk. Fi'. RANj') =|>
+State' := 1 /\ Rk' := new()
+/\ Nj' := H(IDk.Xk'.Fi')
+/\ IDi' := xor(Oj', Nj')
+/\ Rms' := xor(H(IDi'. Xk'), Sj') 
+/\ Rc' := xor(RANj', Rms')
+/\ SK' := H(IDi'. IDk. Rc'. Rk')
+/\ Tk':= H(H(IDi'. Xk'). SK')
+/\ RANk' := xor(Rc', Rk')
+/\ Vk' := xor(H(IDi'.Rk'))
+/\ Snd(Tk'.RANk'.Vk')
+% send authentication message to the Ui
+/\ witness(PS,Ui,pserver_alice, Rk')
+/\ request(Ui, PS, pserver_alice, Rc')
+/\ secret({Rk'}, subs8, {PS,Ui})
+end role
+
+role session(Ui, MRS, MS, PS: agent,
+SKuisj : symmetric_key,
+SK1: symmetric_key,
+H: hash_func)
+def=
+local SI, SJ, RI, RJ, TI, TJ, PI, PJ: channel (dy)
+composition
+alice(Ui, MRS, MS, PS, SKuisj, SK1, H, SI, RI)
+/\ server(Ui, MRS, MS, PS, SKuisj, SK1, H, SJ, RJ)
+/\ mserver(Ui, MRS, MS, PS, SKuisj, SK1, H, TI, TJ)
+/\ pserver(Ui, MRS, MS, PS, SKuisj, SK1, H, PI, PJ)
+end role
+
+
+role environment()
+def=
+const ui, mrs,ms,ps: agent,
+skuisj : symmetric_key,
+sk1: symmetric_key,
+h: hash_func,
+idi, idmsj, idk, pwi, bi, xc, xj, xk, fi, pwdi, aj, pj, regi, rc, rms, rk : text,
+alice_server, server_mserver, mserver_pserver, pserver_alice, alice_mserver,
+subs1, subs2, subs3, subs4, subs5 : protocol_id
+intruder_knowledge = {ui, mrs, ms, ps, h, fi,aj,pj,regi}
+composition
+session( ms, mrs, ui, ps, skuisj, sk1, h)
+/\ session(ui, mrs, ms, ps, skuisj, sk1, h)
+/\ session(ui, ms, ps, mrs, skuisj, sk1, h)
+/\ session(ms, ps, ui, mrs, skuisj, sk1, h)
+end role
+goal
+secrecy_of subs1
+secrecy_of subs2
+secrecy_of subs3
+secrecy_of subs4
+secrecy_of subs5
+secrecy_of subs6
+secrecy_of subs7
+secrecy_of subs8
+authentication_on alice_mserver_rc
+authentication_on mserver_pserver_rms
+authentication_on pserver_alice_rk
+end goal
+environment()

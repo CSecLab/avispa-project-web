@@ -1,0 +1,114 @@
+role chap_Init (A,B   : agent,
+                Kab   : symmetric_key,
+                Succ : hash_func,    
+                H     : hash_func,
+                Snd, Rcv: channel(dy))
+played_by A
+def=
+           
+  local State  : nat,
+        Na, Nb : text
+
+  const 
+sn, msg1, msg2, msg3, msg4,
+sec_kab1 :  protocol_id
+
+  init  State := 0
+
+  transition
+   1. State   = 0 /\ Rcv(start) =|>
+      State' := 1 /\  Na' := new() /\ Snd(A.Na'.sn.Msg1.H(kab.A.Na'.sn.msg1))
+
+   2. State   = 1 /\ Rcv(B.Nb.sn.msg2.H(kab.B.Nb.sn.msg2)) =|> 
+      State' := 2 /\ Snd(A.Na'.Succ(sn).msg4.H(kab.A.Na'.Succ(sn).msg4))
+                  /\ witness(A,B,na,Na') 
+                  /\ secret(kab,sec_kab1,{A,B})
+
+   3. State   = 2 /\ Rcv(B.Nb.Succ(sn).msg4.H(kab.B.Nb.Succ(sn).msg4)) =|> 
+      State' := 3 /\ request(A,B,nb,Nb) 
+
+end role
+
+
+role chap_Resp (B,A : agent,
+                Kab   : symmetric_key,
+                Succ : hash_func,  
+                H: hash_func,
+                Snd, Rcv: channel(dy))
+played_by B
+def=
+           
+  local State  : nat,
+        Na, Nb : text
+
+  
+const 
+sn, msg1, msg2, msg3, msg4,
+sec_kab2 : protocol_id
+
+  init  State := 0
+
+  transition
+   1. State   = 0 /\ Rcv(A.Na'.sn.msg1.H(kab.A.Na'.sn.msg1)) =|>  
+      State' := 1 /\ Nb' := new() /\ Snd(B.Nb'.sn.msg2.H(kab.B.Nb'.sn.msg2))
+                  /\ witness(B,A,nb,Nb')
+
+   2. State   = 1 /\ Rcv(A.Na'.Succ(sn).msg3.H(kab.A.Na'.Succ(sn).msg3)) =|>
+      State' := 2 /\ Snd(B.Nb'.Succ(sn).msg4.H(kab.B.Nb'.Succ(sn).msg4))
+                  /\ request(B,A,na,Na') 
+                  /\ secret(kab,sec_kab2,{A,B})
+
+end role
+
+
+role session(A,B: agent,
+             Kab   : symmetric_key,
+             Succ : hash_func,
+             H: hash_func)
+def=
+
+  local SA, SB, RA, RB: channel (dy)
+
+  composition
+           chap_Init(A, B, kab, H, SA, RA)
+       /\  chap_Resp(B, A, kab, H, SB, RB)
+end role
+
+
+role environment()
+def=
+
+  const a, b          : agent,
+        kab, kai, kbi : symmetric_key,
+        h             : hash_func,
+        succ : hash_func,
+        na, nb        : protocol_id,
+        sn, msg1, msg2, msg3, msg4      : text
+        
+  intruder_knowledge = {a, b, h, kai, kbi}
+
+  composition
+        session(a,b,kab,h) /\
+        session(a,i,kai,h) /\
+        session(b,i,kbi,h)
+
+end role
+
+
+
+
+goal
+
+ %secrecy of the shared key
+ secrecy_of sec_kab1, sec_kab2  % Addresses G12
+                         
+ %CHAP_Init authenticates CHAP_Resp on nb
+ authentication_on nb  % Addresses G1, G2
+ %CHAP_Resp authenticates CHAP_Init on na
+ authentication_on na  % Addresses G1, G2
+  
+end goal
+ 
+
+
+environment()

@@ -1,0 +1,96 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileuioIud
+
+section signature:
+
+state_ra: agent * agent * agent * agent * message * message * message * message * symmetric_key * hash_func * nat * text * nat -> fact
+state_hsp: agent * agent * agent * agent * message * message * message * message * symmetric_key * symmetric_key * hash_func * nat * text * nat -> fact
+state_patient: agent * agent * agent * agent * message * message * message * message * symmetric_key * hash_func * nat * text * nat -> fact
+state_doc: agent * agent * agent * agent * message * message * message * message * symmetric_key * hash_func * nat * text * set(agent) * nat -> fact
+
+
+section types:
+
+p: protocol_id
+5, 4, State, 6, 3, 7, 1, 8, SID, 2, 0, Dummy_State: nat
+PHI, Dummy_PHI, dummy_nonce: text
+set_112: set
+Set_23, Dummy_Set_23, ASGoal: set(agent)
+F1, f1: hash_func
+ID_A, ID_B, ID_C, ID_D, start, MGoal, id_A, id_B, id_C, id_D: message
+MS_HSP, Sk, sk, ms: symmetric_key
+c, d, A, B, C, D, i, a, b: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(c).
+ iknows(d).
+ iknows(id_A).
+ iknows(id_B).
+ iknows(id_C).
+ iknows(id_D).
+ iknows(i).
+ state_doc(a,b,c,d,id_A,id_B,id_C,id_D,sk,f1,0,dummy_nonce,set_112,3).
+ state_patient(b,a,c,d,id_A,id_B,id_C,id_D,sk,f1,1,dummy_nonce,4).
+ state_hsp(c,a,b,d,id_A,id_B,id_C,id_D,sk,ms,f1,3,dummy_nonce,5).
+ state_ra(d,a,b,c,id_A,id_B,id_C,id_D,ms,f1,4,dummy_nonce,6)
+
+
+section rules:
+
+step step_0 (A,B,C,D,ID_A,ID_B,ID_C,ID_D,Sk,F1,Dummy_PHI,Dummy_Set_23,SID,PHI) :=
+ state_doc(A,B,C,D,ID_A,ID_B,ID_C,ID_D,Sk,F1,0,Dummy_PHI,Dummy_Set_23,SID).
+ iknows(start)
+=[exists PHI]=>
+ state_doc(A,B,C,D,ID_A,ID_B,ID_C,ID_D,Sk,F1,2,PHI,Dummy_Set_23,SID).
+ iknows(pair(ID_A,scrypt(Sk,pair(PHI,apply(F1,pair(ID_A,pair(ID_B,ID_C))))))).
+ secret(PHI,p,Dummy_Set_23).
+ contains(A,Dummy_Set_23).
+ contains(B,Dummy_Set_23).
+ contains(C,Dummy_Set_23).
+ contains(D,Dummy_Set_23)
+
+step step_1 (A,B,C,D,ID_A,ID_B,ID_C,ID_D,Sk,F1,PHI,Set_23,SID) :=
+ state_doc(A,B,C,D,ID_A,ID_B,ID_C,ID_D,Sk,F1,2,PHI,Set_23,SID)
+ =>
+ state_doc(A,B,C,D,ID_A,ID_B,ID_C,ID_D,Sk,F1,8,PHI,Set_23,SID).
+ iknows(pair(ID_A,pair(ID_B,scrypt(Sk,pair(PHI,apply(F1,pair(ID_A,pair(ID_B,ID_C))))))))
+
+step step_2 (B,A,C,D,ID_A,ID_B,ID_C,ID_D,Sk,F1,Dummy_PHI,SID,PHI) :=
+ state_patient(B,A,C,D,ID_A,ID_B,ID_C,ID_D,Sk,F1,1,Dummy_PHI,SID).
+ iknows(pair(ID_A,scrypt(Sk,pair(PHI,apply(F1,pair(ID_A,pair(ID_B,ID_C)))))))
+ =>
+ state_patient(B,A,C,D,ID_A,ID_B,ID_C,ID_D,Sk,F1,7,PHI,SID)
+
+step step_3 (C,A,B,D,ID_A,ID_B,ID_C,ID_D,Sk,MS_HSP,F1,PHI,SID) :=
+ state_hsp(C,A,B,D,ID_A,ID_B,ID_C,ID_D,Sk,MS_HSP,F1,3,PHI,SID).
+ iknows(pair(ID_A,pair(ID_B,scrypt(Sk,pair(PHI,apply(F1,pair(ID_A,pair(ID_B,ID_C))))))))
+ =>
+ state_hsp(C,A,B,D,ID_A,ID_B,ID_C,ID_D,Sk,MS_HSP,F1,6,PHI,SID).
+ iknows(pair(ID_C,scrypt(MS_HSP,pair(ID_C,pair(ID_B,PHI)))))
+
+step step_4 (D,A,B,C,ID_A,ID_B,ID_C,ID_D,MS_HSP,F1,PHI,SID) :=
+ state_ra(D,A,B,C,ID_A,ID_B,ID_C,ID_D,MS_HSP,F1,4,PHI,SID).
+ iknows(pair(ID_C,scrypt(MS_HSP,pair(ID_C,pair(ID_B,PHI)))))
+ =>
+ state_ra(D,A,B,C,ID_A,ID_B,ID_C,ID_D,MS_HSP,F1,5,PHI,SID)
+
+
+section properties:
+
+property secrecy_of_p (MGoal,ASGoal) :=
+ [] ((secret(MGoal,p,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_p (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,p,ASGoal) &
+ not(contains(i,ASGoal))
+

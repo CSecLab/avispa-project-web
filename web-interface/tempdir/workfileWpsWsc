@@ -1,0 +1,149 @@
+%% PROTOCOL: Retrait de colis
+%% VARIANT: Première version
+%% PURPOSE: Retrait de colis entre un serveur, une borne et un smartphone
+%%			Le smartphone est authentifié -> identification unique
+%%			Le serveur envoie au smartphone un QR Code chiffré -> doit rester secret
+%%			La borne communique avec le serveur -> Messages doivent rester secrets
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% définition du rôle du smartphone
+role smartphone (A, B: agent,             
+            Ka, Kb: public_key,     
+            SND, RCV: channel (dy),
+			Log, Pass: text) 
+played_by A def=
+
+  local State : nat, 
+        Na, Nb, M: text
+
+  init State := 0
+
+  transition  
+
+	%%Authentification
+	0. State = 0 / RCV(start) =|>
+	State':= 1 / SND({Log.Pass.A}_Kb)
+			   / secret({Log.Pass},logging,{A,B})
+			   / witness(A, B, serv_smart_logging, Log.Pass)
+			   
+	2.  State  = 1 / RCV({Log'.Pass'.Nb'}_Ka) =|> 
+	State':= 2 / SND({Nb'}_Kb)
+			   / request(A, B, smart_serv_nb,Nb')
+	
+	%%Reception du QR Code
+	3. State = 2 / RCV({M'.B}_Ka) =|>
+	   State' := 3	
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% role du serveur
+role serveur (A, B: agent,             
+            Ka, Kb, Kr: public_key,     
+            SND, RCV: channel (dy),
+			Idents : (text.text) set) 
+played_by B def=
+
+  local State : nat, 
+        Na, Nb, M, Log, Pass, Num: text
+  init State := 0
+
+  transition  
+   
+    %%Authentification
+    1.  State  = 0 / RCV({Log'.Pass'.A}_Kb) / in(Log'.Pass',Idents)=|>
+	State':= 1 / Nb' := new()
+			   / witness(B, A, smart_serv_nb, Nb')
+			   / SND({Log'.Pass'.Nb'}_Ka)
+			   / secret(Nb',nb,{A,B})
+	
+	2. State = 1 / RCV({Nb}_Kb) =|> 
+	State' := 2 / request(B, A, serv_smart_logging, Log.Pass)
+
+	%%Envoi du QR Code après reception du message de la borne relais
+	3. State = 2 / RCV({Num'}_inv(Kr)) =|>
+	State' := 3 / M' := new()
+				/ SND({M'.B}_Ka)
+				/ secret(M',qrc,{A,B})
+				
+	%%Reception de la notificatio de retrait de colis
+	4. State = 3 / RCV({Num}_inv(Kr)) =|>
+	State' := 4
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% role du relais
+role relais (R: agent,             
+            Kr: public_key,     
+            SND, RCV: channel (dy))
+played_by R def=
+
+  local State : nat, 
+        Num : text
+  init State := 0
+
+  transition  
+   
+    %%Envoi de l'identifiant de colis nouvellement déposé
+	0. State = 0 =|>
+	State' := 1 / Num' := new()
+				/ SND({Num'}_inv(Kr))
+				/ secret(Num',num,{R})
+
+	%%Notification du serveur pour le retrait du colis
+	1. State = 1 =|>
+	State' := 2 / SND({Num}_inv(Kr))
+				/ secret(Num,num,{R})
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% définition du rôle caractérisant une session
+role session(A, B, R: agent, Ka, Kb, Kr: public_key, Log, Pass: text, Idents: (text.text) set) def=
+
+  local SA, RA, SB, RB, SR, RR: channel (dy)
+
+  composition 
+
+	smartphone(A,B,Ka,Kb,SA,RA,Log,Pass)
+     / serveur  (A,B,Ka,Kb,Kr,SB,RB,Idents)
+	 / relais (R,Kr,SR,RR)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% définition du rôle caractérisant le scenario à exécuter
+role environment() def=
+	 
+	local Idents, Identsi: (text.text) set
+	
+    const a, b, r	       : agent,
+	  ka, kb, kr, ki   : public_key,
+	  nb, logging, smart_serv_nb, serv_smart_logging, qrc, num : protocol_id,
+	  log, pass: text	
+
+	init Idents := {log.pass}
+	  / Identsi := {}
+	
+    intruder_knowledge = {a, b, ka, kb, ki, inv(ki)}
+
+    composition
+
+	session(a,b,r,ka,kb,kr,log,pass,Idents)
+	/ session(a,i,r,ka,ki,kr,log,pass,Identsi)
+	/ session(i,b,r,ki,kb,kr,log,pass,Idents)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% goals
+goal
+	secrecy_of logging, nb, qrc,num
+	authentication_on smart_serv_nb
+	authentication_on serv_smart_logging
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% lancement du rôle principal
+environment()
+ 

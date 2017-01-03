@@ -1,0 +1,88 @@
+role mtcd (MTCD, AAA: agent, GK: symmetric_key, 
+F1,F2,F3,F4 : hash_func,
+SND, RCV: channel (dy))
+played_by MTCD 
+def=
+local
+State: nat,
+Rmtcd, Rhss, Raaa, IDhss, Key: text,
+Kma: message
+init State := 0
+transition
+1. State = 0
+/\RCV (start) 
+=|>
+State' := 2
+/\ Rmtcd' := new ()
+/\ SND (Rmtcd')
+2.  State= 2
+/\RCV ({F2(Raaa'. Rhss'.Rmtcd)}_({F3(IDhss'. Rhss')}_GK).Raaa'. Rhss')
+/\witness (MTCD, AAA, aaa_mtcd, Raaa', Rhss')
+=|>
+State' := 4
+/\ Kma':= {F4(Key')}_({F3(IDhss'. Rhss')}_GK)
+/\ secret (Kma',kma, {AAA, MTCD})
+3.   State = 4
+/\SND ({F1(Raaa. Key')}_Kma)
+/\wrequest (MTCD, AAA, mtcd_aaa, Raaa) 
+=|>
+State' := 6
+end role % the role of MTCD
+role aaa (MTCD, AAA: agent, GK:
+symmetric_key, F1,F2,F3,F4 : hash_func,
+SND, RCV: channel (dy))
+played_by AAA 
+def=
+local
+State: nat,
+Rmtcd, Rhss, Raaa, IDhss, Key: text,
+Kma: message
+init
+State := 1
+transition
+1. State = 1
+/\RCV (Rmtcd') 
+=|>
+State' := 3
+/\Raaa' := new ()
+/\SND ({F2(Raaa'. Rhss'. Rmtcd')}_({F3(IDhss'. Rhss')}_GK). Raaa'.Rhss')
+/\wrequest (AAA, MTCD, aaa_mtcd, Raaa',Rhss')
+3. State = 3
+/\RCV({F1(Raaa. Key')}_Kma')
+/\witness (AAA, MTCD, mtcd_aaa, Raaa)
+=|>
+State' := 5
+/\Kma':= {F4(Key')}_({F3(IDhss'. Rhss')}_GK)
+/\secret (Kma', kma, {AAA, MTCD})
+end role % the role of AAA
+
+role session(MTCD, AAA: agent,GK:
+symmetric_key,F1,F2,F3,F4 : hash_func,
+SND, RCV: channel (dy))
+def=
+local Smtcd,Rmtcd,Saaa,Raaa : channel (dy)
+composition
+mtcd(MTCD,AAA,GK,F1,F2,F3,F4,Smtcd,Rmtcd)
+/\ 
+aaa(MTCD,AAA,GK,F1,F2,F3,F4,Saaa,Raaa)
+end role
+role environment()
+def=
+const 
+mtcd, aaa, i : agent,
+f1,f2,f3,f4 : hash_func,
+gk_mtcdaaa,gk_mtcdi,gk_iaaa : symmetric_key
+intruder_knowledge={mtcd,aaa,f1,f2,f3,f4,gk_mtcdi,gk_iaaa}
+composition
+session(mtcd,aaa,gk_mtcdaaa,f1,f2,f3,f4)
+/\ session(mtcd,i,gk_mtcdi,f1,f2,f3,f4)
+/\ session(i,aaa,gk_iaaa,f1,f2,f3,f4)
+end role
+goal
+authentication_on raaa
+authentication_on rmtcd
+%secrecy_of key
+secrecy_of key
+end goal
+environnement() 
+

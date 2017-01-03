@@ -1,0 +1,132 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileTSykt6
+
+section signature:
+
+state_serviceProvider: agent * agent * agent * public_key * public_key * hash_func * nat * text * public_key * text * set(agent) * nat -> fact
+state_identityProvider: agent * agent * agent * public_key * public_key * text * text * nat * nat -> fact
+state_client: agent * agent * agent * public_key * public_key * public_key * hash_func * nat * text * text * nat -> fact
+
+
+section types:
+
+MGoal, start: message
+c_sp_resource, id, c_sp_aa: protocol_id
+Resource, resource: hash_func
+Dummy_ID, Dummy_URI, URI, ID, dummy_nonce: text
+Set_45, ASGoal, Dummy_Set_45: set(agent)
+dummy_pk, KC, KSP, KIDP, kc, ksp, kidp, ki, Dummy_KC: public_key
+7, 5, SID, Dummy_State, 3, State, SID2, SID1, 8, 6, 4, 2, 1, 0, 9, 13, 12: nat
+IDP, SP, A2Goal, A1Goal, C, c, idp, sp, i: agent
+set_95, set_106, set_100: set
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(c).
+ iknows(sp).
+ iknows(ksp).
+ iknows(ki).
+ iknows(inv(ki)).
+ iknows(idp).
+ iknows(resource).
+ iknows(i).
+ state_client(c,idp,i,kc,ki,kidp,resource,0,dummy_nonce,dummy_nonce,3).
+ state_identityProvider(idp,c,i,kc,kidp,dummy_nonce,dummy_nonce,7,5).
+ state_client(c,idp,sp,kc,ksp,kidp,resource,0,dummy_nonce,dummy_nonce,7).
+ state_serviceProvider(sp,c,idp,ksp,kidp,resource,1,dummy_nonce,dummy_pk,dummy_nonce,set_100,8).
+ state_identityProvider(idp,c,sp,kc,kidp,dummy_nonce,dummy_nonce,7,9).
+ state_serviceProvider(sp,i,idp,ksp,kidp,resource,1,dummy_nonce,dummy_pk,dummy_nonce,set_106,12).
+ state_identityProvider(idp,i,sp,ki,kidp,dummy_nonce,dummy_nonce,7,13)
+
+
+section rules:
+
+step step_0 (C,IDP,SP,KC,KSP,KIDP,Resource,ID,Dummy_URI,SID,URI) :=
+ state_client(C,IDP,SP,KC,KSP,KIDP,Resource,0,ID,Dummy_URI,SID).
+ iknows(start)
+=[exists URI]=>
+ state_client(C,IDP,SP,KC,KSP,KIDP,Resource,2,ID,URI,SID).
+ iknows(crypt(KSP,pair(KC,pair(C,pair(SP,URI)))))
+
+step step_1 (C,IDP,SP,KC,KSP,KIDP,Resource,Dummy_ID,URI,SID,ID) :=
+ state_client(C,IDP,SP,KC,KSP,KIDP,Resource,2,Dummy_ID,URI,SID).
+ iknows(crypt(KC,crypt(inv(KSP),pair(C,pair(IDP,pair(pair(ID,SP),URI))))))
+ =>
+ state_client(C,IDP,SP,KC,KSP,KIDP,Resource,4,ID,URI,SID).
+ iknows(crypt(KIDP,pair(C,pair(IDP,pair(pair(ID,SP),URI)))))
+
+step step_2 (C,IDP,SP,KC,KSP,KIDP,Resource,ID,URI,SID) :=
+ state_client(C,IDP,SP,KC,KSP,KIDP,Resource,4,ID,URI,SID).
+ iknows(crypt(KC,crypt(inv(KIDP),pair(SP,pair(crypt(inv(KIDP),pair(C,IDP)),URI)))))
+ =>
+ state_client(C,IDP,SP,KC,KSP,KIDP,Resource,6,ID,URI,SID).
+ iknows(crypt(KSP,crypt(inv(KC),pair(SP,pair(crypt(inv(KIDP),pair(C,IDP)),URI))))).
+ witness(C,SP,c_sp_aa,URI)
+
+step step_3 (C,IDP,SP,KC,KSP,KIDP,Resource,ID,URI,SID) :=
+ state_client(C,IDP,SP,KC,KSP,KIDP,Resource,6,ID,URI,SID).
+ iknows(crypt(KC,crypt(inv(KSP),apply(Resource,URI))))
+ =>
+ state_client(C,IDP,SP,KC,KSP,KIDP,Resource,8,ID,URI,SID)
+
+step step_4 (IDP,C,SP,KC,KIDP,Dummy_ID,Dummy_URI,SID,ID,URI) :=
+ state_identityProvider(IDP,C,SP,KC,KIDP,Dummy_ID,Dummy_URI,7,SID).
+ iknows(crypt(KIDP,pair(C,pair(IDP,pair(pair(ID,SP),URI)))))
+ =>
+ state_identityProvider(IDP,C,SP,KC,KIDP,ID,URI,9,SID).
+ iknows(crypt(KC,crypt(inv(KIDP),pair(SP,pair(crypt(inv(KIDP),pair(C,IDP)),URI)))))
+
+step step_5 (SP,C,IDP,KSP,KIDP,Resource,Dummy_ID,Dummy_KC,Dummy_URI,Set_45,SID,ID,KC,URI) :=
+ state_serviceProvider(SP,C,IDP,KSP,KIDP,Resource,1,Dummy_ID,Dummy_KC,Dummy_URI,Set_45,SID).
+ iknows(crypt(KSP,pair(KC,pair(C,pair(SP,URI)))))
+=[exists ID]=>
+ state_serviceProvider(SP,C,IDP,KSP,KIDP,Resource,3,ID,KC,URI,Set_45,SID).
+ iknows(crypt(KC,crypt(inv(KSP),pair(C,pair(IDP,pair(pair(ID,SP),URI))))))
+
+step step_6 (SP,C,IDP,KSP,KIDP,Resource,ID,KC,URI,Dummy_Set_45,SID) :=
+ state_serviceProvider(SP,C,IDP,KSP,KIDP,Resource,3,ID,KC,URI,Dummy_Set_45,SID).
+ iknows(crypt(KSP,crypt(inv(KC),pair(SP,pair(crypt(inv(KIDP),pair(C,IDP)),URI)))))
+ =>
+ state_serviceProvider(SP,C,IDP,KSP,KIDP,Resource,5,ID,KC,URI,Dummy_Set_45,SID).
+ iknows(crypt(KC,crypt(inv(KSP),apply(Resource,URI)))).
+ request(SP,C,c_sp_aa,URI,SID).
+ secret(apply(Resource,URI),c_sp_resource,Dummy_Set_45).
+ contains(C,Dummy_Set_45).
+ contains(SP,Dummy_Set_45)
+
+
+section properties:
+
+property secrecy_of_c_sp_resource (MGoal,ASGoal) :=
+ [] ((secret(MGoal,c_sp_resource,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_c_sp_aa (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,c_sp_aa,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,c_sp_aa,MGoal))
+     /\ ((request(A1Goal,A2Goal,c_sp_aa,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,c_sp_aa,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_c_sp_resource (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,c_sp_resource,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_c_sp_aa (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,c_sp_aa,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,c_sp_aa,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_c_sp_aa (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,c_sp_aa,MGoal,SID1).
+ request(A1Goal,A2Goal,c_sp_aa,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

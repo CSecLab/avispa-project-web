@@ -1,0 +1,77 @@
+%% PROTOCOL: NSPK: Needham-Schroeder Public-Key Protocol
+%% VARIANT: original version (of 1978) without key server
+%% PURPOSE: Two-party mutual autentication
+%% MODELER: David von Oheimb, Siemens CT IC 3, January 2005
+%% ALICE_BOB:
+%%egin{verbatim}
+%% 1. A  - {Na.A}_Kb ----> B
+%% 2. A  B
+%%end{verbatim}
+%% PROBLEMS: 3
+%% CLASSIFICATION: G1, G3, G12
+%% ATTACKS: Man-in-the-middle attack,
+%% where in the first session Alice talks with the intruder as desired
+%% and in the second session Bob wants to talk with Alice but actually
+%% talks to the intruder. Therefore, also the nonce Nb gets leaked.
+%%egin{verbatim}
+%% 1.1  A  - {Na.A}_Ki --> i   	
+%% 2.1                     i(A)  - {Na.A}_Kb  -> B   	
+%% 2.2                     i(A)  B
+%%end{verbatim}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%HLPSL:
+role role_A(A:agent,B:agent,KA:public_key,KBh:public_key,H:function,SND,RCV:channel(dy))
+played_by A
+def=
+	local
+		State:nat,K:text,NB:text,NA:text,KBs:public_key
+	init
+		State := 0
+	transition
+		1. State=0 / RCV(start) =|> State':=1 / NA':=new() / SND(NA')
+		2. State=1 / RCV(NB'.KBh.KBs') =|> State':=2 / K':=new() / SND({{H(NA.NB'.KBh.KBs').K'}_KBs'}_KBh.{A.KA.{H(A.NA.NB')}_inv(KA)}_K')
+end role
+
+role role_B(A:agent,B:agent,KBh:public_key,KA:public_key,H:function,SND,RCV:channel(dy))
+played_by B
+def=
+	local
+		State:nat,K:text,NB:text,NA:text,KBs:public_key
+	init
+		State := 0
+	transition
+		1. State=0 / RCV(NA') =|> State':=1 / KBs':=new() / NB':=new() / SND(NB'.KBh.KBs')
+		3. State=1 / RCV({{H(NA.NB.KBh.KBs).K'}_KBs}_KBh.{A.KA.{H(A.NA.NB)}_inv(KA)}_K') =|> State':=2
+end role
+
+role session1(A:agent,B:agent,KBh:public_key,KA:public_key,H:function)
+def=
+	local
+		SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_B(A,B,KBh,KA,H,SND2,RCV2) / role_A(A,B,KA,KBh,H,SND1,RCV1)
+end role
+
+role session2(A:agent,B:agent,KBh:public_key,KA:public_key,H:function)
+def=
+	local
+		SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_B(A,B,KBh,KA,H,SND2,RCV2) / role_A(A,B,KA,KBh,H,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		ka:public_key,a:agent,hash_0:function,b:agent,kbh:public_key,ki:public_key,h:function,auth_1:protocol_id
+	intruder_knowledge = {a,b,i,ka,kbh,h}
+	composition
+		session2(a,i,ki,ka,h) / session1(a,b,kbh,ka,h)
+end role
+
+goal
+	authentication_on auth_1
+end goal
+
+environment()
+ 

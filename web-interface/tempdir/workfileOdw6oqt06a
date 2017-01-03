@@ -1,0 +1,218 @@
+role alice (Ui, Sj : agent,            
+                                                    
+          SK : symmetric_key,
+                                        
+          % H is hash function
+                                        
+          H : hash_func,
+                                         
+                                        
+          Snd, Rcv: channel(dy))
+                                                      
+% Ui is the user; Sj is the server
+                                                      
+played_by Ui
+                                                      
+def=
+                                        
+ local State : nat,
+                                         
+ IDi, PWi, RPWi, Ri, Rs, EIDi, A,B,G,Ci,Ei,Ws,Vs,Vi, Yi, Wi : text,           
+ % Ri is a secret number to Ui            
+ % X and RS is a secret number to Sj      
+                                          
+TRi,Ti, Ts,Tss : text,
+
+  X : symmetric_key,
+                                          
+      ADD : hash_func,
+                                        
+      H1, K, H2 : text
+                                        
+ const alice_bob_Ti, bob_alice_Tss,
+                                          
+      alice_bob_A, bob_alice_B,
+                                        
+      subs1, subs2 : protocol_id
+                                         
+init State := 0   
+                      
+transition                              
+% Registration phase                    
+                                        
+1. State = 0 /\ Rcv(start) =|>          
+                                        
+    State' := 1
+     /\ Ri' := new()
+     /\ RPWi' := H(PWi.Ri')    
+% Send the registration request message    
+                                        
+  /\ Snd({IDi.RPWi'}_SK)                
+% Keep X secret to Sj and PWi, Ri to Ui                                                   
+
+/\ secret({X}, subs1, Sj)
+/\ secret({PWi, Ri}, subs2, Ui)
+
+% Receive the smart card from the registration server Sj
+ 2. State = 1 
+    % /\TRi' := new()
+    %/\EIDi' := {IDi,TRi'}_X
+   /\Rcv({                            
+   xor(H(IDi.X),H(PWi.Ri)).
+   EIdi.
+   H(H(PWi.Ri).IDi).
+   xor(xor(IDi,PWi),Ri).  % xor is used instead of nor
+   H }_SK) =|>
+
+ % Login phase
+
+ State' := 2 /\ Ti' := new()
+    /\ A' := new() 
+   /\ Ri' := xor(xor(xor(IDi,PWi),Ri),xor(IDi,PWi))  % xor is used instead of nor
+    /\ Wi' := H(H(PWi.Ri).IDi)
+  
+   /\ Ci' := exp(G,A')
+   /\ Vi' := H(IDi.Yi'.Ci'.Ti')
+
+ % Send the login request message
+
+   /\ Snd (EIDi, Ci',Vi',Ti')
+   /\ witness(Ui, Sj, alice_bob_A, A')
+   % Ui has freshly generated the timestamp Ti for Sj
+   /\ witness(Ui, Sj, alice_bob_Ti, Ti')
+
+     % Authentication phase
+  % Receive the authentication request message
+      3. State = 2 /\ Rcv(Ws.Vs.Tss) =|>
+
+  State' := 3
+                                                       
+  /\ request(Sj, Ui, bob_alice_Tss , Tss)
+  end role
+
+
+
+ role bob (Ui, Sj : agent,                                
+                  SK : symmetric_key,                                 
+                  % H is hash function                                
+                  H : hash_func,
+                                                                      
+                  Snd, Rcv: channel(dy))
+                                                                      
+         % Ui is the user; Sj is the server
+                                                                      
+         played_by Sj
+                                                                       
+         def=
+                                                                       
+           local State : nat,
+                                            
+ IDi, PWi, RPWi, Ri, Rs, EIDi, A,B,G,Ci,Ei,Ws,Vs, Vi, Yi, Wi: text,           
+ % Ri is a secret number to Ui            
+ % X and RS is a secret number to Sj      
+                                          
+TRi,Ti, Ts,Tss : text,
+      
+      X : symmetric_key,
+                                          
+      ADD : hash_func,
+                                        
+      H1, K, H2   : text
+                                        
+ const alice_bob_Ti, bob_alice_Tss,
+                                          
+      alice_bob_A, bob_alice_B,
+                                        
+      subs1, subs2 : protocol_id
+                                         
+      init State := 0                         
+                                                                      
+          transition
+                                                                      
+         % Registration phase
+                                                                      
+         % Receive the registration request message from the user
+                                                                      
+         1. State = 0 /\ Rcv({IDi.H(PWi.Ri)}_SK) =|>
+                                                                      
+         % Keep x secret to Sj and PWi, Ri to Ui
+                                                                      
+           State' := 1 /\ secret({X}, subs1, Sj)
+                                                                      
+                    /\ secret({PWi,Ri}, subs2, Ui)
+                                                                      
+         % Send the smart card to the user
+			
+		   /\TRi' := new()
+                   /\EIDi' := {IDi,TRi'}_X                                                                       
+                  /\Wi' := H(H(PWi.Ri).IDi)
+		  /\Yi' := xor(H(IDi.X),H(PWi.Ri))
+                 /\snd({Yi'.EIdi'.Wi'.H}_SK)
+
+         % Login phaseed subject that involves skill
+
+    * flight instructor
+         % Receive the login request message
+                    2. State = 1 /\
+              Rcv(EIDi', Ci',Vi',Ti') =|>
+        
+              % Authentication phase
+              State' := 2 /\
+             % generate a random nonce
+                 B' := new()
+          % Tss is the current system timestamp
+                /\ Tss' := new()
+                /\ Ei' := exp(G,B)
+		/\Vs' := H(IDi.Yi'.Tss')                 
+                /\ Ws' := xor((EIDi'.Ei'),H(Yi'))
+                		
+     % Send the authentication request message
+             /\ Snd(Ws'.Vs'.Tss')
+         % Sj has freshly generated the random nonce B for Ui
+               /\ witness(Sj, Ui, bob_alice_B, B')
+        % Sj has freshly generated the timestamp Tss for Ui
+               /\ witness(Sj, Ui, bob_alice_Tss, Tss')
+     
+       % Sj’s acceptance of the value Ti generated for Sj by Ui
+          /\ request(Ui, Sj, alice_bob_Ti, Ti)
+ end role
+
+
+role session(Ui, Sj: agent,
+SK : symmetric_key,
+H : hash_func)
+def=
+local SI, SJ, RI, RJ: channel (dy)
+composition
+alice(Ui, Sj, SK, H, SI, RI)
+/\ bob(Ui, Sj, SK, H, SJ, RJ)
+end role
+
+
+role environment()
+def=
+const ui, sj: agent,
+sk : symmetric_key,
+h : hash_func,
+alice_bob_Ti, bob_alice_Ts,
+alice_bob_Ri, bob_alice_Rs,
+subs1, subs2 : protocol_id
+intruder_knowledge = {ui, sj, h}
+composition
+session(ui, sj, sk, h)
+/\ session(ui, sj, sk, h)
+end role
+goal
+secrecy_of subs1
+secrecy_of subs2
+authentication_on alice_bob_Ti
+authentication_on alice_bob_Ri
+authentication_on bob_alice_Ts
+authentication_on bob_alice_Rs
+end goal
+environment()
+
+
+
+
+

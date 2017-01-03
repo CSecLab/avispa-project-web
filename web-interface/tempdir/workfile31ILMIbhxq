@@ -1,0 +1,178 @@
+%%Version1-Hsiang-shih-2009
+
+%%smart card includes:Vi,Bi,Hi,Ri,b,hash_func   %%arbitay number usei choose : b->B
+%%user's id pass : IDi, PWi
+%% r , x, y --> RC secret numbers
+
+role useri(U,S, RC: agent,
+			IDi, PWi,Vi,Bi,Hi,Ri,B :text ,  
+		    Hash : hash_func,
+            SND, RCV: channel(dy))
+played_by U def=
+
+%%Useri Knows IDi and PWi and has a smart card that contains (Vi,Bi,b,Hi,Ri,h(.))
+%% Useri Knows SIDj
+
+local State : nat, 
+		Ai,Ni,Nj,Ti,Qi ,Mij1,Mij2,CIDi, Pij,Di,C0, SharedKey,SIDj : text,
+		Sum : hash_func
+	const sec_SK , sec_id , sec_pwi : protocol_id
+
+init State := 0
+	
+transition
+	1. State = 0 /\ RCV(start) =|> 
+		State':= 1 
+		/\ Ti' := xor(Vi, Hash(IDi.xor(B,PWi)))
+		/\ Ni' := new()
+		/\ Ai' := xor(Bi, Hash(xor(B, PWi)))
+		/\ CIDi':= xor( Hash(xor(B,PWi)), Hash(Ti'.Ai'.Ni')) 
+		/\ Pij' := xor(Ti' , Hash(Ai'.Ni'.SIDj))
+		/\ Qi' := Hash(Bi.Ai'.Ni')
+		/\ Di' := xor(Ri,xor(SIDj,Ni'))
+		/\ C0' := Hash(Ai'.Sum(Ni').SIDj)
+		/\ SND(CIDi'.Pij'.Qi'.Di'.C0'.Ni')
+		/\ witness(U,S , u_s_ni , Ni')
+		/\ secret({PWi} , sec_pwi , U)
+		/\ secret({IDi} , sec_id , U)    %%anonymity
+				
+	2. State = 1 /\ RCV(Mij1'.Nj') =|> 
+		State' := 2 
+		/\ Mij2' := Hash(Bi.Nj'.Ai.SIDj)
+		/\ SND(Mij2')
+		/\ request(S, U, s_u_nj , Nj')
+		/\ SharedKey' := Hash(Bi.Ni.Nj'.SIDj)
+		/\ secret(SharedKey',sec_SK , {U,S})
+	 
+	
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role serverj(U, S, RC: agent,
+					HSIDjY : text,
+					Hash : hash_func,
+					SND, RCV: channel(dy))
+played_by S def=
+local State : nat,	
+		Ai,Ni , Nj, Njr, Nrj , Mjr, Mij1, Mij2,Ti,Qi ,CIDi, Pij,Di ,C0, C1, C2, SharedKey , Hbpw , Bi,SIDj: text
+		
+	const sec_SK , s_rc_njr ,rc_s_nrj, s_u_nj, u_s_ni : protocol_id	
+	
+	
+%% Serverj Knows SIDj, HSIDjY
+%%HSIDjY= Hash(SIDj.Y) --> receive from RC via a secure channel	
+%%Hbpw = Hash(xor(B,PWi))				
+
+init State :=10
+
+transition	
+	1. State = 10 /\ RCV(CIDi'.Pij'.Qi'.Di'.C0'.Ni') =|> 
+		State' := 11 
+		/\ Njr' := new()
+		/\ Mjr' := xor(HSIDjY , Njr')
+		/\ SND(Mjr'.SIDj.Di'.C0'.Ni')
+		/\ request(U , S, u_s_ni , Ni')
+		/\ witness(S, RC, s_rc_njr , Njr')
+				
+		
+	2. State = 11 /\ RCV(C1'.C2'.Nrj') =|>
+	   State' := 12
+	   /\ Ai' := xor(C2,Hash(xor(HSIDjY , Nrj)))
+	   /\ Ti' := xor(Pij, Hash(Ai'.Ni.SIDj))
+	   /\ Hbpw':= xor(CIDi , Hash(Ai'.Ti'.Ni))
+	   /\ Bi' := xor(Ai' , Hbpw')	   
+	   /\ Nj' := new()
+	   /\ Mij1' := Hash(Bi'.Ni.Ai'.SIDj)
+	   /\ SND(Mij1'.Nj')
+	   /\ witness (S, U, s_u_nj , Nj')
+	   /\ request(RC, S, rc_s_nrj , Njr)
+
+	   
+	   
+	3. State = 12 /\ RCV(Mij2') =|>
+	   State' := 13
+	   /\ SharedKey' := Hash(Bi.Ni.Nj.SIDj)
+	   /\ secret(SharedKey',sec_SK , {U,S})  
+
+end role
+%%%%%%%%%%%%%%%%%%%%
+role registration_center(U, S,RC: agent,
+					R,X,Y : text,
+					Hash : hash_func,
+					SND, RCV: channel(dy))
+played_by RC def=
+local State : nat,	
+		Ni,Ai,Ri,Nrj, Njr,Mjr,Di ,C0,C1,C2,  SIDj: text,
+		Sum : hash_func
+		
+	const sec_SK, s_rc_njr ,rc_s_nrj : protocol_id	
+		
+%%RC Has secret Numbers : X, Y, R					
+init State :=20
+
+transition	
+	1. State = 20 /\ RCV(Mjr'.SIDj.Di'.C0'.Ni') =|> 
+		State' := 21 
+		/\ Njr' := xor(Mjr,Hash(SIDj.Y))
+		/\ Ri' := xor(Di,xor(SIDj , Ni))
+		/\ Ai' := xor(Ri',Hash(xor(X,R)) )
+		/\ C0' := Hash(Ai'.Sum(Ni).SIDj)
+		/\ Nrj':= new()
+		/\ C1' := Hash(Njr'.Hash(SIDj.Y).Nrj')
+		/\ C2' := xor(Ai', Hash(xor(Hash(SIDj.Y) , Njr')))		
+		/\ SND(C1'.C2'.Nrj')
+		/\ request(S, RC, s_rc_njr , Njr')
+		/\ witness(RC, S, rc_s_nrj , Njr')		
+
+end role
+
+
+%%%%%%%%%
+role session (U, S,RC: agent, Hash : hash_func)
+def=
+	local Su, Ru , SS ,RS , SRC ,RRC : channel(dy),
+	 X ,Y ,R, IDi,PWi,Vi,Bi,Hi ,B,Ri, Hsidj :text
+	 
+	composition 
+	useri( U,S ,RC ,IDi,PWi,Vi,Bi,Hi,Ri,B , Hash , Su , Ru)/\ serverj(U,S,RC ,Hsidj,Hash, SS, RS) /\ registration_center(U,S,RC ,R, X,Y,Hash, SRC, RRC)
+	
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%
+
+
+role environment() def=
+	const 
+	u,s, rc:agent,	
+	sec_SK ,sec_pwi ,sec_id ,s_u_nj,u_s_ni ,s_rc_njr ,rc_s_nrj : protocol_id,
+	ha : hash_func
+	
+	intruder_knowledge = {u,s,rc,ha}
+	
+	composition
+		session(u,s, rc,ha) /\ session(i,s,rc,ha)/\ session(u,i,rc,ha)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%
+goal
+
+   
+	secrecy_of sec_SK
+	secrecy_of sec_id
+	secrecy_of sec_pwi
+	authentication_on s_u_nj
+	authentication_on u_s_ni
+	authentication_on s_rc_njr 
+	authentication_on rc_s_nrj
+
+end goal
+%%%%%%%%%%%
+
+environment()
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%Login Phase
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%Authentication Phase

@@ -1,0 +1,80 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilexOwlt3ilFD
+
+section signature:
+
+state_bob: agent * agent * public_key * public_key * symmetric_key * hash_func * nat * text * text * symmetric_key * set(agent) * nat -> fact
+state_alice: agent * agent * public_key * public_key * symmetric_key * hash_func * nat * text * text * symmetric_key * set(agent) * nat -> fact
+
+
+section types:
+
+3, 1, 10, State, 6, 4, SID, 2, 0, Dummy_State: nat
+Na, Nb, Dummy_Nb, Dummy_Na, dummy_nonce: text
+set_83, set_82, set_81, set_79, set_74, set_61: set
+Set_39, Dummy_Set_39, Dummy_Set_22, Set_22, ASGoal: set(agent)
+start, MGoal: message
+GenKsab, genKsab: hash_func
+Kprb, Ksab, Dummy_Kprb, ksab, Dummy_Ksab, Dummy_Kpra, Kpra, dummy_sk, ksi: symmetric_key
+Kpa, Kpb, Dummy_Kpb, Dummy_Kpa, ka, kb, ki: public_key
+A, B, a, b, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(ki).
+ iknows(ksi).
+ iknows(genKsab).
+ iknows(i).
+ state_alice(a,b,ka,kb,ksab,genKsab,0,dummy_nonce,dummy_nonce,dummy_sk,set_61,3).
+ state_bob(b,a,ka,kb,ksab,genKsab,1,dummy_nonce,dummy_nonce,dummy_sk,set_74,4).
+ state_alice(a,i,ka,ki,ksab,genKsab,0,dummy_nonce,dummy_nonce,dummy_sk,set_79,6).
+ state_bob(b,i,ka,ki,ksi,genKsab,1,dummy_nonce,dummy_nonce,dummy_sk,set_83,10)
+
+
+section rules:
+
+step step_0 (A,B,Dummy_Kpa,Kpb,Ksab,GenKsab,Dummy_Na,Nb,Dummy_Kpra,Set_22,SID,Kpa,Na,Kpra) :=
+ state_alice(A,B,Dummy_Kpa,Kpb,Ksab,GenKsab,0,Dummy_Na,Nb,Dummy_Kpra,Set_22,SID).
+ iknows(start)
+=[exists Na,Kpra,Kpa]=>
+ state_alice(A,B,Kpa,Kpb,Ksab,GenKsab,2,Na,Nb,Kpra,Set_22,SID).
+ iknows(pair(Na,Kpa))
+
+step step_1 (A,B,Kpa,Dummy_Kpb,Dummy_Ksab,GenKsab,Na,Dummy_Nb,Kpra,Dummy_Set_22,SID,Kpb,Nb) :=
+ state_alice(A,B,Kpa,Dummy_Kpb,Dummy_Ksab,GenKsab,2,Na,Dummy_Nb,Kpra,Dummy_Set_22,SID).
+ iknows(pair(Nb,Kpb))
+ =>
+ state_alice(A,B,Kpa,Kpb,apply(GenKsab,pair(Kpra,Dummy_Kpb)),GenKsab,4,Na,Nb,Kpra,Dummy_Set_22,SID).
+ secret(Dummy_Ksab,ksab,Dummy_Set_22).
+ contains(A,Dummy_Set_22).
+ contains(B,Dummy_Set_22)
+
+step step_2 (B,A,Kpa,Dummy_Kpb,Dummy_Ksab,GenKsab,Dummy_Na,Dummy_Nb,Dummy_Kprb,Dummy_Set_39,SID,Kpb,Na,Nb,Kprb) :=
+ state_bob(B,A,Kpa,Dummy_Kpb,Dummy_Ksab,GenKsab,1,Dummy_Na,Dummy_Nb,Dummy_Kprb,Dummy_Set_39,SID).
+ iknows(pair(Na,Kpa))
+=[exists Nb,Kprb,Kpb]=>
+ state_bob(B,A,Kpa,Kpb,apply(GenKsab,pair(Dummy_Kprb,Kpa)),GenKsab,3,Na,Nb,Kprb,Dummy_Set_39,SID).
+ iknows(pair(Na,Kpb)).
+ secret(Dummy_Ksab,ksab,Dummy_Set_39).
+ contains(A,Dummy_Set_39).
+ contains(B,Dummy_Set_39)
+
+
+section properties:
+
+property secrecy_of_ksab (MGoal,ASGoal) :=
+ [] ((secret(MGoal,ksab,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_ksab (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,ksab,ASGoal) &
+ not(contains(i,ASGoal))
+

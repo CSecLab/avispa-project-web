@@ -1,0 +1,111 @@
+role client(C,S,G,R : agent,
+	    SCG, RCG: channel(dy),
+            H1: hash_func)
+played_by C
+def=
+  local State     : nat,
+        Nc,Ns     : text,
+        Eap_pay   : text,
+        Kid       : text,
+        MAC       : message,
+        MSK       : text
+   init  State := 0 
+  transition
+    1.  State   = 0 /\ RCG(start) =|> 
+        State' := 2 /\ SCG(0) 
+    2.  State   = 2 /\ RCG(Ns', Eap_pay') =|> 
+        State' := 4 /\ Nc':=new() 
+		         /\ SCG(Nc', Eap_pay')
+    3.  State   = 4 /\ RCG(MAC', Kid') =|>
+                    /\ MSK':= new()
+                    /\ MAC':= H1(MSK'.Nc'.Ns'.Kid)
+                    /\ secret(MSK', s_mac, {C,S})
+        State  :=6  /\ SCG(MAC',Kid')
+        
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role server(C,S,G,R : agent,
+	    SRS, RRS: channel(dy),
+            H1: hash_func)
+played_by S
+def=
+
+  local State     : nat,
+        Nc,Ns     : text,
+        Eap_pay   : text,
+        Kid       : text,
+        MAC       : message,
+        MSK       : text
+
+   init  State := 1 
+
+  transition
+
+    1.  State   = 1 /\ RRS(0) =|> 
+        State' := 3 /\ Ns' := new()
+                    /\ SRS(Ns', Eap_pay') 
+	 	    
+    2.  State   = 3 /\ RRS(Nc', Eap_pay') =|> 
+        State' := 5 /\ MSK':=new()
+                    /\ Kid':=new() 
+                    /\ MAC':= H1(MSK'.Nc'.Ns'.Kid')
+                    /\ SRS(MAC', Kid')
+                    /\ secret(MSK', s_mac, {C,S})
+    3.  State   = 5 /\ RRS(MAC', Kid') =|>
+                     
+                   
+        State'  :=7 
+        
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(C,S,G,R: agent,
+             H1: hash_func) 
+def=
+   local SCG,RCG, SGR, RGR, SRS, RRS: channel(dy)
+   composition
+
+	 client(C,S,G,R,H1,SCG,RCG)
+      /\ gateway(C,S,G,R,SCG,RCG,SGR,RGR)
+      /\ relay  (C,S,G,R,SGR,RGR,SRS,RRS)
+      /\ server (C,S,G,R,H1,SRS,RRS)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+ 
+ const s_msk                  : protocol_id,
+       c,s,g,r                : agent,
+       h1                     : hash_func,
+       nc,ns                  : text
+
+ intruder_knowledge={c,s,g,r,h1,nc,ns}
+
+ composition
+ 
+	session(c,s,g,r,h1,nc,ns) 
+  /\	session(i,s,g,r,h1,nc,ns) 
+  /\	session(c,i,g,r,h1,nc,ns)
+  /\	session(c,s,i,r,h1,nc,ns)
+  /\	session(c,s,g,i,h1,nc,ns)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  % Confidentiality
+  secrecy_of s_msk
+
+  
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

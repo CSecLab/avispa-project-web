@@ -1,0 +1,118 @@
+
+role role_MR(MR:agent,MAP1:agent,CAAA:agent,HAAA:agent,MAP2:agent,AR3:agent,H:hash_func,NAAA:agent,LK:symmetric_key,NSK:symmetric_key,Ki:symmetric_key,AR3ID:text,NLK:symmetric_key,SND,RCV:channel(dy))
+played_by MR
+def=
+	local
+		State:nat,N5:text,N3:text,N1:text,N2:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ N2':=new() /\ N1':=new() /\ N3':=new() /\ SND(MR.MAP1.AR3ID.N1'.N2'.{N3'}_LK.H(MR.N1'.Ki).H(MR.N2'.LK)) /\ secret(NLK,sec_n3,{MR,AR3,NAAA}) /\ witness(MR,CAAA,auth_1,H(MR.N2'.LK))
+		7. State=1 /\ RCV(MAP1.MR.H(H(MR.CAAA.N2.N5'.LK)).N5') =|> State':=2 /\ request(MR,CAAA,auth_2,H(MR.CAAA.N2.N5'.LK))
+		12. State=2 /\ RCV(MAP1.MR.{MAP1.AR3.N3}_NSK) =|> State':=3
+		16. State=3 /\ RCV(MAP2.MR.H(H(LK.N2.N1))) =|> State':=4 /\ SND(MR.AR3.{AR3.MR.N3}_NSK) /\ SND(MR.MAP2.H(H(LK.N2.N1)))
+end role
+
+role role_MAP1(MAP1:agent,MR:agent,CAAA:agent,HAAA:agent,MAP2:agent,AR3:agent,H:hash_func,NAAA:agent,KCAMAP1:symmetric_key,TK:symmetric_key,SND,RCV:channel(dy))
+played_by MAP1
+def=
+	local
+		State:nat,AR3ID:text,N1:text,Ki:symmetric_key,N5:text,N2:text,LK:symmetric_key,NSK:symmetric_key,N3:text,N6:text,N7:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(MR.MAP1.AR3ID'.N1'.N2'.{N3'}_LK'.H(MR.N1'.Ki').H(MR.N2'.LK')) =|> State':=1 /\ SND(MAP1.CAAA.N1'.N2'.{N3'}_LK'.H(MR.N1'.Ki').H(MR.N2'.LK'))
+		6. State=1 /\ RCV(CAAA.MAP1.N5'.{H(MR.CAAA.N2.N5'.LK).CAAA.N6'.TK}_KCAMAP1) =|> State':=2 /\ SND(MAP1.MR.H(H(MR.CAAA.N2.N5'.LK)).N5') /\ SND(MAP1.AR3.{MAP1.N6'}_TK)
+		11. State=2 /\ RCV(AR3.MAP1.H(N6.TK).{MAP1.AR3.N3}_NSK') =|> State':=3 /\ SND(MAP1.MR.{MAP1.AR3.N3}_NSK') /\ N7':=new() /\ SND(MAP1.MAP2.{MAP1.N6.N7'}_TK)
+end role
+
+role role_MAP2(MAP2:agent,MAP1:agent,MR:agent,CAAA:agent,HAAA:agent,AR3:agent,H:hash_func,NAAA:agent,KNAMAP2:symmetric_key,SND,RCV:channel(dy))
+played_by MAP2
+def=
+	local
+		State:nat,TK:symmetric_key,N6:text,N7:text,N1:text,LK:symmetric_key,N2:text
+	init
+		State := 0
+	transition
+		13. State=0 /\ RCV(MAP1.MAP2.{MAP1.N6'.N7'}_TK') =|> State':=1 /\ SND(MAP2.NAAA.{MAP1.N6'.N7'}_TK')
+		15. State=1 /\ RCV(NAAA.MAP2.{H(LK'.N2'.N1')}_KNAMAP2) =|> State':=2 /\ SND(MAP2.MR.H(H(LK'.N2'.N1')))
+		18. State=2 /\ RCV(MR.MAP2.H(H(LK.N2.N1))) =|> State':=3
+end role
+
+role role_CAAA(CAAA:agent,MAP1:agent,MR:agent,HAAA:agent,H:hash_func,NAAA:agent,LK:symmetric_key,KCNAAA:symmetric_key,KCAMAP1:symmetric_key,TK:symmetric_key,SND,RCV:channel(dy))
+played_by CAAA
+def=
+	local
+		State:nat,N1:text,N3:text,Ki:symmetric_key,N6:text,N2:text,N5:text
+	init
+		State := 0
+	transition
+		2. State=0 /\ RCV(MAP1.CAAA.N1'.N2'.{N3'}_LK.H(MR.N1'.Ki').H(MR.N2'.LK)) /\ request(CAAA,MR,auth_1,H(MR.N2'.LK)) =|> State':=1 /\ N6':=new() /\ N5':=new() /\ SND(CAAA.NAAA.N5'.H(MR.N1'.Ki').{H(LK.N2'.N1').N3'.N6'.TK}_KCNAAA) /\ SND(CAAA.MAP1.N5'.{H(MR.CAAA.N2'.N5'.LK).CAAA.N6'.TK}_KCAMAP1) /\ witness(CAAA,MR,auth_2,H(MR.CAAA.N2'.N5'.LK))
+end role
+
+role role_NAAA(NAAA:agent,MAP1:agent,MR:agent,CAAA:agent,HAAA:agent,MAP2:agent,AR3:agent,H:hash_func,KNHAAA:symmetric_key,KCNAAA:symmetric_key,NSK:symmetric_key,TK:symmetric_key,KNAAR3:symmetric_key,KNAMAP2:symmetric_key,SND,RCV:channel(dy))
+played_by NAAA
+def=
+	local
+		State:nat,Ki:symmetric_key,N5:text,NLK:symmetric_key,N3:text,N6:text,N7:text,N2:text,LK:symmetric_key,N1:text
+const
+	   
+	sec_nsk : protocol_id  
+	init
+		State := 0
+	transition
+		3. State=0 /\ RCV(CAAA.NAAA.N5'.H(MR.N1'.Ki').{H(LK'.N2'.N1').N3'.N6'.TK}_KCNAAA) =|> State':=1 /\ SND(NAAA.HAAA.N1'.N2'.N5'.H(MR.N1'.Ki'))
+		5. State=1 /\ RCV(HAAA.NAAA.{HAAA.NLK'}_KNHAAA) =|> State':=2 /\ secret(NLK',sec_nlk,{MR,AR3,HAAA,NAAA})
+		9. State=2 /\ RCV(AR3.NAAA.{MAP1.N6}_TK) =|> State':=3 /\ SND(NAAA.AR3.{NSK.N3}_KNAAR3.H(N6.TK)) /\ secret(NSK,sec_nsk,{NAAA,AR3,MR})
+		14. State=3 /\ RCV(MAP2.NAAA.{MAP1.N6.N7'}_TK) =|> State':=4 /\ SND(NAAA.MAP2.{H(LK.N2.N1)}_KNAMAP2)
+end role
+
+role role_HAAA(HAAA:agent,MAP1:agent,MR:agent,CAAA:agent,MAP2:agent,AR3:agent,H:hash_func,NAAA:agent,KNHAAA:symmetric_key,TK:symmetric_key,Ki:symmetric_key,NLK:symmetric_key,SND,RCV:channel(dy))
+played_by HAAA
+def=
+	local
+		State:nat,N1:text,N2:text,N5:text
+	init
+		State := 0
+	transition
+		4. State=0 /\ RCV(NAAA.HAAA.N1'.N2'.N5'.H(MR.N1'.Ki)) =|> State':=1 /\ secret(NLK,sec_nlk,{MR,AR3,HAAA,NAAA}) /\ SND(HAAA.NAAA.{HAAA.NLK}_KNHAAA)
+end role
+
+role role_AR3(AR3:agent,MAP1:agent,MR:agent,CAAA:agent,MAP2:agent,H:hash_func,NAAA:agent,KNAAR3:symmetric_key,SND,RCV:channel(dy))
+played_by AR3
+def=
+	local
+		State:nat,N6:text,TK:symmetric_key,NSK:symmetric_key,N3:text
+	init
+		State := 0
+	transition
+		8. State=0 /\ RCV(MAP1.AR3.{MAP1.N6'}_TK') =|> State':=1 /\ SND(AR3.NAAA.{MAP1.N6'}_TK')
+		10. State=1 /\ RCV(NAAA.AR3.{NSK'.N3'}_KNAAR3.H(N6.TK)) =|> State':=2 /\ SND(AR3.MAP1.H(N6.TK).{MAP1.AR3.N3'}_NSK')
+		17. State=2 /\ RCV(MR.AR3.{AR3.MR.N3}_NSK) =|> State':=3
+end role
+
+role session1(KNAAR3:symmetric_key,NLK:symmetric_key,Ki:symmetric_key,AR3ID:text,LK:symmetric_key,KCAMAP1:symmetric_key,KNHAAA:symmetric_key,KCNAAA:symmetric_key,NSK:symmetric_key,TK:symmetric_key,MAP2:agent,MAP1:agent,MR:agent,CAAA:agent,HAAA:agent,AR3:agent,H:hash_func,NAAA:agent,KNAMAP2:symmetric_key)
+def=
+	local
+		SND7,RCV7,SND6,RCV6,SND5,RCV5,SND4,RCV4,SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_MAP2(MAP2,MAP1,MR,CAAA,HAAA,AR3,H,NAAA,KNAMAP2,SND7,RCV7) /\ role_AR3(AR3,MAP1,MR,CAAA,MAP2,H,NAAA,KNAAR3,SND6,RCV6) /\ role_NAAA(NAAA,MAP1,MR,CAAA,HAAA,MAP2,AR3,H,KNHAAA,KCNAAA,NSK,TK,KNAAR3,KNAMAP2,SND5,RCV5) /\ role_HAAA(HAAA,MAP1,MR,CAAA,MAP2,AR3,H,NAAA,KNHAAA,TK,Ki,NLK,SND4,RCV4) /\ role_CAAA(CAAA,MAP1,MR,HAAA,H,NAAA,LK,KCNAAA,KCAMAP1,TK,SND3,RCV3) /\ role_MAP1(MAP1,MR,CAAA,HAAA,MAP2,AR3,H,NAAA,KCAMAP1,TK,SND2,RCV2) /\ role_MR(MR,MAP1,CAAA,HAAA,MAP2,AR3,H,NAAA,LK,NSK,Ki,AR3ID,NLK,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		hash_0:hash_func,naaa:agent,ar3:agent,caaa:agent,map1:agent,tk:symmetric_key,kcnaaa:symmetric_key,kcamap1:symmetric_key,ar3id:text,nlk:symmetric_key,knaar3:symmetric_key,ki:symmetric_key,lk:symmetric_key,knhaaa:symmetric_key,nsk:symmetric_key,map2:agent,mr:agent,haaa:agent,h:hash_func,knamap2:symmetric_key,auth_1:protocol_id,auth_2:protocol_id,sec_n3:protocol_id,sec_nsk:protocol_id,sec_tk:protocol_id,sec_nlk:protocol_id
+	intruder_knowledge = {mr,map1,map2,ar3,naaa}
+	composition
+		session1(knaar3,nlk,ki,ar3id,lk,kcamap1,knhaaa,kcnaaa,nsk,tk,map2,map1,mr,caaa,haaa,ar3,h,naaa,knamap2)
+end role
+
+goal
+	authentication_on auth_1
+	authentication_on auth_2
+	secrecy_of sec_n3,sec_nsk,sec_tk,sec_nlk
+
+end goal
+
+environment()

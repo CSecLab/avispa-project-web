@@ -1,0 +1,171 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilenZ9c65
+
+section signature:
+
+state_client: agent * agent * agent * hash_func * symmetric_key * nat * text * text * text * public_key * public_key * public_key * text * text * set(agent) * set(agent) * nat -> fact
+state_server: agent * agent * agent * public_key * public_key * hash_func * nat * text * text * text * text * public_key * nat -> fact
+state_authenticationserver: agent * agent * agent * symmetric_key * public_key * public_key * public_key * nat * text * text * text * text * text * set(agent) * nat -> fact
+
+
+section types:
+
+private_key, client_server, nonce2, nonce: protocol_id
+input, Input: symmetric_key
+Nonce3, Life, Timestamp, Nonce2, Nonce1, Nonce, Dummy_Life, Dummy_Timestamp, Dummy_Nonce2, Dummy_Nonce3, Dummy_Nonce1, Dummy_Nonce, dummy_nonce: text
+set_145, set_143, set_142, set_140, set_138, set_137, set_135, set_130, set_129, set_116, set_113, set_112: set
+State, 17, 16, 15, 12, 11, 9, 4, 7, 3, SID, 2, 1, 5, 0, Dummy_State, SID2, SID1: nat
+Set_55, Dummy_Set_32, Set_32, Dummy_Set_27, Set_27, Dummy_Set_55, ASGoal: set(agent)
+start, MGoal: message
+c, as, s, C, As, S, A2Goal, A1Goal, i: agent
+pk_i, PK_c, PK_s, PK_as, dummy_pk, pk_c, pk_as, pk_s: public_key
+Succ, succ: hash_func
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(c).
+ iknows(as).
+ iknows(s).
+ iknows(succ).
+ iknows(pk_i).
+ iknows(i).
+ state_authenticationserver(as,i,s,input,pk_i,pk_as,pk_s,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_116,4).
+ state_server(s,i,as,pk_as,pk_s,succ,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_pk,5).
+ state_client(c,i,s,succ,input,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_pk,dummy_pk,dummy_pk,dummy_nonce,dummy_nonce,set_129,set_130,7).
+ state_server(s,c,i,pk_i,pk_s,succ,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_pk,9).
+ state_client(c,as,i,succ,input,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_pk,dummy_pk,dummy_pk,dummy_nonce,dummy_nonce,set_137,set_138,11).
+ state_authenticationserver(as,c,i,input,pk_c,pk_as,pk_i,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_140,12).
+ state_client(c,as,s,succ,input,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_pk,dummy_pk,dummy_pk,dummy_nonce,dummy_nonce,set_142,set_143,15).
+ state_authenticationserver(as,c,s,input,pk_c,pk_as,pk_s,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_145,16).
+ state_server(s,c,as,pk_as,pk_s,succ,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_pk,17)
+
+
+section rules:
+
+step step_0 (As,C,S,Input,PK_c,PK_as,PK_s,Dummy_Nonce,Nonce1,Nonce3,Life,Timestamp,Dummy_Set_55,SID,Nonce) :=
+ state_authenticationserver(As,C,S,Input,PK_c,PK_as,PK_s,0,Dummy_Nonce,Nonce1,Nonce3,Life,Timestamp,Dummy_Set_55,SID).
+ iknows(pair(C,scrypt(Input,pair(C,pair(As,Nonce)))))
+ =>
+ state_authenticationserver(As,C,S,Input,PK_c,PK_as,PK_s,1,Nonce,Nonce1,Nonce3,Life,Timestamp,Dummy_Set_55,SID).
+ iknows(pair(As,scrypt(Input,pair(C,pair(As,pair(Nonce,pair(PK_c,pair(inv(PK_c),PK_as)))))))).
+ secret(inv(PK_c),private_key,Dummy_Set_55).
+ contains(As,Dummy_Set_55).
+ contains(C,Dummy_Set_55)
+
+step step_1 (As,C,S,Input,PK_c,PK_as,PK_s,Nonce,Dummy_Nonce1,Nonce3,Life,Timestamp,Set_55,SID,Nonce1) :=
+ state_authenticationserver(As,C,S,Input,PK_c,PK_as,PK_s,1,Nonce,Dummy_Nonce1,Nonce3,Life,Timestamp,Set_55,SID).
+ iknows(pair(C,pair(S,Nonce1)))
+ =>
+ state_authenticationserver(As,C,S,Input,PK_c,PK_as,PK_s,2,Nonce,Nonce1,Nonce3,Life,Timestamp,Set_55,SID).
+ iknows(pair(As,crypt(inv(PK_as),pair(As,pair(C,pair(Nonce1,PK_s))))))
+
+step step_2 (As,C,S,Input,PK_c,PK_as,PK_s,Nonce,Nonce1,Dummy_Nonce3,Life,Timestamp,Set_55,SID,Nonce3) :=
+ state_authenticationserver(As,C,S,Input,PK_c,PK_as,PK_s,2,Nonce,Nonce1,Dummy_Nonce3,Life,Timestamp,Set_55,SID).
+ iknows(pair(S,pair(C,Nonce3)))
+ =>
+ state_authenticationserver(As,C,S,Input,PK_c,PK_as,PK_s,3,Nonce,Nonce1,Nonce3,Life,Timestamp,Set_55,SID).
+ iknows(pair(As,crypt(inv(PK_as),pair(As,pair(S,pair(Nonce3,PK_c))))))
+
+step step_3 (S,C,As,PK_as,PK_s,Succ,Dummy_Nonce2,Dummy_Timestamp,Dummy_Life,Dummy_Nonce3,PK_c,SID,Nonce2,Timestamp,Life,Nonce3) :=
+ state_server(S,C,As,PK_as,PK_s,Succ,0,Dummy_Nonce2,Dummy_Timestamp,Dummy_Life,Dummy_Nonce3,PK_c,SID).
+ iknows(pair(C,pair(S,crypt(inv(PK_as),pair(C,pair(Timestamp,pair(Life,crypt(PK_s,Nonce2))))))))
+=[exists Nonce3]=>
+ state_server(S,C,As,PK_as,PK_s,Succ,1,Nonce2,Timestamp,Life,Nonce3,PK_c,SID).
+ iknows(pair(S,pair(C,Nonce3)))
+
+step step_4 (S,C,As,PK_as,PK_s,Succ,Nonce2,Timestamp,Life,Nonce3,PK_c,SID) :=
+ state_server(S,C,As,PK_as,PK_s,Succ,1,Nonce2,Timestamp,Life,Nonce3,PK_c,SID).
+ iknows(pair(As,crypt(inv(PK_as),pair(As,pair(S,pair(Nonce3,PK_c))))))
+ =>
+ state_server(S,C,As,PK_as,PK_s,Succ,2,Nonce2,Timestamp,Life,Nonce3,PK_c,SID).
+ iknows(pair(S,pair(C,crypt(PK_c,pair(S,apply(Succ,Nonce2)))))).
+ witness(S,C,client_server,Nonce2)
+
+step step_5 (C,As,S,Succ,Input,Dummy_Nonce,Nonce1,Nonce2,PK_c,PK_as,PK_s,Timestamp,Life,Dummy_Set_27,Set_32,SID,Nonce) :=
+ state_client(C,As,S,Succ,Input,0,Dummy_Nonce,Nonce1,Nonce2,PK_c,PK_as,PK_s,Timestamp,Life,Dummy_Set_27,Set_32,SID).
+ iknows(start)
+=[exists Nonce]=>
+ state_client(C,As,S,Succ,Input,1,Nonce,Nonce1,Nonce2,PK_c,PK_as,PK_s,Timestamp,Life,Dummy_Set_27,Set_32,SID).
+ iknows(pair(C,scrypt(Input,pair(C,pair(As,Nonce))))).
+ secret(Dummy_Nonce,nonce,Dummy_Set_27).
+ contains(C,Dummy_Set_27).
+ contains(As,Dummy_Set_27)
+
+step step_6 (C,As,S,Succ,Input,Nonce,Dummy_Nonce1,Nonce2,PK_c,PK_as,PK_s,Timestamp,Life,Set_27,Set_32,SID,Nonce1) :=
+ state_client(C,As,S,Succ,Input,1,Nonce,Dummy_Nonce1,Nonce2,PK_c,PK_as,PK_s,Timestamp,Life,Set_27,Set_32,SID).
+ iknows(pair(As,scrypt(Input,pair(As,pair(C,pair(Nonce,pair(PK_c,pair(inv(PK_c),PK_as))))))))
+=[exists Nonce1]=>
+ state_client(C,As,S,Succ,Input,2,Nonce,Nonce1,Nonce2,PK_c,PK_as,PK_s,Timestamp,Life,Set_27,Set_32,SID).
+ iknows(pair(C,pair(S,Nonce1)))
+
+step step_7 (C,As,S,Succ,Input,Nonce,Nonce1,Dummy_Nonce2,PK_c,PK_as,PK_s,Dummy_Timestamp,Dummy_Life,Set_27,Dummy_Set_32,SID,Nonce2,Timestamp,Life) :=
+ state_client(C,As,S,Succ,Input,2,Nonce,Nonce1,Dummy_Nonce2,PK_c,PK_as,PK_s,Dummy_Timestamp,Dummy_Life,Set_27,Dummy_Set_32,SID).
+ iknows(pair(As,crypt(inv(PK_as),pair(As,pair(C,pair(Nonce1,PK_s))))))
+=[exists Life,Timestamp,Nonce2]=>
+ state_client(C,As,S,Succ,Input,3,Nonce,Nonce1,Nonce2,PK_c,PK_as,PK_s,Timestamp,Life,Set_27,Dummy_Set_32,SID).
+ iknows(pair(C,pair(S,crypt(inv(PK_as),crypt(PK_s,pair(C,pair(Timestamp,pair(Life,Nonce2)))))))).
+ secret(Dummy_Nonce2,nonce2,Dummy_Set_32).
+ contains(C,Dummy_Set_32).
+ contains(S,Dummy_Set_32)
+
+step step_8 (C,As,S,Succ,Input,Nonce,Nonce1,Nonce2,PK_c,PK_as,PK_s,Timestamp,Life,Set_27,Set_32,SID) :=
+ state_client(C,As,S,Succ,Input,3,Nonce,Nonce1,Nonce2,PK_c,PK_as,PK_s,Timestamp,Life,Set_27,Set_32,SID).
+ iknows(pair(S,pair(C,crypt(PK_c,pair(S,apply(Succ,Nonce2))))))
+ =>
+ state_client(C,As,S,Succ,Input,4,Nonce,Nonce1,Nonce2,PK_c,PK_as,PK_s,Timestamp,Life,Set_27,Set_32,SID).
+ request(C,S,client_server,Nonce2,SID)
+
+
+section properties:
+
+property secrecy_of_nonce (MGoal,ASGoal) :=
+ [] ((secret(MGoal,nonce,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_nonce2 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,nonce2,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_private_key (MGoal,ASGoal) :=
+ [] ((secret(MGoal,private_key,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_client_server (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,client_server,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,client_server,MGoal))
+     /\ ((request(A1Goal,A2Goal,client_server,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,client_server,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_nonce (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,nonce,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_nonce2 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,nonce2,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_private_key (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,private_key,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_client_server (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,client_server,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,client_server,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_client_server (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,client_server,MGoal,SID1).
+ request(A1Goal,A2Goal,client_server,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

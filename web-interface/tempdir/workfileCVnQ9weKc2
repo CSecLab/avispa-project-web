@@ -1,0 +1,88 @@
+role client(
+		C, P			:	agent,
+		Kc			:	public_key,
+		Ktca			:	public_key,
+		Hash			:	hash_func,
+		SND, RCV		:	channel(dy))
+
+	played_by C def=
+		
+		local
+			State		:	nat,
+			Kp		:	public_key,
+			Nc, Np		:	text,
+			Kcp		:	message
+
+		init
+			State := 0
+
+		transition
+
+			1. State = 0 /\ RCV(start) =|> State' := 1 /\ SND(Kc.{Hash(C.Kc)}_inv(Ktca))
+			2. State  = 1 /\ RCV(Kp'.{Hash(P'.Kp')}_inv(Ktca)) =|> State' := 2 /\ Nc' := new() /\ SND({Nc'}_Kp') /\ witness(C, P, authentifier_p, Nc')
+			3. state = 2 /\ RCV({Np'}_Kc) =|> State' := 3 /\ request(P, C, authentifier_c, Np') /\ Kcp' := Hash(Nc.Np') /\ secret(Kcp', kcp, {C,P}) /\ SND({Nc.Np'}_Kp)
+
+end role 
+
+role provider(
+		C, P			:	agent,
+		Kp			:	public_key,
+		Ktca			:	public_key,
+		Hash			:	hash_func,
+		SND, RCV		:	channel(dy))
+
+	played_by P def=
+		
+		local
+			State		:	nat,
+			Kc		:	public_key,
+			Nc, Np		:	text,
+			Kcp		:	message
+
+		init
+			State := 0
+
+		transition
+
+			1. State = 0 /\ RCV(Kc.{Hash(C'.Kc')}_inv(Ktca)) =|> State' := 1 /\ SND(Kp.{Hash(P.Kp)}_inv(Ktca))
+			2. State  = 1 /\ RCV({Nc'}_Kp) =|> State' := 2 /\request(C, P, authentifier_p, Nc')  /\ Np' := new() /\ SND({Np'}_Kc) /\ witness(P, C, authentifier_c, Np')
+			3. state = 2 /\ RCV({Nc'.Np'}_Kp) =|> State' := 3 /\ Kcp' := Hash(Nc'.Np') /\ secret(Kcp', kcp, {C,P})
+
+end role
+
+role session (
+		C, P			:	agent,
+		Kc, Kp, Ktca		:	public_key,
+		Hash			:	hash_func)
+	def=
+		local
+			Sc, Rc, Sp, Rp	:	channel(dy)
+	
+		composition
+			client(C, P, Kc, Ktca, Hash, Sc,Rc) /\ provider(C, P, Kp, Ktca, Hash, Sp,Rp)
+
+end role
+
+role environment()
+	def=
+		const
+			c, p, i		:	agent,
+			kc, kp, ki, ktca	:	public_key,
+			h		:	hash_func,
+		
+		authentifier_p, authentifier_c, kcp	:	protocol_id
+
+		intruder_knowledge = {c, p, i, ki, inv(ki), ktca, h}
+
+		composition
+			session(c, p, kc, kp, ktca, h) /\ session(i, p, ki, kp, ktca, h) /\ session(c, i, kc, kp, ktca, h)
+
+end role
+
+goal
+	secrecy_of	kcp
+	authentication_on	authentifier_c, authentifier_p
+end goal
+
+environment()
+

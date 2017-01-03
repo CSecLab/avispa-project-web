@@ -1,0 +1,219 @@
+     role mn (M,  R: agent, 
+                                   Kmr: symmetric_key,
+                                   Mac,Hnp: text,
+                                   Secrethash   :hash_func,
+                                   SND_RM, RCV_RM : channel(dy))
+
+     played_by M 
+                     def=
+                             local 
+                                  State : nat,
+                                   Pfk,Mn_id_Request,Mn_id,Solcit_req,Solcit_reponse: text
+                                 
+
+                             init 
+                                 State := 0
+
+                         transition 
+
+                                     1. State = 0       /\  RCV_RM(start) =|>
+                                        State':= 1      /\  Mn_id_Request' := new()
+                                                        /\  SND_RM( Mn_id_Request')
+                                                        /\ secret(Secrethash,secrethash_id,{M,R})
+                                     2. State = 1       /\  RCV_RM({Pfk'.Mac.Hnp}_Kmr) =|>
+                                        State':= 2      /\  Mn_id' :=  {Pfk'.Mac.Hnp}
+                                                        /\  Pfk' := xor( Mn_id', Mac)
+                                                        /\  Solcit_req' := new()
+                                                        /\  SND_RM(Solcit_req .{Pfk'.Mac.Hnp}_Kmr)
+
+                                     3. State = 2       /\   RCV_RM({Solcit_reponse.Hnp'}_Kmr) =|>
+                                        State' := 3     
+                                        
+     end role
+
+
+       role router (R, L, S, M: agent, 
+                                  Krs,Krl, Kmr : symmetric_key,
+                                  Mac,Hnp : text,
+                                  Hash : hash_func,
+                                  SND_SR, RCV_SR, SND_LR, RCV_LR, SND_MR, RCV_MR : channel(dy))
+
+       played_by R 
+                 def=
+                           local 
+                                 State : nat,
+                               Lma_id, Mn_id,Lmakey,Otp1,Pfk,Mag_id, Mn_id_Request, Solcit_req,Profile_query,Mn_profile,Lma_info,Mag_info,Solcit_reponse : text,
+                                 K : message
+                                
+                                 
+
+                            init 
+                               State := 11
+
+                      transition 
+
+                                 1. State =    11     /\      RCV_MR( Mn_id_Request') =|>
+                                    State':=  12      /\      Mag_id' := new() /\ Otp1' := new()   
+                                                      /\      SND_SR({Mn_id_Request.Hash(Mn_id_Request.Mag_id.Otp1)}_Krs)
+                                                      /\       Otp1' := new()
+                                                      /\      secret(Mag_id,mag_id,{R,S})
+                                                      /\      secret(Otp1,otp1,{R,S})
+                                2. State =    12      /\      RCV_SR( {Pfk' .Mac.Hnp}_Krs) =|>
+                                   State':=   13      /\      Mn_id' := {Pfk .Mac.Hnp}    
+                                                      /\      SND_MR({Mn_id'}_Kmr)
+
+                                3.  State =  13      /\       RCV_MR( Solcit_req'. {Pfk' .Mac.Hnp}_Kmr) =|>
+                                     State' := 14    /\       Profile_query' := new()
+                                                     /\       SND_SR (   Profile_query.{Mag_id.Pfk' .Mac.Hnp}_Krs) 
+                                                     /\       witness(R,S,server_router_mag_id, {Mag_id.Pfk'})
+
+                                4.  State = 14       /\       RCV_SR({Mn_profile'. Hash(Mn_profile'.Lma_id'.Lmakey')}_Krs) =|>
+                                    State' :=  15    /\       SND_LR({Pfk.Mac.Hnp.Hash(Mn_profile.Lma_id.Lmakey)}_Krl)
+                                                     /\       witness (R,L.router_lma_info, Lma_id.Lmakey)
+
+                                5 . State = 15       /\       RCV_LR({Hash(Mn_profile.Mag_id.Krs).Pfk .Mac.Hnp}_Krl) =|>
+                                    State' := 16     /\       Solcit_reponse':= new()
+                                                     /\       SND_MR( {Solcit_reponse.Hnp}_Kmr)
+                                                     /\       request(R,L, router_lma_maginfo, Mag_id.Krs)
+                                                     
+                                                         
+                                   end role
+                   
+
+       role server (S, L, R,M : agent, 
+                                  Krs,Kls: symmetric_key,
+                                  Mac,Hnp :text,
+                                  Hash : hash_func,
+                                  SND_RS, RCV_RS, SND_LS, RCV_LS : channel(dy))
+       played_by S
+                     def=
+                           local 
+                                 State : nat,
+                                 Mag_id, Lma_id,Mn_id_Request,Pfk,
+                                 Otp1, Otp2,Mn_profile,Lma_info,Mag_info,
+                                 Mn_profile_req,Mn_id: text,
+                                 K,K1 : message
+                          init 
+                               State := 21
+
+                      transition 
+
+                           1. State = 21          /\  RCV_RS({Mn_id_Request.Hash(Mn_id_Request.Mag_id.Otp1)}_Krs) =|>
+                              State' := 22        /\  Pfk' := new()  
+                                                  /\  Mn_id' :=  { Pfk.Mac.Hnp}
+                                                  /\  SND_RS({Mn_id'}_Krs)
+                                                  /\  secret(Pfk,sec_pfk,{S,R,M,L})
+
+                           2.  State  = 22        /\    RCV_RS(Mn_profile_req.K')  =|>
+                               State' := 23       /\    Pfk' := xor( Mn_id' ,Mac)
+                                                  /\    Mn_id' := {Pfk'.Mac.Hnp}
+                                                  /\    Mn_profile' := new()
+                                                  /\    SND_RS({Mn_profile'.Hash(Mn_profile'.Lma_id.Kls)}_Krs)
+                                                  /\    request (S,R, server_router_mag_id,{Mag_id.Pfk'})
+                            3. State = 23         /\    RCV_LS(Mn_profile_req. {Pfk'.Mac.Hnp.Lma_id.Otp2}_Kls) =|>
+                          
+                              State' := 24        /\     SND_LS({Mn_profile.Hash(Mn_profile.Mag_id.Krs)}_Kls)
+                                                  /\     request( S,L, server_lma_au, {Pfk'.Lma_id.Otp2})
+                                                  
+                                                  
+                                                     
+                           
+                               end role
+
+
+         role lma (L,R, S : agent, 
+                                 Kls,Krl : symmetric_key,
+                                 Mac,Hnp : text,
+                                 Hash : hash_func,
+                                 SND_RL, RCV_RL, SND_SL, RCV_SL  : channel(dy))
+
+          played_by L 
+                    def=
+                              local 
+                                   State : nat,
+                                   Otp2,Lma_id,Pfk,Lma_info, Mag_info,Mn_profile,Mn_profile_req,Mag_id,Magkey: text
+                              
+
+                            init 
+                                State := 31
+
+                      transition 
+
+                       
+                       1. State = 31       /\   RCV_RL({Pfk'.Mac.Hnp.Hash(Mn_profile.Lma_id.Kls)}_Krl) =|> 
+                          State' := 32     /\   Otp2' := new() /\ Lma_id' := new()                                           
+                                           /\   Mn_profile_req' := new()
+                                           /\   SND_SL(Mn_profile_req. {Pfk'.Mac.Hnp.Lma_id.Otp2}_Kls)
+                                           /\   Otp2' := new()
+                                           /\   witness(L,S,server_lma_au,{Pfk'.Lma_id.Otp2})
+                                           /\   request(L,R.router_lma_info, Lma_id.Kls)
+                      2.  State = 32       /\   RCV_SL({Mn_profile.Hash(Mn_profile.Mag_id'.Magkey')}_Kls) =|>
+                          State' := 33     /\   Hnp' := new()
+                                           /\   SND_RL({Hash(Mn_profile.Mag_id'.Magkey').Pfk.Mac.Hnp'}_Krl)
+                                           /\   witness(L,R, router_lma_maginfo, Mag_id.Magkey)
+                                           /\   secret (Otp2,otp2,{L,S})
+                                           /\   secret (Lma_id, lma_id,{L,S})
+                                   
+                              
+                end role
+
+role session( M,R,S,L:agent, 
+                        Kls,Krl,Krs,Kmr : symmetric_key,
+                        Mac,Hnp: text,
+                        Hash,Secrethash : hash_func)
+def=
+      local 
+   SRM, RRM ,SSR, 
+   RSR, SLR, RLR, 
+   SMR, RMR ,SRS,
+   RRS, SLS, RLS,
+   SRL, RRL, SSL, 
+   RSL :channel(dy)
+
+ 
+composition 
+
+               mn(M,R,Kmr,Mac,Hnp,Secrethash,SRM, RRM)
+          /\   router( R, L, S, M,Krs,Krl, Kmr , Mac,Hnp,Hash,SSR, RSR, SLR, RLR,SMR, RMR)
+          /\   server( S, L, R,M, Krs,Kls,Mac,Hnp,Hash,SRS,  RRS, SLS, RLS)
+          /\   lma (L, R, S,Kls,Krl ,Mac,Hnp,Hash,SRL,RRL, SSL, RSL )
+             
+
+end role
+
+
+
+role environment ()
+   def= 
+            const   m,r,s,l :agent,
+                         kls,krl,krs,kmr,kir,kil,kis,kri,kmi :symmetric_key,
+                         router_lma_maginfo,router_lma_info,secrethash_id,
+                         server_lma_au,pfk,mag_id,lma_id,otp2,otp1,
+                         server_router_mag_id,server_router_otp1,sec_pfk:protocol_id,
+                         mac,hnp:text,
+                         sh,secrethash : hash_func
+
+    intruder_knowledge = { r,s,l,kir,kil,kis,sh,mac,hnp}
+                         
+                          
+                   composition 
+
+
+                   session( m,r,s,l,kls,krl,krs,kmr, mac,hnp,sh,secrethash )
+                /\ session( m,i,s,l,kls,kil,kis,kmi,mac,hnp, sh,secrethash )
+                /\ session( m,r,s,i,kis,kri,krs,kmr,mac,hnp,sh,secrethash )
+
+                          end  role
+ 
+goal
+
+secrecy_of lma_id,mag_id,sec_pfk,otp1,otp2
+authentication_on server_router_mag_id
+authentication_on router_lma_info
+authentication_on server_lma_au
+authentication_on router_lma_maginfo
+
+end goal
+
+
+environment()

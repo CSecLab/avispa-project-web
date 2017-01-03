@@ -1,0 +1,135 @@
+role patient(A,B,C : agent,
+           G:text,
+           SND,RCV:channel(dy),
+           ID_A,ID_B,ID_C,DS,UT: message,
+           Ka:public_key,
+                        Kb:public_key,
+	           Kc:public_key,
+	           F1:hash_func)
+played_by A def=
+local         State       :nat,
+                 X, X1, N_HSP, N_DOC:text,
+                R1, R11, R21, P3, K, SK, SERVUT: message
+init State:=0
+transition
+ 1.           State=0            /\ RCV(start) =|>
+                  State':=4        /\ X':=new()
+                                        /\ X1':=new()
+                                        /\ R1':= exp(G,X')
+		              /\ R11':=exp(G,X1')
+                                        /\ SND (ID_A.{R11'.R1'.DS.UT}_Kb)
+  2.         State=4	/\RCV(ID_B.R21'.{N_HSP'}_K') =|>	
+	      State':=6       /\K':=exp(R21',X1)
+			/\SND({N_HSP'}_K')
+  3.         State=6              /\ RCV({ID_C.P3'}_K'.{N_DOC'}_SK') =|>
+                    State':=9	/\   SK':=exp(P3',X)
+		             /\  SND(ID_A,{N_DOC'}_SK')
+		             /\secret(N_DOC',sec_ifd_dhvalue,{A,C})
+ 4.         State=9 	/\ RCV({SERVUT'.{F1(SERVUT')}_inv(Kb)}_SK)  =|>
+	        State':=10  
+end role
+
+role hsp(B,A,C:agent,
+              G:text,
+              SND,RCV:channel(dy),
+              ID_A,ID_B,ID_C: message,
+	 Kb:public_key,
+	 Ka:public_key,
+              Kc:public_key,
+	 K_BC:symmetric_key,
+               F1:hash_func)
+
+played_by B def=
+local        State  :   nat,
+                P1,R1,R11,R21,R2,P2,P3,K,SK ,ACK,UT,DS,SERVUT :   message,
+                Y,Y1,N_HSP,N_DOC,Req_Id,Treat_Type,Serial_No,TS: text
+init            State:=1
+transition
+1.	   State=1           /\ RCV(ID_A.{R11'.R1'.DS.UT}_Kb) =|>
+                     State':=3    /\ Y':=new()
+	                          /\ Y1':=new()
+                            	/\ P1':=exp(G,Y')
+	                	/\ R21':=exp(G,Y1')
+                                        /\ K' := exp(R11',Y1')
+                                        /\ SND(ID_B.{ID_A.R1'.P1'}_K_BC)          
+        2.       State=3          /\ RCV(ID_A.ID_C.{ID_B.R2'.P2'}_K_BC.{N_DOC'}_SK) =|>
+                         State':=5    /\N_HSP':=new() 
+		                 /\SND(ID_B.R21.{N_HSP'}_K)
+        3.        State=5	   /\ RCV({N_HSP'}_K')=|>
+                         State':=8    /\ P3':=exp(R2,Y)
+		                 /\ SK':=exp(P2,Y)
+		                 /\ SND({ID_C.P3'}_K.{N_DOC}_SK')
+        4.        State=8            /\ RCV(ACK') =|>
+                          State':=12   /\Req_Id':=new()
+		                  /\ Treat_Type':=new()
+		                  /\ Serial_No':=new()
+                  /\ TS':=new() 				                /\SERVUT':=Req_Id'.UT.Treat_Type'.Serial_No'.TS.ID_A.ID_C.DS.TS'
+			     /\ SND({SERVUT'.{F1(SERVUT')}_inv(Kb)}_SK)
+end role
+
+role doc(C,A,B:agent,
+              G:text,
+              SND,RCV:channel(dy),
+              ID_A,ID_B,ID_C: message,
+	  Kc:public_key,
+	  Ka:public_key,
+              Kb:public_key,
+              K_BC:symmetric_key,
+               F1:hash_func)
+
+played_by C def=
+local        State  :   nat,
+                R1,P1,R2,P2,SK,ACK,SERVUT    :   message,
+                Z,N_DOC: text
+init           State:=2
+transition
+1.	     State=2       /\ RCV(ID_B.{ID_A.R1'.P1'}_K_BC) =|>
+             State':=7    /\ Z':=new()
+		     /\ N_DOC':=new()
+                               /\ R2':=exp(G,Z')
+	                  /\P2':=exp(R1',Z')
+                                /\ SK' := exp(P1',Z')
+                                /\ SND(ID_A.ID_C.{ID_B.R2'.P2'}_K_BC.{N_DOC'}_SK)
+
+2.	      State=7       /\RCV(ID_A,{N_DOC'}_SK') =|>		
+	   State':=10 /\  ACK':=new() 
+		      /\SND(ACK') 
+ 3.        State=10    /\ RCV({SERVUT'.{F1(SERVUT')}_inv(Kb)}_SK) =|>    
+                 State':=11		 
+ end role
+
+role session (A,B,C:agent,
+                  G: text,
+	     ID_A, ID_B,ID_C,DS,UT: message,
+	     Kb:public_key,
+	     Ka:public_key,
+	     Kc:public_key,
+	     K_BC:symmetric_Key,
+	     F1:hash_func)
+             def=
+local SND_A,RCV_A,SND_B,RCV_B,SND_C,RCV_C:channel(dy)
+composition
+
+                patient(A,B,C,G,SND_A,RCV_A,ID_A,ID_B,ID_C,DS,UT,Ka,Kb,Kc,F1)
+               /\ hsp(B,A,C,G,SND_B,RCV_B,ID_A,ID_B,ID_C,Kb,Ka,Kc,K_BC,F1)
+	/\ doc(C,A,B,G,SND_C,RCV_C,ID_A,ID_B,ID_C,Kc,Ka,Kb,K_BC,F1)
+end role
+role environment() def=
+                  const a,b,c,i:agent,
+                   g:text,
+                   sec_ifd_dhvalue  : protocol_id,
+                   id_A,id_B,id_C,ds,ut: message,
+	      ka:public_key,
+	      kb:public_key,
+                  kc:public_key,
+                  k_ab:symmetric_key,
+                 f1:hash_func
+intruder_knowledge = {a,b,i,g,f1,ka,kb,kc}
+
+             composition
+                session(a,b,c,g,id_A,id_B,id_C,ds,ut,ka,kb,kc,k_ab,f1)
+  end role
+goal
+        secrecy_of sec_ifd_dhvalue
+end goal
+environment()

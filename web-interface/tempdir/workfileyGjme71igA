@@ -1,0 +1,56 @@
+role role_T(R:agent,T:agent,Hello:text,K1:text,K2:text,K3:text,IDen:text,IDS:text,P:hash_func,SND,RCV:channel(dy))
+played_by T
+def=
+	local
+		State:nat,Na:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(Hello) =|> State':=1 /\ SND(IDS)
+		3. State=1 /\ RCV(xor(Na',K2).P(xor(xor(Na',K1),K2))) =|> State':=2 /\ secret(K1,sec_2,{R,T}) /\request(T,R,auth_1,K1) /\request(T,R,auth_2,K2) /\ witness(T,R,auth_3,K1)/\ Na':=xor(xor(Na',K2),K2)/\ SND(xor(P(xor(K1,K3)),P(xor(Na',K3))))
+end role
+
+role role_R(R:agent,T:agent,Hello:text,K1:text,K2:text,K3:text,IDen:text,P:hash_func,SND,RCV:channel(dy))
+played_by R
+def=
+	local
+		State:nat,IDS:text,Na:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ SND(Hello)
+		2. State=1 /\ RCV(IDS') =|> State':=2 /\ secret(K1,sec_2,{R,T}) /\ Na':=new() /\ witness(R,T,auth_1,K1) /\witness(R,T,auth_2,K2) /\ SND(xor(Na',K2).P(xor(xor(Na',K1),K2)))
+		4. State=2 /\ RCV(xor(P(xor(K1,K3)),P(xor(Na,K3)))) =|> State':=3 /\request(R,T,auth_3,K1)/\ secret(K1',sec_2,{})
+end role
+
+role session1(IDS:text,R:agent,T:agent,Hello:text,K1:text,K2:text,K3:text,IDen:text,P:hash_func)
+def=
+	local
+		SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_R(R,T,Hello,K1,K2,K3,IDen,P,SND2,RCV2) /\ role_T(R,T,Hello,K1,K2,K3,IDS,IDen,P,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		hash_0:hash_func,id:text,k2:text,const_1:text,tag:agent,ids:text,reader:agent,k1:text,kti:text,ksi:text,k3:text,puf:hash_func,auth_1:protocol_id,auth_2:protocol_id,auth_3:protocol_id,sec_2:protocol_id
+
+	intruder_knowledge = {ids,reader,tag,const_1,k2,k3,id,puf,i,kti,ksi}
+
+	composition
+		session1(ids,reader,tag,const_1,k1,k2,k3,id,puf)
+		%/\session1(ids,i,tag,const_1,k1,kti,k3,id,puf)
+		%/\session1(ids,reader,i,const_1,k1,ksi,k3,id,puf)
+		
+end role
+
+goal
+	authentication_on auth_1
+	authentication_on auth_2
+	authentication_on auth_3
+	secrecy_of sec_2
+	
+end goal
+
+environment()

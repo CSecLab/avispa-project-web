@@ -1,0 +1,141 @@
+role alice(A,B: agent,
+           G: text,
+           F: hash_func,
+           PSK: symmetric_key,
+           SND_B, RCV_B: channel (dy))
+played_by A
+def=
+
+  local Ni, SA1, SA2, DHX: text, 
+        Nr: text,
+        KEr: message, %% more spefic: exp(text,text)
+        SK: hash(text.text.text.message),
+        State: nat,
+        AUTH_B: message
+
+  const sec_a_SK : protocol_id
+
+  init  State := 0
+
+  transition
+
+  %% The IKE_SA_INIT exchange:
+  1. State = 0  /\ RCV_B(start) =|>
+     State':= 2 /\ SA1' := new()
+                /\ DHX' := new()
+                /\ Ni' := new()
+                /\ SND_B( SA1'.exp(G,DHX').Ni' )
+
+  %% Alice receives message 2 of IKE_SA_INIT, checks that Bob has
+  %% indeed sent the same nonce in SAr1, and then sends the first 
+  %% message of IKE_AUTH.
+  %% As authentication Data, she signs her first message and Bob's nonce.
+  2. State = 2  /\ RCV_B(SA1.KEr'.Nr') =|>
+     State':= 4 /\ SA2' := new()
+                /\ SK' := F(Ni.Nr'.SA1.exp(KEr',DHX))
+                /\ SND_B( {A.F(PSK.SA1.exp(G,DHX).Ni.Nr').SA2'}_SK' )
+                /\ witness(A,B,sk2,F(Ni.Nr'.SA1.exp(KEr',DHX)))
+
+  3. State = 4  /\ RCV_B({B.F(PSK.SA1.KEr.Ni.Nr).SA2}_SK) =|>
+     State':= 6 /\ AUTH_B' := F(PSK.SA1.KEr.Ni.Nr)
+                /\ secret(SK,sec_a_SK,{A,B})
+                /\ request(A,B,sk1,SK)
+
+end role
+
+%%--------------------------------------------------------------------------------
+
+role bob(B,A:agent,
+             G: text,
+             F: hash_func,
+             PSK: symmetric_key,
+             SND_A, RCV_A: channel (dy))
+played_by B
+def=
+
+  local Ni, SA1, SA2: text, 
+        Nr, DHY: text,
+        SK: hash(text.text.text.message),
+        KEi: message,
+        State: nat,
+        AUTH_A: message
+
+  const sec_b_SK : protocol_id
+
+  init  State := 1
+
+  transition
+
+  1. State = 1 /\ RCV_A( SA1'.KEi'.Ni' ) =|>
+     State':=3 /\ DHY' := new()
+               /\ Nr' := new()
+               /\ SND_A(SA1'.exp(G,DHY').Nr')
+               /\ SK' := F(Ni'.Nr'.SA1'.exp(KEi',DHY'))
+
+  2. State = 3 /\ RCV_A( {A.F(PSK.SA1.KEi.Ni.Nr).SA2'}_SK ) =|>
+     State':=5 /\ SND_A( {B.F(PSK.SA1.exp(G,DHY).Ni.Nr).SA2'}_SK )
+               /\ AUTH_A' := F(PSK.SA1.KEi.Ni.Nr)
+               /\ witness(B,A,sk1,SK)
+               /\ secret(SK,sec_b_SK,{A,B})
+               /\ request(B,A,sk2,SK)
+
+end role
+
+%%--------------------------------------------------------------------------------
+
+role session(A, B: agent,
+             PSK: symmetric_key,
+             G: text,
+             F: hash_func)
+def=
+
+  local SA, RA, SB, RB: channel (dy)
+
+  composition
+
+           alice(A,B,G,F,PSK,SA,RA)
+        /\ bob(B,A,G,F,PSK,SB,RB)
+
+end role
+
+%%--------------------------------------------------------------------------------
+
+role environment()
+def=
+ 
+  const sk1, sk2      : protocol_id,
+        a, b          : agent,
+        kab, kai, kbi : symmetric_key,
+        g             : text, 
+        f             : hash_func
+
+  intruder_knowledge = {g,f,a,b,i,kai,kbi
+
+
+                       }
+
+  composition
+
+        session(a,b,kab,g,f)
+     /\ session(a,i,kai,g,f)
+     /\ session(i,b,kbi,g,f)
+
+end role
+
+%%--------------------------------------------------------------------------------
+
+goal    
+  %secrecy_of SK
+  secrecy_of sec_a_SK, sec_b_SK % Addresses G9
+
+  %Alice authenticates Bob on sk1
+  authentication_on sk1 % Addresses G1, G2, G3, G7, G10
+  %Bob authenticates Alice on sk2
+  authentication_on sk2 % Addresses G1, G2, G3, G7, G10
+end goal
+
+%%--------------------------------------------------------------------------------
+
+environment()
+
+  

@@ -1,0 +1,107 @@
+role alice (  A,B : agent,
+              Kab : symmetric_key,
+              H   : hash_func,
+        SND,  RCV : channel(dy) )
+played_by A
+def=
+   local  State   : nat,
+          i, n    : text,
+          S0,S1   : text,
+          K       : text,
+          t       : text,
+          Z1,Z2,Zi: text,
+          F       : function,
+          W       : text,
+          Dlist   : text,
+          Clist   : text,
+          Cw      : text,
+          ki      : test,
+          P0      : public_key,  %P0 testator's public key 
+          P1      : public_key,  %P1 conservator's public key 
+          P2      : public_key,  %P2 bank's public key 
+          P3      : public_key,  %P3 beneficary's public key 
+          P4      : public_key,  %P4 court's public key  
+          MUL     : hash_func
+
+const alice_bob_na, bob_alice_nb : protocol_id
+
+init State := 0
+transition
+1. State   = 0 /\ RCV(start) =|>
+   State' := 2 /\ W'  := new()   % Will
+               /\ K'  := new()   % Will secret key
+               /\ Dlist':= new() % list
+               /\ t'  := new()   % timestamp
+               /\ S0' := {W'.t'}_inv(P0) %signed 
+               /\ S1' := {Dlist'.t'}_inv(P0) %signed
+               /\ Clist' := {Dlist.t'.S1'}_P1 % encrypted list
+               /\ Z1' := {K'}_P4  %encryped key for court 
+               /\ Z2' := {K'}_P0  %encryped key for testator
+               /\ ki' := F(K'.i.n.P0') %secret sharing function
+               /\ Zi' := {ki'}_P3      %encrypted secret key
+               /\ Z'  := {Z1'.Z2'.Zi'} % a set of key
+               /\ Cw' := {W'.S0'}_K'    %encryped signed Will
+               /\ SND({Cw'.Clist'.Z'})  %send to Bank
+               /\ SND({Clist'})         %send to conservator
+               /\ witness(A,B,bob_alice_nb,Clist')
+end role
+
+role bob (    A,B : agent,
+              Kab : symmetric_key,
+               H  : hash_func,
+         SND, RCV : channel(dy))
+played_by B  
+% as conservator
+def=
+   local  State   : nat,
+          Clist   : text,
+          P0      : public_key,  %P0 testator's public key 
+          P1      : public_key,  %P1 conservator's public key 
+          P2      : public_key,  %P2 bank's public key 
+          P3      : public_key,  %P3 beneficary's public key 
+          P4      : public_key,  %P4 court's public key  
+          MUL     : hash_func
+
+init State := 1
+transition
+1. State   = 1 /\ RCV({Clist'})  =|>
+   State' := 3 /\ Dlist := {Clist'}_inv(P1)
+               /\ witness(A,B,alice_bob_na,Clist)
+               /\ request(B,A,bob_alice_nb,Dlist)
+end role
+
+role session(A,  B : agent,
+              Kab  : symmetric_key,
+              Hash : hash_func)
+def=
+   local SA , RA,
+         SB , RB  : channel (dy)
+
+composition
+       alice(A,B,SND,RCV,F,P0,Clist)
+    /\   bob(A,B,SND,RCV,F,P1,Clist)
+%      alice (A, B, Kab, Hash, SA, RA)
+%   /\ bob   (A, B, Kab, Hash, SB, RB)
+end role
+
+role environment()
+def=
+   const a, b     : agent,
+    kab, kai, kib : symmetric_key,
+    h             : hash_func,
+    f             : function, 
+    bob_alice_nb, k : protocol_id
+intruder_knowledge = {a, b, h, f, kai, kib}
+
+composition
+    session(a,b,kab,h)
+ /\ session(a,i,kai,h)
+ /\ session(i,b,kib,h)
+end role
+
+goal
+secrecy_of k
+authentication_on bob_alice_nb
+end goal
+
+environment()

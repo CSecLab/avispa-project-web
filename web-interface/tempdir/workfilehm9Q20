@@ -1,0 +1,109 @@
+role reader(R, T: agent, 
+            
+           
+H:hash_func,
+            SND, RCV: channel(dy))
+played_by R def=
+
+  local State: nat,
+        R1,R2, S, EPC, EPC_Case, C:text,
+        Auth1:hash(text.text.text.text)
+        
+        
+
+init State := 0
+
+transition
+
+0.  State = 0
+      /\ RCV(start)
+      =|> 
+      State' := 1
+      /\ R1' := new()
+      /\ C'  := new()
+      /\EPC_Case' := new()
+      /\ S' := new()
+      /\ SND(xor(h(EPC.EPC_Case'.R1'.C), S'). R1'. EPC_Case'. xor(h(EPC.S'), C'))
+      /\ witness( T, R, trid,S')
+      /\ witness( T, R, trid,EPC_Case')
+      /\ secret(EPC,id, {T, R})
+      /\ secret(C',id2, {T, R})
+
+
+1. State = 2       /\ RCV(h(EPC.S'.EPC_Case'.R1'.R2'))
+=|> State' := 3    /\ Auth1' := h(EPC.S.EPC_Case'.R1'.R2') 
+                   /\ request(R,T,id3,Auth1')
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role tag( T,R: agent,
+          
+H: hash_func,
+         SND,RCV: channel(dy))
+played_by T def=
+
+        local State   : nat,
+        R1,R2, S, EPC, EPC_Case, C:text,
+        Auth : hash(text. text)
+        
+       
+  init  State := 0
+
+  transition
+
+   0. State = 0     /\ RCV(xor(h(EPC.EPC_Case'.R1'.C),S'). R1'. EPC_Case'. xor(h(EPC.S'),C')) =|>
+      State':= 1
+                     /\ Auth' := h(EPC.S')
+                     /\ request(T,R,id3,xor(h(EPC.S'), C'))
+
+   1. State = 2      /\ R2':=new() =|>
+         State':= 3  /\ SND(h(EPC.S'.EPC_Case'.R1'.R2')) 
+                     /\ witness( T, R, trid,S')
+                     /\ witness( T, R, id3,EPC_Case')
+                     /\ secret(EPC,id, {T, R})
+
+       
+      
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session( T,R : agent,
+              
+              Hash : hash_func)
+def=
+
+local SND, RCV: channel (dy)
+
+composition
+
+   tag(T,R,Hash, SND, RCV)
+/\ reader(R,T,Hash, SND, RCV)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment( ) def=
+const
+id, id2, id3, id4, id5,trid, trk: protocol_id,
+h : hash_func,
+tag, reader:agent
+
+intruder_Knowledge = {tag,reader,h,i}
+composition
+
+   session(tag,reader, h)
+/\ session(tag,i,h)
+/\ session(i,reader,h)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+
+secrecy_of id, id2
+authentication_on trid
+authentication_on id3
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

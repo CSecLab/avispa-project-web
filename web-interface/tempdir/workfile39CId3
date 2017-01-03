@@ -1,0 +1,174 @@
+%*******************Client******************
+role client (C,CAS,EDE,AUTZ: agent,             
+            PUcsa,PUede : public_key,           %%public key of CSA
+		SK : symmetric_key, 
+		            SND, RCV: channel (dy)) 
+played_by C def=
+
+local State : nat, 
+Username : text,
+Password : text, 
+CN  :text,
+Action : text, 
+Response : text, 
+Data: text
+
+  init State := 0
+
+transition  
+   
+    1.  State  = 0 /\ RCV(start) =|> 
+	    State':= 2 
+	/\ Username' :=new() 
+	/\ Password' :=new()
+	/\ SND({Username'.Password'}_PUcsa)         %first message to CSA , it is encrypted with Public key of CSA%
+	/\ witness(C,CAS,userpass,Username'.Password')
+	
+   2. 	State  = 2 /\ RCV(Response)  =|>            %% received from CSA once Username/Password matched.
+        State':= 4  
+	/\ CN' :=new() 
+	/\ SND({Username.CN'.Action}_PUcsa)        %%sent to CSA using Public key PUcsa
+	
+   3. 	State  = 4 /\ RCV(Response, Data) =|>      %%final received from CSA . last message
+          State':= 6  	    
+
+end role
+%%%%%%%%%%%%%%%%%%%%%% ROLE CASSANDRA + Authentication %%%%%%%%%%%%%%%%%%%
+role cassandraserver(C,CAS,EDE,AUTHZ: agent,        
+             	PUcsa,PUede : public_key,
+		SK : symmetric_key,  
+		 			 
+            SND, RCV: channel (dy)) 
+played_by CAS def=
+
+  local State : nat, 
+        Username, Password, Response, CN, Action, Data, EdData: text
+	
+  init State := 1
+
+  transition  
+   
+    1.  State  = 1 /\ RCV({Username'.Password'}_PUcsa) =|>    %%received 1st message from C
+	
+	    State':= 3 /\ SND ({Username.Password}_PUede)     %%sent to EDE , and encrypted with PUede of EDE
+		
+    2.  State  = 3 /\ RCV({Username.Password}_PUcsa) =|>    %% received from EDE
+	
+	   State':= 5 /\ SND(Response)                    %%send this to  Client from CSA
+	    /\ request(C,CAS,userpass,Username.Password)
+		
+    3.  State  = 5 /\ RCV({Username.CN'.Action}_PUcsa) =|>    %%received from Client for further Action 
+	
+	    State':= 7 /\ SND(Username.CN.Action)         %%sent to AUTZ server
+		
+    4.  State  = 7 /\ RCV(Response) =|>           %%received from AUTZ after PDE/PEP Response
+	
+	    State':= 9 /\ SND(Data)    %%send CSA to EDE 
+		
+    5.  State  = 9 /\ RCV({Data}_SK) =|>                     %% received from EDE after encrypteed with Key SK symmetric key
+	
+	    State':= 11 /\ SND(Response.Data)             %%%sent finally to client
+		  
+end role
+%%%%%%%%%%%%ROLE EDE%%%%%%%%%%%%%%%%%%
+role encryptiondecryptionengine(C,CAS,EDE,AUTHZ: agent,
+		PUcsa,PUede  : public_key,        
+               SK : symmetric_key,  
+              SND, RCV: channel (dy)) 
+			
+played_by EDE def=
+
+  local State : nat, 
+        Username, Password, Data, Usercomponent, Cert_ede, Cert_kms, Edekey, EdData: text
+const sk : protocol_id 
+  init State := 3
+
+  transition  
+   
+    1.  State  = 3 /\ RCV({Username.Password}_PUede)  =|>  %%%received from CSA . 3rd message
+	
+	    State':= 5 /\ SND({Username.Password}_PUcsa)  %%sent this back to CSA using PUcsa
+		
+    2.  State  = 5 /\ RCV(Data) =|>     %%received from CSA
+	
+	    State':= 7 /\   SND({Data}_SK)        %%% sent to  CSA after encrypting using SK key
+		/\  secret(SK,sk,{EDE,CAS})
+ 	  
+end role
+%%%%%%%%%%%%ROLE AUTHORIZATION SERVER%%%%%%%%%%%%%%%%%%%%%%%%%%
+role authzserver(C,CAS,EDE,AUTHZ: agent,
+		 PUcsa : public_key, 
+		  SK : symmetric_key,    
+                 SND, RCV: channel (dy)) 
+			
+played_by AUTHZ def=
+
+  local State : nat, 
+        Username, CN, Action, Response: text
+
+  init State := 8
+
+  transition  
+   
+    1.  State  = 8 /\ RCV(Username.CN.Action) =|>          % received from CSA
+	
+	    State':= 9 /\ SND(Response)    %%sent to  CSA by AUTZ
+			
+    2.	State  = 9 /\ RCV(Response) =|> 
+	
+	    State':= 14 /\ SND(Response)
+		
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(C,CAS,EDE,AUTZ: agent, 
+		PUcsa,PUede: public_key,
+		SK: symmetric_key
+	) 
+def=
+
+  local SC, RC, SCAS, RCAS,SEDE, REDE, SAUTZ, RAUTZ: channel (dy)
+
+  composition 
+
+	client(C,CAS,EDE,AUTZ,PUcsa,PUede,SK,SC, RC)
+/\	cassandraserver(C,CAS,EDE,AUTZ,PUcsa,PUede,SK,SCAS,RCAS)
+
+%	alice(A,B,Ka,Kb,SA,RA)
+ %    /\ bob  (A,B,Ka,Kb,SB,RB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+
+    const c,cas,ede,autz        : agent,
+	  pucsa, puede, ki   : public_key,
+	   ks: symmetric_key
+	 
+	  userpass : protocol_id
+
+    intruder_knowledge = {c,cas,ede,autz,pucsa,puede,ki,inv(ki)}
+
+    composition
+
+	session(c,cas,ede,autz,pucsa,puede,sk)
+/\	session(c,cas,ede,autz,pucsa,puede,sk)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of sk
+
+  authentication_on userpass
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+

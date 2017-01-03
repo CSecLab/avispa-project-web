@@ -1,0 +1,63 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfile5Nt99E
+
+section signature:
+
+state_server: agent * agent * nat * text * set(agent) * nat -> fact
+state_client: agent * agent * nat * text * nat -> fact
+
+
+section types:
+
+set_40: set
+Dummy_Set_22, ASGoal, Set_22: set(agent)
+id: protocol_id
+MGoal, start: message
+Dummy_N, dummy_nonce, N: text
+Dummy_State, 4, SID, 3, State, 1, 0: nat
+a, b, A, B, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(i).
+ state_client(a,b,0,dummy_nonce,3).
+ state_server(b,a,1,dummy_nonce,set_40,4)
+
+
+section rules:
+
+step step_0 (A,B,Dummy_N,SID,N) :=
+ state_client(A,B,0,Dummy_N,SID).
+ iknows(start)
+=[exists N]=>
+ state_client(A,B,0,N,SID).
+ iknows(pair(A,N))
+
+step step_1 (B,A,Dummy_N,Dummy_Set_22,SID,N) :=
+ state_server(B,A,1,Dummy_N,Dummy_Set_22,SID).
+ iknows(pair(A,N))
+ =>
+ state_server(B,A,1,N,Dummy_Set_22,SID).
+ secret(Dummy_N,id,Dummy_Set_22).
+ contains(A,Dummy_Set_22).
+ contains(B,Dummy_Set_22)
+
+
+section properties:
+
+property secrecy_of_id (MGoal,ASGoal) :=
+ [] ((secret(MGoal,id,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_id (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,id,ASGoal) &
+ not(contains(i,ASGoal))
+

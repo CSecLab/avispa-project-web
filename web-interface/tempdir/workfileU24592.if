@@ -1,0 +1,117 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileU24592
+
+section signature:
+
+state_charlie: agent * agent * agent * hash_func * hash_func * symmetric_key * symmetric_key * nat * public_key * public_key * message * message * message * nat -> fact
+state_bob: agent * agent * agent * message * hash_func * hash_func * message * symmetric_key * symmetric_key * nat * public_key * public_key * message * message * nat -> fact
+state_alice: agent * agent * agent * message * hash_func * hash_func * message * symmetric_key * symmetric_key * nat * public_key * public_key * message * message * nat -> fact
+
+
+section types:
+
+alice_bob_ky, bob_alice_kx: protocol_id
+kac, kbc, kab, Kac, Kbc, Kab: symmetric_key
+f, mac, F, Mac: hash_func
+X1, Y1, Dummy_Y1, Dummy_X1, dummy_pk: public_key
+kx1, ky1, Kx, Ky, X, Fkx, start, Dummy_Kx, Fky, Dummy_Ky, Dummy_X, dummy_msg, MGoal: message
+State, 6, 4, 2, 0, 5, SID, Dummy_State, 3: nat
+A1Goal, a, b, c, A, B, C, i, A2Goal: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(c).
+ iknows(f).
+ iknows(i).
+ state_alice(a,b,c,kx1,f,mac,apply(f,ky1),kac,kab,0,dummy_pk,dummy_pk,dummy_msg,dummy_msg,3).
+ state_bob(b,a,c,ky1,f,mac,apply(f,kx1),kbc,kab,0,dummy_pk,dummy_pk,dummy_msg,dummy_msg,4).
+ state_charlie(c,a,b,f,mac,kac,kbc,0,dummy_pk,dummy_pk,dummy_msg,dummy_msg,dummy_msg,5)
+
+
+section rules:
+
+step step_0 (A,B,C,Kx,F,Mac,Fky,Kac,Kab,Dummy_X1,Y1,Ky,X,SID,X1) :=
+ state_alice(A,B,C,Kx,F,Mac,Fky,Kac,Kab,0,Dummy_X1,Y1,Ky,X,SID).
+ iknows(start)
+=[exists X1]=>
+ state_alice(A,B,C,Kx,F,Mac,Fky,Kac,Kab,2,X1,Y1,Ky,X,SID).
+ iknows(pair(scrypt(Kab,X1),pair(scrypt(Kac,X1),apply(Mac,X1))))
+
+step step_1 (A,B,C,Kx,F,Mac,Fky,Kac,Kab,X1,Dummy_Y1,Ky,Dummy_X,SID,Y1,X) :=
+ state_alice(A,B,C,Kx,F,Mac,Fky,Kac,Kab,2,X1,Dummy_Y1,Ky,Dummy_X,SID).
+ iknows(pair(scrypt(Kab,Y1),pair(X,apply(Mac,Y1))))
+ =>
+ state_alice(A,B,C,Kx,F,Mac,Fky,Kac,Kab,4,X1,Y1,Ky,X,SID).
+ iknows(pair(scrypt(Kac,pair(apply(F,Kx),pair(Fky,pair(crypt(X1,Kx),apply(F,Y1))))),apply(Mac,pair(apply(F,Kx),pair(Fky,pair(crypt(X1,Kx),apply(F,Y1))))))).
+ witness(A,B,bob_alice_kx,Kx)
+
+step step_2 (A,B,C,Kx,F,Mac,Fky,Kac,Kab,X1,Y1,Dummy_Ky,X,SID,Ky) :=
+ state_alice(A,B,C,Kx,F,Mac,Fky,Kac,Kab,4,X1,Y1,Dummy_Ky,X,SID).
+ iknows(pair(scrypt(Kac,pair(crypt(Y1,Ky),crypt(X1,Kx))),apply(Mac,Ky)))
+ =>
+ state_alice(A,B,C,Kx,F,Mac,Fky,Kac,Kab,6,X1,Y1,Ky,X,SID).
+ wrequest(A,B,alice_bob_ky,Ky,SID)
+
+step step_3 (B,A,C,Ky,F,Mac,Fkx,Kbc,Kab,X1,Dummy_Y1,Kx,X,SID,Y1) :=
+ state_bob(B,A,C,Ky,F,Mac,Fkx,Kbc,Kab,0,X1,Dummy_Y1,Kx,X,SID).
+ iknows(start)
+=[exists Y1]=>
+ state_bob(B,A,C,Ky,F,Mac,Fkx,Kbc,Kab,2,X1,Y1,Kx,X,SID).
+ iknows(pair(scrypt(Kab,Y1),pair(scrypt(Kbc,Y1),apply(Mac,Y1))))
+
+step step_4 (B,A,C,Ky,F,Mac,Fkx,Kbc,Kab,Dummy_X1,Y1,Kx,Dummy_X,SID,X1,X) :=
+ state_bob(B,A,C,Ky,F,Mac,Fkx,Kbc,Kab,2,Dummy_X1,Y1,Kx,Dummy_X,SID).
+ iknows(pair(scrypt(Kab,X1),pair(X,apply(Mac,X1))))
+ =>
+ state_bob(B,A,C,Ky,F,Mac,Fkx,Kbc,Kab,4,X1,Y1,Kx,X,SID).
+ iknows(pair(scrypt(Kbc,pair(apply(F,Ky),pair(Fkx,pair(crypt(Y1,Ky),apply(F,X1))))),apply(Mac,pair(apply(F,Ky),pair(Fkx,pair(crypt(Y1,Ky),apply(F,X1))))))).
+ witness(B,A,alice_bob_ky,Ky)
+
+step step_5 (B,A,C,Ky,F,Mac,Fkx,Kbc,Kab,X1,Y1,Dummy_Kx,X,SID,Kx) :=
+ state_bob(B,A,C,Ky,F,Mac,Fkx,Kbc,Kab,4,X1,Y1,Dummy_Kx,X,SID).
+ iknows(pair(scrypt(Kbc,pair(crypt(Y1,Ky),crypt(X1,Kx))),apply(Mac,Kx)))
+ =>
+ state_bob(B,A,C,Ky,F,Mac,Fkx,Kbc,Kab,6,X1,Y1,Kx,X,SID).
+ wrequest(B,A,bob_alice_kx,Kx,SID)
+
+step step_6 (C,A,B,F,Mac,Kac,Kbc,Dummy_X1,Dummy_Y1,Dummy_Kx,Dummy_Ky,Dummy_X,SID,X1,Y1,Kx,Ky,X) :=
+ state_charlie(C,A,B,F,Mac,Kac,Kbc,0,Dummy_X1,Dummy_Y1,Dummy_Kx,Dummy_Ky,Dummy_X,SID).
+ iknows(pair(X,pair(scrypt(Kac,X1),apply(Mac,X1)))).
+ iknows(pair(X,pair(scrypt(Kbc,Y1),apply(Mac,Y1)))).
+ iknows(pair(scrypt(Kbc,pair(apply(F,Ky),pair(apply(F,Kx),pair(crypt(Dummy_Y1,Ky),apply(F,X1))))),apply(Mac,pair(apply(F,Ky),pair(apply(F,Kx),pair(crypt(Dummy_Y1,Ky),apply(F,X1))))))).
+ iknows(pair(scrypt(Kac,pair(apply(F,Kx),pair(apply(F,Ky),pair(crypt(Dummy_X1,Kx),apply(F,Y1))))),apply(Mac,pair(apply(F,Kx),pair(apply(F,Ky),pair(crypt(Dummy_X1,Kx),apply(F,Y1)))))))
+ =>
+ state_charlie(C,A,B,F,Mac,Kac,Kbc,2,X1,Y1,Kx,Ky,X,SID).
+ iknows(pair(scrypt(Kac,pair(crypt(Dummy_Y1,Ky),crypt(Dummy_X1,Dummy_Kx))),apply(Mac,Ky))).
+ iknows(pair(scrypt(Kbc,pair(crypt(Dummy_Y1,Dummy_Ky),crypt(Dummy_X1,Kx))),apply(Mac,Kx)))
+
+
+section properties:
+
+property weak_authentication_on_alice_bob_ky (A1Goal,A2Goal,MGoal,SID) :=
+ [] ((wrequest(A1Goal,A2Goal,alice_bob_ky,MGoal,SID)
+      /\ ~ equal(A2Goal,i))
+     => witness(A2Goal,A1Goal,alice_bob_ky,MGoal))
+
+property weak_authentication_on_bob_alice_kx (A1Goal,A2Goal,MGoal,SID) :=
+ [] ((wrequest(A1Goal,A2Goal,bob_alice_kx,MGoal,SID)
+      /\ ~ equal(A2Goal,i))
+     => witness(A2Goal,A1Goal,bob_alice_kx,MGoal))
+
+
+section attack_states:
+
+attack_state weak_authentication_on_alice_bob_ky (A1Goal,A2Goal,MGoal,SID) :=
+ wrequest(A1Goal,A2Goal,alice_bob_ky,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,alice_bob_ky,MGoal)) &
+ not(equal(A2Goal,i))
+
+attack_state weak_authentication_on_bob_alice_kx (A1Goal,A2Goal,MGoal,SID) :=
+ wrequest(A1Goal,A2Goal,bob_alice_kx,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,bob_alice_kx,MGoal)) &
+ not(equal(A2Goal,i))
+

@@ -1,0 +1,92 @@
+role client
+(C,A,O,S: agent,
+Kco,Kca,Kcs1,Kcs2 : symmetric_key,
+SND_CA, RCV_CA, SND_CO, RCV_CO, SND_CS, RCV_CS: channel(dy))
+played_by C
+def=
+local State : nat
+
+init State:=0
+
+transition
+1. State = 0 =|> State':=2 /\ SND_CO({Kco}_Kco)
+2. State = 2 /\ RCV_CO({Kca}_Kco) =|>
+	State':= 4 /\ SND_CA({Kca}_Kca)
+3. State = 4 /\ RCV_CA({Kcs1}_Kca,{Kcs2}_Kca) =|>
+	State':=6/\SND_CA({Kcs2}_Kcs2)
+4. State= 6/\ RCV_CA({Kcs1}_Kca,{Kcs2}_Kca) =|>
+	State':=7/\SND_CS({Kcs1}_Kcs1)
+
+end role
+
+role owner(C,A,O,S: agent,
+Kco,Kca : symmetric_key,
+SND_CO, RCV_CO: channel(dy))
+played_by O
+def=
+local 
+State : nat
+
+init   State:=1
+
+transition
+1. State = 1/\ RCV_CO({Kco}_Kco)=|> State':=2/\SND_CO({Kca}_Kco)
+
+end role
+
+role authorization(C,A,O,S: agent,
+Kca,Kcs1,Kcs2 : symmetric_key,
+SND_CA, RCV_CA: channel(dy))
+played_by A
+def=
+local State : nat
+
+init State:=3
+
+transition
+1. State=3/\ RCV_CA ({Kca}_Kca)=|> State':=4 /\ SND_CA({Kcs1}_Kca,{Kcs2}_Kca)
+2. State=3 /\ RCV_CA ({Kcs2}_Kcs2)=|> State':=6 /\ SND_CA({Kcs1}_Kca,{Kcs2}_Kca)
+
+end role
+
+
+role server(C,A,O,S: agent,
+Kcs1 : symmetric_key,
+SND_CS, RCV_CS: channel(dy))
+played_by S
+def=
+local State : nat,
+Nx : text,
+Kco,Kca : symmetric_key
+
+init   State:=6
+
+
+transition
+1. State = 6/\ RCV_CS({Kcs1}_Kcs1)=|> State':=7/\SND_CS(Nx)
+
+end role
+
+role session
+(A,C,S,O : agent,
+Kco, Kca, Kcs1,Kcs2 : symmetric_key) def=
+local SND_CA, RCV_CA, SND_CO, RCV_CO, SND_CS, RCV_CS: channel(dy)
+
+composition
+client (A,C,S,O, Kco, Kca, Kcs1,Kcs2 ,SND_CA, RCV_CA, SND_CO, RCV_CO, SND_CS, RCV_CS)
+/\ owner(A,C,S,O, Kco,Kca  RCV_CO,SND_CO)
+/\ server(A,C,S,O, Kcs1 RCV_CS,SND_CS)
+/\ authorization(A,C,S,O, Kca,Kcs1,Kcs2,RCV_CA,SND_CA)
+end role
+
+role environment()
+def=
+const c, o, a, s,i : agent,
+Kco, Kcs, Kca, Kio,Kia, Kis : symmetric_key
+intruder_knowledge = {c,a,o,s,Kio, Kia, Kis}
+composition
+session(c,o,a,s,kco,kcs,kca)
+/\ session(i,o,a,s,kco,kia,kis)
+end role
+
+environment()

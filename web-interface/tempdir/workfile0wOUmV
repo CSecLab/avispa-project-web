@@ -1,0 +1,256 @@
+% Convenciones HLPSL:
+% Todas las variables empiezan con mayúsculas.
+% Todas las constantes empiezan con minúsculas.
+% 1. en las transiciones son solo etiquetas para identificarlas.
+% X': nuevo valor de la variable X. El valor de X cambia al de X' cuando la transición se completa.
+% En los mensajes compuestos se usa "." para separar los elementos. Analogo para las funciones.
+% Secret -> variables que deben ser secretas (variable, etiqueta,{Quien})
+%	 etiqueta suele ser la variable en minuscula, declarada como protocol_id en environment
+%	 Quien: quien debe conocer las variables. 
+% witness-> variables que permiten autentificación. En nuestro caso por secreto compartido.
+% 	 witness(quien, constante, variable). Lo crea el que envia.
+% request-> la otra parte del witness. Lo realiza el receptor.
+
+
+% A : user con móvil
+% BS: base station
+% S : sensor
+% i : intruder
+
+%K_A_BS: key shared between A and BS.
+%K_BS_S: key shared between BS and S.
+
+
+%KEnc_S_A  : Encode key between S and A
+%KAuth_S_A : Auth   key between S and A
+
+%MS_Enc   : Master key to encode
+%MS_Auth  : master key to Authentication
+
+%Snd : send channel for all participants (dy)-> Dolev-Yao intruded model.
+%Rcv : receive channel for all participants (dy).
+
+%Nbs : BaseStation nonce.
+%Ctr : Counter.
+%Tstart, Texpire: intervalo de validez (No usado).
+%Data_A, DataS: datos enciados por A y S respectivamente. 
+%MAC_A, MAC_S: Realmente son las hash, que se cifran con la KAuth_S_A.
+%St  : State.
+
+%HashF: Nuestra KDF.
+%Succ: También una hash. Según el manual es lo mismo que sumar uno a una variable.
+
+% a_bs_k_a_bs: etiqueta asociada a K_A_BS  para garantizar secreto. Ver environment()
+% bs_s_k_bs_s: etiqueta asociada a K_BS_S  para garantizar secreto. Ver environment()
+% ms_enc:      etiqueta asociada a MS_Enc  para garantizar secreto.
+% ms_auth:     etiqueta asociada a MS_Auth para garantizar secreto.
+% kenc_s_a:    etiqueta asociada a MS_Auth para garantizar secreto.
+% kauth_s_a:   etiqueta asociada a MS_Auth para garantizar secreto.
+% data_a:      etiqueta asociada a Data_a  para garantizar secreto
+% data_s:      etiqueta asociada a Data_s  para garantizar secreto
+% mac_a :      etiqueta asociada a MAC_a   para garantizar autenticidad
+% mac_s :      etiqueta asociada a MAC_s   para garantizar autenticidad
+
+%Problema: el intruso comparte claves con los otros agentes cuando se inicia su sesion.
+%Por ejemplo, si el intruso sehace pasar por la BS, A y S tendrían en esa sesion las
+%claves para comunicarse con el intruso.
+%Solución: poner las claces K_A_BS y K_BS_S en la sesión donde el intruso se hace pasar por la BS.
+%Como en  intruder_knowledge no están esas claves no las podrá usar.  
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%User A
+
+role user (A, BS, S   : agent,
+           Snd, Rcv   : channel (dy),
+           K_A_BS     : symmetric_key,
+           HashF, Succ : hash_func)
+played_by A
+def=
+
+  local St                           : nat,
+        KEnc_S_A, KAuth_S_A          : symmetric_key,
+        Ctr, Nbs, Tstart, Texpire,
+        Data_A, Data_S: text, 
+        MAC_A                        : hash(text.agent.text.text.text.text)
+        
+ init  St := 2
+
+ transition
+
+  2.  St   = 2 /\ Rcv(start)  =|>                                                      %Send to BS
+      St' := 3 /\ Snd({A.S}_K_A_BS)
+      
+  3.  St   = 3 /\ Rcv({KEnc_S_A'.KAuth_S_A'.Nbs'.Tstart'.Texpire'}_K_A_BS) =|>         %Recive from Bs
+      St' := 4 /\ request (BS,A,S,bsa_kenc_s_a,KEnc_S_A')
+               /\ request (BS,A,S,bsa_kauth_s_a,KAuth_S_A')
+               /\ request (BS,A,S,sa_kenc_s_a,KEnc_S_A')
+               /\ request (BS,A,S,sa_kauth_s_a,KAuth_S_A')
+               /\ Data_A' := new()
+               /\ Ctr'    := new()
+               /\ MAC_A'  := HashF(Data_A',A,Nbs',Tstart',Texpire',Ctr')           
+               
+  4.  St   = 4 /\ Snd(A.Nbs.Tstart.Texpire.Ctr.{Data_A.Ctr}_KEnc_S_A.{MAC_A}_KAuth_S_A) =|>  %Send to S
+      St' := 5 /\ secret (Data_A,data_a,{BS,A,S})
+               /\ secret (MAC_A,mac_a,{BS,A,S})
+               
+  5.  St   = 5 /\ Rcv(Ctr'.{Data_S'.Ctr'}_KEnc_S_A.{HashF(Data_S',Ctr')}_KAuth_S_A) =|>  %Recive from S
+      St' := 6 /\ Data_A' := new()
+               /\ Ctr'    := Succ(Ctr)
+               /\ MAC_A'  := HashF(Data_A', Ctr')
+
+
+  6.  St   = 6 /\ Snd(Ctr.{Data_A.Ctr}_KEnc_S_A.{MAC_A}_KAuth_S_A) =|> %Send to S
+      St' := 5 /\ secret (Data_A,data_a,{BS,A,S})
+               /\ secret (MAC_A,mac_a,{BS,A,S})      
+      
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%Sensor S
+
+role sensor (A, BS, S   : agent,
+             Snd, Rcv   : channel (dy),
+             K_BS_S      : symmetric_key,
+             HashF, Succ : hash_func,
+             MS_Enc, MS_Auth : text)
+played_by S
+def= 
+ local St                              : nat,
+        KEnc_S_A, KAuth_S_A            : symmetric_key,
+        Ctr, Nbs, Tstart, Texpire,
+        Data_A, Data_S                 : text, 	
+        MAC_S                         : hash(text.text)
+	
+ init  St := 4
+
+ transition
+      
+  4.  St   = 4 /\ Rcv(A.Nbs'.Tstart'.Texpire'.Ctr'.{Data_A'.Ctr'}_KEnc_S_A'.{HashF(Data_A',A,Nbs',Tstart',Texpire',Ctr')}_KAuth_S_A') =|> %Recive from A
+      St' := 5 /\ KEnc_S_A'    := HashF(MS_Enc.Nbs'.A.Tstart'.Texpire')
+               /\ KAuth_S_A'   := HashF(MS_Auth.Nbs'.A.Tstart'.Texpire')
+               /\ witness (BS,A,S,sa_kenc_s_a,KEnc_S_A')
+               /\ witness (BS,A,S,sa_kauth_s_a,KAuth_S_A')
+               /\ request (BS,A,S,bss_kenc_s_a,KEnc_S_A')
+               /\ request (BS,A,S,bss_kauth_s_a,KAuth_S_A')
+               /\ Data_S'      := new()
+               /\ Ctr'         := Succ(Ctr')
+               /\ MAC_S'       := HashF(Data_S', Ctr')
+               
+  5.  St   = 5 /\ Snd(Ctr.{Data_S.Ctr}_KEnc_S_A.{MAC_S}_KAuth_S_A) =|> %Send to A        
+      St' := 6 /\ secret (Data_S,data_s,{BS,A,S})
+               /\ secret (MAC_S,mac_s,{BS,A,S}) 
+
+  6.  St   = 6 /\ Rcv(Ctr'.{Data_A'.Ctr'}_KEnc_S_A.{HashF(Data_A', Ctr')}_KAuth_S_A) =|> %Receive from A
+      St' := 5 /\ Data_S'      := new()
+               /\ Ctr'         := Succ(Ctr')
+               /\ MAC_S'       := HashF(Data_S', Ctr')
+                           
+end role
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%Base Station BS
+
+role basestation (A, BS, S : agent,
+           Snd, Rcv        : channel (dy),
+           K_A_BS, K_BS_S  : symmetric_key,
+           HashF, Succ     : hash_func,
+           MS_Enc, MS_Auth : text)
+
+played_by BS
+def=
+
+  local St                    : nat,
+        KEnc_S_A, KAuth_S_A   : symmetric_key,
+        Nbs, Tstart, Texpire  : text
+
+  init  St := 2 
+
+  transition
+        
+  2.	St   = 2 /\ Rcv({A.S}_K_A_BS) =|>                               %Send to A
+	St' := 9 /\ Nbs'       := new()
+		 /\ Tstart'    := new()
+		 /\ Texpire'   := new()
+                 /\ KEnc_S_A'  := HashF(MS_Enc.Nbs'.A.Tstart',Texpire')
+                 /\ KAuth_S_A' := HashF(MS_Auth.Nbs'.A.Tstart',Texpire')
+		 /\ Snd({KEnc_S_A'.KAuth_S_A'.Nbs'.Tstart'.Texpire'}_K_A_BS)
+                 /\ witness (BS,A,S,bsa_kenc_s_a,KEnc_S_A')
+                 /\ witness (BS,A,S,bsa_kauth_s_a,KAuth_S_A')
+                 /\ witness (BS,A,S,bss_kenc_s_a,KEnc_S_A')
+                 /\ witness (BS,A,S,bss_kauth_s_a,KAuth_S_A')
+                 
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%Session
+
+role session( A, BS, S        : agent,
+	      K_A_BS, K_BS_S  : symmetric_key,
+              HashF, Succ     : hash_func,
+              MS_Enc, MS_Auth : text) 
+
+def=
+     local SendA, RecvA, SendBS, RecvBS, SendS, RecvS: channel (dy)
+
+composition
+	user       (A, BS, S, SendA,  RecvA,  K_A_BS, HashF, Succ)
+    /\  basestation(A, BS, S, SendBS, RecvBS, K_A_BS, K_BS_S, HashF, Succ, MS_Enc, MS_Auth) 
+    /\  sensor     (A, BS, S, SendS,  RecvS,  K_BS_S, HashF, Succ, MS_Enc, MS_Auth) 
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%Environment
+role environment() 
+
+def=
+
+  const  a, bs, s, i                          : agent,
+  	 k_a_bs, k_bs_s, ki_a_bs, ki_bs_s     : symmetric_key,  
+  	 bsa_kenc_s_a, bsa_kauth_s_a,
+  	 bss_kenc_s_a, bss_kauth_s_a,
+         sa_kenc_s_a, sa_kauth_s_a,            
+         data_a, data_s,			     	
+         mac_a, mac_s                         : protocol_id,
+         hashf, succ                          : hash_func,
+         ms_enc,ms_auth,msi_enc,msi_auth      :text
+
+  intruder_knowledge = {a,bs,s,ki_a_bs,ki_bs_s,hashf,succ,msi_enc,msi_auth}
+
+  composition
+        session(a, bs, s, k_a_bs,  k_bs_s,  hashf, succ, ms_enc,ms_auth)
+%  /\    session(a, bs, s, k_a_bs,  k_bs_s,  hashf, succ,ms_enc,ms_auth)
+ /\	session(i, bs, s, ki_a_bs, k_bs_s,  hashf, succ, ms_enc,ms_auth)
+ /\	session(a,  i, s, k_a_bs,  k_bs_s,  hashf, succ, ms_enc,ms_auth)
+ /\	session(a, bs, i, k_a_bs,  k_bs_s,  hashf, succ, ms_enc,ms_auth)
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+
+ authentication_on bsa_kenc_s_a
+ authentication_on bsa_kauth_s_a
+ authentication_on bss_kenc_s_a
+ authentication_on bss_kauth_s_a
+ authentication_on sa_kenc_s_a
+ authentication_on sa_kauth_s_a
+ secrecy_of data_a
+ secrecy_of data_s
+ secrecy_of mac_a
+ secrecy_of mac_s
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()
+
+

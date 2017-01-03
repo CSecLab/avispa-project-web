@@ -1,0 +1,186 @@
+role user (Ui, SNj, HGWN,FGWN : agent,
+SK1 : symmetric_key,
+% H is hash function
+H: hash_func, Snd, Rcv: channel(dy))
+played_by Ui
+def=
+local State : nat,
+IDi, PWi, DIDi,PWRi, Ai, TIDi, IDgwnh, IDgwnf, IDsnj, Regi, R, Ri, Rj, Rf, T1, Tf, Tj, TUi, TGWNf, Xk, XXk, Pj, Sran: text,
+ Bi, Ci, Di, BZi, AAi, BBi, DDj, MMj, RRf, HHj, Wj, RRj, SK, ZSi, CCi, GGi, FFi: message,
+Inc : hash_func
+const user_hgateway, hgateway_snode, snode_user, fgateway_hgateway,
+subs1, subs2, subs3, subs4,subs5, subs6, subs7 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(start) =|>
+State' := 1 /\ R' :=new()
+/\ DIDi' :=H(IDi.R')
+/\ PWRi' := H(PWi.R')
+/\ Snd({DIDi'.PWRi'}_SK1)
+/\ secret({IDi, PWi}, subs1, Ui)
+2. State = 1 /\ Rcv({Regi.Ai.TIDi.IDgwnh}_SK1) =|>
+State' := 2 /\ Ri' := new() 
+/\ T1' := new()
+/\ Bi' := xor(Ai,H(DIDi.PWRi)) 
+/\ Ci' := H(IDgwnh.Bi.Ri'.T1')
+/\ Di' := xor(Bi',Ri')
+/\ Snd(IDgwnh.TIDi.IDsnj.Ci.Di.T1) 
+/\ witness(Ui, HGWN, user_hgateway, Ri')
+/\ secret({Ri'}, subs2, {Ui,HGWN,SNj})
+/\ request(Ui, HGWN, user_hgateway, Ri')
+3. State = 2 /\ Rcv(BZi.IDgwnf) =|>
+State' := 3 /\ TUi' := new()
+/\ Zi' := xor(BZi,Bi)
+/\ AAi' := H(TIDi.Zi.Ri.TUi)
+/\ BBi' := xor(Zi,Ri)
+/\ Snd(TIDi.AAi.BBi.TUi)
+4. State = 3 /\ Rcv(TIDi.DDj.MMj.Tj.TGWNf.RRf) =|>
+State' := 4 /\ Wj' := H(IDsnj.Pj)
+/\ Rj' := xor(HHj,Wj)
+/\ DDj' := H(TIDi.Rj.Wj.Tj)
+/\ Rf' := xor(Rj,RRj)
+/\ SK' := H(TIDi.IDsnj.Ri.Rj'.Rf')
+/\ secret({SK'}, subs3, {SNj,Ui,FGWN})
+end role 
+
+role hgateway (HGWN, FGWN, Ui, SNj : agent,
+SK1 : symmetric_key,
+% H is hash function
+H : hash_func,
+Snd, Rcv: channel(dy) )
+played_by HGWN
+def=
+local State : nat,
+IDi, PWi, DIDi,PWRi, Ai, TIDi, IDgwnh, IDgwnf, IDsnj, Regi, R, Ri, Rj, Rf, T1, Tf, Tj, TUi, TGWNf, Xk, XXk, Pj, Sran: text,
+ Bi, Ci, Di, BZi, AAi, BBi, DDj, MMj, RRf, HHj, Wj, RRj, SK, ZSi, CCi, GGi, FFi: message,
+Inc : hash_func
+const user_hgateway, hgateway_snode, snode_user, fgateway_hgateway,
+subs1, subs2, subs3, subs4,subs5, subs6, subs7 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv({DIDi.PWRi}_SK1) =|>  
+State' := 1 /\ TIDi' := new()
+/\ Regi' := H(DIDi.PWRi)
+/\ Bi' := H(DIDi.TIDi'.Xk)
+/\ Ai' := xor(Bi',H(xor(DIDi.PWRi)))
+/\ secret({Xk}, subs4, {GWN})
+/\ secret({DIDi},subs5,{GWN,Ui})
+/\ Snd({Regi'.Ai'.IDgwnh.TIDi'}_SK1) 
+/\ Sran' := new()
+/\ Pj' := H(IDsnj.Sran')
+/\ secret({Pj',Sran'},subs6,{GWN,SNj})
+2. State =1 /\ Rcv(IDsnj.PSj') =|> 
+State' := 2 /\ Pj' := xor(PSj',Sran)
+3. State = 2 /\ Rcv(IDgwnh.TIDi.IDsnj.Ci.Di.T1) =|>
+State' := 3 /\ Snd(IDgwnh.TIDi.IDsnj)
+4. State = 3 /\ Rcv(ZSi.IDgwnf) =|>
+State' := 4 /\ Zi' := xor(ZSi, Sran)
+/\ BZi' := xor(Bi,Zi)
+/\ Snd(BZi'.IDgwnf)
+end role
+role fgateway (FGWN, HGWN, SNj, Ui : agent,
+SK1 : symmetric_key,
+SK2 : symmetric_key,
+% H is hash function
+H : hash_func,
+Snd, Rcv: channel(dy) )
+played_by FGWN
+def=
+local State : nat,
+IDi, PWi, DIDi,PWRi, Ai, TIDi, IDgwnh, IDgwnf, IDsnj, Regi, R, Ri, Rj, Rf, T1, Tf, Tj, TUi, TGWNf, Xk, XXk, Pj, Sran: text,
+ Bi, Ci, Di, BZi, AAi, BBi, DDj, MMj, RRf, HHj, Wj, RRj, SK, ZSi, CCi, GGi, FFi: message,
+Inc : hash_func
+const user_hgateway, hgateway_snode, snode_user, fgateway_hgateway,
+subs1, subs2, subs3, subs4,subs5, subs6, subs7 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(IDgwnh.TIDi.IDsnj) =|>
+State' := 1 /\ Zi' := H(TIDi.XXk)
+/\ ZSi' := xor(Zi,Sran)
+/\ Snd(ZSi'.IDgwnf) % line100
+/\ secret({Sran}, subs7, {HGWN,FGWN})
+2. State = 1 /\ Rcv(TIDi.AAi.BBi.TUi) =|>
+State' := 2 /\ Tf' := new()
+/\ Rf' := new()
+/\ Ri' := xor(BBi,Zi)
+/\ CCi' := H(TIDi. Zi. Rf.Pj.Tf.Ri)
+/\ GGi' := xor(Rf,Pj)
+/\ FFi' := xor(h(Pj),Zi)
+/\ Snd(TIDi.CCi'. GGi'.FFi'.BBi'.Tf')
+3. State = 2 /\ Rcv(TIDi.DDj.MMj.Tj) =|>
+State' := 1 /\ TGWNf := new()
+/\ Rj' := xor(HHj, Wj)
+/\ RRf' := xor(Rj', Rf)
+/\ Snd(TIDi.DDj.MMj.Tj.TGWNf.RRf)
+end role
+
+role snode (SNj, Ui, HGWN, FGWN : agent,
+SK1 : symmetric_key,
+% H is hash function
+H : hash_func,
+Snd, Rcv: channel(dy) )
+played_by SNj
+def=
+local State : nat,
+IDi, PWi, DIDi,PWRi, Ai, TIDi, IDgwnh, IDgwnf, IDsnj, Regi, R, Ri, Rj, Rf, T1, Tf, Tj, TUi, TGWNf, Xk, XXk, Pj, Sran: text,
+ Bi, Ci, Di, BZi, AAi, BBi, DDj, MMj, RRf, HHj, Wj, RRj, SK, ZSi, CCi, GGi, FFi: message,
+Inc : hash_func
+const user_hgateway, hgateway_snode, snode_user, fgateway_hgateway,
+subs1, subs2, subs3, subs4,subs5, subs6, subs7 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(start) =|>
+State' := 1 /\ PSj' := xor(Pj,Sran)
+/\ Snd(IDsnj.PSj')
+2. State = 1 /\ Rcv(TIDi.CCi. GGi.FFi.BBi.Tf) =|>
+State' := 2 /\ Rj' := new()
+/\ Tj' :=new()
+/\ Wj' := H(IDsnj.Pj)
+/\ DDj' := H(TIDi.Rj.Wj.Tj)
+/\ HHj' := xor(Rj,Wj)
+/\ MMj' := xor(Zi,Wj)
+/\ Snd (TIDi.DDj'.MMj'.Tj')
+/\ secret({Rj'}, subs7, {Ui,FGWN,SNj})
+%/\ witness(SNj, Ui, snode_user, Rj') 
+%/\ request(SNj, GWN, snode_gateway, Rj') 
+end role
+
+role session(Ui, SNj, HGWN, FGWN: agent,
+SK1 : symmetric_key,
+H: hash_func)
+def=
+local SI, SJ, RI, RJ, TI, TJ, PI, PJ: channel (dy)
+composition
+user(Ui, HGWN, FGWN, SNj, SK1, H, SI, RI)
+/\ hgateway(HGWN, FGWN, Ui, SNj, SK1, H, SJ, RJ)
+/\ fgateway(FGWN, HGWN, Ui, SNj, SK1, H, PI, PJ)
+/\ snode(SNj, HGWN, FGWN, Ui, SK1, H, TI, TJ)
+end role
+role environment()
+def=
+const ui, snj, hgwn, fgwn: agent,
+sk1: symmetric_key,
+h: hash_func,
+idi, pwi, didi, pwri, ai, tidi, idgwnh, idgwnf, idsnj, regi, r, ri, rj, rf, t1, tf, rj, tui, tgwnf, xk, xxk, pj, sran: text,
+user_gateway, gateway_snode, snode_user, fgateway_hgateway,
+subs1, subs2, subs3, subs4, subs5, subs6, subs7 : protocol_id
+intruder_knowledge = {ui, snj, hgwn, fgwn, h,regi,r,idgwnh,idsnj,tidi,ci,di}
+composition
+session( hgwn, snj, ui fgwn, sk1, h)
+/\ session(ui, snj, hgwn, fgwn, sk1, h)
+/\ session(ui, hgwn, fgwn, snj, sk1, h)
+/\ session(ui, hgwn, fgwn, snj, sk1, h)
+end role
+goal
+secrecy_of subs1
+secrecy_of subs2
+secrecy_of subs3
+secrecy_of subs4
+secrecy_of subs5
+secrecy_of subs6
+secrecy_of subs7
+authentication_on user_gateway_ri
+authentication_on gateway_snode_rf
+authentication_on snode_user_rj
+end goal
+environment()

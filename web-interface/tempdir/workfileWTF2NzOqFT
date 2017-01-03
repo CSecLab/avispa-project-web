@@ -1,0 +1,79 @@
+role server(S, T: agent,
+PS: public_key,
+XT: text,
+XS, P: text,
+H:hash_func,
+SND, RCV: channel(dy))
+played_by S def=
+local State: nat,
+N ,R1, L: text,
+ R2, M, TK2, TK1: message,
+Auts:hash(text.text)
+init State := 0
+transition
+0. State = 0 /\ RCV(start)
+=|> State' := 1
+/\ N' := new()
+/\ R2':= exp(N',P)
+/\ SND(R2')
+1. State = 2 /\ RCV(exp(PS,L').xor(M',XT))
+=|> State' := 3 /\ Auts' := h(XT.R1)
+/\ request(S,T,id3,Auts')
+2. State=3 /\ SND(h(XT.R1))
+=|> State':= 3 /\ witness(S, T, trid, XT)
+/\ XT' :=new()
+end role
+role tag( T,S: agent,
+PS: public_key,
+Xs, P, XT: text,
+H: hash_func,
+SND,RCV: channel(dy))
+played_by T def=
+local State : nat,
+R1, L , N: text,
+R2, M, TK2, TK1: message,
+Auts : hash(text.text)
+init State := 0
+transition
+0. State = 0
+/\ RCV(R2')       %40
+=|>
+State' := 1
+/\ L' := new()
+/\ SND(exp(PS,L').xor(M',XT))
+/\ witness( T, S, trid,XT)
+/\ secret (R1', id2, {T, S})
+/\ secret(XT,id, {T, S})
+1. State = 1 /\ RCV(h(XT.R1'))
+=|> State' := 2 /\ Auts' := h(XT.R1')
+/\ request(S,T,trid,Auts')
+/\ XT':=new()
+end role
+role session( T,S : agent,
+PS: public_key,
+Hash : hash_func)
+def=
+local SND, RCV: channel (dy)
+composition
+tag(T,S,pS,Hash, SND, RCV)
+/\ server (S,T,pS,Hash, SND, RCV)
+end role
+role environment( ) def=
+const
+id, id2, id3, id4, id5,trid, trk: protocol_id,
+h : hash_func,
+pS,kti,ksi: public_key,
+tag, server: agent
+intruder_Knowledge = {tag,server,h,i,kti,ksi}
+composition
+session(tag,server,pS,h)
+/\ session(tag,i,kti,h)
+/\ session(i,server,ksi,h)
+end role
+goal
+secrecy_of id, id2
+authentication_on trid
+authentication_on id3
+authentication_on trk
+end goal
+environment()

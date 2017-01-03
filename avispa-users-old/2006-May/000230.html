@@ -1,0 +1,259 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Avispa-users] OFMC: exponentiation support question
+   </TITLE>
+   <LINK REL="Index" HREF="index.html" >
+   <LINK REL="made" HREF="mailto:avispa-users%40avispa-project.org?Subject=%5BAvispa-users%5D%20OFMC%3A%20exponentiation%20support%20question&In-Reply-To=17504.55294.864594.763150%40gargle.gargle.HOWL">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000220.html">
+   <LINK REL="Next"  HREF="000235.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Avispa-users] OFMC: exponentiation support question</H1>
+    <B>Ilham Kurnia</B> 
+    <A HREF="mailto:avispa-users%40avispa-project.org?Subject=%5BAvispa-users%5D%20OFMC%3A%20exponentiation%20support%20question&In-Reply-To=17504.55294.864594.763150%40gargle.gargle.HOWL"
+       TITLE="[Avispa-users] OFMC: exponentiation support question">iwk20 at ui.edu
+       </A><BR>
+    <I>Mon May 15 06:51:03 CEST 2006</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000220.html">[Avispa-users] OFMC: exponentiation support question
+</A></li>
+        <LI>Next message: <A HREF="000235.html">[Avispa-users] OFMC: exponentiation support question
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#230">[ date ]</a>
+              <a href="thread.html#230">[ thread ]</a>
+              <a href="subject.html#230">[ subject ]</a>
+              <a href="author.html#230">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Dear Sebastian, 
+
+Thank you very much for your reply. 
+
+My response below is based on the HLPSL2IF given in the AVISPA package.
+
+&gt;<i> I have just had a look at it and I found a few minor problems (I am
+</I>&gt;<i> using a newer, not yet released version of HLPSL2IF which gives out
+</I>&gt;<i> more warnings):
+</I>&gt;<i> 
+</I>&gt;<i> - exp is declared as a function in the main call. As exp is
+</I>&gt;<i> &quot;built-in&quot; in HLPSL, this is not allowed.
+</I>
+Originally, I didn't declare exp function in the environment role (I
+presume this is what you mean by the main call). However HLPSL2IF
+rejects it by throwing &quot;unknown type of constant exp&quot; warnings which
+eventually ends with a Not_found exception. By declaring the exp
+function as a constant in the environment role, HLPSL2IF translates the
+HLPSL file to IF without any warnings. 
+
+&gt;<i> - For some reason the HLPSL2IF compiler seems to have trouble with
+</I>&gt;<i> translating calling a role with a term that involves the exp function
+</I>&gt;<i> symbol, i.e. I get an error for 
+</I>&gt;<i>    user(..., exp(g,kv), ...)
+</I>&gt;<i> but not for
+</I>&gt;<i>    user(..., g.kv, ...)
+</I>&gt;<i> 
+</I>&gt;<i>   [of course, this is not a mistake of yours!]
+</I>&gt;<i> 
+</I>&gt;<i> - the same problem appears in the initial intruder knowledge 
+</I>
+I have checked the IF file produced by HLPSL2IF. It seems to generate
+the correct IF specification. I also managed to run the protocol using
+CL-AtSe (version 2.2-3, release date 8 April 2006) and get the run trace
+I want. Please find the revised specification attached. 
+
+Best regards,
+
+Ilham
+-------------- next part --------------
+role user(U, V : agent,
+          H1, H2, H3 : function,
+          F : function,
+          G : text,               % Generator g
+          T : text,               % Maximum Tick value
+          Kv : message,           % public key of V, from exp(g,v)
+          Ku : public_key,        % dummy for signature
+          Kca : public_key,       % Certificate authority public key
+          Kpriv_v : text,
+          Cert_u : {message}_inv(public_key),
+          Snd, Rcv : channel(dy))
+played_by U def= 
+          
+local State: nat, 
+      Random_u : text,   % randomly generated number
+      Timestamp : text,
+      Random_r : text, 
+      Cert_v : {message}_inv(public_key),
+      Session_key : message,
+      Alpha_0 : text,
+      Alpha_T : text,
+      Signed_message : message.message.text.agent.text
+      
+const alpha_t : protocol_id,
+      user_vasp_alpha_t : protocol_id,
+      session_key : protocol_id,
+      user_vasp_session_key : protocol_id,
+      vasp_user_session_key : protocol_id,
+      user_vasp_signed_message : protocol_id
+      
+init State := 0
+transition
+
+0.     State   = 0 /\ 
+       Rcv(start)
+   =|&gt; State' := 2 /\ 
+       Random_u' := new() /\ 
+       Snd(exp(G,Random_u')) 
+       
+2.     State   = 2 /\ 
+       Rcv(Random_r'.H2(H1(exp(Kv,Random_u).Random_r').Random_r'.V).Timestamp'.{V.Kv}_(inv(Kca))) 
+   =|&gt; State' := 4 /\
+       Alpha_0' := new() /\
+       Alpha_T' := F(Alpha_0,T) /\
+       Session_key' := H1(exp(Kv,Random_u).Random_r') /\
+       Signed_message' := exp(G,Random_u).Kv.Random_r'.V.Timestamp' /\
+       Snd({{H3(Signed_message'.Alpha_T')}_(inv(Ku)).Cert_u.Alpha_T'}_Session_key')
+       /\ secret(Alpha_T',alpha_t,{U,V})
+       /\ witness(U,V,user_vasp_alpha_t,Alpha_T')
+       /\ witness(U,V,vasp_user_session_key,Session_key')
+       /\ witness(U,V,user_vasp_signed_message,Signed_message'.Alpha_T')
+       /\ request(U,V,user_vasp_session_key,Session_key')
+       /\ secret(Session_key',session_key,{U,V})
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role vasp(U, V : agent,
+          H1, H2, H3 : function,
+          Kv : message,
+          Ku : public_key,
+          Kca : public_key,       % certificate authority public key
+          Kpriv_v : text,
+          Cert_v : {message}_inv(public_key),
+          Snd, Rcv : channel(dy))
+played_by V def=
+
+local State: nat,
+      Random_u_exp : message, 
+      Random_r : text, 
+      Timestamp : text, 
+      Alpha_T : text, 
+      Session_key : message,
+      Signed_message : message,
+      Cert_u : {message}_inv(public_key)
+      
+const user_vasp_session_key : protocol_id,
+      user_vasp_alpha_t : protocol_id,
+      vasp_user_session_key : protocol_id,
+      user_vasp_signed_message : protocol_id
+
+init State := 1
+transition
+
+1.     State   = 1 /\ Rcv(Random_u_exp'.U)
+   =|&gt; State' := 3 /\ 
+       Timestamp' := new() /\ 
+       Random_r' := new() /\
+       Session_key' := H1(exp(Random_u_exp',Kpriv_v).Random_r') /\
+       Signed_message' := Random_u_exp'.Kv.Random_r'.V.Timestamp' /\
+       Snd(Random_r'.H2(Session_key'.Random_r'.V).Timestamp'.Cert_v) 
+       /\ witness(V,U,user_vasp_session_key,Session_key')
+
+   
+3.     State   = 3 /\ Rcv({{H3(Signed_message.Alpha_T')}_(inv(Ku)).{U.Ku}_(inv(Kca)).Alpha_T'}_Session_key)
+   =|&gt; State' := 5 
+       /\ request(V,U,user_vasp_alpha_t,Alpha_T')
+       /\ request(V,U,vasp_user_session_key,Session_key)
+       /\ request(V,U,user_vasp_signed_message,Signed_message.Alpha_T')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(U, V : agent, 
+             H1, H2, H3, F : function,
+             G, T : text,
+             Kpriv_v : text,       % some nonce
+             Ku, Kca : public_key, 
+             Cert_u, Cert_v : {message}_inv(public_key))
+def= 
+            
+  local Su, Ru, Sv, Rv : channel(dy)
+
+  composition
+      user(U, V, H1, H2, H3, F, G, T, exp(G,Kpriv_v), Ku, Kca, Kpriv_v, Cert_u, Su, Ru) 
+   /\ vasp(U, V, H1, H2, H3, exp(G,Kpriv_v), Ku, Kca, Kpriv_v, Cert_v, Sv, Rv)
+   
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+  const u, v, a, i : agent,
+        h1, h2, h3, f, exp : function,
+        g, t, kv, ki : text,
+        ku, ka, kca, kpi : public_key,
+        session_key, alpha_t, user_vasp_session_key, user_vasp_alpha_t,
+        vasp_user_session_key, user_vasp_signed_message
+          : protocol_id
+        
+  intruder_knowledge = {u,v,a,h1,h2,h3,f,g,t,exp(g,kv),kca,ku,ka,ki,kpi,{i.kpi}_(inv(kca))} 
+
+  composition 
+        session(u,v,h1,h2,h3,f,g,t,kv,ku,kca,{u.ku}_(inv(kca)),{v.exp(g,kv)}_(inv(kca)))
+    /\  session(a,v,h1,h2,h3,f,g,t,kv,ka,kca,{a.ka}_(inv(kca)),{v.exp(g,kv)}_(inv(kca)))
+    /\  session(u,i,h1,h2,h3,f,g,t,ki,ku,kca,{u.ku}_(inv(kca)),{i.exp(g,ki)}_(inv(kca)))
+    /\  session(a,i,h1,h2,h3,f,g,t,ki,ka,kca,{a.ka}_(inv(kca)),{i.exp(g,ki)}_(inv(kca)))
+    /\  session(i,v,h1,h2,h3,f,g,t,kv,kpi,kca,{i.kpi}_(inv(kca)),{v.exp(g,kv)}_(inv(kca)))
+    
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+  
+  % mutual authentication and agreement on session key. 
+  % a minor flaw found in authenticating user_vasp_session_key
+  authentication_on vasp_user_session_key, user_vasp_session_key
+  authentication_on user_vasp_alpha_t
+  authentication_on user_vasp_signed_message
+  
+  secrecy_of session_key
+  secrecy_of alpha_t
+  
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+
+</PRE>
+
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000220.html">[Avispa-users] OFMC: exponentiation support question
+</A></li>
+	<LI>Next message: <A HREF="000235.html">[Avispa-users] OFMC: exponentiation support question
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#230">[ date ]</a>
+              <a href="thread.html#230">[ thread ]</a>
+              <a href="subject.html#230">[ subject ]</a>
+              <a href="author.html#230">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="http://www.avispa-project.org/mailman/listinfo/avispa-users">More information about the Avispa-users
+mailing list</a><br>
+</body></html>

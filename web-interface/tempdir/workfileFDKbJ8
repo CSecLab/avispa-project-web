@@ -1,0 +1,135 @@
+%% PROTOCOL: NSPK: Needham-Schroeder Public-Key Protocol
+%% VARIANT: original version (of 1978) without key server
+%% PURPOSE: Two-party mutual autentication
+%% ALICE_BOB:
+%% 1. A  - {Na.A}_Kb ----> B
+%% 2. A  B
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% définition du rôle alice, initiant le protocole
+role alice (A,P : agent,
+	    Ka,Kp : public_key,
+    	    H : hash_func,
+	    Num : text,
+	    SND,RCV : channel(dy))
+
+played_by A def=
+
+	local State : nat,
+	X,Y : message,
+	Reponse : text,
+	Na,Np : text
+
+init State :=0
+
+transition
+
+
+
+0. State = 0 /\ RCV(start) =|>
+   State':=1 
+	/\Na':=new()
+	/\ SND({{Num.Na'.X'}_inv(Ka)}_Kp) 
+	/\ X':=H(Num.Na')
+	/\ witness(A,P,pointRelais_alice_nb,Na')
+	/\ secret(Num,nba,{A,P})
+
+2. State = 1 /\ RCV({{Np'.Reponse'.Y'}_inv(Kp)}_Ka) =|>
+	State':=2
+	/\ request(A,P,alice_pointRelais_np,Np')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% role bob à écrire
+
+role pointRelais (A,P : agent,
+	    Ka,Kp : public_key,
+	    H : hash_func,
+	    NonceMap : (text) set,
+	    SND,RCV:channel(dy))
+
+played_by P def=
+
+	local State : nat,
+
+	X,Y : message,
+	Na,Np : text,
+	Num : text,
+	Rep : text
+
+init State :=0
+
+transition
+
+
+
+1. State = 0 /\ RCV({{Num'.Na'.X'}_inv(Ka)}_Kp) /\ not(in(Na',NonceMap)) =|>
+   	State':=1  
+	/\ Np':=new()
+	/\ Rep':= new()
+	/\ NonceMap' := cons(Na',NonceMap)
+	/\ Y':=H(Rep'.Np')
+	/\ SND({{Rep'.Np'.Y'}_inv(Kp)}_Ka) 
+	/\ request(P,A,pointRelais_alice_nb,Na')
+	/\ witness(P,A,alice_pointRelais_np,Np')
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% définition du rôle caractérisant une session
+role session(A,S : agent, Ka,Ks : public_key,
+			Hash : hash_func, 
+			Num : text,
+			NonceMap : (text) set) def=
+
+	local SA,RA,SS,RS : channel(dy)
+
+	composition
+
+	alice(A,S,Ka,Ks,Hash,Num,SA,RA)
+	/\ pointRelais(A,S,Ka,Ks,Hash,NonceMap,SS,RS)
+	
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% définition du rôle caractérisant le scenario à exécuter
+role environment() def=
+
+	local NonceMap : (text) set
+
+	const agentA, agentS : agent,
+		pKA,pKS,pKI : public_key,
+		nba : protocol_id,
+		numAS,repAS : text,
+		numAI,repAI : text,
+		numIS,repIS : text,
+		h : hash_func,
+		alice_pointRelais_np,pointRelais_alice_nb : protocol_id
+		
+
+	intruder_knowledge = { agentA, agentS, pKA, pKS, pKI, inv(pKI)}
+
+	composition
+
+		session(agentA,agentS,pKA,pKS,h,numAS,NonceMap)
+		/\session(agentA,i,pKA,pKI,h,numAI,NonceMap)
+		/\session(i,agentS,pKI,pKS,h,numIS,NonceMap)
+		/\session(agentA,agentS,pKA,pKS,h,numAS,NonceMap)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% pas de section goal ici (donc pas de propriété à vérifier)
+goal
+	authentication_on alice_pointRelais_np
+	authentication_on pointRelais_alice_nb
+	secrecy_of nba
+
+end goal
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% lancement du rôle principal
+environment()

@@ -1,0 +1,106 @@
+role noeud (N,C: agent, Mac:hash_func, H:hash_func, Permute:hash_func, Snd,Rcv: channel(dy))
+played_by N
+def=
+
+local State : nat,
+No: text,
+Key:message,
+Index:text set,
+Q:text set,
+F:text set,
+Fprime:text set,
+R: text set 
+
+init State := 0 % initialisation
+transition
+
+1. State = 0 /\ Rcv(start)
+=|>State' := 1
+			/\ No' := new()
+			/\ Q'  := new()
+			/\ F'  := new()
+			/\ Fprime' := new()
+			/\ Snd(N.C.No'.Permute(F'.Q',Fprime'))
+			/\ request(N,C,noeud_coordinateur_q,Q')
+			/\ Key':=H(Q')
+			/\ secret(Key',key,{N,C})
+2. State = 1 
+            /\ Rcv(N.C.Index'.Mac(Key',Index'.Q.C))
+			
+=|> State' := 2
+            /\ request(N,C,noeud_coordinateur_index,Index')
+			/\ Snd(Mac(Key,No.N.C))
+		   
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role coordinateur (N,C: agent,
+Mac:hash_func,
+H:hash_func,
+Permute:hash_func,
+Snd,Rcv: channel(dy))
+played_by C
+def=
+local State : nat,
+No: text,
+Key:message,
+Index:text set,
+Q:text set,
+F:text set,
+Fprime:text set,
+R: text set
+const sec_key: protocol_id
+init State := 0
+transition
+1. State = 0/\ Rcv(N.C.No'.Permute(F'.Q',Fprime'))
+=|>
+State' := 1
+        /\witness(C,N,noeud_coordinateur_q,Q')
+		/\ Index':=new()
+		/\ Key':=H(Q')
+		/\ Snd(N.C.Index'.Mac(Key',Index'.Q.C))
+		
+2. State = 1 
+        /\ Rcv(Mac(Key,No'.N.C))
+=|>
+State' := 2
+        /\ witness(C,N,noeud_coordinateur_index,Index')
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%ù
+
+role session(N,C: agent,
+Mac:hash_func,
+H:hash_func,
+Permute:hash_func )
+def=
+local SN, RN, SC, RC: channel (dy)
+composition
+noeud(N,C,Mac,H,Permute,SN,RN)
+/\ coordinateur(N,C,Mac,H,Permute,SC,RC)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+def=
+const n, c, i : agent,
+mac:hash_func,
+h:hash_func,
+permute:hash_func,
+key, noeud_coordinateur_index,noeud_coordinateur_q : protocol_id
+intruder_knowledge={n,c,mac,h}
+composition
+session(n,c,mac,h,permute)
+%%/\ session(n,i,mac,h,permute)%%% intruder impersonates coordinateur
+%%/\session(i,c,mac,h,permute)%%% intruder impersonates noeud capteur
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+secrecy_of key
+authentication_on noeud_coordinateur_index
+authentication_on noeud_coordinateur_q
+
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

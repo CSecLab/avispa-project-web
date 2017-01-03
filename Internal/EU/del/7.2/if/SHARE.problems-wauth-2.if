@@ -1,0 +1,82 @@
+%% IF specification of /home/friends/drwho/Desktop/Archivio/Work/Science/AVISPA/AVISPA-FET-EU-02/shared/testsuite/hlpsl/SHARE.problems.hlpsl
+
+section signature:
+
+state_SHARE_Resp: agent * agent * public_key * public_key * nat * text * text * text * message * nat -> fact
+state_SHARE_Init: agent * agent * public_key * public_key * nat * text * text * text * message * nat -> fact
+
+
+section types:
+
+k : protocol_id
+Msg, Na, Nb, Dummy_Nb, Dummy_Msg, one, zero, Dummy_Na, dummy_nonce : text
+State, 6, 4, CID, 2, 1, 3, 0 : nat
+K, Dummy_K, dummy_msg, MGoal, start : message
+b, a, A, B, AGoal, i : agent
+ka, Ka, Kb, ki, kb : public_key
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(a).
+ iknows(b).
+ iknows(ka).
+ iknows(kb).
+ iknows(ki).
+ iknows(inv(ki)).
+ iknows(zero).
+ iknows(one).
+ iknows(start).
+ iknows(i).
+ state_SHARE_Init(a,b,ka,kb,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,3).
+ state_SHARE_Resp(b,a,kb,ka,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,4).
+ state_SHARE_Init(a,i,ka,ki,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,6)
+
+
+section rules:
+
+step step_0 (A,B,Ka,Kb,Dummy_Na,Msg,Nb,K,Na,CID) :=
+ state_SHARE_Init(A,B,Ka,Kb,0,Dummy_Na,Msg,Nb,K,CID).
+ iknows(start)
+=[exists Na]=>
+ state_SHARE_Init(A,B,Ka,Kb,1,Na,Msg,Nb,K,CID).
+ iknows(crypt(Kb,Na))
+
+step step_1 (A,B,Ka,Kb,Na,Dummy_Msg,Dummy_Nb,Dummy_K,Msg,Nb,CID) :=
+ state_SHARE_Init(A,B,Ka,Kb,1,Na,Dummy_Msg,Dummy_Nb,Dummy_K,CID).
+ iknows(crypt(Ka,Nb))
+=[exists Msg]=>
+ state_SHARE_Init(A,B,Ka,Kb,2,Na,Msg,Nb,pair(Na,Nb),CID).
+ iknows(scrypt(pair(Na,Nb),pair(zero,Msg))).
+ witness(A,B,k,pair(Na,Nb))
+
+step step_2 (A,B,Ka,Kb,Na,Msg,Nb,K,CID) :=
+ state_SHARE_Init(A,B,Ka,Kb,2,Na,Msg,Nb,K,CID).
+ iknows(scrypt(K,pair(one,Msg)))
+ =>
+ state_SHARE_Init(A,B,Ka,Kb,3,Na,Msg,Nb,K,CID)
+
+step step_3 (B,A,Kb,Ka,Dummy_Nb,Msg,Dummy_Na,Dummy_K,Nb,Na,CID) :=
+ state_SHARE_Resp(B,A,Kb,Ka,0,Dummy_Nb,Msg,Dummy_Na,Dummy_K,CID).
+ iknows(crypt(Kb,Na))
+=[exists Nb]=>
+ state_SHARE_Resp(B,A,Kb,Ka,1,Nb,Msg,Na,pair(Na,Nb),CID).
+ iknows(crypt(Ka,Nb))
+
+step step_4 (B,A,Kb,Ka,Nb,Dummy_Msg,Na,K,Msg,CID) :=
+ state_SHARE_Resp(B,A,Kb,Ka,1,Nb,Dummy_Msg,Na,K,CID).
+ iknows(scrypt(K,pair(zero,Msg)))
+ =>
+ state_SHARE_Resp(B,A,Kb,Ka,2,Nb,Msg,Na,K,CID).
+ iknows(scrypt(K,pair(one,Msg))).
+ wrequest(B,A,k,K,CID)
+
+
+section goals:
+
+goal weak_authenticate_K (A,B,K,CID) :=
+ wrequest(B,A,k,K,CID).
+ not(witness(A,B,k,K)) &
+ not(equal(A,i))
+

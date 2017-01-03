@@ -1,0 +1,130 @@
+role alice(A,S,B : agent,
+	Kas : symmetric_key,
+	SNDAS,RCVAS,SNDAB,RCVAB : channel (dy))
+played_by A
+def=
+
+       local
+	State  :  nat,
+	Kab    :  message,
+	Na      :  text,
+	Nb      :  text,
+	Kbs    :  symmetric_key
+
+       init State := 0
+
+       transition
+	1. State = 0 /\ RCVAB(start)  =|>
+	    State' := 2 /\ Na' := new() /\ SNDAS({A.Na'.B}_Kas)
+                                  /\ secret(Na',na,{A,B,S})
+
+	2. State = 2 /\ RCVAS({B.Kab'}_Kbs' . {A.Kab'.Na'.Nb'}_Kas) =|>
+	    State' := 7 /\ SNDAB({B.Kab'}_Kbs.{Na'}_Kab')
+                              
+              3. State = 7 /\ RCVAB({Na.B}_Kab') =|>
+                  State' :=9  /\ SNDAB({Nb'.A}_Kab')
+                                   /\ request(A,B,alice_bob_na,Na)
+                                   /\ witness(A,B,bob_alice_nb,Nb')
+
+
+end role
+
+role server(A,S,B : agent,
+	Kas,Kbs : symmetric_key,
+	SNDSA,RCVSA,SNDSB,RCVSB : channel (dy))
+played_by S
+def=
+
+       local
+	State  : nat,
+	Kab    : message,
+	Na     :  text,
+	Nb     :  text
+
+       init State := 1
+
+       transition
+	1. State = 1 /\ RCVSA({A.Na'.B}_Kas)  =|>
+	    State' := 3 /\ SNDSB(A)
+
+              2. State = 3 /\ RCVSB({B.A.Nb'}_Kbs)  =|>
+                  State' := 6 /\ Kab' := new()
+                                  /\ SNDSA({B.Kab'}_Kbs . {A.Kab'.Na'.Nb'}_Kas ) 
+                                  /\ secret(Kab',k,{A,B,S})
+
+
+end role
+
+role bob(A,S,B : agent,
+	Kbs : symmetric_key,
+	SNDBS,RCVBS,SNDBA,RCVBA : channel (dy))
+played_by B
+def=
+
+       local
+	State  :  nat,
+	Kab    :  message,
+	Na      :  text,
+	Nb      :  text
+
+       init State := 4
+
+       transition
+	1. State = 4 /\ RCVBS(A)  =|>
+	    State' := 5 /\ Nb' := new() 
+                                  /\ SNDBS({B.A.Nb'}_Kbs)
+                          %       /\ secret(Nb',nb,{A,B,S})
+
+             2. State = 5 /\ RCVBA({B.Kab'}_Kbs.{Na'}_Kab')  =|>
+	    State' := 8 /\ SNDBA({Na'.B}_Kab')
+                                 /\ witness(B,A,alice_bob_na,Na')
+
+             3. State = 8 /\ RCVBA({Nb.A}_Kab') =|>
+                 State' :=10  /\ request(B,A,bob_alice_nb,Nb)
+              
+                                          
+end role
+
+role session(A,S,B : agent,
+	Kas,Kbs : symmetric_key)
+def=
+
+       local
+	SAS,RAS,SAB,RAB,SSA,RSA,SSB,RSB,SBS,RBS,SBA,RBA : channel (dy)
+
+       composition
+	
+	alice(A,S,B,Kas,SAS,RAS,SAB,RAB)
+           /\ server(A,S,B,Kas,Kbs,SSA,RSA,SSB,RSB)
+           /\ bob(A,S,B,Kbs,SBS,RBS,SBA,RBA)
+
+end role
+
+role environment()
+def=
+
+      const a,b,s : agent,
+	 kas, kbs, kis : symmetric_key,
+	 alice_bob_na, k : protocol_id,
+	 bob_alice_nb : protocol_id,
+               na : protocol_id
+        %    nb : protocol_id
+
+      intruder_knowledge = {a,b,s,kis}
+
+       composition
+	
+	session(a,s,b,kas,kbs)
+          % /\ session(i,s,b,kis,kbs)
+          % /\ session(a,s,i,kas,kis)
+end role
+
+goal
+     secrecy_of k
+     secrecy_of na
+%  secrecy_of nb
+     authentication_on alice_bob_na
+     authentication_on bob_alice_nb
+end goal
+
+environment()

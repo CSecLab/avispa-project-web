@@ -1,0 +1,213 @@
+%% PROTOCOL: UMTS-AKA
+%% PURPOSE: 
+%% Authentication and Key Agreement
+%% REFERENCE:
+%% \url{http://www.3gpp.org/ftp/tsg_sa/WG3_Security/_Specs/33902-310.pdf}
+%% MODELER:
+%% \begin{itemize}
+%%  \item Haykal Tej, Siemens CT IC 3, 2003
+%%  \item Sebastian M{\"o}dersheim, ETH Z{\"u}rich, December 2003
+%% \end{itemize}
+%%
+%% ALICE_BOB:
+%% S is the server, M is the mobile set, they share a secret key k(M).
+%% 
+%% Both S and M have an own version of a sequence number,
+%% that they try to maintain synchonized.
+%% 
+%% Using k(M), a random number (nonce) r, his sequence number seq,
+%% when S receives a request from M (or whenever he wishes
+%% this part is not modelled here), S generates:
+%% \begin{verbatim}
+%%   res = F2(k(M); r)   where F2 hash
+%%   CK =  F3(k(M); r)   where F3 one-way
+%%   IK =  F4(k(M); r)   where F4 one-way
+%%   Ka =  F5(k(M); r)   where F5 one-way
+%%   AUTN = {seq}Ka; F1(k(M); seq; r)  where F1 hash
+%%
+%% M -> S : M
+%% S -> M : r; {seq}_Ka; F1(k(M); seq; r)
+%%
+%%      from r M calculates KA, then seq, then checks if F1(k(M); seq; r) OK
+%%      if yes, M increments his seq number and responds:
+%%
+%% M -> S : F2(k(M); r)
+%% \end{verbatim}
+%% The goal is that at the end both authenticate each other and share
+%% the value of \verb|CK| and \verb|IK|.
+%%
+%%% LIMITATIONS:
+%%
+%% PROBLEMS: 3
+%%
+%% CLASSIFICATON: G2 G12 
+%%
+%% ATTACKS: None
+%%
+%%% NOTES:
+%%
+%%HLPSL:
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role user(USER,GATEWAY:agent,
+            Snd, Rec: channel(dy),
+            Kug: symmetric_key,
+            Seq, IDu, IDsn, TSug: text,
+            Hash,F2,F5: hash_func)
+played_by USER
+def=
+
+  local State :nat, 
+	R ,R2,Nu    :text
+
+  const
+        r1,r2,tsug_id,auth_nu : protocol_id
+
+  init  State := 1
+
+  transition
+
+    1.  State = 1 /\ Rec(start) =|> 
+          State':=2 
+          /\ Nu' := new()
+          /\ Snd(xor(Kug,Nu').Hash(IDu.Kug.Nu'.TSug).TSug.IDsn.Hash(Hash(IDu.Kug.Nu'.TSug).Kug.xor(Kug,Nu').IDsn))
+          /\ witness(USER,GATEWAY,auth_nu,Nu')
+
+    2.  State = 2 /\ Rec(Hash(Nu).xor(R',Kug)) =|>  
+        State':=3
+        /\ secret(R',r1,{GATEWAY,USER})
+	%/\ request(USER,GATEWAY,r1,R')
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role gateway(GATEWAY,USER ,SENSOR: agent,
+      Snd, Rec, Snd2, Rec2: channel(dy),
+            Kug, Kgs: symmetric_key,
+            Seq,IDu,IDsn,TSug : text,
+            Hash,F2,F5: hash_func)
+played_by GATEWAY
+def=
+
+  local State : nat,
+        R,R2, Nu, T, T2     : text,
+        AIDu: message,
+        SK:  symmetric_key
+
+  const r1,r2,sseq1,nu,auth_sk, auth_nu : protocol_id,
+        add         : hash_func
+
+  init  State := 1 
+
+  transition
+
+    1.  State   = 1 /\ Rec(xor(Kug,Nu').Hash(IDu.Kug.Nu'.TSug).TSug.IDsn.Hash(Hash(IDu.Kug.Nu'.TSug).Kug.xor(Kug,Nu').IDsn))
+        =|> 
+        State' := 2 /\ R2' := new()
+        /\ SK' := new()
+        /\ T' := new()
+        /\ AIDu' := Hash(IDu.Kug.Nu'.TSug)
+        /\ Snd(xor(R2',Kgs).AIDu.xor(SK',Hash(Kgs)).T'.Hash(AIDu.xor(Hash(Kgs),SK').T'.Kgs))
+        /\ secret(Nu',nu,{GATEWAY,USER})
+        /\ request(GATEWAY,USER,auth_nu,Nu')
+
+    2.  State   = 2 /\ Rec(Hash(R2).T2'.IDsn.Hash(SK.Kgs.IDsn.T2'))
+        =|>
+        State' := 3  /\ R' :=  new() 
+        /\ Snd(Hash(Nu).xor(R',Kug)) 
+        /\ request(GATEWAY,SENSOR,auth_sk,SK)
+        %/\ witness(GATEWAY,USER,r1,R')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role sensor(SENSOR,GATEWAY:agent,
+            Snd, Rec: channel(dy),
+            Kgs: symmetric_key,
+            Seq,IDsn: text,
+            Hash,F2,F5: hash_func)
+played_by SENSOR
+def=
+
+  local State :nat, 
+  R2, T, T2    :text,
+  SK: symmetric_key,
+  AIDu: message
+
+  const
+        r1,r2,auth_sk,se_sk : protocol_id
+
+  init  State := 1
+
+  transition
+ 
+  1.  State  = 1 /\ Rec(xor(R2',Kgs).AIDu'.xor(SK',Hash(Kgs)).T'.Hash(AIDu'.xor(Hash(Kgs),SK').T'.Kgs))
+        =|> 
+        State' := 2 
+        /\T2' := new()
+        /\Snd(Hash(R2').T2'.IDsn.Hash(SK'.Kgs.IDsn.T2'))
+        /\ secret(SK',se_sk,{SENSOR,GATEWAY})
+        /\ witness(SENSOR,GATEWAY,auth_sk,SK')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(USER,GATEWAY, SENSOR: agent,
+	     Kug, Kgs: symmetric_key,
+	     Seq, IDu, IDsn, TSug: text,
+             F1,F2,F5: hash_func,
+             SA,RA,SB,RB,SB2,RB2,SC,RC: channel(dy)) def=
+
+   composition
+
+	 user(USER,GATEWAY,SA,RA,Kug,Seq,IDu,IDsn,TSug,F1,F2,F5)
+      /\ gateway(GATEWAY,USER,SENSOR,SB,RB,SB2,RB2,Kug,Kgs,Seq,IDu,IDsn,TSug,F1,F2,F5)
+      /\ sensor(SENSOR,GATEWAY,SC,RC,Kgs,Seq,IDsn,F1,F2,F5)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+ local Sa1,Ra1,Ss1,Rs1,Ss2,Rs2,Sb1,Rb1 : channel (dy)
+
+ const r1, r2                 : protocol_id,
+       u, i, g, s                : agent,
+       kug, kgs, k_is, kai        : symmetric_key,
+       f1, f2, f5             : hash_func,
+       seq,idu,idsn,tsug : text
+
+ intruder_knowledge={u,f1,f2,f5}
+
+ composition
+ 
+	session(u,g,s,kug,kgs,seq,idu,idsn,tsug,f1,f2,f5,Sa1,Ra1,Ss1,Rs1,Ss2,Rs2,Sb1,Rb1) 
+% /\	session(i,s,k_is,seq_is,f1,f2,f5,si1,ri1,ss2,rs2) 
+% /\	session(a,i,k_ai,seq_ai,f1,f2,f5,sa2,ra2,si2,ri2)
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  % Confidentiality (G12)
+  secrecy_of  nu
+  secrecy_of r1
+  secrecy_of r2
+  secrecy_of se_sk
+  authentication_on auth_nu
+  authentication_on auth_sk
+  %authentication_on r1
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

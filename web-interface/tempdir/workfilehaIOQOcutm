@@ -1,0 +1,105 @@
+%Diffie-Helman Protocol
+%
+%    1. A -> B: G^|Na|
+%    2. B -> A: G^|Nb|
+%    3. A -> B: {Secret}_|(G^Na)^Nb|
+
+
+role alice (A,B     : agent,
+            G       : text,
+            Snd,Rcv : channel (dy)) played_by A def=
+
+  local
+    State  : nat,
+    Na     : text,
+    Secret : text,
+    K      : message,
+    X      : message
+
+  init
+    State:=0
+
+  transition
+    1. State=0 /\ Rcv(start) =|>
+      State':=1
+       /\ Na':=new()
+       /\ Snd(exp(G,Na'))
+
+    2. State = 1 /\ Rcv(X') =|>
+          State':=2
+       /\ K' := exp(X',Na)
+       /\ Secret':=new()
+       /\ Snd({Secret'}_K')
+       /\ secret(Secret',s,{A,B})
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob (A,B     : agent,
+          G       : text,
+          Snd,Rcv : channel (dy)) played_by B def=
+
+  local
+    State  : nat,
+    Nb     : text,
+    Y      : message,
+    Secret : text,
+    K      : message
+
+
+  init
+     State:=0
+
+  transition
+
+   1. State = 0 /\ Rcv(Y') =|>
+      State':=1 /\ Nb':=new()
+                /\ K':=exp(Y',Nb')
+                /\ Snd(exp(G,Nb'))
+
+   2. State = 1 /\ Rcv({Secret'}_K) =|>
+    State':=2
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(A, B: agent, G: text) def=
+
+  local SA, RA, SB, RB: channel (dy)
+
+  composition
+
+    alice(A,B,G,SA,RA)
+    /\ bob  (B,A,G,SB,RB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+    const a, b         : agent,
+          g            : text
+%          s            : protocol_id
+
+    intruder_knowledge = {a, b, g}
+
+    composition
+
+        session(a,b,g)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of s
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

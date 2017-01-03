@@ -1,0 +1,105 @@
+role node (N,BS:agent,
+           Km: symmetric_key,
+           MAC,H: function,
+           RCV,SND: channel(dy))
+
+played_by N def=
+
+local 
+      State: nat,
+
+      Am1,Am2,Size1,Size2,Data1,Data2: text
+
+init State:=0 
+
+transition
+       1. State=0
+              /\ RCV(N.Am1'.Size1'.Data1’.
+                 {MAC(N.Am1'.Size1'.Data1’)}_H(Km,N)) =|>
+           
+           State’:=1
+                /\ Data2’:=new()
+                /\ SND(BS.Am2'.Size2'.Data2’.
+                     {MAC(BS.Am2'.Size2'.Data2’)}_H(Km,N))
+             
+                /\ request(N,BS, auth_Data1, Data1’)
+                /\ request(N,BS, auth_Data2, Data2’)
+               
+     end role
+
+role basestation (N,BS: agent
+                   km:symmetric_key,
+                   MAC,H: function,
+                   RCV,SND: CHANNEL(dy))
+
+played_by BS def=
+
+  local
+     state: nat,
+     
+    Am1,Am2,Size1,Size2,Data1,Data2: text
+ 
+init State:=0  
+  transition
+              1. state=0 /\ RCV(start)/\ in(N,km) =|>
+                            
+                 State’:=1  
+                   /\ SND(N.Am1'.Size1'.Data1’.
+                 {MAC(N.Am1'.Size1'.Data1’)}_H(Km,N))
+                  
+          
+              2. State = 1
+           
+                /\ Data2’:=new()
+                /\ RCV(BS.Am2'.Size2'.Data2’.
+                     {MAC(BS.Am2'.Size2'.Data2’)}_H(Km,N))
+                
+                  =|>
+            
+                State’:=2 /\ request(N,BS, auth_Data1, Data1’)
+                          /\ request(N,BS, auth_Data2, Data2’)
+     end role
+
+role session(
+           N,BS: agent,
+           Km: symmetric_key,
+           MAC,H: function ,
+           Am1,Am2,Size1,Size2,Data1,Data2:text)
+
+     def=
+
+         local SND,RCV : channel (dy)
+
+      composition
+
+            node(N,BS,SND,RCV,H,MAC,KM,Am1,Am2,Size1,Size2,Data1,Data2)
+           
+        /\ basestation(N,BS,SND,RCV,H,MAC,KM,Am1,Am2,Size1,Size2,Data1,Data2)
+
+        end role
+
+ role environment()
+  def=
+
+  const 
+        n,bs :agent,
+        km:symmetric_key,
+       mac,f :function,
+       am1,am2,size1,size2,data1,dara2: text,
+       intruder_knowledge ={n,bs,km,mac,f,am1,am2,size1,size2,data1,dara2}
+       
+end role
+
+
+goal
+
+%Node authenticates Basestation  on Data1
+authentication_on Data2
+
+%Basestation authenticates Node  on Data2
+authentication_on Data1
+
+end goal
+
+              
+   

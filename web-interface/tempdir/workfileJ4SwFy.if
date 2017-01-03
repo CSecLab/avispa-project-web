@@ -1,0 +1,94 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileJ4SwFy
+
+section signature:
+
+state_capteur2: agent * agent * hash_func * hash_func * nat * text * message * set(text) * set(text) * nat -> fact
+state_capteur1: agent * agent * hash_func * hash_func * nat * text * message * set(text) * set(text) * nat -> fact
+
+
+section types:
+
+key, capteur1_capteur2_coeff: protocol_id
+Chaff, Coeff, Dummy_Chaff, Dummy_Coeff: set(text)
+dummy_set: set(message)
+h, mac, H, Mac: hash_func
+No, Dummy_No, dummy_nonce: text
+State, 2, 10, 6, 4, 1, SID, 0, Dummy_State, 3, SID2, SID1: nat
+a, b, A, B, A2Goal, A1Goal, i: agent
+ASGoal: set(agent)
+Key, start, Dummy_Key, dummy_msg, MGoal: message
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(mac).
+ iknows(h).
+ iknows(i).
+ state_capteur1(a,b,mac,h,0,dummy_nonce,dummy_msg,dummy_set,dummy_set,3).
+ state_capteur2(b,a,mac,h,0,dummy_nonce,dummy_msg,dummy_set,dummy_set,4).
+ state_capteur1(a,i,mac,h,0,dummy_nonce,dummy_msg,dummy_set,dummy_set,6).
+ state_capteur2(b,i,mac,h,0,dummy_nonce,dummy_msg,dummy_set,dummy_set,10)
+
+
+section rules:
+
+step step_0 (A,B,Mac,H,Dummy_No,Dummy_Key,Dummy_Coeff,Dummy_Chaff,SID,No,Coeff,Chaff) :=
+ state_capteur1(A,B,Mac,H,0,Dummy_No,Dummy_Key,Dummy_Coeff,Dummy_Chaff,SID).
+ iknows(start)
+=[exists Chaff,Coeff,No]=>
+ state_capteur1(A,B,Mac,H,1,No,apply(H,Coeff),Coeff,Chaff,SID).
+ iknows(pair(A,pair(B,pair(No,pair(Coeff,pair(Chaff,apply(Mac,pair(apply(H,Coeff),pair(Coeff,pair(Chaff,pair(No,A))))))))))).
+ witness(A,B,capteur1_capteur2_coeff,Coeff)
+
+step step_1 (A,B,Mac,H,No,Key,Coeff,Chaff,SID) :=
+ state_capteur1(A,B,Mac,H,1,No,Key,Coeff,Chaff,SID).
+ iknows(apply(Mac,pair(Key,pair(No,pair(A,B)))))
+ =>
+ state_capteur1(A,B,Mac,H,2,No,Key,Coeff,Chaff,SID)
+
+step step_2 (B,A,Mac,H,Dummy_No,Dummy_Key,Dummy_Coeff,Dummy_Chaff,SID,No,Key,Coeff,Chaff) :=
+ state_capteur2(B,A,Mac,H,0,Dummy_No,Dummy_Key,Dummy_Coeff,Dummy_Chaff,SID).
+ iknows(pair(A,pair(B,pair(No,pair(Coeff,pair(Chaff,apply(Mac,pair(Key,pair(Coeff,pair(Chaff,pair(No,A)))))))))))
+ =>
+ state_capteur2(B,A,Mac,H,1,No,Key,Coeff,Chaff,SID).
+ request(B,A,capteur1_capteur2_coeff,Coeff,SID).
+ iknows(apply(Mac,pair(Dummy_Key,pair(Dummy_No,pair(A,B)))))
+
+
+section properties:
+
+property secrecy_of_key (MGoal,ASGoal) :=
+ [] ((secret(MGoal,key,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_capteur1_capteur2_coeff (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,capteur1_capteur2_coeff,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,capteur1_capteur2_coeff,MGoal))
+     /\ ((request(A1Goal,A2Goal,capteur1_capteur2_coeff,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,capteur1_capteur2_coeff,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_key (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,key,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_capteur1_capteur2_coeff (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,capteur1_capteur2_coeff,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,capteur1_capteur2_coeff,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_capteur1_capteur2_coeff (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,capteur1_capteur2_coeff,MGoal,SID1).
+ request(A1Goal,A2Goal,capteur1_capteur2_coeff,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

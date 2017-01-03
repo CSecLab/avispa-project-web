@@ -1,0 +1,140 @@
+%%%%%%%%%%% Role for user A %%%%%%%%%%%%%%%%%%%% 
+role userA (A, B, TSM : agent,
+% H, F are hash function
+         H, F : hash_func,
+         SEND, RECV: channel(dy))
+played_by A
+def=
+ local State : nat, IDa, IDtsm, Ra, Rb, G : text,
+     KDF, W : hash_func, PAi, PBj, RAi, RBj, DAi,
+     DBj, QqAi, QqBj, QBj, SK, Qtsm, LTAi, LTBj,
+     Dtsm, IDb, MacTagA, KA: text
+ const a_b_ra, b_a_rb, s1, s2, s3 : protocol_id
+init State := 0
+ transition
+% Session key agreement phase
+1. State = 0 /\ RECV(start) =|>
+% Send < M1 > to user B
+State' := 1  /\ QqAi' := new()
+             /\ PAi' := W(QqAi'.G).{IDa.QqAi'}_(Dtsm).
+                IDtsm.LTAi
+             /\ secret({Dtsm,QqAi'}, s1, TSM)
+             /\ secret({DAi,IDa}, s2, A)
+             /\ secret({DBj,IDb}, s3, B)
+             /\ SEND(PAi')
+% Receive < M2 > from user B
+2. State = 1 /\ RECV(W(H(Rb'.DBj).W(W(QqAi'.G).
+           W(H(IDa.IDtsm.W(QqAi'.G).
+          {IDa.QqAi'}_(Dtsm).IDtsm.LTAi).
+           W(Dtsm.G))).W(QqBj'.G).{IDb.QqBj'}_(Dtsm).
+          IDtsm.LTBj)) =|>
+% Send < M3 > to user B
+State' := 2 /\ Ra' := new()
+            /\ RAi' := W(H(Ra'.DAi).W(F(QqBj'.G).
+               H(IDb.IDtsm.W(QqBj'.G).
+           {IDb.QqBj'}_(Dtsm).IDtsm.LTBj).W(Dtsm.G)))
+            /\ KA' := W(H(Ra'.DAi).H(Rb'.DBj).G)
+            /\ MacTagA' := F(KA'.IDa.IDb.RAi'.
+           W(H(Rb'.DBj).W(W(QqAi'.G).W(H(IDa.IDtsm.
+           W(QqAi'.G).{IDa.QqAi'}_(Dtsm).IDtsm.LTAi).
+           W(Dtsm.G)))))
+            /\ SEND(RAi'.MacTagA')
+% A has freshly generated the value Ra for B
+            /\ witness(A, B, a_b_ra, Ra')
+% Receive < M4 > from user B
+3. State = 2 /\ RECV(F(SK'.IDb.IDa.W(H(Rb'.DBj).
+  W(W(QqAi'.G).W(H(IDa.IDtsm.W(QqAi'.G).
+  {IDa.QqAi'}_(Dtsm).IDtsm.LTAi).
+  W(Dtsm.G))).W(H(Ra'.DAi).W(F(QqBj'.G).
+  H(IDb.IDtsm.W(QqBj'.G).{IDb.QqBj'}_(Dtsm)
+  .IDtsm.LTBj).W(Dtsm.G))))))  =|>
+% A's acceptance of the value Rb generated for A by B
+State' := 3 /\ request(B, A, b_a_rb, Rb')
+end role
+
+%%%%%%%%%%% Role for user B %%%%%%%%%%%%%%%%%%%% 
+role userB (A, B, TSM : agent,
+% H, F are hash function
+         H, F : hash_func,
+         SEND, RECV: channel(dy))
+played_by B 
+def=
+ local State : nat, IDa, IDtsm, Ra, Rb, G : text,
+     KDF, W : hash_func, PAi, PBj, RAi, RBj, DAi,
+     DBj, QqAi, QqBj, QBj, SK, Qtsm, LTAi, LTBj,
+     Dtsm, KB, IDb, MacTagB: text   
+ const a_b_ra, b_a_rb, s1, s2, s3: protocol_id
+init State := 0
+ transition
+% Session key agreement phase
+% Receive < M1 > from user A
+1. State = 0 /\ RECV(W(QqAi'.G).{IDa.QqAi'}_(Dtsm).
+                IDtsm.LTAi) =|>
+State' := 1  /\ secret({Dtsm,QqAi'}, s1, TSM)
+             /\ secret({DAi,IDa}, s2, A)
+             /\ secret({DBj,IDb}, s3, B)
+% Send < M2 > to user A
+             /\ Rb' := new()
+             /\ QqBj' := new()
+/\ PBj' := W(QqBj'.G).{IDb.QqBj'}_(Dtsm).IDtsm.LTBj
+/\ RBj' := W(H(Rb'.DBj).W(W(QqAi'.G).W(H(IDa.IDtsm.
+           W(QqAi'.G).{IDa.QqAi'}_(Dtsm).IDtsm.LTAi).
+           W(Dtsm.G))))
+             /\ SEND(RBj'.PBj')
+% B has freshly generated the value Rb for A
+            /\ witness(B, A, b_a_rb, Rb')
+% Receive < M3 > from user A
+2. State = 1 /\ RECV(W(H(Ra'.DAi).W(F(QqBj'.G).
+H(IDb.IDtsm.W(QqBj'.G).{IDb.QqBj'}_(Dtsm).IDtsm.LTBj).
+W(Dtsm.G))).F(W(H(Ra'.DAi).H(Rb'.DBj).G).IDa.IDb.
+W(H(Ra'.DAi).W(F(QqBj'.G).H(IDb.IDtsm.W(QqBj'.G).
+{IDb.QqBj'}_(Dtsm).IDtsm.LTBj).W(Dtsm.G))).
+W(H(Rb'.DBj).W(W(QqAi'.G).W(H(IDa.IDtsm.W(QqAi'.G)
+.{IDa.QqAi'}_(Dtsm).IDtsm.LTAi).W(Dtsm.G)))))) =|>
+% Send < M4 > to user B
+State' := 2 /\ KB' := W(H(Rb'.DBj).H(Ra'.DAi).G)
+            /\ SK' := KDF(KB'.Ra'.Rb')
+/\ MacTagB' := F(SK'.IDb.IDa.W(H(Rb'.DBj).
+   W(W(QqAi'.G).W(H(IDa.IDtsm.W(QqAi'.G).
+   {IDa.QqAi'}_(Dtsm).IDtsm.LTAi).
+   W(Dtsm.G))).W(H(Ra'.DAi).W(F(QqBj'.G).
+   H(IDb.IDtsm.W(QqBj'.G).{IDb.QqBj'}_(Dtsm)
+   .IDtsm.LTBj).W(Dtsm.G)))))
+            /\ SEND(MacTagB')
+% B's acceptance of the value Ra generated for B by A
+            /\ request(A, B, a_b_ra, Ra') 
+end role
+
+
+%%%%%%%%%%%%% Role for session %%%%%%%%%%%%%%%%%%
+role session(A, B, TSM : agent,
+             H, F : hash_func )
+def=
+  local SN1, SN2, RV1, RV2 : channel (dy)
+composition
+   userA (A, B, TSM, H, F, SN1, RV1)
+/\ userB (A, B, TSM, H, F, SN2, RV2)
+end role
+
+%%%%%%%%%%%%% Role for goal and environment %%%%%%%%%%%%%%%%%%
+role environment()
+def=
+  const a, b, tsm : agent,
+        h, f, kdf, w : hash_func,
+        idtsm: text,
+        a_b_ra, b_a_rb, 
+        s1, s2, s3: protocol_id
+intruder_knowledge = 
+       {a, b, tsm, idtsm, h, f, w, kdf}
+composition
+   session(a, b, tsm, h, f)
+/\ session(i, b, tsm, h, f)
+/\ session(a, i, tsm, h, f)
+end role
+goal
+  secrecy_of s1, s2, s3
+  authentication_on a_b_ra
+  authentication_on b_a_rb
+end goal
+environment()
+

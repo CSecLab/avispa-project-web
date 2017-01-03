@@ -1,0 +1,100 @@
+role alice (A, B : agent,
+                 Kb : public_key,
+                 Succ : hash_func,
+                 SND, RCV : channel(dy))
+played_by A def=
+local  
+         State : nat,
+         Na,Nb : text,
+         Info1: text,
+         Info2: text,
+         Info3: text,
+         Kab : symmetric_key,
+         Flag:text
+
+const 
+         bob_alice_nb, alice_bob_info3: protocol_id
+
+init 
+         State := 0
+
+transition
+0. State = 0/\RCV(start) =|>
+    State':= 2/\Na':= new()/\Kab':=new()/\Info1':=new()/\SND(A.{Na'.Info1'.Kab'}_Kb)/\secret(Kab',kab,{A,B})
+2. State = 2/\RCV({Succ(Na).Nb'}_Kab) =|>
+    State':= 4/\Info2':=new()/\SND({Succ(Nb').Info2'}_Kab)/\request(B,A,bob_alice_nb,Nb')
+4. State=4/\RCV({Succ(Na).Flag'}_Kab)=|>
+    State':=6/\Info3':=new()/\SND({Succ(Nb).Info3'}_Kab)
+6. State=6/\RCV({Succ(Na).Flag'}_Kab)=|>
+    State':=8
+
+end role
+
+
+role bob (A, B : agent,
+               Kb:public_key,
+               Succ : hash_func,
+               SND, RCV : channel(dy))
+
+played_by B def=
+local 
+        State : nat,
+        Na,Nb: text,
+        Info1: text,
+        Info2: text,
+        Info3: text,
+        Kab : symmetric_key,
+        Flag:text
+
+init 
+        State := 1
+
+transition
+1.State=1/\RCV(A.{Na'.Info1'.Kab'}_Kb)=|>
+   State':=3/\Nb':=new()/\SND({Succ(Na').Nb'}_Kab)
+3.State=3/\RCV({Succ(Nb').Info2'}_Kab)=|>
+   State':=5/\Flag':=new()/\SND({Succ(Na).Flag'}_Kab)
+5.State=5/\RCV({Succ(Nb').Info3'}_Kab)=|>
+   State':=7/\Flag':=new()/\SND({Succ(Na).Flag'}_Kab)/\request(A,B,alice_bob_info3,Info3')
+
+end role
+
+
+role session(A, B : agent,
+                     Kb:public_key,
+                     Succ : hash_func)
+def=
+local SAB, RAB,SBA, RBA : channel (dy)
+
+composition
+   alice(A, B, Kb,  Succ, SAB, RAB)
+/\ bob  (A, B, Kb,  Succ, SBA, RBA)
+
+end role
+
+
+role environment()
+def=
+const kab,info3,bob_alice_nb: protocol_id,
+          a, b : agent,
+          kb:public_key,
+          succ : hash_func
+
+intruder_knowledge = {a, b, kb, succ}
+
+composition
+   session(a,b,kb,succ)
+/\ session(a,i,kb,succ)
+/\ session(i,b,kb,succ)
+
+end role
+
+
+goal
+secrecy_of kab
+authentication_on bob_alice_nb
+authentication_on info3
+end goal
+
+
+environment() 

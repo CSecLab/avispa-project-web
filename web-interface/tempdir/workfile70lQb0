@@ -1,0 +1,112 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Role of the ServiceProvider
+role sp(V,U		:agent,
+	Sk,Ks,Ku,Kvd,Kvm:symmetric_key,
+		
+	D1,D2		:text,
+	Snd,Rcv		:channel(dy))
+
+played_by V def=
+local	State, Yi,Ru,Kk		:nat
+const ks,sk,kk,sp_um_sk,sp,um	:protocol_id
+init State:=0
+
+transition
+1.	State  = 0 /\ Rcv(start) =|>
+	State':= 2 /\ Snd({V.Kvd.Kvm}_Ks)
+		    /\ secret(Ks,ks,{sp,um})
+		    /\ witness(U,V,sp_um_ks,{ks})
+
+2.	State	= 2 /\ Rcv(Yi,({{U.Ku}_Ks}_Ru)) =|>
+	State' := 4 /\ Ru':=({Yi}_Kvm)
+		    /\ Kk':=({Ku}_Kvd)
+		    /\ Sk':=({Ru'}_Kk')
+		    /\ secret(Sk,sk,{sp,um})
+		    /\ witness(U,V,sp_um_sk,{sk})
+
+		    
+3.	State	= 4 /\ Snd({D1}_Sk)	=|>
+	State' := 6 /\ Rcv({D2}_Sk)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Role of the userMobile
+role um(V,U				:agent,
+	Sk,Ks,Ku,Kvd,Kvm		:symmetric_key,	
+	
+	
+	D1,D2		:text,
+	Snd,Rcv	:channel(dy))
+played_by U def=
+local State,	Yi,Ru,Kk	:nat
+const	ks1,sk1,kk1,um_sp_ks1,um_sp_kk1,um_sp_sk1,ru1 :protocol_id
+
+init State := 1
+
+transition
+1. State  = 1 /\ Rcv(start) =|>
+   State':= 3 /\ Snd(Yi,({{U.Ku}_Ks}_Ru))
+	     /\ secret(Ks,ks1,{sp,um})
+	     /\ secret(Ru,ru1,{sp,um})
+	     /\ witness(V,U,um_sp_ks1,{Ks})
+
+2. State  = 3 /\ Rcv({V.Kvd.Kvm}_ks) =|>
+   State':= 5/\ Ru' := {Yi'}_Kvm
+	      /\ Kk' :=({Ku'}_Kvd)
+	      /\ Sk' :=({Ru'}_Kk')
+	      /\ secret(Sk,sk1,{sp,um})
+	      /\ secret(Kk,kk1,{sp,um})
+	      /\ witness(V,U,um_sp_sk1,{Sk})
+	      /\ witness(V,U,um_sp_kk1,{Kk})
+	      
+3. State  = 5 /\ Rcv({D1}_Sk) =|>
+   State' := 7 /\ Snd({D2}_Sk)
+
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%	
+%Role Session
+role session( V,U		:agent,
+	      Sk,Ks,Ku,Kvd,Kvm	:symmetric_key,
+	      D1,D2		:text)
+	    
+def=
+local SA,SB,RA,RB : channel (dy)
+	     
+	     	
+composition 
+	sp(V,U,Sk,Ks,Ku,Kvd,Kvm,D1,D2,SA,RA)
+	/\ um(V,U,Sk,Ks,Ku,Kvd,Kvm,D1,D2,SB,RB)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%Role Environment
+role environment()
+def=
+
+const
+sps,ums,i			: agent,
+skk,kss,kku,kkvd,kkvm 		:symmetric_key,
+		
+d1,d2				:text,
+
+sp_um_ks,sp_um_sk,um_sp_ks1,um_sp_sk1,um_sp_kk1 :protocol_id
+
+
+intruder_knowledge ={sps,ums,d1,d2,i}
+composition
+	  session(sps,ums,skk,kss,kku,kkvd,kkvm,d1,d2)
+	/\session(i,ums,skk,kss,kku,kkvd,kkvm,d1,d2)
+	
+	
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%Goal
+goal
+secrecy_of sk,ks,sp,ks1,sk1,kk1
+authentication_on sp_um_ks,sp_um_sk,um_sp_ks1,um_sp_sk1,um_sp_kk1
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Call of the Main role:
+environment()
+	
+		

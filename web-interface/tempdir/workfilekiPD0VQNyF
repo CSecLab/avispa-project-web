@@ -1,0 +1,140 @@
+
+role user (Ui, S : agent,
+SKus : symmetric_key,
+%H is the ome?way hash function
+H : hash_func,
+Snd, Rcv: channel(dy))
+% Player by the user Ui
+played_by Ui
+def=
+local State : nat,
+IDi, PWi, N, Bi, X, A, SK : text,
+NIDi, Alpha, Beta, Di, Xi, P, Q : text,
+Ti, Ts, M1, M2, Wi, Ds, IDsc : text
+const alice_bob_ti, bob_alice_ts,
+alice_bob_alpha, bob_alice_beta,
+subs1, subs2, subs3, subs4, subs5 : protocol_id
+init State := 0
+transition
+% Registration phase
+1. State = 0 / Rcv(start) =|>
+State’ := 1 / A’ := new()
+% Send the registration request message to S securely
+/ Wi’ := H(PWi.A’)
+/ secret({A’,PWi}, subs1, Ui)
+/ secret({IDi}, subs2, {Ui,S})
+/ Snd({IDi.Wi’}_SKus)
+% Receive the registration acknowledgment message from S securely
+2. State = 1 / Rcv({NIDi.xor(H(IDi.N.IDsc.X),H(PWi.A’))
+.P.Q}_SKus) =|>
+% Login phase
+State’ := 2 / secret({X,N,IDsc}, subs3, S)
+/ Ti’ := new()
+/ Alpha’ := new()
+/ secret({Alpha’}, subs4, Ui)
+% Send the login request message < NIDi,Di,M1,Ti > to Sj
+/ Snd(NIDi.exp(H(IDi),Alpha’).
+H(NIDi.IDi.exp(H(IDi),Alpha’).
+H(IDi.N.IDsc.X).Ti’).Ti’)
+% Ui has freshly generated the value Ti for S
+/ witness(Ui, S, alice_bob_ti, Ti’)
+% Ui has freshly generated the value alpha for S
+/ witness(Ui, S, alice_bob_alpha, Alpha’)
+%Authentication and key agreement phase
+% Receive the authentication request message
+%  from the server S
+3. State = 2 / Rcv(exp(H(IDi),Beta’).
+H(IDi.H(IDi.exp(exp(H(IDi),Alpha’),Beta’).
+H(IDi.N.IDsc.X)). exp(H(IDi),Alpha’).
+exp(H(IDi),Beta’).Ti’.Ts’).Ts’) =|>
+% Ui’s acceptance of the value Ts generated for Ui by S
+State’ := 3 / request(S, Ui, bob_alice_ts, Ts’)
+% Ui’s acceptance of the value beta generated for Ui by S
+/ request(S, Ui, bob_alice_beta, Beta’)
+end role
+role server (Ui, S : agent,
+SKus : symmetric_key,
+%H is the ome?way hash function
+H : hash_func,
+Snd, Rcv: channel(dy))
+% Player by the server S
+played_by S
+def=
+local State : nat,
+IDi, PWi, N, Bi, X, A, SK : text,
+NIDi, Alpha, Beta, Di, Xi, P, Q : text,
+Ti, Ts, M1, M2, Wi, Ds, IDsc : text
+const alice_bob_ti, bob_alice_ts,
+alice_bob_alpha, bob_alice_beta,
+subs1, subs2, subs3, subs4, subs5 : protocol_id
+init State := 0
+transition
+% User registration phase
+% Receive the registration request message from Ui securely
+1. State = 0 / Rcv({IDi.H(PWi.A’)}_SKus) =|>
+State’ := 1 / secret({A’,PWi}, subs1, Ui)
+/ secret({IDi}, subs2, {Ui,S})
+% Send the registration acknowledgment message to Ui securely
+/ Snd({NIDi.xor(H(IDi.N.IDsc.X),H(PWi.A’))
+.P.Q}_SKus)
+% Login phase
+% Receive the login request message
+% < NIDi,Di,M1,Ti > from the user Ui
+2. State = 1 / Rcv(NIDi.exp(H(IDi),Alpha’).
+H(NIDi.IDi.exp(H(IDi),Alpha’).
+H(IDi.N.IDsc.X).Ti’).Ti’) =|>
+% Authentication phase
+State’ := 2 / Beta’ := new()
+/ Ts’ := new()
+/ secret({X,N,IDsc}, subs3, S)
+/ secret({Beta’}, subs5, S)
+% Send the authentication request message
+%  to the user Ui
+/ Snd (exp(H(IDi),Beta’).
+H(IDi.H(IDi.exp(exp(H(IDi),Alpha’),Beta’).
+H(IDi.N.IDsc.X)). exp(H(IDi),Alpha’).
+exp(H(IDi),Beta’).Ti’.Ts’).Ts’)
+% S has freshly generated the value Ts for Ui
+/ witness(S, Ui, bob_alice_ts, Ts’)
+% S has freshly generated the value beta for Ui
+/ witness(S, Ui, bob_alice_beta, Beta’)
+% S’s acceptance of the value Ti generated for S by Ui
+/ request(Ui, S, alice_bob_ti, Ti’)
+% S’s acceptance of the value alpha generated for S by Ui
+/ request(Ui, S, alice_bob_alpha, Alpha’)
+end role
+role session(Ui, S: agent,
+SKus : symmetric_key,
+H : hash_func)
+def=
+local SI, SJ, RI, RJ: channel (dy)
+composition
+user (Ui, S, SKus, H, SI, RI)
+/ server (Ui, S, SKus, H, SJ, RJ)
+end role
+role environment()
+def=
+const ui, s: agent,
+skus : symmetric_key,
+h : hash_func,
+nidi, ti, ts : text,
+alice_bob_ti, bob_alice_ts, alice_bob_alpha,
+bob_alice_beta, subs1, subs2, subs3,
+subs4, subs5 : protocol_id
+intruder_knowledge = {ui, s, h, nidi, ti, ts}
+composition
+session(ui, s, skuisj, h)
+/ session(ui, s, skuisj, h)
+end role
+goal
+secrecy_of subs1
+secrecy_of subs2
+secrecy_of subs3
+secrecy_of subs4
+secrecy_of subs5
+authentication_on alice_bob_ti
+authentication_on alice_bob_alpha
+authentication_on bob_alice_ts
+authentication_on bob_alice_beta
+end goal
+environment() 

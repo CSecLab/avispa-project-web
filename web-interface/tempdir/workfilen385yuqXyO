@@ -1,0 +1,195 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% HLPSL Code for the scheme:
+%%% A secure and efficient remote user authentication
+%%% scheme for multi-server environment based on
+%%% dynamic ID using smart cards
+%%% Developed by: Dr. Ashok Kumar Das
+%%%               IIIT Hyderabad
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% HLPSL Code for the scheme:
+%%%   Jangirala Srinivas
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%% Role for user Ui %%%%%%%%%%%%%%%%%%%% 
+role user(Ui, Sj, G : agent,
+% symmetric key between Ui and GWN
+        SKuig : symmetric_key,
+% symmetric key between Sensor node and GWN
+        SKsjg : symmetric_key,
+% H is hash function
+         H : hash_func,
+         SEND, RECV: channel(dy))
+		 
+played_by Ui
+def=
+ local State : nat,
+     IDi, SIDj, PWi, Xgwn, T1,T2,T3,T4,T5, TS1, TS2, Ki, Kj, Ri, Rj, SKus : text,
+     Constant 	: message
+ const sec_pw, sec_ri, sec_ki, sec_xgwn, sec_skus, gwn_user_ki, gwn_sensor_kj,
+ gwn_sensor_rj, user_sensor_kj, sensor_user_ki,
+       sub1, sub2, sub3 : protocol_id
+init State := 0
+ transition
+% User registration phase
+
+% Ui sends < IDi, Ai > to GWN via a secure channel
+
+1. State = 0 /\ RECV(start) =|>
+State' := 1  /\ Ri' :=new()
+			 /\ secret({PWi}, sec_pw, Ui)
+			 /\ SEND({H(Ri'. PWi). IDi}_Skuig)
+%				SEND({IDi.H(xor(IDi, xor(B,PWi)))}_SKuirc)
+             
+% Ui receives  from GWN via a secure channel
+2. State = 1 /\ RECV({H(H(Ri'.PWi).IDi).xor(H(IDi.Xgwn), H(H(Ri'.PWi).H(H(Ri'.PWi).IDi))).xor(H(Xgwn),H(H(Ri'.PWi).H(IDi.Xgwn)))}_Skuig) =|>
+State' := 2  /\ secret({Ri'}, sec_ri, Ui)
+
+% Login phase and authentication phase
+             /\ T1' := new()
+			 /\ Ki':= new()
+             /\ SEND(xor(IDi,H(xor(xor(H(Xgwn),H(H(Ri'.PWi).H(IDi.Xgwn))),H(H(Ri'.PWi),H(H(Ri'.PWi).H(IDi.Xgwn)))),T1')).xor(Ki',H(H(IDi.Xgwn).T1')).H(xor(IDi,H(xor(xor(H(Xgwn),H(H(Ri'.PWi).H(IDi.Xgwn))),H(H(Ri'.PWi),H(H(Ri'.PWi).H(IDi.Xgwn)))),T1')).xor(Ki',H(H(IDi.Xgwn).T1')).Ki'.T1').T1')
+			 /\ secret({Xgwn}, sec_xgwn, G)
+            /\ witness(Ui, Sj, sensor_user_ki, Ki')
+			 /\ witness(Ui, G, gwn_user_ki, Ki')             
+
+3. State = 2 /\ RECV(xor(xor(H(H(IDi.Xgwn).T1'.T2'),xor(H(H(SIDj.Xgwn).T1'.T2'),Kj')),H(H(IDi.Xgwn).T3')),H(xor(xor(H(H(IDi.Xgwn).T1'.T2'),xor(H(H(SIDj.Xgwn).T1'.T2'),Kj')).H(H(IDi.Xgwn).T3')).H(IDi.Xgwn).T3'),H(SKus'.xor(xor(H(H(IDi.Xgwn).T1'.T2'),xor(H(H(SIDj.Xgwn).T1'.T2'),Kj')),H(H(IDi.Xgwn).T3')).H(xor(xor(H(H(IDi.Xgwn).T1'.T2'),xor(H(H(SIDj.Xgwn).T1'.T2'),Kj')),H(H(IDi.Xgwn).T3')).H(IDi.Xgwn).T3').T3'.T4').T3'.T4') =|>
+
+State' := 3  /\ SKus':= H(xor(Ki',xor(xor(Kj',H(H(IDi.Xgwn).T3')),H(H(IDi.Xgwn),T3'))))
+             /\ secret({SKus'}, sec_skus, {Ui, Sj})
+             /\ request(Sj, Ui, user_sensor_kj, Kj')          
+end role
+
+
+%%%%%%%%%%% Role for Sensor node Sj %%%%%%%%%%%%%%%%%%%%
+role server (Ui, Sj, G : agent,
+% symmetric key between Ui and GWN
+        SKuig : symmetric_key,
+% symmetric key between Sensor node and GWN
+        SKsjg : symmetric_key,
+% H is hash function
+         H : hash_func,
+         SEND, RECV: channel(dy))
+played_by Sj
+def=
+ local State : nat,
+     IDi, SIDj, PWi, Xgwn, T1,T2,T3,T4,T5, TS1, TS2, Ki, Kj, Ri, Rj, SKus : text,
+     Constant 	: message
+ const sec_pw, sec_ri, sec_ki, sec_xgwn, sec_skus, gwn_user_ki, gwn_sensor_kj,
+ gwn_sensor_rj, user_sensor_kj, sensor_user_ki: protocol_id
+       
+init State := 0
+transition
+% Registration phase
+
+1. State = 0 /\ RECV(start) =|>
+State' := 1  /\ Ri':=new()
+			 /\ TS1':=new()
+             /\ SEND(SIDj.H(SKsjg.Rj'.SIDj.TS1').xor(Rj', SKsjg).TS1')
+
+            /\ witness(Sj, G, gwn_sensor_rj, Rj')
+
+2. State = 1 /\ RECV(xor(H(SIDj.Xgwn),SKsjg).H(H(SIDj.Xgwn).xor(H(Xgwn.1),H(SKsjg.TS2')).SKsjg.TS2').xor(H(Xgwn.1),H(SKsjg.TS2)).TS2') =|> 
+	State' := 2 /\ secret({Xgwn},sec_xgwn,G)
+
+% login and authentication phase
+3. State = 2 /\ RECV(xor(IDi,H(xor(xor(Xgwn),H(H(Ri'.PWi).H(IDi.Xgwn))),H(H(Ri'.PWi), H(H(Ri'.PWi).H(IDi.Xgwn)))),T1')).xor(Ki',H(H(IDi.Xgwn).T1')).H(xor(IDi,H(xor(xor(H(Xgwn),H(H(Ri',PWi).H(IDi.Xgwn))),H(H(Ri'.PWi), H(H(Ri'.PWi).H(IDi.Xgwn)))),T1')).xor(Ki'.H(H(IDi.Xgwn).T1')).Ki'.T1').T1') =|>
+			 /\ secret({PWi},sec_pw , Ui)
+State' := 3  /\ Kj':=new()
+			 /\ T2':=new()
+             /\ SEND(xor(ID0,H(xor(xor(H(Xgwn),H(H(Ri'.PWi).H(IDi.Xgwn))),H(H(Ri'.PWi),H(H(Ri'.PWi).H(IDi.Xgwn)))),T1')).xor(Ki',H(H(IDi.Xgwn).T1')).H(xor(IDi,H(xor(xor(H(Xgwn),H(H(Ri'.PWi).H(IDi.Xgwn))),H(H(Ri'.PWi),H(H(Ri'.PWi).H(IDi.Xgwn)))),T1')).xor(Ki',H(H(IDi.Xgwn).T1')).Ki'.T1').T1'.T2'.xor(H(H(SIDj.Xgwn).T1'.T2'),Kj').H(SIDj.xor(H(H(SIDj.Xgwn).T1'.T2'),Kj').T1'.T2'.Kj'),xor(SIDj,H(SKsjg.T2')))
+			/\ witness(Sj, Ui, user_sensor_kj, Kj')
+            /\ witness(Sj, G, gwn_sensor_rj, Kj')
+
+4. State = 3 /\ RECV(xor(xor(H(H(IDi.Xgwn).T1'.T2'),xor(H(H(SIDj.Xgwn).T1'.T2'),Kj')),H(H(IDi.Xgwn).T3')).xor(xor(xor(Ki',H(H(IDi.Xgwn).T1')),H(H(IDi.Xgwn).T1')),H(H(SIDj.Xgwn).T3')).H(xor(xor(H(H(IDi.Xgwn).T1'.T2'),xor(H(H(SIDj.Xgwn).T1'.T2'),Kj')),H(H(IDi.Xgwn).T3')).H(IDi.Xgwn).T3').H(xor(xor(xor(Ki',H(H(IDi.Xgwn).T1')),H(H(IDi.Xgwn).T1')),H(H(SIDj.Xgwn).T3')).H(SIDj.Xgwn).T3').T3') =|> 
+	State' := 4  /\ T4':= new()
+	/\ SKus':= H(xor(xor(xor(xor(xor(Ki',H(H(IDi.Xgwn).T1')),H(H(IDi.Xgwn).T1')),H(H(SIDj.Xgwn).T3')),H(H(SIDj.Xgwn).T3')),Kj'))
+	/\ SEND(xor(xor(H(H(IDi.Xgwn).T1'.T2'),xor(H(H(SIDj.Xgwn).T1'.T2'),xor(H(H(SIDj.Xgwn).T1'.T2'),Kj')),H(H(IDi.Xgwn).T3')).H(IDi.Xgwn).T3'),H(SKus'.xor(xor(H(H(IDi.Xgwn).T1'.T2'),xor(H(H(SIDj.Xgwn).T1'.T2'),Kj')),H(H(IDi.Xgwn).T3')).H(IDi.Xgwn).T3'.T4').T3'.T4')
+	/\ secret(SKus', sec_skus,{Ui,Sj})
+	/\ request(Sj,Ui,sensor_user_ki,Ki')
+	
+	
+end role
+
+
+%%%%%%%%%%% Role for GWN %%%%%%%%%%%%%%%%%%%%
+role gwn (Ui, Sj, G : agent,
+% symmetric key between Ui and GWN
+        SKuig : symmetric_key,
+% symmetric key between Sensor node and GWN
+        SKsjg : symmetric_key,
+% H is hash function
+         H : hash_func,
+         SEND, RECV: channel(dy))
+played_by G 
+def=
+ local State : nat,
+     IDi, SIDj, PWi, Xgwn, T1,T2,T3,T4,T5, TS1, TS2, Ki, Kj, Ri, Rj, SKus : text,
+     Constant 	: message
+ const sec_pw, sec_ri, sec_ki, sec_xgwn, sec_skus, gwn_user_ki, gwn_sensor_kj,
+ gwn_sensor_rj, user_sensor_kj, sensor_user_ki: protocol_id
+       
+init State := 0
+ transition
+% registration phase
+1. State = 0 /\ RECV({Ri'.PWi).IDi}_SKuig) =|>
+secret({PWi}, sec_pw, Ui)
+            /\ SEND({H(H(Ri'.PWi).IDi).xor(H(IDi.Xgwn),H(H(Ri'.PWi).H(H(Ri'.PWi).IDi))).xor(H(Xgwn),H(H(Ri'.PWi).H(IDi.Xgwn)))}_SKuig)
+
+2.	 State = 1 /\ RECV({SIDj.H(SKsjg.Rj'.SIDj.TS1').xor(Rj',SKsjg).TS1') =|>		
+State' := 2  /\ request(Sj,G,gwn_sensor_rj,Rj')
+/\ SEND(xor(H(SIDj.Xgwn).SKsjg).H(H(SIDj.Xgwn).xor(H(Xgwn.1),H(SKsjg.TS2)).SKsjg.TS2').xor(H(Xgwn.1),H(SKsjg.TS2)).TS2')
+/\ secret ({Xgwn},sec_xgwn,G)
+
+% Login and Authentication phase
+3. State= 2 /\ RECV(xor(IDi,H(xor(xor(H(Xgwn),H(H(Ri'.PWi).H(IDi.Xgwn))),H(H(Ri'.PWi),H(H(Ri'.PWi),H(IDi.Xgwn)))),T1')).xor(Ki',H(H(IDi.Xgwn).T1')).H(xor(IDi,H(xor(xor(H(Xgwn),H(H(Ri'.PWi).H(IDi.Xgwn))),H(H(Ri'.PWi),H(H(Ri'.PWi).H(IDi,Xgwn)))),T1')).xor(Ki',H(H(IDi.Xgwn).T1')).Ki'.T1').T1'.T2'.xor(H(H(SIDj.Xgwn).T1'.T2'),Kj').H(SIDj.xor(H(H(SIDj.xor(H(H(SIDj.Xgwn).T1'.T2'),Kj').T1'.T2'.Kj'),xor(SIDj,H(SKsjg.T2'))) =|> 
+State':=3 /\ SEND(xor(xor(H(H(IDi.Xgwn).T1'.T2'),xor(H(H(SIDj.Xgwn).T1'.T2'),Kj')),H(H(IDi.Xgwn).T3')).xor(xor(xor(Ki',H(H(IDi.Xgwn).T1')),H(H(IDi.Xgwn).T1')),H(H(SIDj.Xgwn).T3')).H(xor(xor(H(H(IDi.Xgwn).T1'.T2'),xor(H(H(SIDj.Xgwn).T1'.T2'),Kj')),H(H(IDi.Xgwn).T3')).H(IDi.Xgwn).T3').H(xor(xor(xor(Ki',H(H(IDi.Xgwn).T1')),H(H(IDi.Xgwn).T1')),H(H(SIDj.Xgwn).T3')).H(SIDj.Xgwn).T3').T3')
+/\ request(Ui,G,gwn_user_ki, Ki')
+/\ request(Sj,G,gwn_sensor_kj,Kj')
+
+end role
+
+%%%%%%%%%%%%%%% Done till here %%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(Ui, Sj, G : agent,
+% symmetric key between Ui and GWN
+        SKuig : symmetric_key,
+% symmetric key between Sensor node and GWN
+        SKsjg : symmetric_key,		
+		
+% H is hash function
+         H : hash_func)
+def=
+  local SN1, SN2, SN3, RV1, RV2, RV3 : channel (dy)
+composition
+   user(Ui, RC, Sj, SKuirc, H, SN1, RV1)
+/\ rc(Ui, RC, Sj, SKuirc, H, SN2, RV2)
+/\ server(Ui, RC, Sj, SKuirc, H, SN3, RV3)
+end role
+
+role environment()
+def=
+  const ui, rc, sj: agent, 
+        skuirc : symmetric_key, 
+        h : hash_func,
+        user_server_ni, server_user_nj, 
+        sub1, sub2, sub3 : protocol_id
+intruder_knowledge = {ui, rc, sj, h}
+composition
+   session(ui, rc, sj, skuirc, h)
+/\ session(i, rc, sj, skuirc, h)
+/\ session(ui, i, sj, skuirc, h)
+/\ session(ui, rc, i, skuirc, h)
+end role
+goal
+  secrecy_of sub1
+  secrecy_of sub2
+  secrecy_of sub3
+  authentication_on user_server_ni
+  authentication_on server_user_nj
+end goal
+environment()
+
+
+

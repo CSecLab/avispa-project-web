@@ -1,0 +1,52 @@
+role mobileTerminal (MT,VGK,AuF : agent,
+                     SND,RCV    : channel(dy),
+                     F          : hash_func,
+                     ZZ         : symmetric_key,
+                     NIL,G      : text)
+played_by MT def=
+  local State             : nat,
+        X,CH1,CH2,CH3,CH4 : text,
+        GY,Key            : message
+  init State := 0
+  transition	
+	State = 1 /\ RCV(VGK.MT.CH1.CH2’.GY’.
+			F(ZZ.xor(exp(G,X),GY’)).F(ZZ.VGK).
+			F(exp(GY’,X).VGK.MT.CH1.CH2’.GY’.
+			F(ZZ.xor(exp(G,X),GY’)).F(ZZ.VGK)))
+	=|>
+	State’:= 2 /\ CH3’ := new()
+		   /\ Key’ := exp(GY’,X)
+		   /\ SND(MT.VGK.CH2’.CH3’.F(Key’.MT.VGK.CH2’.CH3’))
+end role
+
+role session(MT,VGK,AuF : agent,
+	     F : hash_func,
+	     ZZ,ZZ_VA : symmetric_key,
+	     NIL,G : text)
+def=
+  local SND,RCV : channel (dy)
+  composition
+	   mobileTerminal(MT,VGK,AuF,SND,RCV,F,ZZ,NIL,G)
+	/\ authenticationFacility(MT,VGK,AuF,SND,RCV,F,ZZ,ZZ_VA,NIL,G)
+	/\ visitedGateKeeper(MT,VGK,AuF,SND,RCV,F,ZZ_VA,NIL,G)
+end role
+
+role environment()
+def=
+  const
+    a,b,auf                    : agent,
+    f                          : hash_func,
+    sec_m_Key,key,key1         : protocol_id,
+    zz_a_auf,zz_b_auf,zz_i_auf : symmetric_key,
+    nil,g                      : text
+  intruder_knowledge = {a,b,auf,f,g,nil,zz_i_auf}
+  composition
+	   session(a,b,auf,f,zz_a_auf,zz_b_auf,nil,g)
+	/\ session(a,b,auf,f,zz_a_auf,zz_b_auf,nil,g)
+end role
+
+goal
+  authentication_on key
+  authentication_on key1
+  secrecy_of sec_m_Key, sec_v_Key
+end goal

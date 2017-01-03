@@ -1,0 +1,140 @@
+role client(C,R,S          : agent,
+            K_CR, K_CS     : symmetric_key,
+            SND_CR, RCV_CR : channel(dy)
+           )
+played_by C
+def=
+
+  local State   : nat,
+        Service : text
+
+  init  State := 1 
+
+  transition
+
+    1.  State   = 1 /\ RCV_CR( {Service'.C.R}_K_CR) =|> 
+        State' := 2 /\ SND_CR({{Service'.C.S}_K_CS.C.R}_K_CR)
+                    /\ witness(C,S,server_client_service,Service')
+        
+end role
+
+
+
+role router(C,R,S    : agent,
+            K_CR     : symmetric_key,
+            K_S, K_R : public_key,
+            Service  : text,
+            SND_CR, RCV_CR, SND_RS, RCV_RS: channel(dy)
+            )
+played_by R
+def=
+
+  local State     : nat,
+        MessageCS : {text.agent.agent}_symmetric_key
+
+  init  State := 1
+
+  transition
+
+    1.  State  = 1 /\ RCV_CR(start) =|> 
+        State':= 2 /\ SND_CR({Service.C.R}_K_CR)
+
+    2.  State  = 2 /\ RCV_CR({MessageCS'.C.R}_K_CR) =|>
+        State':= 3 /\ SND_RS({MessageCS'.C.S.R}_inv(K_R)) 
+
+    3.  State  = 3 /\ RCV_RS({C.S.R}_inv(K_S)) =|>  
+        State':= 4 /\ wrequest(R,S,router_server_clientid,C) 
+ 
+end role
+
+
+
+role server(R,S      : agent,
+            K_S, K_R : public_key,
+            Service  : text,
+            KeyRing  : (agent.symmetric_key) set,
+            SND_RS, RCV_RS: channel(dy)
+            )
+played_by S
+def=
+
+  local State     : nat,
+        C         : agent,
+        K_CS      : symmetric_key,
+        MessageCS : {text.agent.agent}_symmetric_key
+
+  init  State := 1
+
+  transition
+
+    1.  State = 1 /\ RCV_RS({MessageCS'.C'.S.R}_inv(K_R))
+                  /\ in(C'.K_CS', KeyRing)
+                  /\ MessageCS' = {Service.C'.S}_K_CS' =|>
+        State':= 2 /\ SND_RS({C'.S.R}_inv(K_S))
+                  /\ witness(S,R,router_server_clientid,C')
+                  /\ wrequest(S,C',server_client_service,Service)
+ 
+end role
+
+
+
+role session(C,R,S: agent,
+             K_CR,K_CS : symmetric_key,
+             K_S, K_R : public_key,
+             Service: text,
+             KeyRing: (agent.symmetric_key) set
+            ) 
+def=
+   local
+      SCR,RCR,SSR,RSR: channel(dy)
+
+   composition
+
+         client(C,R,S,K_CR,K_CS,SCR,RCR)
+      /\ router(C,R,S,K_CR,K_S,K_R,Service,SCR,RCR,SSR,RSR)
+      /\ server(R,S,K_S,K_R,Service,KeyRing,SSR,RSR)
+
+end role
+
+
+
+role environment() def=
+
+ local KeyRing                      : (agent.symmetric_key) set
+
+ const c, r, s                      : agent,
+       k_cr, k_cs, k_is, k_ic, k_ir : symmetric_key,
+       k_s, k_r, k_i                : public_key,
+       service                      : text,
+       server_client_service, 
+       router_server_clientid       : protocol_id
+ 
+ init KeyRing := {c.k_cs, i.k_is}
+
+ intruder_knowledge={c,r,s,service,k_is,k_ic,k_ir,k_s,k_r,k_i,inv(k_i)}
+
+ composition
+ 
+        session(c,r,s,k_cr,k_cs,k_s,k_r,service,KeyRing) 
+ /\     session(i,r,s,k_ir,k_is,k_s,k_r,service,KeyRing) 
+ /\     session(c,i,s,k_ic,k_cs,k_s,k_i,service,KeyRing)
+ /\     session(c,r,i,k_cr,k_ic,k_i,k_r,service,KeyRing)
+
+end role
+
+
+
+goal
+
+  %client authorization
+  weak_authentication_on router_server_clientid % addresses G2: agreeement on C
+
+  %router authorization
+  weak_authentication_on server_client_service  % addresses G2 and G20: 
+         % the router provides the service the client has asked (and payed) for
+
+end goal
+
+
+
+environment() 

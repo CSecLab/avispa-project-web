@@ -1,0 +1,119 @@
+role alice (A, B: agent,
+            K: symmetric_key,
+            SND, RCV: channel (dy)) 
+played_by A def=
+
+  local State : nat, 
+        Na, Nb, Apk, Ka,Kb: text
+		
+
+  init State := 0
+
+  transition  
+   
+    0.  State  = 0 /\ RCV(start) =|> 
+        State':= 2 /\ Na' := new() 
+		           /\ SND(Na')
+
+    2.  State  = 2 /\ RCV(Nb') =|> 
+        State':= 4 /\ Ka':= exp(Na.Nb', Apk)
+                   /\  SND(Ka'.Na) 
+		          			
+	4.  State = 4  /\ RCV(Kb') =|>
+		State':=6  /\ K':= exp(Kb', Apk)
+		           /\ Na':= new()
+			       /\ SND({A.Na'}_K')
+				   /\ secret(K', alice_bob_kana,{A,B})
+			
+		
+	6.	State= 6    /\ RCV({B.Nb'.Na}_K) =|>
+	    State':= 8  /\ SND({Nb'}_K) 
+		            /\ request(A,B, alice_bob_na, Na)
+		            /\ secret(K, alice_bob_kana, {A,B})	
+					/\ witness(B,A, alice_bob_nb, Nb')
+						
+
+ end role
+
+
+
+role bob(A, B: agent,
+         K: symmetric_key,      		
+         SND, RCV: channel (dy)) 
+played_by B def=
+
+  local State : nat, 
+        Na, Nb, Bpk, Kb,Ka: text
+		
+
+  init State := 1
+
+  transition 
+
+    1.  State  = 1 /\ RCV(Na') =|> 
+        State':= 3 /\ Nb' := new()				 
+                   /\ SND(Nb') 		                                            
+
+    3.  State  = 3 /\ RCV(Ka'.Na) =|> 
+        State':= 5 /\ K':= exp(Ka', Bpk)
+		           /\ Kb' := exp(Na.Nb, Bpk)
+				   /\ SND(Kb')
+				   /\ secret(K', alice_bob_kana,{A,B})
+				   
+	5.  State = 5  /\ RCV({A.Na'}_K) =|>
+	    State':= 7 /\ Nb':= new()
+                   /\ SND({B.Nb'.Na'}_K)
+				   /\ witness(A,B, alice_bob_na, Na')
+				   /\ secret(K, alice_bob_kana, {A,B})
+    
+	7. State = 7   /\ RCV({Nb}_K) =|>
+	   State':=9   /\ request(B,A, alice_bob_nb, Nb)
+
+end role
+
+
+
+role session(A, B: agent, K: symmetric_key) def=
+
+  local SA, RA, SB, RB: channel (dy)
+
+  composition 
+
+        alice(A,B, K, SA,RA)
+     /\ bob  (A,B, K, SB,RB)
+
+end role
+
+
+
+role environment() def=
+
+    const a, b: agent,       
+          kab,kai: symmetric_key,
+          alice_bob_nb,		  
+          alice_bob_na, alice_bob_kana : protocol_id
+		
+
+    intruder_knowledge = {a, b, kai}
+
+    composition
+
+        session(a,b, kab)
+     /\ session(a,i, kab)
+     /\ session(i,b, kai)
+
+end role
+
+
+
+goal
+
+  secrecy_of alice_bob_kana
+  authentication_on alice_bob_nb
+  authentication_on alice_bob_na
+
+end goal
+
+
+
+environment()

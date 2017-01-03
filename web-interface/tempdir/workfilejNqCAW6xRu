@@ -1,0 +1,87 @@
+role alice(
+		A,B				: agent,
+		Ck				: symmetric_key,
+		Pk				: public_key,
+		Hash			: hash_func,
+		SND,RCV 		: channel(dy))
+	played_by A 
+	def=
+		local
+			State 		: nat,
+			Na,Nb,No	: text,
+			Code		: text,
+			ActiveCode	: text,
+			K1 			: message
+		init
+			State := 0
+		transition
+		1. 	State  = 0 	/\ RCV(start) =|>
+			State':= 2 	/\ Na' := new()
+						/\ SND({No.Na'}_inv(Pk))
+		2. 	State  = 2 	/\ RCV({Nb'}_Ck) =|>
+			State':= 4 	/\ K1' := Hash(Na.Nb')
+						/\ SND({Code}_K1')
+		3. 	State  = 4 	/\ RCV({ActiveCode'}_K1) =|>
+			State':= 6 	/\ request(B,A,bob_alice_nb,Nb)
+end role
+%————————————————————————————————————————————————
+role bob(
+		A,B 			: agent,
+		Ck 				: symmetric_key,
+		Pk				: public_key,
+		Hash 			: hash_func,
+		SND,RCV 		: channel(dy))
+	played_by B 
+	def=
+		local
+			State 		: nat,
+			Na,Nb,No	: text,
+			Code		: text,
+			ActiveCode	: text,
+			K1			: message
+	init
+			State := 1
+		transition
+		1. 	State  = 1 	/\ RCV({No.Na'}_inv(Pk)) =|>
+			State':= 3 	/\ Nb' := new()
+						/\ SND({Nb'}_Ck)
+						/\ K1':= Hash(Na'.Nb')
+						/\ secret(K1',k1,{A,B})
+		2. 	State  = 3 	/\ RCV({Code}_K1) =|>
+			State':= 5 	/\ SND({ActiveCode'}_K1)
+						/\ witness(A,B,bob_alice_nb,Nb')
+end role
+%————————————————————————————————————————————————
+role session(
+			A,B 		: agent,
+			Ck 			: symmetric_key,
+			Pk			: public_key,
+			Hash		: hash_func)
+	def=
+		local 
+			SA, SB, RA, RB : channel (dy)
+		composition
+			alice(A,B,Ck,Pk,Hash,SA,RA)
+		/\ 	bob (A,B,Ck,Pk,Hash,SB,RB)
+end role
+%————————————————————————————————————————————————
+role environment()
+	def=
+		const
+			bob_alice_nb,
+			k1 			: protocol_id,
+			kab,kai,kib : symmetric_key,
+			pk			: public_key,
+			a,b 		: agent,
+			h 			: hash_func
+		intruder_knowledge = {a,b,h,kai,kib}
+		composition
+			session(a,b,kab,pk,h)
+end role
+%————————————————————————————————————————————————
+goal
+	secrecy_of 			k1
+	authentication_on	bob_alice_nb
+end goal
+%————————————————————————————————————————————————
+environment()

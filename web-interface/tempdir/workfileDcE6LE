@@ -1,0 +1,141 @@
+role alice(
+A,S,B	 :agent,
+Kas          :symmetric_key,
+Hash	 :hash_func,
+SND_BA,RCV_SA   :channel(dy))
+
+played_by A def=
+
+local
+ State                    :nat,
+ Na                        :text,
+ SKab                    : symmetric_key
+
+const bob_alice_skab    : protocol_id
+
+ init State :=0 
+
+ transition 
+
+1. State  =  0 /\ RCV_SA(start) =|>
+   State' :=  2  /\  Na' := new()
+                     /\ SND_BA (Na'.A) 
+
+2. State   = 2 /\ RCV_SA ({SKab'}_Kas.Hash(Kas.Na.B.{SKab'}_Kas)) =|>
+    State' := 4 /\   witness(A,B,bob_alice_skab,SKab)
+
+ 
+end role
+
+
+
+role server (
+     A,S,B	                                         : agent,
+     Kas,Kbs	                            : symmetric_key,
+     Hash	                                          : hash_func,
+    SND_AS,SND_BS, RCV_BS	:channel (dy))
+
+played_by S def=
+
+
+local
+    State                                           : nat,
+    Na,Nb                                          : text,
+    SKab                                           : symmetric_key
+
+init 
+ State :=1 
+
+transition
+
+1. State =1  /\  RCV_BS(Na.Nb'.A.B.Hash(Kbs.Na.Nb'.A.B)) =|>
+   State' :=3 /\ SKab' :=new()
+                  /\ SND_AS ({SKab'}_Kas.Hash(Kas.Na.B.{SKab'}_Kas))
+
+ 2.  State   = 5 /\ SND_BS   ({SKab}_Kbs.Hash(Kbs.Na.B.{SKab}_Kbs)) =|>
+      State' := 7 /\ secret(SKab,skab,{A,S,B})
+ 
+
+end role
+
+
+
+
+role bob(
+A,S,B      	                 :agent,
+Kbs                                       :symmetric_key,
+Hash	                               :hash_func,
+SND_SB,RCV_AB, RCV_SB   :channel(dy))
+
+played_by B def=
+
+local
+ State                       :nat,
+ Na,Nb                      :text,
+ SKab                       :symmetric_key
+
+init
+ State :=9 
+
+transition 
+
+1. State =9     /\  RCV_AB(Na'.A) =|>
+    State' := 11 /\  Nb' :=new()
+                     /\ SND_SB(Na'.Nb'.A.B.Hash(Kbs.Na'.Nb'.A.B)) 
+
+2. State = 11  /\  RCV_SB ({SKab}_Kbs.Hash(Kbs.Na.B.{SKab}_Kbs)) =|>
+    State' :=13 /\ request (B,A,bob_alice_skab,SKab')  
+                 
+         
+end role
+
+
+
+
+role session(
+ A,S,B	                                          : agent,
+ Kas,Kbs	                                         : symmetric_key,
+ Hash                                               :hash_func)
+
+def=
+
+local 
+    SBA, SSB,
+    SAS, SBS,
+    RSA, RSB,
+    RAB, RBS : channel(dy)
+
+composition
+
+	alice (A,S,B,Kas,Hash,SBA,RSA)
+           /\ server(A,S,B,Kas,Kbs,Hash,SAS,SBS,RBS)
+           /\  bob (A,S,B,Kbs,Hash,SSB,RAB,RSB)
+
+end role
+
+role environment()
+      def=
+
+ const a,s,b	                              : agent,
+ kas,kbs,kis	                              : symmetric_key,
+bob_alice_skab,skab                              : protocol_id,
+ h		                              : hash_func
+
+intruder_knowledge={a,s,b,kis,h}
+
+   composition
+	  
+                session(a,s,b,kas,kbs,h)
+	/\session(a,s,i,kas,kis,h)
+	/\session(i,s,b,kis,kbs,h)
+
+end role
+
+goal
+   secrecy_of skab
+   authentication_on bob_alice_skab
+end goal
+
+
+environment()
+

@@ -1,0 +1,82 @@
+%% IF specification of /home/friends/drwho/Desktop/Archivio/Work/Science/AVISPA/AVISPA-FET-EU-02/shared/testsuite/hlpsl/UMTS_AKA.problems.hlpsl
+
+section signature:
+
+state_Server: agent * agent * symmetric_key * nat * function * function * function * nat * text * nat -> fact
+state_Mobile: agent * agent * symmetric_key * nat * function * function * function * nat * text * nat -> fact
+
+
+section types:
+
+r : protocol_id
+R, Dummy_R, dummy_nonce : text
+K_M, k_ai, k_is, k_as : symmetric_key
+Seq, 12, 10, 7, State, 6, 4, CID, 3, 2, 1, seq_as, seq_is, seq_ai : nat
+MGoal, start : message
+F1, F2, F5, f1, f2, f5 : function
+s, M, S, AGoal, i, a : agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(k_ai).
+ iknows(seq_ai).
+ iknows(k_is).
+ iknows(seq_is).
+ iknows(a).
+ iknows(s).
+ iknows(f1).
+ iknows(f2).
+ iknows(f5).
+ iknows(start).
+ iknows(i).
+ state_Mobile(a,s,k_as,seq_as,f1,f2,f5,1,dummy_nonce,3).
+ state_Server(s,a,k_as,seq_as,f1,f2,f5,1,dummy_nonce,4).
+ state_Mobile(a,s,k_as,seq_as,f1,f2,f5,1,dummy_nonce,6).
+ state_Server(s,a,k_as,seq_as,f1,f2,f5,1,dummy_nonce,7).
+ state_Server(s,i,k_is,seq_is,f1,f2,f5,1,dummy_nonce,10).
+ state_Mobile(a,i,k_ai,seq_ai,f1,f2,f5,1,dummy_nonce,12)
+
+
+section rules:
+
+step step_0 (M,S,K_M,Seq,F1,F2,F5,R,CID) :=
+ state_Mobile(M,S,K_M,Seq,F1,F2,F5,1,R,CID).
+ iknows(start)
+ =>
+ state_Mobile(M,S,K_M,Seq,F1,F2,F5,2,R,CID).
+ iknows(M)
+
+step step_1 (M,S,K_M,Seq,F1,F2,F5,Dummy_R,R,CID) :=
+ state_Mobile(M,S,K_M,Seq,F1,F2,F5,2,Dummy_R,CID).
+ iknows(pair(pair(R,scrypt(apply(F5,pair(K_M,R)),Seq)),apply(F1,pair(pair(K_M,Seq),R))))
+ =>
+ state_Mobile(M,S,K_M,Seq,F1,F2,F5,3,R,CID).
+ iknows(apply(F2,pair(K_M,R))).
+ secret(Seq,S).
+ secret(Seq,M)
+
+step step_2 (S,M,K_M,Seq,F1,F2,F5,Dummy_R,R,CID) :=
+ state_Server(S,M,K_M,Seq,F1,F2,F5,1,Dummy_R,CID).
+ iknows(M)
+=[exists R]=>
+ state_Server(S,M,K_M,Seq,F1,F2,F5,2,R,CID).
+ iknows(pair(pair(R,scrypt(apply(F5,pair(K_M,R)),Seq)),apply(F1,pair(pair(K_M,Seq),R)))).
+ secret(Seq,M).
+ secret(Seq,S)
+
+step step_3 (S,M,K_M,Seq,F1,F2,F5,R,CID) :=
+ state_Server(S,M,K_M,Seq,F1,F2,F5,2,R,CID).
+ iknows(apply(F2,pair(K_M,R)))
+ =>
+ state_Server(S,M,K_M,apply(add,pair(Seq,1)),F1,F2,F5,3,R,CID)
+
+
+section goals:
+
+goal secrecy_of (MGoal,AGoal) :=
+ iknows(MGoal).
+ secret(MGoal,AGoal).
+ not(secret(MGoal,i))
+

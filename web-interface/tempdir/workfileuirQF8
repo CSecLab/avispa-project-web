@@ -1,0 +1,175 @@
+%%% Protocol: A secure and robust temporal credential-based user anonymity and 
+% unlinkability-preserving three-factor user authentication scheme 
+% for wireless sensor networks
+% Author: Ashok Kumar Das
+
+%%%%%%% Role specification for the user U_i %%%%%%%%
+
+role alice (Ui, GWN, SNj : agent,                                                         
+            H : hash_func,
+            Snd, Rcv: channel(dy))
+played_by Ui
+def=     
+  local State  : nat,
+     IDi, IDsnj, K, PWi, Bi, TS1, TS2, TS3, TS4 :  text,
+     Kgwnu, Kgwns, Xs, TEi, TIDi, Ki, Kj : text,
+     M1, RPWi, TCi, PTCi, PKSi, Ci, TIDinew : text
+  const alice_server_ki, bob_server_kj, 
+        subs1, subs2, subs3, subs4, subs5 : protocol_id
+init  State := 0
+transition
+1. State   = 0 /\ Rcv(start) =|>
+% Login phase
+State' := 1  /\ RPWi' := H(IDi.K.PWi)
+             /\ TCi' := H(Kgwnu.IDi.TEi)
+             /\ PTCi' := xor(TCi',RPWi')
+             /\ M1' := H(IDi.Xs)
+             /\ Ki' := new()
+             /\ TIDi' := new()
+             /\ TS1' := new()
+             /\ PKSi' := xor(Ki',H(TCi'.M1'.TS1'))
+             /\ Ci' := H(IDi.Ki'.TCi'.M1'.TS1')
+             /\ secret({PWi,Bi},subs1,Ui)
+             /\ secret({IDi},subs2,{Ui,GWN})
+             /\ secret({Kgwnu,Kgwns,Xs,TEi},subs3,GWN)
+             /\ secret (Ki',subs4,Ui)
+% Ui sends the login message to the GWN
+             /\ Snd(TIDi'.Ci'.PKSi'.TS1')
+% Ui has freshly generated the value Ki' for GWN
+             /\ witness(Ui,GWN,alice_server_ki, Ki')
+% Authentication and key agreement phase
+% Ui receives the acknowledgment message from GWN 
+2. State = 1 /\ Rcv(IDsnj.TS3'.TS4'.xor(Kj',H(xor(Ki',
+            H(IDi.Xs)).TS3')).xor(TIDinew', H(xor(Ki',
+            H(IDi.Xs).TS3'.TS4'))). H(IDi.IDsnj.
+            H(Kgwnu.IDi.TEi). xor(TIDinew', H(xor(Ki',
+            H(IDi.Xs).TS3'.TS4')).Kj'.TS3'.TS4'))) =|> 
+State' := 2 	  
+end role
+
+
+%%%%%%% Role specification for the GWN %%%%%%%%
+
+role server (Ui, GWN, SNj : agent,                                                         
+            H : hash_func,
+            Snd, Rcv: channel(dy))
+played_by GWN
+def=     
+  local State  : nat,
+     IDi, IDsnj, K, PWi, Bi, TS1, TS2, TS3, TS4 :  text,
+     Kgwnu, Kgwns, Xs, TEi, TIDi, Ki, Kj : text,
+     M1, RPWi, TCi, PTCi, PKSi, Ci, TIDinew : text
+  const alice_server_ki, bob_server_kj,  
+        subs1, subs2, subs3, subs4, subs5 : protocol_id
+init  State := 0
+transition
+% Login phase: receive the login request message from Ui
+1. State = 0 /\ Rcv(TIDi'.H(IDi.Ki'.H(Kgwnu.IDi.TEi).
+                H(IDi.Xs).TS1').xor(Ki',H(H(Kgwnu.IDi.
+                TEi).H(IDi.Xs).TS1')).TS1') =|>  
+State' := 1 /\ TS2' := new( )
+            /\ secret({PWi,Bi},subs1,Ui)
+            /\ secret({IDi},subs2,{Ui,GWN})
+            /\ secret({Kgwnu,Kgwns,Xs,TEi},subs3,GWN)
+            /\ secret(Ki',subs4,Ui)
+% Authentication and key agreement phase
+            /\ Snd(TS2'.TIDi'. H(TIDi'.H(Kgwns.IDsnj).TS2').
+             xor(xor(Ki',H(IDi.Xs)),H(H(Kgwns.IDsnj).TS2')))
+% Receive the message from sensor node SNj
+2. State = 1 /\ Rcv(IDsnj.TS3'.H(Kj'.TIDi'.IDsnj.TS3').
+             xor(Kj', H(xor(xor(xor(Ki',H(IDi.Xs)),H(H(Kgwns.
+             IDsnj).TS2')),H(H(Kgwns.IDsnj).TS2')).TS3'))) =|> 
+State' := 2 /\ TS4' := new()
+            /\ TIDinew' := new()
+            /\ secret(Kj',subs5,SNj)
+% Send the message back to the user Ui
+            /\ Snd(IDsnj.TS3'.TS4'.xor(Kj',H(xor(Ki',
+            H(IDi.Xs)).TS3')).xor(TIDinew', H(xor(Ki',
+            H(IDi.Xs).TS3'.TS4'))). H(IDi.IDsnj.
+            H(Kgwnu.IDi.TEi). xor(TIDinew', H(xor(Ki',
+            H(IDi.Xs).TS3'.TS4')).Kj'.TS3'.TS4')))
+% GWN's acceptance of the value Ki' generated for GWN by Ui
+            /\ request(Ui, GWN, alice_server_ki, Ki')
+% GWN's acceptance of the value Kj' generated for GWN by SNj
+            /\ request(SNj, GWN, bob_server_kj, Kj')
+end role
+
+%%%%%%% Role specification for SNj %%%%%%%%
+
+role bob (Ui, GWN, SNj : agent,                                                         
+          H : hash_func,
+          Snd, Rcv: channel(dy))
+played_by SNj
+def=     
+  local State  : nat,
+     IDi, IDsnj, K, PWi, Bi, TS1, TS2, TS3, TS4 :  text,
+     Kgwnu, Kgwns, Xs, TEi, TIDi, Ki, Kj, Cj, PKSj: text,
+     M1, M3, RPWi, TCi, PTCi, PKSi, Ci, TIDinew : text
+  const alice_server_ki, bob_server_kj,  
+        subs1, subs2, subs3, subs4, subs5 : protocol_id
+init  State := 0
+transition
+% Authentication and key agreement phase
+% Receive the message from the GWN
+1. State = 0 /\ Rcv(TS2'.TIDi'. H(TIDi'.H(Kgwns.IDsnj).TS2').
+       xor(xor(Ki',H(IDi.Xs)),H(H(Kgwns.IDsnj).TS2'))) =|> 
+State' := 1 /\ Kj' := new()
+            /\ TS3' := new()
+            /\ M3' := xor(xor(xor(Ki',H(IDi.Xs)),
+            H(H(Kgwns.IDsnj).TS2')),H(H(Kgwns.IDsnj).TS2'))
+            /\ Cj' := H(Kj'.TIDi'.IDsnj.TS3')
+            /\ PKSj' := xor(Kj',H(M3'.TS3'))
+            /\ secret({PWi,Bi},subs1,Ui)
+            /\ secret({IDi},subs2,{Ui,GWN})
+            /\ secret({Kgwnu,Kgwns,Xs,TEi},subs3,GWN)
+            /\ secret(Kj',subs5,SNj)
+            /\ secret(Ki',subs4,Ui)
+% Send the message to the GWN
+            /\ Snd(IDsnj.TS3'.Cj'.PKSj')
+% SNj has freshly generated the value Kj' for GWN
+            /\ witness(SNj,GWN,bob_server_kj, Kj')
+end role
+
+%%%%%%% Role specification for the session %%%%%%%%
+
+role session(Ui,GWN,SNj: agent, 
+             % H is hash function                                                         
+             H : hash_func)
+def=
+  local  US, UR, SS, SR, VS, VR: channel (dy)
+  composition
+           alice(Ui, GWN, SNj, H, US, UR)
+        /\ server(Ui, GWN, SNj, H, SS, SR)
+        /\ bob(Ui, GWN, SNj, H, VS, VR)
+end role
+
+
+
+%%%%%%% Role specification for the goal and environment %%%%%%%%
+
+role environment()
+def=
+  const ui, gwn, snj : agent,
+        h : hash_func, idi, idsnj, ts1, ts2,
+        ts3, ts4, tidi, tidinew : text,
+        alice_server_ki, bob_server_kj,
+        subs1, subs2, subs3, subs4, subs5 : protocol_id
+intruder_knowledge ={idsnj,h}
+  composition
+	session(ui, gwn, snj, h) 
+    /\	session(ui, gwn, snj, h) 
+    /\  session(ui, gwn, snj, h) 
+end role
+
+goal
+  secrecy_of subs1
+  secrecy_of subs2
+  secrecy_of subs3
+  secrecy_of subs4
+  secrecy_of subs5
+
+  authentication_on alice_server_ki
+  authentication_on bob_server_kj
+end goal
+environment()
+

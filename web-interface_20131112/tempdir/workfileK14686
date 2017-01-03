@@ -1,0 +1,119 @@
+
+
+%% PROTOCOL: Undecidability proof
+%% VARIANT: Case C
+%% PURPOSE: Communication between immediate neighbor nodes using/ establishing pairwise key
+%% MODELER: Bailey Basile, 18 June 2008
+%%\begin {verbatim}
+%% 1.  A -- A.Na --> B
+%% 2.  B -- B.{Mac(Na.B)}_H(Km.B) --> A
+%% 3.  A -- B.Am1.Size1.Data1.{MAC(B.Am1.Size1.Data1)}_Kab1--> B
+%% 4.  B -- A.Am2.Size2.B.Ctr.{xor(A.Am2.Size2.B.Ctr,Data2}_Kab2.{Mac(A.Am2.Size2.B.Ctr.Data2)}_Kab1 --> A
+%% Kab1 = H(H(Km.B).A)
+%% Kab2 = F(F(Km.B).A)
+%%\end{verbatim}
+
+%% ATTACKS: man-in-the-middle
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%HLPSL:
+role alice (	A, B		: agent,             
+            	Ka, Kb		: public_key,
+	    	F,H,Mac		: hash_func,
+            	SND, RCV	: channel (dy)) 
+played_by A 
+def=
+  local State : nat, 
+        Na, Iv1, Iv2, Data1, Data2, Data3, Atr, Btr, Ctr, Dtr, Etr, Qfinal, Cfinal, Dfinal, Nb : text
+	
+
+  init State := 0
+
+  transition  
+   
+    0.  State  = 0 	/\ RCV(start) =|>
+	State':= 2 	/\ Na' := new()
+			/\ SND(A.B.{Dtr.B.Na'.Iv1.Data1.Data1}_inv(Ka))
+		   	/\ witness(A,B,bob_alice_na,Na')
+
+    2.  State = 2	/\ RCV(B.A.{Dtr.A.Na.Qfinal.Data3'.Data1}_inv(Kb).{Etr.A.Data1.Data3'}_inv(Kb)) =|>
+	State':= 4	/\ Iv2' := new()
+			/\ SND({Atr.Iv2'.A.{Dtr.B.Dtr.Qfinal.Data3'.Data1}_inv(Ka)}_Kb)
+			/\ witness(A,B,bob_alice_iv2,Iv2')
+			/\ wrequest(A,B,alice_bob_data3,Data3')
+
+    4.  State = 4	/\ RCV({Btr.Na.Nb'}_Ka) =|>
+	State' := 6	/\ SND({Ctr.Nb'}_Kb)
+			/\ wrequest(A,B,alice_bob_nb,Nb')
+
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Role of the base station:
+role bob(	A,B		: agent,
+            	Ka, Kb		: public_key,
+		F,H,Mac		: hash_func,
+            	SND, RCV	: channel(dy))
+played_by B 
+def=
+  local State: nat,
+	Na, Iv1, Iv2, Data1, Data2, Data3, Cfinal, Dfinal, Qfinal, Atr, Btr, Ctr, Dtr, Etr, Nb	:text
+
+  init State := 1
+
+  transition
+   	1.   	State = 1 	/\ RCV(A.B.{Dtr.B.Na.Iv1.Data1.Data1}_inv(Ka))	=|>
+        	State':= 3 	/\ Data3' := new()
+				/\ SND(B.A.{Dtr.A.Na.Qfinal.Data3'.Data1}_inv(Kb).{Etr.A.Data1.Data3'}_inv(Kb))
+				/\ witness(B,A,alice_bob_data3,Data3')
+
+	2.	State = 3	/\ RCV({Atr.Iv2.A.{Dtr.B.Dtr.Qfinal.Data3'.Data1}_inv(Ka)}_Kb) =|>
+		State':= 5	/\ Nb' := new()
+				/\ SND({Btr.Iv2.Nb'}_Ka)
+				/\ secret(Nb',nb,{A,B})
+				/\ wrequest(B,A,bob_alice_iv2,Iv2)
+				/\ witness(B,A,alice_bob_nb,Nb')
+	3.	State  = 3	/\ RCV({Ctr.Nb}_Kb) =|> 
+		State':= 5	/\ wrequest(B,A,bob_alice_na,Na)
+
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(	A,B		:agent,
+		Ka, Kb		:public_key,
+		F,H,Mac	: hash_func)
+def=
+	local SA, RA, SB, RB : channel(dy)
+
+composition
+	alice(A,B,Ka,Kb,F,H,Mac,SA,RA)
+	/\bob(A,B,Ka,Kb,F,H,Mac,SB,RB)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+	const bob_alice_iv2,bob_alice_na,alice_bob_data3,alice_bob_nb,data2,na,nb : protocol_id,
+	a,b,i	: agent,
+	ka, kb, ki	:public_key,
+	f,h,mac : hash_func
+
+intruder_knowledge = {a, b, i, ka, kb, ki, inv(ki)}
+
+composition
+	session(a,b,ka,kb,f,h,mac)
+	/\session(i,b,ka,kb,f,h,mac)
+	/\session(a,i,ka,kb,f,h,mac)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+	weak_authentication_on bob_alice_iv2
+	weak_authentication_on bob_alice_na
+	weak_authentication_on alice_bob_data3
+	weak_authentication_on alice_bob_nb
+	secrecy_of nb
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()	

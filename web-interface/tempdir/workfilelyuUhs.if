@@ -1,0 +1,90 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilelyuUhs
+
+section signature:
+
+state_sensor: agent * agent * agent * symmetric_key * nat * symmetric_key * nat -> fact
+state_basestation: agent * agent * agent * symmetric_key * symmetric_key * nat * nat * symmetric_key * symmetric_key * symmetric_key * text * text * nat -> fact
+state_user: agent * agent * agent * symmetric_key * nat * nat * symmetric_key * symmetric_key * text * text * nat -> fact
+
+
+section types:
+
+ASGoal: set(agent)
+start, MGoal: message
+Tstart, Texpire, Dummy_Texpire, Dummy_Tstart, dummy_nonce: text
+0, St, 16, Rs, 15, 13, 11, 9, 8, 5, SID, 4, Dummy_Rs, Dummy_St, 3, 2, dummy_nat, 1: nat
+KE_SA, KA_SA, MS_S, K_ABS, K_BSS, Dummy_MS_S, Dummy_KA_SA, Dummy_KE_SA, dummy_sk, kabs, kbss, kiabs, kibss: symmetric_key
+A, BS, S, a, bs, s, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(bs).
+ iknows(s).
+ iknows(kiabs).
+ iknows(kibss).
+ iknows(i).
+ state_user(a,bs,s,kabs,1,dummy_nat,dummy_sk,dummy_sk,dummy_nonce,dummy_nonce,3).
+ state_basestation(bs,a,s,kabs,kbss,0,dummy_nat,dummy_sk,dummy_sk,dummy_sk,dummy_nonce,dummy_nonce,4).
+ state_sensor(s,a,bs,kbss,1,dummy_sk,5).
+ state_basestation(bs,i,s,kiabs,kbss,0,dummy_nat,dummy_sk,dummy_sk,dummy_sk,dummy_nonce,dummy_nonce,8).
+ state_sensor(s,i,bs,kbss,1,dummy_sk,9).
+ state_user(a,i,s,kiabs,1,dummy_nat,dummy_sk,dummy_sk,dummy_nonce,dummy_nonce,11).
+ state_sensor(s,a,i,kibss,1,dummy_sk,13).
+ state_user(a,bs,i,kabs,1,dummy_nat,dummy_sk,dummy_sk,dummy_nonce,dummy_nonce,15).
+ state_basestation(bs,a,i,kabs,kibss,0,dummy_nat,dummy_sk,dummy_sk,dummy_sk,dummy_nonce,dummy_nonce,16)
+
+
+section rules:
+
+step step_0 (A,BS,S,K_ABS,Rs,KE_SA,KA_SA,Tstart,Texpire,SID) :=
+ state_user(A,BS,S,K_ABS,1,Rs,KE_SA,KA_SA,Tstart,Texpire,SID).
+ iknows(start)
+ =>
+ state_user(A,BS,S,K_ABS,2,Rs,KE_SA,KA_SA,Tstart,Texpire,SID).
+ iknows(scrypt(K_ABS,pair(A,S)))
+
+step step_1 (A,BS,S,K_ABS,Dummy_Rs,Dummy_KE_SA,Dummy_KA_SA,Dummy_Tstart,Dummy_Texpire,SID,Rs,KE_SA,KA_SA,Tstart,Texpire) :=
+ state_user(A,BS,S,K_ABS,2,Dummy_Rs,Dummy_KE_SA,Dummy_KA_SA,Dummy_Tstart,Dummy_Texpire,SID).
+ iknows(scrypt(K_ABS,pair(KE_SA,pair(KA_SA,pair(Rs,pair(Tstart,Texpire))))))
+ =>
+ state_user(A,BS,S,K_ABS,3,Rs,KE_SA,KA_SA,Tstart,Texpire,SID)
+
+step step_2 (BS,A,S,K_ABS,K_BSS,Rs,KE_SA,KA_SA,MS_S,Tstart,Texpire,SID) :=
+ state_basestation(BS,A,S,K_ABS,K_BSS,0,Rs,KE_SA,KA_SA,MS_S,Tstart,Texpire,SID).
+ iknows(start)
+ =>
+ state_basestation(BS,A,S,K_ABS,K_BSS,1,Rs,KE_SA,KA_SA,MS_S,Tstart,Texpire,SID).
+ iknows(scrypt(K_BSS,MS_S))
+
+step step_3 (BS,A,S,K_ABS,K_BSS,Dummy_Rs,Dummy_KE_SA,Dummy_KA_SA,MS_S,Dummy_Tstart,Dummy_Texpire,SID,Rs,KE_SA,KA_SA,Tstart,Texpire) :=
+ state_basestation(BS,A,S,K_ABS,K_BSS,1,Dummy_Rs,Dummy_KE_SA,Dummy_KA_SA,MS_S,Dummy_Tstart,Dummy_Texpire,SID).
+ iknows(scrypt(K_ABS,pair(A,S)))
+=[exists Texpire,Tstart,Rs,KA_SA,KE_SA]=>
+ state_basestation(BS,A,S,K_ABS,K_BSS,2,Rs,KE_SA,KA_SA,MS_S,Tstart,Texpire,SID).
+ iknows(scrypt(K_ABS,pair(KE_SA,pair(KA_SA,pair(Rs,pair(Tstart,Texpire))))))
+
+step step_4 (S,A,BS,K_BSS,Dummy_MS_S,SID,MS_S) :=
+ state_sensor(S,A,BS,K_BSS,1,Dummy_MS_S,SID).
+ iknows(scrypt(K_BSS,MS_S))
+ =>
+ state_sensor(S,A,BS,K_BSS,3,MS_S,SID)
+
+
+section properties:
+
+property secrecy_of_kabs (MGoal,ASGoal) :=
+ [] ((secret(MGoal,kabs,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_kabs (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,kabs,ASGoal) &
+ not(contains(i,ASGoal))
+

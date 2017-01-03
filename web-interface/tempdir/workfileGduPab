@@ -1,0 +1,39 @@
+role client (A,B : agent,
+	     Snd, Rcv : channel(dy) )
+played_by A
+	   def=
+		local
+			State : nat
+			n : text
+		init 
+			State := 0
+transition
+		1.	State = 0 /\ Rcv(start) =|> n' := new() /\ Snd (A.n') 
+end role
+
+role server (A,B : agent,
+	     Snd, Rcv : channel(dy) )
+played_by B
+	   def=
+		local
+			State : nat
+			n' : text
+		init 
+			State := 1
+transition
+		1.	State = 1 /\ Rcv(A.n') =|> State := secret(n,id,{A,B}) 
+end role
+
+role session (A,B : agent)
+	def=
+		local
+			SA, RA, SB, RB
+	composition
+		client(A, B, SA, RA) 
+		/\ server(A, B, SB, RB)
+end role
+
+
+goal 
+secrecy_of id
+end goal

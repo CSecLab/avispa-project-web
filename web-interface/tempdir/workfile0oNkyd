@@ -1,0 +1,147 @@
+%%%%%%%%%%% Role for mobile user MU %%%%%%%%%%%%%%%%%%
+
+role user (MU, S : agent,
+% MU: mobie user; S: LS or PS (server)
+% symmetric key between MU and S
+        SKmus : symmetric_key,
+% H is hash function
+         H : hash_func,
+         SEND, RECV: channel(dy))
+played_by MU
+def=
+local State : nat,
+      IDmu, IDdc, PWmu, Bmu, Tmu, Tls : text,
+      R, U, W, DIDmu, Ymu, X, KEYdc : text, 
+      Gen, Rep : hash_func
+
+const subs1, subs2, subs3, subs4, user_server_r,
+      user_server_tmu, server_user_u, 
+      server_user_tls : protocol_id
+init State := 0
+transition
+% Registration phase
+1. State = 0 /\ RECV(start) =|>
+% Send the registration message to LS securely
+State' := 1  /\ R' := new()
+             /\ W' := H(PWmu.R'.IDmu.Gen(Bmu))
+             /\ secret({PWmu,Bmu}, subs1, MU)
+             /\ secret(IDmu, subs2, {MU, S})
+             /\ SEND({IDmu.W'}_SKmus) 
+% MU has freshly generated the value r for LS
+            /\ witness(MU, S, user_server_r, R')
+% Receive the message  from LS
+2. State = 1 /\ RECV(xor(Kmu', H(PWmu.R'.IDmu.Gen(Bmu))).
+                {IDmu.U'}_X) =|>
+% Content key acquisition phase
+% Send the message < DIDmu, DIDdc, C1, Tmu > to LS
+State' := 2 /\ Tmu' := new()
+            /\ SEND({IDmu.U'}_X. xor(IDdc,H(H(IDmu.R'.X).
+               Tmu'.IDmu)).H(IDmu.IDdc.Tmu'.H(IDmu.R'.X)).
+               Tmu')
+% MU has freshly generated the value Tmu for LS
+            /\ witness(MU, S, user_server_tmu, Tmu')
+% Receive the message < C2, C3, Tls > from LS
+3. State = 2 /\ RECV(xor(KEYdc,H(IDmu.H(IDmu.R'.X).Tls'.Tmu')).
+                H(IDmu.H(IDmu.R'.X).Tmu'.Tls'.KEYdc).Tls') =|> 
+% MU's acceptance of the value u generated for MU by LS
+State' := 3 /\ request(S, MU, server_user_u, U')
+% MU's acceptance of the value Tls generated for MU by LS
+            /\ request(S, MU, server_user_tls, Tls')
+end role
+
+
+
+%%%%%%%%%%% Role for the server (LS/PS) S %%%%%%%%%%%%%%%%%%
+
+role server (MU, S : agent,
+% MU: mobie user; S: LS or PS (server)
+% symmetric key between MU and S
+        SKmus : symmetric_key,
+% H is hash function
+         H : hash_func,
+         SEND, RECV: channel(dy))
+played_by S
+def=
+local State : nat,
+      IDmu, IDdc, PWmu, Bmu, Tmu, Tls : text,
+      R, U, W, DIDmu, Ymu, Kmu, X, KEYdc : text, 
+      Gen, Rep : hash_func
+
+const subs1, subs2, subs3, subs4, user_server_r,
+      user_server_tmu, server_user_u, 
+      server_user_tls : protocol_id
+init State := 0
+transition
+% Registration phase
+% Receive the registration request from user MU securely
+1. State = 0 /\ RECV({IDmu.H(PWmu.R'.IDmu.Gen(Bmu))}_SKmus) =|>
+ State' := 1 /\ U' := new()
+             /\ Kmu' := H(IDmu.U'.X)
+             /\ Ymu' := xor(Kmu', H(PWmu.R'.IDmu.Gen(Bmu)))
+             /\ DIDmu' := {IDmu.U'}_X
+             /\ secret(X, subs3, S)
+% Send the message  to MU
+             /\ SEND(Ymu'.DIDmu')
+% LS has freshly generated the value u for MU
+            /\ witness(S, MU, server_user_u, U')
+% Content key acquisition phase
+% Receive the message < DIDmu, DIDdc, C1, Tmu > from MU
+2. State = 1 /\ RECV({IDmu.U'}_X. xor(IDdc,H(H(IDmu.R'.X).
+               Tmu'.IDmu)).H(IDmu.IDdc.Tmu'.H(IDmu.R'.X)).
+               Tmu') =|>
+% Send the message < C2, C3, Tls > to MU
+ State' := 2 /\ Tls' := new()
+             /\ secret(KEYdc, subs4, S)
+             /\ SEND(xor(KEYdc,H(IDmu.H(IDmu.R'.X).Tls'.Tmu')).
+                H(IDmu.H(IDmu.R'.X).Tmu'.Tls'.KEYdc).Tls') 
+% LS has freshly generated the value Tls for MU
+            /\ witness(S, MU, server_user_tls, Tls')
+% LS's acceptance of the value r generated for LS by MU
+            /\ request(MU, S, user_server_r, R')
+% LS's acceptance of the value Tmu generated for LS by MU
+            /\ request(MU, S, user_server_tmu, Tmu')
+end role
+
+
+%%%%%%%%%%% Role for session %%%%%%%%%%%%%%%%%%
+role session(MU, S : agent,
+        SKmus : symmetric_key,
+        H : hash_func)
+def=
+  local S1, S2, R1, R2: channel (dy)
+composition
+   user (MU, S, SKmus, H, S1, R1)
+/\ server (MU, S, SKmus, H, S2, R2)
+end role
+
+
+%%%%%%%%%%% Role for goal and environment %%%%%%%%%%%%%%%%%%
+
+role environment()
+def=
+  const mu, s: agent, skmus : symmetric_key,
+      h : hash_func, gen, rep : hash_func,
+      subs1, subs2, subs3, subs4, user_server_r,
+      user_server_tmu, server_user_u, 
+      server_user_tls : protocol_id
+intruder_knowledge = {mu, s,  h, gen, rep, tmu, tls}
+composition
+   session(mu, s, skmus, h)
+/\ session(mu, s, skmus, h)
+/\ session(mu, i, skmus, h)
+/\ session(i, s, skmus, h)
+end role
+
+goal
+  secrecy_of subs1
+  secrecy_of subs2
+  secrecy_of subs3
+  secrecy_of subs4  
+
+  authentication_on user_server_r
+  authentication_on user_server_tmu
+  authentication_on server_user_u  
+  authentication_on server_user_tls
+end goal
+environment()
+

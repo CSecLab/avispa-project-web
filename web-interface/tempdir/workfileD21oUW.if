@@ -1,0 +1,83 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileD21oUW
+
+section signature:
+
+state_role_A: agent * agent * public_key * public_key * nat * text * text * nat -> fact
+state_role_B: agent * agent * public_key * public_key * nat * text * text * nat -> fact
+
+
+section types:
+
+auth_1: protocol_id
+kb, ka, KPb, KPa: public_key
+Nb, Na, Dummy_Nb, Dummy_Na, dummy_nonce: text
+A2Goal, A1Goal, bob, alice, B, A, i: agent
+start, MGoal: message
+SID1, SID, State, 2, 1, 0, 4, Dummy_State, 3, SID2: nat
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(i).
+ state_role_B(bob,alice,ka,kb,0,dummy_nonce,dummy_nonce,3).
+ state_role_A(alice,bob,ka,kb,0,dummy_nonce,dummy_nonce,4)
+
+
+section rules:
+
+step step_0 (B,A,KPa,KPb,Dummy_Na,Dummy_Nb,SID,Na,Nb) :=
+ state_role_B(B,A,KPa,KPb,0,Dummy_Na,Dummy_Nb,SID).
+ iknows(crypt(KPb,pair(Na,A)))
+=[exists Nb]=>
+ state_role_B(B,A,KPa,KPb,1,Na,Nb,SID).
+ request(B,A,auth_1,Na,SID).
+ iknows(crypt(KPa,pair(Na,Nb)))
+
+step step_1 (B,A,KPa,KPb,Na,Nb,SID) :=
+ state_role_B(B,A,KPa,KPb,1,Na,Nb,SID).
+ iknows(crypt(KPb,Nb))
+ =>
+ state_role_B(B,A,KPa,KPb,2,Na,Nb,SID)
+
+step step_2 (A,B,KPa,KPb,Dummy_Na,Nb,SID,Na) :=
+ state_role_A(A,B,KPa,KPb,0,Dummy_Na,Nb,SID).
+ iknows(start)
+=[exists Na]=>
+ state_role_A(A,B,KPa,KPb,1,Na,Nb,SID).
+ witness(A,B,auth_1,Na).
+ iknows(crypt(KPb,pair(Na,A)))
+
+step step_3 (A,B,KPa,KPb,Na,Dummy_Nb,SID,Nb) :=
+ state_role_A(A,B,KPa,KPb,1,Na,Dummy_Nb,SID).
+ iknows(crypt(KPa,pair(Na,Nb)))
+ =>
+ state_role_A(A,B,KPa,KPb,2,Na,Nb,SID).
+ iknows(crypt(KPb,Nb))
+
+
+section properties:
+
+property authentication_on_auth_1 (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,auth_1,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,auth_1,MGoal))
+     /\ ((request(A1Goal,A2Goal,auth_1,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,auth_1,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state authentication_on_auth_1 (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,auth_1,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,auth_1,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_auth_1 (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,auth_1,MGoal,SID1).
+ request(A1Goal,A2Goal,auth_1,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

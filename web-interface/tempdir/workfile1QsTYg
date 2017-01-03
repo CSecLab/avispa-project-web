@@ -1,0 +1,151 @@
+%%%%%%%%%%% Role for user Ui %%%%%%%%%%%%%%%%%%
+
+role user (Ui, S : agent,
+% symmetric key between Ui and S
+        SKuis : symmetric_key,
+% H is hash function
+         H : hash_func,
+         SEND, RECV: channel(dy))
+played_by Ui
+def=
+local State : nat,
+      IDi, PWi, Bi, P, KS : text,
+      Ri, Yi, YS, PYi, TIDi, H3 : text, 
+      F, Gen, Rep : hash_func
+
+const subs1, subs2, subs3, subs4, server_user_ri,
+     user_server_yi, server_user_ys : protocol_id
+
+init State := 0
+transition
+% Registration phase
+1. State = 0 /\ RECV(start) =|>
+% Send the registration request to server S securely
+ State' := 1 /\ secret({PWi,Bi}, subs1, Ui)
+             /\ SEND({IDi.H(PWi.Gen(Bi))}_SKuis)
+% Receive the response message from server S securely
+2. State = 1 /\ RECV({xor(H(IDi.Ri'.KS),H(PWi.Gen(Bi))).
+         H(H(IDi.Ri'.KS).IDi.H(PWi.Gen(Bi)))}_SKuis) =|>
+State' := 2 /\ secret(KS, subs2, S)
+            /\ secret(IDi, subs3, {Ui,S})
+% Ui's acceptance of the value Ri generated for Ui by S
+            /\ request(S, Ui, server_user_ri, Ri')
+
+% Login, and authentication and key agreement phases
+% Send the Req message to sever S via a public channel
+           /\ Yi' := new()
+           /\ Ki' := new()
+           /\ PYi' := F(H(Yi'.Ki').P)
+           /\ TIDi' := xor(H(F(H(Yi'.Ki').F(KS.P))), IDi)
+           /\ secret(Ki', subs4, {Ui,S})
+           /\ SEND(PYi'.TIDi')
+% Ui has freshly generated the value Yi' for S
+           /\ witness(Ui, S, user_server_yi, Yi')
+% Receive the Resp message from server S via a public channel
+3. State = 2 /\ RECV(F(H(YS'.KS).P).
+              H(F(H(Yi'.Ki').P).F(H(YS'.KS).P).
+              F(KS.F(H(Yi'.Ki').P)).H(F(H(YS'.KS).
+              F(H(Yi'.Ki').P)).F(KS.F(H(Yi'.Ki').P))).Ki')) =|>
+% Send the Conf message to server S via a public channel
+State' := 3 /\ H3' := H(F(H(YS'.KS).P).H(F(H(Yi'.Ki').
+                      F(H(YS'.KS).P)).F(H(Yi'.Ki').
+                      F(KS.P))).Ki'.F(H(Yi'.Ki').F(KS.P)))
+            /\ SEND(H3')
+% Ui's acceptance of the value Ys generated for Ui by S
+            /\ request(S, Ui, server_user_ys, YS')
+end role
+
+
+
+%%%%%%%%%%% Role for server S %%%%%%%%%%%%%%%%%%
+
+role user (Ui, S : agent,
+% symmetric key between Ui and S
+        SKuis : symmetric_key,
+% H is hash function
+         H : hash_func,
+         SEND, RECV: channel(dy))
+played_by S
+def=
+local State : nat,
+      IDi, PWi, Bi, P, KS : text,
+      Ri, Yi, YS, PYS, H2 : text, 
+      F, Gen, Rep : hash_func
+
+const subs1, subs2, subs3, subs4, server_user_ri,
+     user_server_yi, server_user_ys : protocol_id
+
+init State := 0
+transition
+% Registration phase
+% Receive the registration request from user Ui securely
+1. State = 0 /\ RECV({IDi.H(PWi.Gen(Bi))}_SKuis) =|>
+ State' := 1 /\ Ri' := new()
+             /\ secret(Ks, subs2, S)
+             /\ secret(IDi, subs3, {Ui,S})
+% Send the response message to user Ui securely
+2. State = 1 /\ SEND({xor(H(IDi.Ri'.KS),H(PWi.Gen(Bi))).
+         H(H(IDi.Ri'.KS).IDi.H(PWi.Gen(Bi)))}_SKuis) 
+            /\ secret(KS, subs2, S)
+            /\ secret(IDi, subs3, {Ui,S})
+% S has freshly generated the value Ri' for Ui
+            /\ witness(S, Ui, server_user_ri, Ri')
+% Login, and authentication and key agreement phases
+% Receive the Req message from user Ui via a public channel
+            /\ RECV(F(H(Yi'.Ki').P).
+                    xor(H(F(H(Yi'.Ki').F(KS.P))), IDi)) =|>
+State' := 2 /\ secret(Ki', subs4, {Ui,S})
+% Send the Resp message to user Ui via a public channel
+3. State = 2 /\ YS' := new()
+             /\ PYS' := F(H(YS'.KS).P)
+             /\ H2'  := H(F(H(Yi'.Ki').P).F(H(YS'.KS).P).
+                        F(KS.F(H(Yi'.Ki').P)).H(F(H(YS'.KS).
+                      F(H(Yi'.Ki').P)).F(KS'.F(H(Yi'.Ki').P))).Ki')
+             /\ SEND(PYS'. H2')
+% S has freshly generated the value Ys for Ui
+            /\ witness(S, Ui, server_user_ys, YS')
+% S's acceptance of the value Yi generated for S by Ui
+            /\ request(Ui, S, user_server_yi, Yi')
+end role
+
+%%%%%%%%%%% Role for session %%%%%%%%%%%%%%%%%%
+
+role session(Ui, S : agent,
+        SKuis : symmetric_key,
+        H : hash_func)
+def=
+  local S1, S2, R1, R2: channel (dy)
+composition
+   user (Ui, S, SKuis, H, S1, R1)
+/\ server (Ui, S, SKuis, H, S2, R2)
+end role
+
+
+%%%%%%%%%%% Role for goal and environment %%%%%%%%%%%%%%%%%%
+
+role environment()
+def=
+  const ui, s: agent, skuis : symmetric_key,
+      h : hash_func, gen, rep, f : hash_func,
+      p: text, 
+      subs1, subs2, subs3, subs4, server_user_ri,
+      user_server_yi, server_user_ys : protocol_id
+intruder_knowledge = {ui, s,  h, f, gen, rep, p}
+composition
+   session(ui, s, skuis, h)
+/\ session(ui, s, skuis, h)
+/\ session(ui, i, skuis, h)
+/\ session(i, ui, skuis, h)
+end role
+
+goal
+  secrecy_of subs1
+  secrecy_of subs2
+  secrecy_of subs3
+  secrecy_of subs4  
+  authentication_on server_user_ri
+  authentication_on user_server_yi
+  authentication_on server_user_ys
+end goal
+environment()
+

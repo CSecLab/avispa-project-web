@@ -1,0 +1,80 @@
+role gateway (GW, KDC : agent,
+Pgw, Pkdc : public_key,
+H1, H2 : hash_func,
+IDgw, P, Kgw, Gr, E : text,
+N : message,
+SND, RCV : channel(dy))
+played_by GW
+def=
+local State : nat,
+Kgw : text,
+Gr : text,
+E : text,
+Pkdc : public_key,
+N : message
+init State := 0
+transition
+0. State = 0 / RCV(start) =|>
+State':= 1 / Kgw':= new()
+/ E':= (Kgw'.P)
+/ N':= ({E'}_IDgw)
+/ SND({N'}_Pkdc)
+/ secret(P,EC,{GW,KDC})
+/ secret(Kgw',SK,{GW})
+/ request(KDC, GW, keyserv_gateway_ec, IDgw)
+2. State = 2 / RCV(M')=|>
+
+endrole
+
+role key_server (KDC, GW : agent,
+Pgw, Pkdc : public_key,
+H1, H2 : hash_func,
+P : text,
+N : message,
+SND, RCV : channel(dy))
+played_by KDC
+def=
+local State : nat,
+Kgw : text,
+Pgw : public_key,
+M, M1 : message,
+H1, H2 : hash_func
+init State := 1
+transition
+1. State = 1 / RCV(N') =|>
+State':= 2 / M1' := H1(Kgw'.P, IDgw)
+/ M' :=((M1')_inv(Pkdc))
+/ SND({M'})
+/ secret (M',Dg,{GW, KDC})
+end role
+role session(A, B : agent,
+Kab : symmetric_key,
+Succ : hash_func)
+def=
+local SAB, RAB,
+SBA, RBA : channel (dy)
+composition
+alice(A, B, Kab, Succ, SAB, RAB)
+/ bob (A, B, Kab, Succ, SBA, RBA)
+end role
+role environment()
+def=
+const alice_bob_k1ab, alice_bob_na, bob_alice_nb,
+n1b, k1ab : protocol_id,
+a, b : agent,
+kab, kai, kib : symmetric_key,
+succ : hash_func
+intruder_knowledge = {a, b, kai, kib, succ}
+composition
+session(a,b,kab,succ)
+/ session(a,b,kab,succ)
+/ session(a,i,kai,succ)
+/ session(i,b,kib,succ)
+end role
+goal
+secrecy_of n1b, k1ab
+authentication_on bob_alice_nb
+authentication_on alice_bob_na
+authentication_on alice_bob_k1ab
+end goal
+environment() 

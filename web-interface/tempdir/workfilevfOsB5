@@ -1,0 +1,80 @@
+role server ( S,M: agent,
+              S_K: symmetric_key,
+              H, H1: hash_func, 
+              B: public_key,
+              SND, RCV : channel (dy)  )played_by S
+def= 
+local State : nat , 
+Kus, Rx, Rc : text
+const  sec_kus2 , sec_rc , sec_s2        : protocol_id
+init State :=0 
+transition
+0. State = 0 /\ RCV({Rx'}_B) =|>
+   State' := 1
+   /\ Rc' := new()
+   /\ SND({Rc'}_B.H1({Rc'}_B,{Rc'.H(s).Rx'}_B))
+   /\  secret (Rc', sec_rc, S) 
+   /\  secret (S_K, sec_s2, {S,M}) %%!!
+   /\  witness (S, M, ns, Rx') %% pour une faible authentification  de  S par U pour Rc' 
+1. State = 1 /\ RCV(H1({Rx'}_B.Kus')) =|>
+   State' := 2
+   /\ request(S,M,ns,H1({Rx'}_B.Kus'))
+end role            
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role mobile ( M, S: agent,
+              S_K: symmetric_key,
+              H, H1: hash_func, 
+              B: public_key,
+              SND, RCV : channel (dy)  ) played_by M
+
+def=
+
+local 
+     State: nat,
+     Kus, Rx, Rc  : text
+
+const  
+     sec_kus1,sec_rx,sec_s : protocol_id
+init State := 0
+transition
+2.  State = 0 /\ RCV(start) =|>
+     State':=1 /\ Rx':= new ()
+    /\ SND({Rx'}_B)
+    /\ secret(Rx', sec_rx ,M)   %% déclarer Rx' comme secret partagé de M, ce secret est identifié par sec_rx dans goal
+3. State = 1  /\ RCV({Rc'}_B.H1({Rc'}_B,{Rc'.H(S_K).Rx'}_B)) =|>
+   State':= 2 /\ Kus':={Rx'.Rc'.H(S_K)}_B
+              /\ SND(H1({Rx'}_B.Kus') ) 
+              /\ witness(M,S,nu,H1({Rx'}_B.Kus'))  
+              /\ secret(Kus', sec_kus1, {M,S}) 
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(M,S:agent, H,H1:hash_func, S_K:symmetric_key, B: public_key)
+def= local SND, RCV : channel(dy)
+composition
+server(S,M,S_K,H, H1,B,SND,RCV)
+/\
+mobile(S,M,S_K,H, H1,B,SND,RCV)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+const
+m, s: agent,
+h,h1: hash_func,
+s_k:symmetric_key,
+ns,nu : protocol_id,
+b: public_key
+intruder_knowledge = {m,s,h,h1,b,i}
+composition session(m,s,h,h1,s_k,b)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+secrecy_of 
+sec_kus1,  sec_kus2, sec_s, sec_s2,sec_rc,sec_rx 
+authentication_on ns
+authentication_on nu
+end goal
+environment()

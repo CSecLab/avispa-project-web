@@ -1,0 +1,2124 @@
+From Laurent.Vigneron at loria.fr  Sat Jul  1 01:17:14 2006
+From: Laurent.Vigneron at loria.fr (Laurent.Vigneron@loria.fr)
+Date: Fri Jun 30 18:37:02 2006
+Subject: [Avispa-users] The AVISPA Tool - v1.1 
+Message-ID: <200606302317.k5UNHEX02872@valhey.loria.fr>
+
+			   
+[We apologize if you received multiple copies of this message]
+
+             XXX   X     X  XXXXX   XXXXX  XXXXXX    XXX
+            X   X  X     X    X    X     X X     X  X   X
+           X     X X     X    X    X       X     X X     X
+           X     X  X   X     X    X       X     X X     X
+           XXXXXXX  X   X     X     XXXXX  XXXXXX  XXXXXXX
+           X     X   X X      X          X X       X     X
+           X     X   X X      X          X X       X     X
+           X     X    X       X    X     X X       X     X
+           X     X    X     XXXXX   XXXXX  X       X     X
+
+                         V E R S I O N    1 . 1
+
+                            (June 30, 2006)
+                   
+
+We are happy to announce the availability of a new version of the
+AVISPA Tool, a push-button tool for the Automatic Validation of
+Internet Security-sensitive Protocols and Applications.  The AVISPA
+Tool v1.1 is available at
+
+                      http://www.avispa-project.org
+
+The AVISPA Tool v1.1 includes several bug fixes and extends the
+previous versions of the AVISPA Tool with several new features (see
+the NEWS section below).
+
+========
+OVERVIEW
+========
+
+The AVISPA Tool is a push-button tool for the automated validation of
+Internet security-sensitive protocols and applications.  It provides a
+modular and expressive formal language (called HLPSL) for specifying
+protocols and their security properties, and integrates different
+back-ends that implement a variety of state-of-the-art automatic
+analysis techniques ranging from protocol falsification (by finding an
+attack on the input protocol) to abstraction-based verification
+methods for both finite and infinite numbers of sessions.
+
+The HLPSL is an expressive, modular, role-based, formal language that
+allows for the specification of control flow patterns,
+data-structures, complex security properties, as well as different
+cryptographic primitives and their algebraic properties.  These
+features make HLPSL well suited for specifying modern,
+industrial-scale protocols.  Moreover, the HLPSL enjoys both a
+declarative semantics based on a fragment of the Temporal Logic of
+Actions and an operational semantics based on a translation into the
+rewrite-based formalism Intermediate Format IF.  The AVISPA Tool
+automatically translates HLPSL specifications into equivalent IF
+specifications which are in turn fed to the back-ends.
+
+The following back-ends are integrated in the AVISPA Tool:
+
+* The On-the-fly Model-Checker (OFMC) performs protocol falsification
+  and bounded verification by exploring the transition system
+  described by an IF specification in a demand-driven way. OFMC
+  implements a number of correct and complete symbolic techniques.  It
+  supports the specification of algebraic properties of cryptographic
+  operators, and typed and untyped protocol models. 
+
+* The Constraint-Logic-based Attack Searcher (CL-AtSe) applies
+  constraint solving with some powerful simplification heuristics and
+  redundancy elimination techniques.  CL-AtSe is built in a modular
+  way and is open to extensions for handling algebraic properties of
+  cryptographic operators. It supports type-flaw detection and handles
+  associativity of message concatenation.
+
+* The SAT-based Model-Checker (SATMC) builds a propositional formula
+  encoding a bounded unrolling of the transition relation specified by
+  the IF, the initial state and the set of states representing a
+  violation of the security properties.  The propositional formula is
+  then fed to a state-of-the-art SAT solver and any model found is
+  translated back into an attack.
+
+* The TA4SP (Tree Automata based on Automatic Approximations for the
+  Analysis of Security Protocols) back-end approximates the intruder
+  knowledge by using regular tree languages and rewriting.  For
+  secrecy properties, TA4SP can show whether a protocol is flawed (by
+  under-approximation) or whether it is safe for any number of
+  sessions (by over-approximation).
+
+In order to demonstrate the effectiveness of the AVISPA Tool on a
+large collection of practically relevant, industrial protocols, we
+have selected a substantial set of security problems associated with
+protocols that have recently been or are currently being standardized
+by organizations like the Internet Engineering Task Force IETF.  We
+have then formalized in HLPSL a large subset of these protocols, and
+the result of this specification effort is the AVISPA Library
+(publicly available at the AVISPA web-page), which at present
+comprises 112 security problems derived from 33 protocols.
+
+Further details on the AVISPA Tool and on the AVISPA project can be
+found in the paper:
+
+A. Armando, D. Basin, Y. Boichut, Y. Chevalier, L. Compagna,
+J. Cuellar, P. Hankes Drielsma, P.C. Heam, O. Kouchnarenko,
+J. Mantovani, S. Moedersheim, D. von Oheimb, M. Rusinowitch,
+J. Santiago, M. Turuani, L. Vigano`, L. Vigneron.  "The AVISPA Tool
+for the Automated Validation of Internet Security Protocols and
+Applications."  In Proc. CAV'05, LNCS. Springer Verlag, 2005,
+Available at the URL http://www.avispa-project.org/avispa-cav05.ps
+
+====
+NEWS
+====
+
+* All known bugs have been fixed.
+
+* All back-ends have been optimised for improved performance.
+
+* The translator from HLPSL to IF has been improved, with only minor
+  changes in the syntax:
+
+  - The HLPSL type "function" being too ambiguous, it has been renamed
+    "hash_func".
+
+  - More semantic tests are done for detecting incomplete goal
+    specifications or missing new() assignments.
+
+  - The handling of sets has been simplified in the translator.
+
+  - Predefined constant functions, like xor and exp, are better
+    handled.
+
+  - Warning and error messages are more precise.
+
+* OFMC, CL-AtSe, and SATMC support user-defined (non temporal)
+  security goals.
+
+* OFMC now supports reasoning modulo a user-specified algebraic
+  theory.
+
+* CL-Atse has improved in many ways:
+
+  - Algebraic properties : CL-Atse now supports complete analysis of
+    cryptographic protocols modulo the xor, including all the intruder
+    deduction rules for that operator.  CL-Atse also implements
+    complete analysis modulo the exponential except for the rule g^1 =
+    g (i.e. exponentials are tagged).  Also, some improvements on the
+    code for algebraic properties (speed, bug correction, etc.) have
+    been added.
+
+  - The protocol optimisation module now allows CL-Atse to perform
+    advanced optimisations of the protocol specification before the
+    analysis, and may greatly reduce the analysis time.  Now, CL-Atse
+    can statically decide the origin of certain messages and reduce
+    the non-determinism of the analysis accordingly.
+
+  - User interaction (output presentation, options, etc..) improved.
+
+* The AVISPA XEmacs mode has been improved and it is now a powerful
+ environment for writing protocol specifications and analysing them.
+
+* A new contribution has been added: hlpsldoc.  It contains script
+  files that automatically generate either a LaTeX file or a HTML file
+  from a HLPSL specification.  It has been used to generate the online
+  AVISPA library.
+
+========
+PARTNERS
+========
+
+The following research groups have contributed to the development of
+the AVISPA Tool:
+
+ * Artificial Intelligence Laboratory,
+   Dipartimento di Informatica, Sistemistica e Telematica (DIST),
+   University of Genova, Italy
+
+ * Laboratoire Lorrain de Recherche en Informatique et ses Applications 
+   (LORIA UMR 7503) with partners INRIA, CNRS, Universite' Henri Poincare' (UHP)
+   Université Nancy 2  AND  
+   Laboratoire d'Informatique de l'Universite' de Franche-Comte',
+   France
+
+ * Eidgenoessische Technische Hochschule Zuerich (ETHZ),
+   Information Security Group, Department of Computer Science,
+   Zuerich, Switzerland
+
+ * Siemens Aktiengesellschaft, Munich, Germany
+
+================
+GETTING IN TOUCH
+================
+
+The home page of the AVISPA project is <http://www.avispa-project.org>.
+
+A mailing list for general questions, bugs and bug fixes, possible
+extensions, and user requests on the AVISPA Tool is available.  To 
+register please send an empty message to
+
+              <avispa-users-join-project.org>
+
+New releases and other important events for AVISPA will be also
+announced on this list.
+
+--
+The AVISPA Team
+http://www.avispa-project.org
+
+
+From kchad1979 at yahoo.com  Mon Jul  3 13:37:48 2006
+From: kchad1979 at yahoo.com (Kostas Ch.)
+Date: Mon Jul  3 12:23:17 2006
+Subject: [Avispa-users] HLPSL Question
+Message-ID: <20060703113748.26716.qmail@web33402.mail.mud.yahoo.com>
+
+Hi all,
+   
+  I would like to ask a more or less 'philosophical' question concerning HLPSL. As I am working on the AVISPA tool as part of my project we came upon the discussion whether HLPSL is a 'programming' language or not. Of course I know it is very difficult to define what exactly is a 'programming' language...
+  There is the opinion that since there are no mathematical operators it is not a programming language. On the other hand there are many commonalities with a normal programming language (even at some point overloading of the [] constructor for sets and lists) and types for variables.
+  What do you think on this matter? I would like to have some opinions. 
+   
+  Cheers,
+  Kostas
+   
+  PS: I support the idea that HLPSL is a 'programming' language in the sense that it is used to program the AVISPA tool and state machines. But that's only me :)
+
+ 		
+---------------------------------
+Do you Yahoo!?
+ Get on board. You're invited to try the new Yahoo! Mail Beta.
+-------------- next part --------------
+An HTML attachment was scrubbed...
+URL: http://carroll.ai.dist.unige.it/pipermail/avispa-users/attachments/20060703/2f77d8fe/attachment.htm
+From johnny-06 at chadda.se  Tue Jul  4 09:32:19 2006
+From: johnny-06 at chadda.se (Johnny Chadda)
+Date: Tue Jul  4 02:51:14 2006
+Subject: [Avispa-users] How to verify encrypted hashes - signatures
+In-Reply-To: <1151571996.44a3981c596fc@www.loria.fr>
+References: <1ae9e84e0606290150r59c89e42oe27ff6d6b669b5d0@mail.gmail.com>
+	<1151571996.44a3981c596fc@www.loria.fr>
+Message-ID: <1ae9e84e0607040032y484158ao8584ee7f8bc5bfe2@mail.gmail.com>
+
+Hello again,
+
+I just need some clarification on this issue. Ka is a public key,
+which means that I should write something similar to this to first
+decrypt the encrypted Sig hash and then compare it to the new hash:
+
+{Sig'}_Ka = Hash(A.C)
+
+When running this, I get the following error:
+
+ofmc: Positive equality in condition.
+
+I assume that you thought that I used a symmetric key as Ka, but I
+failed to mention that this is in fact a public key. How can I make
+this comparison to verify that A and C are in fact the correct agents
+as signed by A?
+
+Regards,
+Johnny
+
+On 6/29/06, Laurent Vigneron <Laurent.Vigneron@loria.fr> wrote:
+>
+> Hi Johnny,
+>
+> According to the semantics of the language, you simply have to write:
+>
+>         3. State = 10 /\ BC(A.C.Sig') /\ Sig' = {{A.C}_Hash}_inv(Ka) =|>
+>            State':=11
+>
+> This is correct if C knows both Ka and Hash.
+>
+> By the way, why didn't you use a hash function Hash(A.C) instead of en
+> encryption?
+>
+> Laurent.
+>
+>
+> > I have a question regarding signatures and the verification of them.
+> > In the simplified example below, role A creates a signature message
+> > and pass it on to B, which forwards it to C. I want C to verifiy that
+> > the passed identifiers (A,C) are indeed the correct ones, meaning that
+> > they correspond to the hash encrypted by A.
+> >
+> >
+> > role alice() played_by A
+> > ...
+> > transition
+> >       1. State = 0 /\ BA(start) =|>
+> >          State':=1 /\ Sig' = {{A.C}_Hash}_inv(Ka)
+> >                    /\ AB(A.C.Sig')
+> > end role
+> >
+> >
+> > role bob() played_by B
+> > ...
+> > transition
+> >       2. State = 5 /\ AB(A.C.Sig') =|>
+> >          State':=6 /\ BC(A.C.Sig')
+> > end role
+> >
+> >
+> > role caesar() played_by C
+> > ...
+> > transition
+> >       3. State = 10 /\ BC(A.C.Sig') =|>
+> >          State':=11 /\ % FIXME: If {A.C}_Hash == {Sig}_Ka
+> >          ...
+> > end role
+> >
+> >
+> > Is there any way to do this, or is there maybe a better way to
+> > implement this than displayed above?
+From Laurent.Vigneron at loria.fr  Tue Jul  4 10:12:14 2006
+From: Laurent.Vigneron at loria.fr (Laurent Vigneron)
+Date: Tue Jul  4 03:31:06 2006
+Subject: [Avispa-users] How to verify encrypted hashes - signatures
+Message-ID: <17578.8926.931160.531764@valhey.loria.fr>
+
+
+Hi Johnny,
+
+In your example you consider that {{X}_inv(K)}_K is equal to X.
+Some people do not agree with this property, simply because in the
+real world signing, encrypting and decrypting messages are done by
+different algorithms.
+This is why in HLPSL specificiations, we recommend to write
+		      Sig' = {Hash(A.C)}_inv(Ka)
+instead of
+			{Sig'}_Ka = Hash(A.C)
+
+The semantical difference is that with the first notation, you explain
+that you are able to recognize that Sig' is a message signed by
+inv(Ka), and as you know Ka you are able to recover Hash(A.C).  This
+equation is in fact a shortcut for:
+		Sig' = {H'}_inv(Ka) /\ H' = Hash(A.C)
+With the notation that you have used, this is not clear if you encrypt
+or decrypt Sig'.
+
+So, all this may again look as a philosophical statement, but we have
+chosen to consider the non-ambigous notation in AVISPA.
+
+Best regards,
+Laurent.
+
+
+ > I just need some clarification on this issue. Ka is a public key,
+ > which means that I should write something similar to this to first
+ > decrypt the encrypted Sig hash and then compare it to the new hash:
+ > 
+ > {Sig'}_Ka = Hash(A.C)
+ > 
+ > When running this, I get the following error:
+ > 
+ > ofmc: Positive equality in condition.
+ > 
+ > I assume that you thought that I used a symmetric key as Ka, but I
+ > failed to mention that this is in fact a public key. How can I make
+ > this comparison to verify that A and C are in fact the correct agents
+ > as signed by A?
+ > 
+ > Regards,
+ > Johnny
+ > 
+ > On 6/29/06, Laurent Vigneron <Laurent.Vigneron@loria.fr> wrote:
+ > >
+ > > Hi Johnny,
+ > >
+ > > According to the semantics of the language, you simply have to write:
+ > >
+ > >         3. State = 10 /\ BC(A.C.Sig') /\ Sig' = {{A.C}_Hash}_inv(Ka) =|>
+ > >            State':=11
+ > >
+ > > This is correct if C knows both Ka and Hash.
+ > >
+ > > By the way, why didn't you use a hash function Hash(A.C) instead of en
+ > > encryption?
+ > >
+ > > Laurent.
+From paul.drielsma at inf.ethz.ch  Tue Jul  4 10:28:54 2006
+From: paul.drielsma at inf.ethz.ch (Paul Hankes Drielsma)
+Date: Tue Jul  4 03:47:43 2006
+Subject: [Avispa-users] HLPSL Question
+In-Reply-To: <20060703113748.26716.qmail@web33402.mail.mud.yahoo.com>
+References: <20060703113748.26716.qmail@web33402.mail.mud.yahoo.com>
+Message-ID: <BC6E7F00-42EF-44FC-AF02-1C1B373B2F06@inf.ethz.ch>
+
+Hi Kostas,
+
+I would be uncomfortable if we started referring to HLPSL as a  
+programming language, I must say.  It's really a modelling language  
+in the canonical sense.  The semantics is based on (and is very close  
+to) the Temporal Logic of Actions, so it's closer to a logic.  To me,  
+a logic is not a programming language (yes, yes, Prolog, ok).
+
+Also, note that there is no standard definition of a translation from  
+HLPSL to machine code, which is certainly an essential part of a  
+programming language.  I agree with you that HLPSL specifications  
+induce state machines which are, in turn, explored within the  
+backends.  However, I don't think this is much different from an MP3  
+file which induces an audio player to execute in a certain way in  
+order to play the song, but that doesn't mean that the machine is  
+"executing" the MP3 file.  I admit that this is a very construed  
+example, but I hope what I mean is clear.
+
+Finally, you could make a list of things that HLPSL does not support  
+that any (useful) programming language would need, from I/O to  
+arithmetic to what-have-you.
+
+So my vote is that HLPSL is a modelling language but not a  
+programming language.
+
+Cheers,
+Paul.
+
+On Jul 3, 2006, at 1:37 PM, Kostas Ch. wrote:
+
+> Hi all,
+>
+> I would like to ask a more or less 'philosophical' question  
+> concerning HLPSL. As I am working on the AVISPA tool as part of my  
+> project we came upon the discussion whether HLPSL is a  
+> 'programming' language or not. Of course I know it is very  
+> difficult to define what exactly is a 'programming' language...
+> There is the opinion that since there are no mathematical operators  
+> it is not a programming language. On the other hand there are many  
+> commonalities with a normal programming language (even at some  
+> point overloading of the [] constructor for sets and lists) and  
+> types for variables.
+> What do you think on this matter? I would like to have some opinions.
+>
+> Cheers,
+> Kostas
+>
+> PS: I support the idea that HLPSL is a 'programming' language in  
+> the sense that it is used to program the AVISPA tool and state  
+> machines. But that's only me :)
+>
+> Do you Yahoo!?
+> Get on board. You're invited to try the new Yahoo! Mail Beta.
+> _______________________________________________
+> Avispa-users mailing list
+> Avispa-users@avispa-project.org
+> http://www.avispa-project.org/mailman/listinfo/avispa-users
+
+From bhavin.desai at ntlworld.com  Tue Jul  4 10:32:58 2006
+From: bhavin.desai at ntlworld.com (bhavin.desai@ntlworld.com)
+Date: Tue Jul  4 03:51:44 2006
+Subject: Subject: [Avispa-users] HLPSL Question
+Message-ID: <20060704083258.TFHU18889.aamtaout03-winn.ispmail.ntl.com@smtp.ntlworld.com>
+
+Kostas,
+
+I think HLPSL is a *formal* language but not a programming language since there is no complier that maps source code to object code.
+
+Bhavin.
+
+
+Bhavin Desai
+Security Practice
+LogicaCMG UK Limited
+Chaucer House
+Springfield Drive
+Leatherhead
+Surrey
+KT22 7LP
+United Kingdom
+
+www.logicacmg.com
+Tel: +44 (0) 1372 369639
+Fax: +44 (0) 1372 369834
+bhavin.desai@logicacmg.com
+
+
+________________________________________
+From: avispa-users-bounces@avispa-project.org [mailto:avispa-users-bounces@avispa-project.org] On Behalf Of Kostas Ch.
+Sent: Monday, July 03, 2006 12:38 PM
+To: Avispa
+Subject: [Avispa-users] HLPSL Question
+
+Hi all,
+ 
+I would like to ask a more or less 'philosophical' question concerning HLPSL. As I am working on the AVISPA tool as part of my project we came upon the discussion whether HLPSL is a 'programming' language or not. Of course I know it is very difficult to define what exactly is a 'programming' language...
+There is the opinion that since there are no mathematical operators it is not a programming language. On the other hand there are many commonalities with a normal programming language (even at some point overloading of the [] constructor for sets and lists) and types for variables.
+What do you think on this matter? I would like to have some opinions. 
+ 
+Cheers,
+Kostas
+ 
+PS: I support the idea that HLPSL is a 'programming' language in the sense that it is used to program the AVISPA tool and state machines. But that's only me :)
+  
+________________________________________
+Do you Yahoo!?
+Get on board. You're invited to try the new Yahoo! Mail Beta.
+
+
+-----------------------------------------
+Email sent from www.ntlworld.com
+Virus-checked using McAfee(R) Software 
+Visit www.ntlworld.com/security for more information
+
+From vigano at inf.ethz.ch  Fri Jul  7 14:41:06 2006
+From: vigano at inf.ethz.ch (Luca Vigano)
+Date: Fri Jul  7 07:59:48 2006
+Subject: [Avispa-users] Call For Participation: FCS-ARSPA'06 (Workshop on
+	Foundations of Computer Security and Automated Reasoning for
+	Security Protocol Analysis)
+Message-ID: <20060707124106.GA15810@nyx.inf.ethz.ch>
+
+
+ 	 	
+	
+			      FCS-ARSPA'06
+
+
+			   Joint Workshop on
+		    Foundations of Computer Security
+				  and
+	   Automated Reasoning for Security Protocol Analysis
+
+	       co-located with LICS'06 as part of FLoC'06
+		     Seattle, August 15 - 16, 2006
+
+	    http://www.easychair.org/FLoC-06/FCS-ARSPA.html
+
+
+                    ******************************
+                    *** CALL FOR PARTICIPATION ***
+                    ******************************
+	
+			
+Overview
+
+Computer security is an established field of computer science of both
+theoretical and practical significance. In recent years, there has been
+increasing interest in logic-based foundations for various methods in
+computer security, including the formal specification, analysis and
+design of security protocols and their applications, the formal
+definition of various aspects of security such as access control
+mechanisms, mobile code security and denial-of-service attacks, and the
+modeling of information flow and its application to confidentiality
+policies, system composition, and covert channel analysis.
+
+The workshop FCS-ARSPA'06 is the fusion of two workshops. The workshop
+FCS continues a tradition, initiated with the Workshops on Formal
+Methods and Security Protocols (FMSP) in 1998 and 1999, then with the
+Workshop on Formal Methods and Computer Security (FMCS) in 2000, and
+finally with the LICS satellite Workshop on Foundations of Computer
+Security (FCS) in 2002 through 2005, of bringing together formal methods
+and the security community. The ARSPA workshop is the third in a series
+of successful workshops on Automated Reasoning for Security Protocol
+Analysis, bringing together researchers and practitioners from both the
+security and the formal methods communities, from academia and industry,
+who are working on developing and applying automated reasoning
+techniques and tools for the formal specification and analysis of
+security protocols.
+
+The aim of the joint workshop FCS-ARSPA'06 is to provide a forum for
+continued activity in these areas, to bring computer security
+researchers in closer contact with the LICS community, and to give LICS
+attendees an opportunity to talk to experts in computer security. 
+
+
+
+INVITED SPEAKERS
+================
+
+- Andy Gordon  (Microsoft Research)
+  Provable Implementations of Security Protocols
+  (Lics invited talk)
+
+- Martin Abadi  (University of California at Santa Cruz)
+  Access Control in a Core Calculus of Dependency
+
+
+
+ACCEPTED PAPERS
+===============
+
+- Veronique Cortier, Graham Steel
+  On the Decidability of a Class of XOR-based Key-management APIs
+
+- Mathieu Jaume, Charles Morisset
+  Towards a formal specification of access control
+
+- Amit Walvekar, Manasi Kelkar, Melanie Smith, and Rose Gamble
+  Determining Conflicts in Interdomain Mappings for Access Control
+
+- Massimo Benerecetti, Nicola Cuomo, and Adriano Peron
+  Timed HLPSL for specification and verification of time sensitive protocols
+
+- Matthias Anlauff, Dusko Pavlovic, Richard Waldinger, and Stephen Westfold
+  Proving Authentication Properties in the Protocol Derivation Assistant
+
+- Long Nguyen, Bill Roscoe
+  Efficient group authentication protocols based on human interaction
+
+- Alan Jeffrey, Ruy Ley-Wild
+  Dynamic Model Checking of C Cryptographic Protocol Implementations
+
+- Jonathan Millen, Joshua Guttman, John Ramsdell, Justin Sheehy, and
+  Brian Sniffen
+  Call by Contract for Cryptographic Protocols
+
+- DongGook Park, Colin Boyd, Byoungcheon Lee, and Hwankoo Kim
+  Responsibility and Credit: New Members of the Authentication Family?
+
+- Romain Janvier, Yassine Lakhnech, and Laurent Mazare'
+  Relating the Symbolic and Computational Models of Security Protocols
+  Using Hashes
+
+- Philippe Balbiani, Yannick Chevalier, and mounira kourjieh
+  Reasoning about Actions and Obligations
+
+- Prateek Gupta, Vitaly Shmatikov
+  Key confirmation and adaptive corruptions in the protocol security logic
+
+- Johannes Borgstroem, Simon Kramer, and Uwe Nestmann
+  Calculus of Cryptographic Communication
+
+- Aybek Mukhamedov, Mark Ryan
+  On Asynchronous Multi-party Contract-Signing
+
+- Chamseddine Talhi, Nadia Tawbi, and Mourad Debbabi
+  Execution Monitoring Enforcement Under Memory-Limitation Constraints
+
+- A. Prasad Sistla, Min Zhou
+  Analysis of Dynamic Policies 
+
+
+Further information about registration and accomodation can be found on 
+the workshop's webpage
+	    http://www.easychair.org/FLoC-06/FCS-ARSPA.html
+
+We hope to see you all in Seattle!
+
+Pierpaolo Degano, Ralf Kuesters, Luca Vigano`, Steve Zdancewic  
+(FCS-ARSPA'06 co-chairs)
+
+From mna at gmx.ch  Sat Jul  8 19:23:16 2006
+From: mna at gmx.ch (Martin Naedele)
+Date: Sat Jul  8 12:41:59 2006
+Subject: [Avispa-users] Why does my transition not fire in typed model?
+Message-ID: <20060708172316.84550@gmx.net>
+
+
+Hello,
+
+I have a problem with the following protocol:
+
+[...]
+role client(
+	C,S,A: agent,
+	Kc,Ka: public_key,
+	Hash: hash_func,
+	AC,CA,CS,SC: channel(dy)
+	)
+
+played_by C def=
+	local
+		State				: nat,
+		Ksc				: symmetric_key,  
+		R, T, Ns, Cap, CapSig, Sid	: text,
+		ClientData, ServerData		: text
+[...]
+transition
+[...]
+	rcvsym.	State = 11 /\ SC({Ksc'.Ns'.Sid'}_Kc) =|>
+		State':=12 /\ ClientData' := new()			
+			   /\ CS(C.Sid'.{Ns'.ClientData'}_Ksc')	                     
+[...]		
+end role
+
+role server(
+	C,S,A: agent,
+	Ka: public_key,
+	Hash: hash_func,
+	CS,SC: channel(dy)
+	)
+
+played_by S def=
+	local
+		State				: nat,
+		Ksc				: symmetric_key, 
+		Kc				: public_key,	 
+		R, T, Ns, CapSig, Sid		: text, 
+		ServerData, ClientData		: text
+[...] 
+transition
+	rcvcap.	State = 20 /\ [...] =|>
+		State':=21 /\ Ksc' := new() 			     
+			   /\ Ns' := new()			    
+			   /\ Sid' := new()			    
+			   /\ SC({Ksc'.Ns'.Sid'}_Kc')
+
+	rcvda.	State = 21 /\ CS(C.Sid.{Ns.ClientData'}_Ksc) =|>
+		State':=22 /\ [...]  
+end role
+
+
+Problem: 
+Server is in state 21. Client transitions from 11 to 12. Single-stepping through the state graph, I see that transition rvcda only fires if "--typed_model=no", but not for the typed model. Why? What could be the type mismatch problem between "CS(C.Sid'.{Ns'.ClientData'}_Ksc')" and "CS(C.Sid.{Ns.ClientData'}_Ksc)"? I tried already to remove parts of the message from both sender and receiver, but it doesn't help. 
+
+I would very much appreciate your help!
+
+Best regards,
+Martin 
+
+-- 
+
+
+Der GMX SmartSurfer hilft bis zu 70% Ihrer Onlinekosten zu sparen!
+Ideal f?r Modem und ISDN: http://www.gmx.net/de/go/smartsurfer
+From Laurent.Vigneron at loria.fr  Sun Jul  9 17:30:20 2006
+From: Laurent.Vigneron at loria.fr (Laurent Vigneron)
+Date: Sun Jul  9 10:49:06 2006
+Subject: [Avispa-users] Why does my transition not fire in typed model?
+In-Reply-To: <20060708172316.84550@gmx.net>
+References: <20060708172316.84550@gmx.net>
+Message-ID: <1152459020.44b1210ce2ea8@www.loria.fr>
+
+
+Hi Martin,
+
+Sid is a variable used for some goal predicates in the intermediate format.
+Its predefined type is nat, this is why when using a typed analysis it is not
+compatible with your type text.
+Don't you have a warning when running the translator hlpsl2if?
+
+Laurent.
+
+From mna at gmx.ch  Sun Jul  9 20:29:15 2006
+From: mna at gmx.ch (Martin Naedele)
+Date: Sun Jul  9 13:47:55 2006
+Subject: [Avispa-users] Why does my transition not fire in typed model?
+In-Reply-To: <1152459020.44b1210ce2ea8@www.loria.fr>
+References: <20060708172316.84550@gmx.net>
+	<1152459020.44b1210ce2ea8@www.loria.fr>
+Message-ID: <20060709182915.6330@gmx.net>
+
+Hi Laurent,
+
+Thank you very much for your reply! Interesting to know that Sid is an internal variable. The log file did not give me any warning about this when converting HLPSL to IF. 
+
+I now renamed all occurrences of Sid to IDsess, but the problem persists. Any more ideas?
+
+Best regards,
+Martin
+
+
+-------- Original-Nachricht --------
+Datum: Sun,  9 Jul 2006 17:30:20 +0200
+Von: Laurent Vigneron <Laurent.Vigneron@loria.fr>
+An: Martin Naedele <mna@gmx.ch>
+Betreff: Re: [Avispa-users] Why does my transition not fire in typed model?
+
+> 
+> Hi Martin,
+> 
+> Sid is a variable used for some goal predicates in the intermediate
+> format.
+> Its predefined type is nat, this is why when using a typed analysis it is
+> not
+> compatible with your type text.
+> Don't you have a warning when running the translator hlpsl2if?
+> 
+> Laurent.
+
+-- 
+
+
+Echte DSL-Flatrate dauerhaft f?r 0,- Euro*!
+"Feel free" mit GMX DSL! http://www.gmx.net/de/go/dsl
+From mna at gmx.ch  Mon Jul 10 17:19:24 2006
+From: mna at gmx.ch (Martin Naedele)
+Date: Mon Jul 10 10:38:05 2006
+Subject: [Avispa-users] Witness/request question
+Message-ID: <20060710151924.4410@gmx.net>
+
+Hi all,
+
+I have another problem with the evaluation of my model:
+
+My understanding of witness/request verification is that a "UNSAFE" is issued if and only if ofmc discovers a request(a,b,c,d) with no previous witness(b,a,c,d). 
+
+With my protocol model
+
+-------------------------------------------------------
+
+[...]
+role client(
+	C,S,A: agent,
+	Kc,Ka: public_key,
+	Hash: hash_func,
+	AC,CA,CS,SC: channel(dy)
+	)
+
+played_by C def=
+	local
+		State				: nat,
+		Ksc				: symmetric_key,  
+		R, T, Ns, Cap, CapSig, Sid	: text,
+		ClientData, ServerData		: text
+
+	const	s_c_ns	 			: protocol_id
+
+[...]
+transition
+[...]
+	rcvsym.	State = 11 /\ SC({Ksc'.Ns'.Sid'}_Kc) =|>
+		State':=12 /\ ClientData' := new()			
+			   /\ CS(C.Sid'.{Ns'.ClientData'}_Ksc')	    
+			   /\ witness(C,S,s_c_ns,Ns')                  
+[...]					   
+end role
+
+role server(
+	C,S,A: agent,
+	Ka: public_key,
+	Hash: hash_func,
+	CS,SC: channel(dy)
+	)
+
+played_by S def=
+	local
+		State				: nat,
+		Ksc				: symmetric_key, 
+		Kc				: public_key,	 
+		R, T, Ns, CapSig, Sid		: text, 
+		ServerData, ClientData		: text
+
+	const	s_c_ns	 			: protocol_id
+
+[...] 
+transition
+	rcvcap.	State = 20 /\ [...] =|>
+		State':=21 /\ Ksc' := new() 			     
+			   /\ Ns' := new()			    
+			   /\ Sid' := new()			    
+			   /\ SC({Ksc'.Ns'.Sid'}_Kc')
+
+	rcvda.	State = 21 /\ CS(C.Sid.{Ns.ClientData'}_Ksc) =|>
+		State':=22 /\ request(S,C,s_c_ns,Ns)
+	                   /\ [...]  
+end role
+-------------------------------------------------------
+
+I don't see how attacker i can get to the request() without passing through the witness().
+
+Specifically, I don't understand the following attack trace:
+In (2) S creates a new nonce Ns (here Ns(5)). In (3) the message containing the nonce is accepted by C. Here witness(Ns(5)) should be called. In (4) a message encrypted with the session key Ksc between S and C is sent back to S. The message contains the nonce Ns(5). In (5) this message is accepted by S and here request(Ns(5)) should be called. Why is this unsafe?   
+
+I assume that in the state/event dump the later events are at the top. Thus I have towards the end
+an event 
+	request(s,c,s_c_ns,Ns(5),3)       
+as expected. What does ",3)" mean?
+
+Going down I also see
+	witness(c,i,s_c_ns,Ns(5))
+which seems to be the corresponding witness event. 
+Is the reason for the UNSAFE result that this witness event contains "i" instead of "s"?
+If so, why did ofmc put an "i" there in step (3) even so the message in reality came from s in step (2) and i can not have learned Ns(5) as the message is encrypted with Kc which i doesn't know. 
+
+Note that I still have to run ofmc in untyped mode, as otherwise step (5) would not fire. 
+
+-------------------------------------------------------
+
+% OFMC
+% Version of 2006/02/13
+SUMMARY
+  UNSAFE
+DETAILS
+  ATTACK_FOUND
+PROTOCOL
+ [...]
+GOAL
+  authentication_on_s_c_ns
+BACKEND
+  OFMC
+COMMENTS
+STATISTICS
+  parseTime: 0.00s
+  searchTime: 57.02s
+  visitedNodes: 4388 nodes
+  depth: 10 plies
+ATTACK TRACE
+		i -> (a,3): start
+		(a,3) -> i: c.s.kc.R(1).T(1).{h(c.s.kc.R(1).T(1))}_inv(ka)
+		i -> (c,3): c.s.kc.x250.x251.x252
+		(c,3) -> i: c.s.kc.x250.x251.x252
+		i -> (c,3): {x270.x290.x272}_kc
+		(c,3) -> i: c.x272.{x290.ClientData(3)}_x270
+		i -> (c,3): s.x272.{x290.ClientData(3)}_x270
+(1) 	i -> (s,3): c.s.kc.R(1).T(1).{h(c.s.kc.R(1).T(1))}_inv(ka)
+(2) 	(s,3) -> i: {Ksc(5).Ns(5).IDsess(5)}_kc
+		i -> (a,7): start
+		(a,7) -> i: c.i.kc.R(6).T(6).{h(c.i.kc.R(6).T(6))}_inv(ka)
+		i -> (a,11): start
+		(a,11) -> i: i.s.kc.R(7).T(7).{h(i.s.kc.R(7).T(7))}_inv(ka)
+		i -> (c,7): c.i.kc.x352.x353.x354
+		(c,7) -> i: c.i.kc.x352.x353.x354
+(3)	i -> (c,7): {Ksc(5).Ns(5).IDsess(5)}_kc
+(4)	(c,7) -> i: c.IDsess(5).{Ns(5).ClientData(9)}_Ksc(5)
+(5)	i -> (s,3): c.IDsess(5).{Ns(5).ClientData(9)}_Ksc(5)
+		(s,3) -> i: s.IDsess(5).{Ns(10).ServerData(10)}_Ksc(5)
+
+
+% Reached State:
+% 
+% request(s,c,s_c_ns,Ns(5),3)
+% secret(ServerData(10),data_from_server,set_136)
+% contains(c,set_136)
+% contains(s,set_136)
+% witness(c,i,s_c_ns,Ns(5))
+% contains(c,set_145)
+% contains(i,set_145)
+% secret(Ksc(5),secret_session_key,set_134)
+% secret(Ns(5),nonce,set_135)
+% contains(c,set_134)
+% contains(s,set_134)
+% contains(c,set_135)
+% contains(s,set_135)
+% witness(c,s,s_c_ns,x290)
+% contains(c,set_124)
+% contains(s,set_124)
+% state_server(s,i,a,ka,h,20,dummy_sk,dummy_pk,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_152,set_153,set_154,13)
+% state_authority(a,i,s,kc,ka,h,1,R(7),T(7),i.s.kc.R(7).T(7),{h(i.s.kc.R(7).T(7))}_inv(ka),11)
+% state_client(c,i,a,kc,ka,h,12,Ksc(5),x352,x353,Ns(5),dummy_nonce,x354,IDsess(5),ClientData(9),dummy_nonce,set_145,7)
+% state_authority(a,c,i,kc,ka,h,1,R(6),T(6),c.i.kc.R(6).T(6),{h(c.i.kc.R(6).T(6))}_inv(ka),7)
+% state_server(s,c,a,ka,h,22,Ksc(5),kc,R(1),T(1),Ns(10),{h(c.s.kc.R(1).T(1))}_inv(ka),IDsess(5),ServerData(10),ClientData(9),set_134,set_135,set_136,3)
+% state_client(c,s,a,kc,ka,h,13,x270,x250,x251,x290,dummy_nonce,x252,x272,ClientData(3),ClientData(3),set_124,3)
+% state_authority(a,c,s,kc,ka,h,1,R(1),T(1),c.s.kc.R(1).T(1),{h(c.s.kc.R(1).T(1))}_inv(ka),3)
+-------------------------------------------------------
+
+
+I would very much appreciate your help!
+
+Best regards,
+Martin 
+
+
+
+
+
+-- 
+
+
+Der GMX SmartSurfer hilft bis zu 70% Ihrer Onlinekosten zu sparen!
+Ideal f?r Modem und ISDN: http://www.gmx.net/de/go/smartsurfer
+From nancyhaddad_82 at hotmail.com  Tue Jul 11 09:54:29 2006
+From: nancyhaddad_82 at hotmail.com (nancy haddad)
+Date: Tue Jul 11 03:13:16 2006
+Subject: [Avispa-users] ??????????????????
+Message-ID: <BAY12-F15D72CAF20307E4B0F0344ED680@phx.gbl>
+
+Bonjour,
+
+J'essaie de faire une validation d'un protocole de sécurité pour une 
+application de groupe.
+Soit un scénario contenant 4 entités A,B,C,D.
+A initie l'authentfication.
+B,C et D ont même rôle.
+Peut-on dans la validation les représenter par un seul rôle au lieu de 
+définir 3 et faire en sorte de les appeler par A chacun à son tour?
+
+Veuiller me répondre le plus tôt possible.
+
+Merci.
+
+Nancy
+
+_________________________________________________________________
+FREE pop-up blocking with the new MSN Toolbar - get it now! 
+http://toolbar.msn.click-url.com/go/onm00200415ave/direct/01/
+
+From khaled.masmoudi at int-evry.fr  Wed Jul 12 07:41:31 2006
+From: khaled.masmoudi at int-evry.fr (Khaled Masmoudi)
+Date: Wed Jul 12 01:00:26 2006
+Subject: [Avispa-users] Witness/request question
+In-Reply-To: <20060710151924.4410@gmx.net>
+Message-ID: <024a01c6a575$d47daac0$48679f9d@micro.intevry.fr>
+
+
+Dear all,
+Even though a protocol proves safe with AVISPA tools, a less complex
+version
+of it may achieve exactly the same goals. Is there a straightforward way
+to
+simplify protocols with AVISPA?
+Thanks in advance
+
+Khaled
+--------------------------
+Khaled MASMOUDI
+Institut National des Télécommunications
+Wireless Networks and Multimedia Services Department (RS2M)
+9, rue Charles Fourier - 91011 Evry Cedex
+Personal Page: www.masmoudi.net
+Tél : +33 1 60 76 42 65
+Fax : +33 1 60 76 45 78
+khaled.masmoudi@int-evry.fr
+
+
+
+
+begin 666 smime.p7s
+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
+`
+end
+
+From paul.drielsma at inf.ethz.ch  Wed Jul 12 15:39:55 2006
+From: paul.drielsma at inf.ethz.ch (Paul Hankes Drielsma)
+Date: Wed Jul 12 08:58:40 2006
+Subject: [Avispa-users] Witness/request question
+In-Reply-To: <20060710151924.4410@gmx.net>
+References: <20060710151924.4410@gmx.net>
+Message-ID: <A3A062CC-7711-423C-8AB4-00D755692D79@inf.ethz.ch>
+
+Hello Martin,
+
+> I don't see how attacker i can get to the request() without passing  
+> through the witness().
+>
+> Specifically, I don't understand the following attack trace:
+> In (2) S creates a new nonce Ns (here Ns(5)). In (3) the message  
+> containing the nonce is accepted by C. Here witness(Ns(5)) should  
+> be called. In (4) a message encrypted with the session key Ksc  
+> between S and C is sent back to S. The message contains the nonce Ns 
+> (5). In (5) this message is accepted by S and here request(Ns(5))  
+> should be called. Why is this unsafe?
+>
+> I assume that in the state/event dump the later events are at the  
+> top. Thus I have towards the end
+> an event
+> 	request(s,c,s_c_ns,Ns(5),3)
+> as expected. What does ",3)" mean?
+>
+> Going down I also see
+> 	witness(c,i,s_c_ns,Ns(5))
+> which seems to be the corresponding witness event.
+> Is the reason for the UNSAFE result that this witness event  
+> contains "i" instead of "s"?
+> If so, why did ofmc put an "i" there in step (3) even so the  
+> message in reality came from s in step (2) and i can not have  
+> learned Ns(5) as the message is encrypted with Kc which i doesn't  
+> know.
+>
+
+Well, you do not show your environment role in which the sessions are  
+specified, but the problem here is not that the attacker "gets to"  
+the request without passing through the witness.  You should instead  
+think about it as follows: the transitions define the behaviour of  
+the honest agents.  The intruder's behaviour is not defined by these  
+transitions, but by a standard set of rules that define what he can  
+and can't do.
+
+So: the problem is indeed that the witness contains "i" instead of  
+"s", and what this MEANS is that in one session, "c" believes that he  
+is speaking with "i".  So this is a problem of authentication.  "s"  
+believes he is speaking with "c", but that same "c" actually wants to  
+talk to "i".  This scenario must be included in your environment role.
+
+Hope this helps,
+Paul.
+From bhavin.desai at ntlworld.com  Thu Jul 13 10:30:53 2006
+From: bhavin.desai at ntlworld.com (bhavin.desai@ntlworld.com)
+Date: Thu Jul 13 03:49:33 2006
+Subject: [Avispa-users] Are there any known False Positives or False
+	Negatives using AVISPA?
+Message-ID: <20060713083053.IHYE1421.aamtaout02-winn.ispmail.ntl.com@smtp.ntlworld.com>
+
+Hello,
+
+When using AVISPA, are there any known instances of False Positives (ie AVISPA says SAFE, even when there is a known attack in the literature or community) or False Negatives (ie AVISPA says UNSAFE, although the attack proposed is not a valid attack)?
+
+Obviously we would like the answer to be NO, in terms of confidence in AVISPA, but it would be nice to get a wider perspective from the community.
+
+
+Bhavin Desai
+Security Practice
+LogicaCMG UK Limited
+Chaucer House
+Springfield Drive
+Leatherhead
+Surrey
+KT22 7LP
+United Kingdom
+
+
+
+
+-----------------------------------------
+Email sent from www.ntlworld.com
+Virus-checked using McAfee(R) Software 
+Visit www.ntlworld.com/security for more information
+
+From paul.drielsma at inf.ethz.ch  Thu Jul 13 17:42:31 2006
+From: paul.drielsma at inf.ethz.ch (Paul Hankes Drielsma)
+Date: Thu Jul 13 11:01:10 2006
+Subject: [Avispa-users] Are there any known False Positives or False
+	Negatives using AVISPA?
+In-Reply-To: <20060713083053.IHYE1421.aamtaout02-winn.ispmail.ntl.com@smtp.ntlworld.com>
+References: <20060713083053.IHYE1421.aamtaout02-winn.ispmail.ntl.com@smtp.ntlworld.com>
+Message-ID: <C076924E-E882-41EE-B374-E497A6458DA0@inf.ethz.ch>
+
+Hello Bhavai,
+
+This is kind of a difficult question, because it depends so strongly  
+on your model.
+
+The simple answer is yes, I can make you a model which comes out as  
+SAFE even though there is a known attack on the protocol.  All I have  
+to do is take the model of the NSPK protocol and analyze it using  
+only one session, between A and B.  Since the known attack requires  
+an additional session between A and I, a known attack in the  
+literature will not be found.  But this is my fault as the modeler,  
+and not the fault of the AVISPA Tool or methodology.
+
+Similarly, it is easy to construct a (bad) model in which attacks are  
+found that are not actually relevant.  The easiest way to do this is  
+to take an authentication protocol, and insert the "request" facts  
+too early, before the authentication has really succeeded.  You'll  
+find a ton of attacks, and they will be irrelevant, but again this is  
+the fault of the modeler and not of the tool.
+
+Or you could construct models of protocols for which attacks are  
+known, but they are based on aspects of the environment that AVISPA  
+does not capture: timing attacks are a good example.
+
+So the answer is, within the constraints of valid HLPSL models, the  
+AVISPA tool is sound and complete.  All attacks that are found are  
+really attacks on the model (even if the model is constructed badly),  
+and no attacks on the specified analysis scenario are missed.  But  
+the critical point is that we are talking about models here.
+
+Hope this helps,
+Paul.
+
+On Jul 13, 2006, at 4:30 AM, <bhavin.desai@ntlworld.com>  
+<bhavin.desai@ntlworld.com> wrote:
+
+> Hello,
+>
+> When using AVISPA, are there any known instances of False Positives  
+> (ie AVISPA says SAFE, even when there is a known attack in the  
+> literature or community) or False Negatives (ie AVISPA says UNSAFE,  
+> although the attack proposed is not a valid attack)?
+>
+> Obviously we would like the answer to be NO, in terms of confidence  
+> in AVISPA, but it would be nice to get a wider perspective from the  
+> community.
+>
+>
+> Bhavin Desai
+> Security Practice
+> LogicaCMG UK Limited
+> Chaucer House
+> Springfield Drive
+> Leatherhead
+> Surrey
+> KT22 7LP
+> United Kingdom
+
+From compa at dist.unige.it  Fri Jul 14 15:14:02 2006
+From: compa at dist.unige.it (Luca Compagna)
+Date: Fri Jul 14 08:32:38 2006
+Subject: [Avispa-users] ??????????????????
+In-Reply-To: <BAY12-F15D72CAF20307E4B0F0344ED680@phx.gbl>
+References: <BAY12-F15D72CAF20307E4B0F0344ED680@phx.gbl>
+Message-ID: <1152882842.44b7989a87961@webmail.unige.it>
+
+Dear Nancy,
+I understand france a little bit, but at least to me your question is not clear
+enough.  Would it be possible for you to reformulate your question in english
+and more importantly to extend it (e.g. providing a detailed example) in order
+to let us know what the issue you have is about?
+
+Best regards,
+Luca
+
+Scrive nancy haddad <nancyhaddad_82@hotmail.com>:
+
+> Bonjour,
+>
+> J'essaie de faire une validation d'un protocole de s?curit? pour une
+> application de groupe.
+> Soit un sc?nario contenant 4 entit?s A,B,C,D.
+> A initie l'authentfication.
+> B,C et D ont m?me r?le.
+> Peut-on dans la validation les repr?senter par un seul r?le au lieu de
+> d?finir 3 et faire en sorte de les appeler par A chacun ? son tour?
+>
+> Veuiller me r?pondre le plus t?t possible.
+>
+> Merci.
+>
+> Nancy
+>
+> _________________________________________________________________
+> FREE pop-up blocking with the new MSN Toolbar - get it now!
+> http://toolbar.msn.click-url.com/go/onm00200415ave/direct/01/
+>
+> _______________________________________________
+> Avispa-users mailing list
+> Avispa-users@avispa-project.org
+> http://www.avispa-project.org/mailman/listinfo/avispa-users
+>
+
+
+
+From compa at dist.unige.it  Fri Jul 14 15:21:46 2006
+From: compa at dist.unige.it (Luca Compagna)
+Date: Fri Jul 14 08:40:20 2006
+Subject: [Avispa-users] Witness/request question [MODEL SIMPLIFICATION]
+In-Reply-To: <024a01c6a575$d47daac0$48679f9d@micro.intevry.fr>
+References: <024a01c6a575$d47daac0$48679f9d@micro.intevry.fr>
+Message-ID: <1152883306.44b79a6ae6cc0@webmail.unige.it>
+
+Dear Khaled and all,
+please do your best to provide meaningful subject in your mails, otherwise to
+following the discussion in the mailing list will become difficult.
+
+If I have understood correctly your question you are wondering whether you can
+use AVISPA to obtain a simplified version of your protocol.  I would say the
+answer is not.  In AVISPA you specify a security protocol problem by means of
+HLPSL and AVISPA analyses this problem reporting for attacks or not.  There is
+not in AVISPA a module that given an HLPSL specification provides a simplified
+version of it.
+
+Hope this help.
+Luca
+
+Scrive Khaled Masmoudi <khaled.masmoudi@int-evry.fr>:
+
+>
+> Dear all,
+> Even though a protocol proves safe with AVISPA tools, a less complex
+> version
+> of it may achieve exactly the same goals. Is there a straightforward way
+> to
+> simplify protocols with AVISPA?
+> Thanks in advance
+>
+> Khaled
+> --------------------------
+> Khaled MASMOUDI
+> Institut National des T?l?communications
+> Wireless Networks and Multimedia Services Department (RS2M)
+> 9, rue Charles Fourier - 91011 Evry Cedex
+> Personal Page: www.masmoudi.net
+> T?l : +33 1 60 76 42 65
+> Fax : +33 1 60 76 45 78
+> khaled.masmoudi@int-evry.fr
+>
+>
+>
+>
+> begin 666 smime.p7s
+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
+> `
+> end
+>
+> _______________________________________________
+> Avispa-users mailing list
+> Avispa-users@avispa-project.org
+> http://www.avispa-project.org/mailman/listinfo/avispa-users
+>
+
+
+
+From aline_said3 at hotmail.com  Tue Jul 18 10:56:21 2006
+From: aline_said3 at hotmail.com (ALINE SAID)
+Date: Tue Jul 18 04:15:00 2006
+Subject: [Avispa-users] Questions AVISPA
+Message-ID: <BAY112-F3482A72137B02D5CDEBFF3D3630@phx.gbl>
+
+Bonjour.
+Dans l'attachement il ya une question a propos de la validation avec AVISPA.
+Merci.
+
+_________________________________________________________________
+Express yourself instantly with MSN Messenger! Download today - it's FREE! 
+http://messenger.msn.click-url.com/go/onm00200471ave/direct/01/
+-------------- next part --------------
+A non-text attachment was scrubbed...
+Name: Questions AVISPA.doc
+Type: application/msword
+Size: 26624 bytes
+Desc: not available
+Url : http://carroll.ai.dist.unige.it/pipermail/avispa-users/attachments/20060718/71037b09/QuestionsAVISPA-0001.doc
+From Laurent.Vigneron at loria.fr  Tue Jul 18 11:56:00 2006
+From: Laurent.Vigneron at loria.fr (Laurent Vigneron)
+Date: Tue Jul 18 05:14:33 2006
+Subject: [Avispa-users] Questions AVISPA
+In-Reply-To: <BAY112-F3482A72137B02D5CDEBFF3D3630@phx.gbl>
+References: <BAY112-F3482A72137B02D5CDEBFF3D3630@phx.gbl>
+Message-ID: <17596.45104.114975.143920@valhey.loria.fr>
+
+
+Ch?re Aline,
+
+I will answer in English to your message, as most of the AVISPA users
+do not read/write French (even if some try [private joke] ;)
+
+You have not detailed the contents of the messages exchanged between
+users and the server, but it looks like the user send its identifier
+without encrypting it.  If so, then this is easy for an intruder to
+send the same message, impersonating the user.
+This is why the AVISPA tool does detect an attack.
+
+In the protocol specification, there is no implicit way to know who
+sent a message: it simply arrives on a channel.
+If you want to secure your communication, you have to add infomation
+in the message sent to the server.  For example, adding the identity
+of the user signed by his private key permits to guarantee that this
+user has created the message.  But of course this is not enough, as
+that same message could be resent later by the intruder.  You should
+also add a nonce for avoiding that case.
+
+So, you see that authentication is not easy to get, and you have to
+consider a lot of cases when defining the messages.
+
+If you need more information or if my comments do not correspond to
+your problem, please continue to communicate on this mailing-list.
+(in English if possible :)
+
+Cordialement,
+Laurent.
+From s9901726 at sms.ed.ac.uk  Tue Jul 18 19:12:24 2006
+From: s9901726 at sms.ed.ac.uk (Gavin Keighren)
+Date: Tue Jul 18 12:29:46 2006
+Subject: [Avispa-users] HLPSL Forall Operator
+Message-ID: <467098dd427f776cb63915f2bb7b1f57@sms.ed.ac.uk>
+
+Hi,
+
+I am having trouble using the forall operator in HLPSL. The 
+documentation states that  /\_{in(Elem, Set)} will enumerate through 
+the elements in the given set.
+
+However, when I run hlpsl2if, I get the following error message:
+
+%% Syntax error: Line 463, Col 18 (offset 16763-16764, string "/\")
+%% Syn.Err(7): missing "_"
+
+The offending line of code is in the init section of the environment, 
+and is as follows:
+
+MySet := {x} /\ /\_{in(E,MySet)} MySet := cons(xor(a,E),MySet)
+
+
+Removing the /\ operator results in the following (rather odd) error 
+message:
+
+%% Syntax error: Line 463, Col 17 (offset 16762-16762, string "_")
+%% Syn.Err(7): missing "_"
+
+
+I am trying to build up a set of XOR terms, and really don't want to 
+specify them all manually as there will be a total of 7! (7 factorial).
+
+MySet is defined as a set of messages, and E is of type message.
+
+
+Any help would be greatly appreciated,
+
+Gavin Keighren
+
+From s9901726 at sms.ed.ac.uk  Wed Jul 19 15:58:23 2006
+From: s9901726 at sms.ed.ac.uk (Gavin Keighren)
+Date: Wed Jul 19 09:15:46 2006
+Subject: [Avispa-users] OFMC Error Message - Please Help
+Message-ID: <a9706258d539ebbe1f85a2f96324d860@sms.ed.ac.uk>
+
+Hi,
+
+I have a series of IF files which are happily accepted by the CL-AtSe 
+backend, but not by OFMC. The error which OFMC throws is:
+
+ofmc: There are not enough numbers in the state fact [PCompT "agent" 
+[PVar "57"],PCompT "message" [PVar "61"],PCompT "symmetric_key" [PVar 
+"62"],PCompT "nat" [PVar "60"]]
+
+
+Removing the corresponding role simply results in the error containing 
+the state fact for another role. The other bits where the state appears 
+in the IF file has the correct (i.e. same) form, and number of 
+parameters.
+
+I have around 15 roles, each of which are played by the same agent 
+(making them different transitions in the same role causes CL-AtSe to 
+spend a huge amount of time generating the search tree before it starts 
+=> I have split each transition into a separate role).
+
+
+thanks in advance,
+
+Gavin Keighren
+
+
+PS - Sorry, but I am unable to provide the IF file, or the model file 
+from which is generated.
+
+From paul.drielsma at inf.ethz.ch  Wed Jul 19 16:15:02 2006
+From: paul.drielsma at inf.ethz.ch (Paul Hankes Drielsma)
+Date: Wed Jul 19 09:33:27 2006
+Subject: [Avispa-users] OFMC Error Message - Please Help
+In-Reply-To: <a9706258d539ebbe1f85a2f96324d860@sms.ed.ac.uk>
+References: <a9706258d539ebbe1f85a2f96324d860@sms.ed.ac.uk>
+Message-ID: <E4F6351F-7D90-42C0-B5B4-219A69B99444@inf.ethz.ch>
+
+Hello Gavin,
+
+OFMC generally assumes that there is at least one variable (typically  
+a local variable) of type "nat" which OFMC can consider to be the  
+role state (I don't think it has to be called "State").
+
+The most common source of the error message you provided is a role  
+which has no variables of type "nat".  This can be the case, for  
+instance, for server roles which should loop, answering a query an  
+unbounded number of times.  In this case, if you want to use OFMC,  
+you can simply add a State variable that doesn't change.
+
+For instance, change:
+    RCV(query) =|> SND(answer)
+to
+    State = 0 /\ RCV(query) =|> State':=0 /\ SND(answer)
+
+Hope this helps,
+Paul.
+
+On Jul 19, 2006, at 9:58 AM, Gavin Keighren wrote:
+
+> Hi,
+>
+> I have a series of IF files which are happily accepted by the CL- 
+> AtSe backend, but not by OFMC. The error which OFMC throws is:
+>
+> ofmc: There are not enough numbers in the state fact [PCompT  
+> "agent" [PVar "57"],PCompT "message" [PVar "61"],PCompT  
+> "symmetric_key" [PVar "62"],PCompT "nat" [PVar "60"]]
+>
+>
+> Removing the corresponding role simply results in the error  
+> containing the state fact for another role. The other bits where  
+> the state appears in the IF file has the correct (i.e. same) form,  
+> and number of parameters.
+>
+> I have around 15 roles, each of which are played by the same agent  
+> (making them different transitions in the same role causes CL-AtSe  
+> to spend a huge amount of time generating the search tree before it  
+> starts => I have split each transition into a separate role).
+>
+>
+> thanks in advance,
+>
+> Gavin Keighren
+>
+>
+> PS - Sorry, but I am unable to provide the IF file, or the model  
+> file from which is generated.
+>
+> _______________________________________________
+> Avispa-users mailing list
+> Avispa-users@avispa-project.org
+> http://www.avispa-project.org/mailman/listinfo/avispa-users
+
+From aline_said3 at hotmail.com  Wed Jul 19 16:21:26 2006
+From: aline_said3 at hotmail.com (ALINE SAID)
+Date: Wed Jul 19 09:39:59 2006
+Subject: [Avispa-users] AVISPA Question
+Message-ID: <BAY112-F37C7BB605385C6CB55CC24D3600@phx.gbl>
+
+Hi, can you send to me a scenario for the validation of SIP with AVISPA?
+
+_________________________________________________________________
+Express yourself instantly with MSN Messenger! Download today - it's FREE! 
+http://messenger.msn.click-url.com/go/onm00200471ave/direct/01/
+
+From s9901726 at sms.ed.ac.uk  Wed Jul 19 23:57:19 2006
+From: s9901726 at sms.ed.ac.uk (Gavin Keighren)
+Date: Wed Jul 19 17:14:40 2006
+Subject: [Avispa-users] OFMC Error Message - Please Help
+In-Reply-To: <E4F6351F-7D90-42C0-B5B4-219A69B99444@inf.ethz.ch>
+References: <a9706258d539ebbe1f85a2f96324d860@sms.ed.ac.uk>
+	<E4F6351F-7D90-42C0-B5B4-219A69B99444@inf.ethz.ch>
+Message-ID: <ad34ebdeb31d9abe3a0b451e6c732543@sms.ed.ac.uk>
+
+Paul,
+
+thanks for the quick response - and your solution fixed my problem.
+
+
+Gavin
+
+
+On 19 Jul 2006, at 15:15, Paul Hankes Drielsma wrote:
+
+> Hello Gavin,
+>
+> OFMC generally assumes that there is at least one variable (typically 
+> a local variable) of type "nat" which OFMC can consider to be the role 
+> state (I don't think it has to be called "State").
+>
+> The most common source of the error message you provided is a role 
+> which has no variables of type "nat".  This can be the case, for 
+> instance, for server roles which should loop, answering a query an 
+> unbounded number of times.  In this case, if you want to use OFMC, you 
+> can simply add a State variable that doesn't change.
+>
+> For instance, change:
+>    RCV(query) =|> SND(answer)
+> to
+>    State = 0 /\ RCV(query) =|> State':=0 /\ SND(answer)
+>
+> Hope this helps,
+> Paul.
+>
+> On Jul 19, 2006, at 9:58 AM, Gavin Keighren wrote:
+>
+>> Hi,
+>>
+>> I have a series of IF files which are happily accepted by the CL-AtSe 
+>> backend, but not by OFMC. The error which OFMC throws is:
+>>
+>> ofmc: There are not enough numbers in the state fact [PCompT "agent" 
+>> [PVar "57"],PCompT "message" [PVar "61"],PCompT "symmetric_key" [PVar 
+>> "62"],PCompT "nat" [PVar "60"]]
+>>
+>>
+>> Removing the corresponding role simply results in the error 
+>> containing the state fact for another role. The other bits where the 
+>> state appears in the IF file has the correct (i.e. same) form, and 
+>> number of parameters.
+>>
+>> I have around 15 roles, each of which are played by the same agent 
+>> (making them different transitions in the same role causes CL-AtSe to 
+>> spend a huge amount of time generating the search tree before it 
+>> starts => I have split each transition into a separate role).
+>>
+>>
+>> thanks in advance,
+>>
+>> Gavin Keighren
+>>
+>>
+>> PS - Sorry, but I am unable to provide the IF file, or the model file 
+>> from which is generated.
+>>
+>> _______________________________________________
+>> Avispa-users mailing list
+>> Avispa-users@avispa-project.org
+>> http://www.avispa-project.org/mailman/listinfo/avispa-users
+>
+
+From aline_said3 at hotmail.com  Thu Jul 20 16:12:19 2006
+From: aline_said3 at hotmail.com (ALINE SAID)
+Date: Thu Jul 20 09:30:48 2006
+Subject: [Avispa-users] AVISPA question
+Message-ID: <BAY112-F31950C4F597950834DA245D3610@phx.gbl>
+
+Hi.
+In my scenario when user register at a server this server give him a card 
+which contains an id, key shared with this server and method of 
+authentication; user send this id encoded with the shared key which is in 
+his card.  Server has a database containing each user with his ID, his 
+address of records and his keys so server can decode this id with the shared 
+key and he most verify if the address from in the header of the message 
+corresponds to this id sent; if yes and because no one can know this id then 
+the server continue the signalization otherwise he must stop it.
+
+The message sent by the user to the server is:
+SndAT ({Hash (A. {Hash (Na'.Tstart'.IDa)} _Ka)} _Ka)
+
+A is the user, I sent this value for identifying the “From” value from where 
+is sent this message, T is the server, Hash is the function responsible of 
+hashing, Na’ is a random number created by the server and sent to the user 
+in a response of an authentication demand, Ka is the shared key between user 
+and server, Ida is the identifier of the user; this identifier is stored in 
+the card given to the user upon registration. So we have hashed the id with 
+random received from the server with the time of sending this message and 
+encoded this hash with the shared key (Ka) and finally all the message is 
+signed with the shared key.
+All messages sent between users and servers are signed with the shared key.
+
+The random number sent by the server is also encoded with the shared key.
+RcvAT ({Hash (K1T. {Na'.Treceive'}_Ka)} _Ka)
+
+K1T is the public key of the server.
+With all this encryption we have an attack on the IDa.
+
+When server receive message from user he must validate if this IDa and the 
+“From” value (A) corresponds to each other or not. Is there any method in 
+AVISPA I can use for the server to find in his database if this IDa sent 
+correspond to the “From” value which is the address of record?
+
+A is sent without encoding but all the message is signed so attacker can 
+change this address or only he can see it? Attacker cannot know the shared 
+key Ka because it is saved on the card of the user and not exchanged in the 
+network.
+
+Thanks a lot
+
+_________________________________________________________________
+Express yourself instantly with MSN Messenger! Download today - it's FREE! 
+http://messenger.msn.click-url.com/go/onm00200471ave/direct/01/
+
+From s9901726 at sms.ed.ac.uk  Mon Jul 24 22:11:22 2006
+From: s9901726 at sms.ed.ac.uk (Gavin Keighren)
+Date: Mon Jul 24 15:28:35 2006
+Subject: [Avispa-users] Unified Terms in Attacks
+Message-ID: <0fc03b69e70940f756a3cfd3e3de191a@sms.ed.ac.uk>
+
+Hi,
+
+I wanted to know if there is an implicit order of preference on the 
+terms used to unify expressions. That is, if an attack exists that 
+requires only terms known to the intruder, will it be guaranteed to be 
+found before *any* attack that requires arbitrary terms like Key(12)?
+
+It's just that attacks which are of the latter form are generally 
+harder to actually carry out in reality, since the arbitrary term will 
+typically have restrictions placed upon it which are abstracted away in 
+the model (e.g. parity checking).
+
+
+thanks in advance,
+
+Gavin Keighren
+
+From paul.drielsma at inf.ethz.ch  Wed Jul 26 14:43:17 2006
+From: paul.drielsma at inf.ethz.ch (Paul Hankes Drielsma)
+Date: Wed Jul 26 08:01:38 2006
+Subject: [Avispa-users] Unified Terms in Attacks
+In-Reply-To: <0fc03b69e70940f756a3cfd3e3de191a@sms.ed.ac.uk>
+References: <0fc03b69e70940f756a3cfd3e3de191a@sms.ed.ac.uk>
+Message-ID: <36C1568E-8AAE-4F12-AEB4-8A8DD456D858@inf.ethz.ch>
+
+Hello Gavin,
+
+I think the precise answer is almost certainly that this will depend  
+of the backend and the search strategy used.
+
+Somewhat imprecisely, however, I would guess that this cannot be  
+guaranteed.  I we were to claim that the attack traces are minimal in  
+length, then one could perhaps make an argument that this would  
+hold.  At least for OFMC, however, the attack traces are not  
+(necessarily) minimal.
+
+Cheers,
+Paul.
+
+On Jul 24, 2006, at 10:11 PM, Gavin Keighren wrote:
+
+> Hi,
+>
+> I wanted to know if there is an implicit order of preference on the  
+> terms used to unify expressions. That is, if an attack exists that  
+> requires only terms known to the intruder, will it be guaranteed to  
+> be found before *any* attack that requires arbitrary terms like Key 
+> (12)?
+>
+> It's just that attacks which are of the latter form are generally  
+> harder to actually carry out in reality, since the arbitrary term  
+> will typically have restrictions placed upon it which are  
+> abstracted away in the model (e.g. parity checking).
+>
+>
+> thanks in advance,
+>
+> Gavin Keighren
+>
+> _______________________________________________
+> Avispa-users mailing list
+> Avispa-users@avispa-project.org
+> http://www.avispa-project.org/mailman/listinfo/avispa-users
+
+From moedersheim at inf.ethz.ch  Wed Jul 26 15:19:41 2006
+From: moedersheim at inf.ethz.ch (Sebastian Alexander Moedersheim)
+Date: Wed Jul 26 08:38:01 2006
+Subject: [Avispa-users] Unified Terms in Attacks
+In-Reply-To: <36C1568E-8AAE-4F12-AEB4-8A8DD456D858@inf.ethz.ch>
+References: <0fc03b69e70940f756a3cfd3e3de191a@sms.ed.ac.uk>
+	<36C1568E-8AAE-4F12-AEB4-8A8DD456D858@inf.ethz.ch>
+Message-ID: <17607.27629.49684.431571@gargle.gargle.HOWL>
+
+Hello Gavin and Paul,
+
+Here a little background on the search strategies:
+
+- OFMC uses breadth-first search and iterative deepening, therefore
+attacks found are minimal in length. (Though OFMC might add a dummy
+step at the end of the trace.)
+
+- Cl-AtSe uses either breadth-first or depth-first search (depending
+on the options). With breadth-first, the first found attack is
+minimal. Anyway, if the initial state is already an attack in itself,
+then this will be reported before all others.
+
+- SATMC basically encodes the problem to find an attack trace of
+length i into a boolean formula, where one starts with i=0, and then
+increases i if no attack is found. So the first attack found must also
+be minimal.
+
+- For TA4SP it is hard to define what minimal means due to the
+abstract interpretation.
+
+So (except for TA4SP) all back-ends should be able to find you a
+minimal attack if one exists.
+
+Ciao,
+Sebastian
+
+
+
+Paul Hankes Drielsma writes:
+ > Hello Gavin,
+ > 
+ > I think the precise answer is almost certainly that this will depend  
+ > of the backend and the search strategy used.
+ > 
+ > Somewhat imprecisely, however, I would guess that this cannot be  
+ > guaranteed.  I we were to claim that the attack traces are minimal in  
+ > length, then one could perhaps make an argument that this would  
+ > hold.  At least for OFMC, however, the attack traces are not  
+ > (necessarily) minimal.
+ > 
+ > Cheers,
+ > Paul.
+ > 
+ > On Jul 24, 2006, at 10:11 PM, Gavin Keighren wrote:
+ > 
+ > > Hi,
+ > >
+ > > I wanted to know if there is an implicit order of preference on the  
+ > > terms used to unify expressions. That is, if an attack exists that  
+ > > requires only terms known to the intruder, will it be guaranteed to  
+ > > be found before *any* attack that requires arbitrary terms like Key 
+ > > (12)?
+ > >
+ > > It's just that attacks which are of the latter form are generally  
+ > > harder to actually carry out in reality, since the arbitrary term  
+ > > will typically have restrictions placed upon it which are  
+ > > abstracted away in the model (e.g. parity checking).
+ > >
+ > >
+ > > thanks in advance,
+ > >
+ > > Gavin Keighren
+ > >
+ > > _______________________________________________
+ > > Avispa-users mailing list
+ > > Avispa-users@avispa-project.org
+ > > http://www.avispa-project.org/mailman/listinfo/avispa-users
+ > 
+ > _______________________________________________
+ > Avispa-users mailing list
+ > Avispa-users@avispa-project.org
+ > http://www.avispa-project.org/mailman/listinfo/avispa-users
+From paul.drielsma at inf.ethz.ch  Thu Jul 27 12:14:46 2006
+From: paul.drielsma at inf.ethz.ch (Paul Hankes Drielsma)
+Date: Thu Jul 27 05:33:14 2006
+Subject: [Avispa-users] AVISPA 1.1 For Mac OS X
+Message-ID: <DAB02CDF-485E-40BB-9E7B-41901498F41A@inf.ethz.ch>
+
+Hello all,
+
+I'm happy to announce that the AVISPA Tool version 1.1, announced  
+recently in the email that I include below, is now also available for  
+Mac OS X.
+
+Beta testers of the 1.0 version will notice, in addition to the new  
+features described below, that the Mac port now supports the CL-AtSe  
+and SATMC backends for the first time.
+
+The Mac version can be downloaded at
+     http://www.avispa-project.org
+
+Feedback and bug reports are most welcome!
+
+Best regards,
+Paul Hankes Drielsma and the AVISPA Team
+
+-----------------------------------------------------------------
+
+              XXX   X     X  XXXXX   XXXXX  XXXXXX    XXX
+             X   X  X     X    X    X     X X     X  X   X
+            X     X X     X    X    X       X     X X     X
+            X     X  X   X     X    X       X     X X     X
+            XXXXXXX  X   X     X     XXXXX  XXXXXX  XXXXXXX
+            X     X   X X      X          X X       X     X
+            X     X   X X      X          X X       X     X
+            X     X    X       X    X     X X       X     X
+            X     X    X     XXXXX   XXXXX  X       X     X
+
+                          V E R S I O N    1 . 1
+
+                             (June 30, 2006)
+
+
+We are happy to announce the availability of a new version of the
+AVISPA Tool, a push-button tool for the Automatic Validation of
+Internet Security-sensitive Protocols and Applications.  The AVISPA
+Tool v1.1 is available at
+
+                       http://www.avispa-project.org
+
+The AVISPA Tool v1.1 includes several bug fixes and extends the
+previous versions of the AVISPA Tool with several new features (see
+the NEWS section below).
+
+========
+OVERVIEW
+========
+
+The AVISPA Tool is a push-button tool for the automated validation of
+Internet security-sensitive protocols and applications.  It provides a
+modular and expressive formal language (called HLPSL) for specifying
+protocols and their security properties, and integrates different
+back-ends that implement a variety of state-of-the-art automatic
+analysis techniques ranging from protocol falsification (by finding an
+attack on the input protocol) to abstraction-based verification
+methods for both finite and infinite numbers of sessions.
+
+The HLPSL is an expressive, modular, role-based, formal language that
+allows for the specification of control flow patterns,
+data-structures, complex security properties, as well as different
+cryptographic primitives and their algebraic properties.  These
+features make HLPSL well suited for specifying modern,
+industrial-scale protocols.  Moreover, the HLPSL enjoys both a
+declarative semantics based on a fragment of the Temporal Logic of
+Actions and an operational semantics based on a translation into the
+rewrite-based formalism Intermediate Format IF.  The AVISPA Tool
+automatically translates HLPSL specifications into equivalent IF
+specifications which are in turn fed to the back-ends.
+
+The following back-ends are integrated in the AVISPA Tool:
+
+* The On-the-fly Model-Checker (OFMC) performs protocol falsification
+   and bounded verification by exploring the transition system
+   described by an IF specification in a demand-driven way. OFMC
+   implements a number of correct and complete symbolic techniques.  It
+   supports the specification of algebraic properties of cryptographic
+   operators, and typed and untyped protocol models.
+
+* The Constraint-Logic-based Attack Searcher (CL-AtSe) applies
+   constraint solving with some powerful simplification heuristics and
+   redundancy elimination techniques.  CL-AtSe is built in a modular
+   way and is open to extensions for handling algebraic properties of
+   cryptographic operators. It supports type-flaw detection and handles
+   associativity of message concatenation.
+
+* The SAT-based Model-Checker (SATMC) builds a propositional formula
+   encoding a bounded unrolling of the transition relation specified by
+   the IF, the initial state and the set of states representing a
+   violation of the security properties.  The propositional formula is
+   then fed to a state-of-the-art SAT solver and any model found is
+   translated back into an attack.
+
+* The TA4SP (Tree Automata based on Automatic Approximations for the
+   Analysis of Security Protocols) back-end approximates the intruder
+   knowledge by using regular tree languages and rewriting.  For
+   secrecy properties, TA4SP can show whether a protocol is flawed (by
+   under-approximation) or whether it is safe for any number of
+   sessions (by over-approximation).
+
+In order to demonstrate the effectiveness of the AVISPA Tool on a
+large collection of practically relevant, industrial protocols, we
+have selected a substantial set of security problems associated with
+protocols that have recently been or are currently being standardized
+by organizations like the Internet Engineering Task Force IETF.  We
+have then formalized in HLPSL a large subset of these protocols, and
+the result of this specification effort is the AVISPA Library
+(publicly available at the AVISPA web-page), which at present
+comprises 112 security problems derived from 33 protocols.
+
+Further details on the AVISPA Tool and on the AVISPA project can be
+found in the paper:
+
+A. Armando, D. Basin, Y. Boichut, Y. Chevalier, L. Compagna,
+J. Cuellar, P. Hankes Drielsma, P.C. Heam, O. Kouchnarenko,
+J. Mantovani, S. Moedersheim, D. von Oheimb, M. Rusinowitch,
+J. Santiago, M. Turuani, L. Vigano`, L. Vigneron.  "The AVISPA Tool
+for the Automated Validation of Internet Security Protocols and
+Applications."  In Proc. CAV'05, LNCS. Springer Verlag, 2005,
+Available at the URL http://www.avispa-project.org/avispa-cav05.ps
+
+====
+NEWS
+====
+
+* All known bugs have been fixed.
+
+* All back-ends have been optimised for improved performance.
+
+* The translator from HLPSL to IF has been improved, with only minor
+   changes in the syntax:
+
+   - The HLPSL type "function" being too ambiguous, it has been renamed
+     "hash_func".
+
+   - More semantic tests are done for detecting incomplete goal
+     specifications or missing new() assignments.
+
+   - The handling of sets has been simplified in the translator.
+
+   - Predefined constant functions, like xor and exp, are better
+     handled.
+
+   - Warning and error messages are more precise.
+
+* OFMC, CL-AtSe, and SATMC support user-defined (non temporal)
+   security goals.
+
+* OFMC now supports reasoning modulo a user-specified algebraic
+   theory.
+
+* CL-Atse has improved in many ways:
+
+   - Algebraic properties : CL-Atse now supports complete analysis of
+     cryptographic protocols modulo the xor, including all the intruder
+     deduction rules for that operator.  CL-Atse also implements
+     complete analysis modulo the exponential except for the rule g^1 =
+     g (i.e. exponentials are tagged).  Also, some improvements on the
+     code for algebraic properties (speed, bug correction, etc.) have
+     been added.
+
+   - The protocol optimisation module now allows CL-Atse to perform
+     advanced optimisations of the protocol specification before the
+     analysis, and may greatly reduce the analysis time.  Now, CL-Atse
+     can statically decide the origin of certain messages and reduce
+     the non-determinism of the analysis accordingly.
+
+   - User interaction (output presentation, options, etc..) improved.
+
+* The AVISPA XEmacs mode has been improved and it is now a powerful
+  environment for writing protocol specifications and analysing them.
+
+* A new contribution has been added: hlpsldoc.  It contains script
+   files that automatically generate either a LaTeX file or a HTML file
+   from a HLPSL specification.  It has been used to generate the online
+   AVISPA library.
+
+========
+PARTNERS
+========
+
+The following research groups have contributed to the development of
+the AVISPA Tool:
+
+  * Artificial Intelligence Laboratory,
+    Dipartimento di Informatica, Sistemistica e Telematica (DIST),
+    University of Genova, Italy
+
+  * Laboratoire Lorrain de Recherche en Informatique et ses Applications
+    (LORIA UMR 7503) with partners INRIA, CNRS, Universite' Henri  
+Poincare' (UHP)
+    Universit? Nancy 2  AND
+    Laboratoire d'Informatique de l'Universite' de Franche-Comte',
+    France
+
+  * Eidgenoessische Technische Hochschule Zuerich (ETHZ),
+    Information Security Group, Department of Computer Science,
+    Zuerich, Switzerland
+
+  * Siemens Aktiengesellschaft, Munich, Germany
+
+================
+GETTING IN TOUCH
+================
+
+The home page of the AVISPA project is <http://www.avispa-project.org>.
+
+A mailing list for general questions, bugs and bug fixes, possible
+extensions, and user requests on the AVISPA Tool is available.  To
+register please send an empty message to
+
+               <avispa-users-join-project.org>
+
+New releases and other important events for AVISPA will be also
+announced on this list.
+
+--
+The AVISPA Team
+http://www.avispa-project.org
+
+
+

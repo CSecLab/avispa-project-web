@@ -1,0 +1,124 @@
+%%HLPSL:
+role alice (A, B, S: agent,             
+            Ks: public_key, 
+            K: symmetric_key,    
+            KeyRing: (agent.public_key) set,
+            SND, RCV: channel (dy)) 
+played_by A def=
+
+  local State : nat, 
+        Na, Nb : text,
+        c : nat 
+
+  init State := 0
+
+  transition  
+   
+    0.  State  = 0 /\ RCV(start) =|> 
+	State'  := 1 /\ Na':= new() /\ c':= new() /\ SND({xor(Na',A)}_KS)/\ SND({xor(Na',B)}_KS, {xor(Na',c)}_KS)
+		   /\ secret(Na,na,{A,B,S}) 
+    5.  State  = 2 /\ RCV(xor(K,{Na'}_inv(KS)))
+                   /\ secret(K,k,{A,B,S}) 
+		    
+	
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob(A, B, S: agent,      
+         Ks: public_key, 
+         K: symmetric_key,     
+         SND, RCV: channel (dy)) 
+played_by B def=
+
+  local State : nat, 
+	Na, Nb: text,
+        c: nat
+
+  init State := 5
+
+  transition 
+
+    2.  State  = 5 /\ RCV(start) =|> 
+	State =  6 /\ Nb' := new()  /\ SND({xor(B,Nb)}_KS)/\ SND({xor(Nb,A)}_KS, {xor(Nb,c)}_KS)
+		   /\ secret(Nb,nb,{A,B,S}) 
+    6.  State =  7 /\ RCV(xor(K,{Na'}_inv(KS)))
+                   /\ secret(K,k,{A,B,S})
+		  
+
+   
+	
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role server(A, B, S: agent,      
+         Ks: public_key, 
+         K: symmetric_key,     
+         SND, RCV: channel (dy)) 
+played_by B def=
+
+  local State : nat, 
+	Na, Nb: text
+
+  init State := 10
+
+  transition 
+
+    1.  State = 10 /\ RCV({xor(Na,A)}_KS)/\ RCV({xor(Na,B)}_KS, {xor(Na,c)}_KS)
+    3.  State = 11 /\ RCV({xor(B,Nb)}_KS)/\ RCV({xor(Nb,A)}_KS, {xor(Nb,c)}_KS)
+    4.  State = 12 /\  K' := new()/\ SND(xor(K',{Na'}_inv(KS)))	  
+    6.  State = 13 /\ SND(xor(K',{Nb'}_inv(KS)))
+   
+	
+
+end role
+
+role session(A, B, S: agent, Kb: public_key) def=
+
+  local SA, RA, SB, RB, SS, RS: channel (dy)
+
+  composition 
+
+	alice(A,B,S, Kb,SA,RA)
+     /\ bob  (A,B,S, Kb,SB,RB)
+     /\ server  (A,B,S, KS,inv(KS),SS,RS)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+    const a, b , s       : agent,
+	  KS  : public_key,
+	  na, nb,
+	  alice_bob_nb,
+	  bob_alice_na : protocol_id
+
+    intruder_knowledge = {a, b, s, ks}
+
+    composition
+
+	session(a,s,ks)
+     /\ session(a,i,ki)
+     /\ session(i,b,ki)
+     /\ session(i,s,ki)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of na, nb, k
+  %authentication_on alice_bob_nb
+  %authentication_on bob_alice_na
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+

@@ -1,0 +1,88 @@
+%PROTOCOL: Identity-based Authentication and Access Control in Wireless Sensor Networks.%
+%PURPOSE: To establish user authentication.%
+%A -> B : %
+%B -> A : %
+%To simulate man-in-the-middle attack on this protocol.%
+
+role initiator (A,B : agent,
+		K   : symmetric_key,
+		Hash: hash_func,
+		SND,RCV : channel(dy))
+
+% A = sender, B = receiver
+played_by A
+def=
+	local State : nat,
+	UIDA,SK,TK,TS,r,Kba:Text
+	const sub2,kab : protocol_id
+
+init
+
+State := 0
+
+transition
+1.State=0 /\RCV(start)=|>
+   State'=1 /\r'=new()
+	/\TK'=(r.Hash(UIDA))
+	/\TS'=new()
+   	/\SND(TS.TK.UIDA)
+2.State=1 /\ RCV({Kba}_TK)=|>
+  	SK'=(Kab.TS)
+	/\ secret({Kba}, Kab, A)
+	/\SND({SK}_TK)
+
+end role
+   	
+played_by B
+def=
+	local State : nat,
+	UIDA,SK,TM,TK,TS,r,Kba:Text
+	const  sub2,Kab : protocol_id
+
+init
+
+State := 0
+
+transition
+
+1.State=0 /\RCV(TS.TK.UIDA)=|>
+   State'=1 /\r'=new()/\Kba'=(r.Hash(TK.UIDA))/\secret({Kba'}, sub2, B)
+	/\SND({Kba}_TK)
+2.State=1 /\ RCV({Kab}_TK)=|>
+  SK'=(Kab.TS)/\SND({SK}_TK)
+
+end role
+   	
+role session(A,B : agent,
+		K   : symmetric_key,
+		Hash: hash_func
+	)
+def=
+local
+SA, SB, RA, RB: channel (dy),
+UIDA,SK,TM,TK,TS,r,Kba: text
+const Kab, sub2 : protocol_id
+composition
+initiator(A, B, SA, RA)
+/\ responder(A, B, SB, RB)
+end role
+
+
+role environment()
+def=
+const A, B : agent,
+UIDA,SK,TM,TK,TS,r,Kba,sub2 : text,
+alice_bob_xa, bob_alice_xb, Kab, sub2 : protocol_id
+
+session(a, b) /\
+session(a, b)
+end role
+
+
+goal
+secrecy_of SK
+secrecy_of sub2
+secrecy_of Kab
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

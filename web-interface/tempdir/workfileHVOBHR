@@ -1,0 +1,107 @@
+role client(A, S: agent,
+            SK: hash(agent.agent),
+            F: hash_func,
+            SND, RCV: channel (dy))
+played_by A
+def=
+
+  local  State : nat, 
+         T, Ns : text
+
+  const  sec_SK : protocol_id
+
+  init   State := 0
+
+  transition 
+
+  1. State = 0   /\ RCV(start) 
+     =|>
+     State' := 1 /\ SND(A)
+
+  2. State = 1   /\ RCV(Ns'.T'.S)
+     =|>
+     State' := 2 /\ SND(F(SK.T')) 
+                 /\ witness(A,S,auth,F(SK.T')) 
+                 /\ secret(SK,sec_SK,{S})
+
+end role
+
+
+
+role server(S : agent,
+            K, F: hash_func,
+            SND, RCV: channel (dy))
+played_by S
+def=
+
+  local State : nat,
+        A     : agent,
+        T, Ns : text,
+        Auth  : hash(hash(agent.agent).text)
+
+  init  State := 0
+
+  transition 
+   1. State = 0   /\ RCV(A') 
+      =|>
+      State' := 1 /\ Ns' := new()
+                  /\ T' := new()
+                  /\ SND(Ns'.T'.S)
+
+   2. State = 1   /\ RCV(F(K(A.S).T)) 
+      =|>
+      State' := 2 /\ Auth' := F(K(A.S).T) 
+                  /\ request(S,A,auth,F(K(A.S).T))
+
+end role
+
+
+
+role session(A, S: agent,
+             K, F: hash_func)
+def=
+
+  local SK: hash(agent.agent),
+        SNDA, SNDS, RCVA, RCVS: channel (dy)
+
+  init SK := K(A.S)
+
+  composition
+       client(A,S,SK,F,SNDA,RCVA)
+    /\ server(S,K,F,SNDS,RCVS)
+
+end role
+
+
+
+role environment()
+def=
+
+ const a, s : agent,
+       k, f : hash_func,
+       auth : protocol_id
+
+ intruder_knowledge = {a,s,i,f}
+
+ composition
+      session(a,s,k,f)
+   /\ session(i,s,k,f)
+   /\ session(a,s,k,f)
+
+end role
+
+
+
+goal
+
+  %secrecy_of SK
+  secrecy_of sec_SK  % Addresses G12
+
+  %Server authenticates Client on auth
+  authentication_on auth  % Addresses G1, G2, G3
+
+end goal
+
+
+
+environment()

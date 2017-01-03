@@ -1,0 +1,233 @@
+%%% Protocol: An Efficient Provably Secure Authentication and
+%%% Key Agreement Scheme for Wireless Sensor Networks
+
+% Author: Ashok Kumar Das
+
+%%%%%%% Role specification for the user U_i %%%%%%%%
+
+role user (Ui, GWN, Sj : agent,                                                         
+            H : hash_func,
+            SKuigwn : symmetric_key,
+            SND, RCV: channel(dy))
+played_by Ui
+def=     
+  local State  : nat,
+        IDi, PWi, BIOi, Ri, Ri1, MIi, Fi, Ei : text,
+        XGWN, P, MPi, T1, A, RNi, Ki, Xi, Yi : text,
+        SIDj, Kj, Vi, Wi, Zi, Ni, B, T4: text, 
+        F : hash_func
+
+  const user_sensor_t1, user_sensor_rni,
+        sensor_user_t4, s1, s2, s3 : protocol_id
+
+init  State := 0
+transition
+1. State = 0 /\ RCV(start) =|>
+% Registration phase
+State' := 1 /\ Ri' := new()
+            /\ MPi' := H(Ri'.PWi)
+            /\ secret (IDi, s1, {Ui, GWN})
+            /\ secret({PWi,BIOi,Ri'}, s2, Ui)
+% Send registration request to GWN securely
+            /\ SND({IDi.MPi'}_SKuigwn)
+% Receive the smart card SCi from GWN securely
+2. State = 1 /\ RCV({H(Ri1'.IDi).xor(H(Ri'.PWi),
+                H(H(Ri1'.IDi).XGWN)).H}_SKuigwn) =|>
+% Login and authentication phase
+State' := 2 /\ secret({XGWN,Ri1'}, s3, GWN)
+            /\ Fi' := H(H(Ri1'.IDi).XGWN)
+            /\ T1' := new()
+            /\ A' := new()
+            /\ RNi' := new()
+            /\ Ki' := F(A'.P)
+            /\ Xi' := H(Fi'.T1')
+            /\ Yi' := H(SIDj.Xi')
+            /\ Vi' := H(RNi'.H(Ri1'.IDi).SIDj.T1')
+            /\ Zi' := xor(Ki'.Vi')
+            /\ Wi' := xor(RNi'.Yi')
+            /\ Ni' := H(Yi'.Zi'.H(Ri1'.IDi).SIDj)
+% Send the message m1 to sensor Sj via a public channel
+            /\ SND(H(Ri1'.IDi).Zi'.Wi'.Ni'.T1')
+% Ui has freshly generated the values T1 and RNi for Sj
+            /\ witness(Ui,Sj,user_sensor_t1, T1')
+            /\ witness(Ui,Sj,user_sensor_rni,RNi')
+% Ui receives the message m4 from sensor Sj via a public channel
+3. State = 2 /\ RCV(xor(H(F(A'.P).T4'.H(H(H(Ri1'.IDi).XGWN).T1')),Kj').
+                  H(H(H(H(Ri1'.IDi).XGWN).H(H(SIDj.H(H(H(Ri1'.IDi).
+                  XGWN).T1')).xor(F(A'.P),
+                  H(RNi'.H(Ri1'.IDi).SIDj.T1')).H(Ri1'.IDi).SIDj)).
+                  H(H(H(Ri1'.IDi).XGWN).T1').F(B'.F(A'.P))).T4') =|>
+% Ui's acceptance of the timestamp T4 generated for Ui by Sj
+State' := 3 /\ request(Sj, Ui, sensor_user_t4, T4') 
+end role
+
+
+%%%%%%% Role specification for the GWN %%%%%%%%
+
+role gwn   (Ui, GWN, Sj : agent,                                                         
+            H : hash_func,
+            SKuigwn : symmetric_key,
+            SND, RCV: channel(dy))
+played_by GWN
+def=     
+  local State  : nat,
+        IDi, PWi, BIOi, Ri, Ri1, MIi, Fi, Ei : text,
+        XGWN : text,
+        F: hash_func
+
+const user_sensor_t1, user_sensor_rni,
+      s1, s2, s3 : protocol_id
+
+init  State := 0
+transition
+% Registration phase
+% Receive the registration request from Ui securely
+1. State = 0 /\ RCV({IDi.H(Ri'.PWi)}_SKuigwn) =|> 
+ State' := 3 /\ secret (IDi, s1, {Ui, GWN})
+             /\ secret({PWi,BIOi,Ri'}, s2, Ui)
+             /\ Ri1' := new()
+             /\ secret({XGWN,Ri1'}, s3, GWN)
+             /\ MIi' := H(Ri1'.IDi)
+             /\ Fi' := H(MIi'.XGWN)
+             /\ Ei' := xor(H(Ri'.PWi), Fi')
+% Send the smart card SCi to Ui securely 
+             /\ SND({MIi'.Ei'.H}_SKuigwn)
+% Login and authentication phase
+% Receive the message m2 from sensor Sj via a public channel
+2. State = 3 /\ RCV(H(Ri1'.IDi).xor(F(A'.P).H(RNi'.H(Ri1'.IDi).SIDj.T1')).
+                    H(H(SIDj.H(H(H(Ri1'.IDi).XGWN).T1')).xor(F(A'.P).
+                    H(RNi'.H(Ri1'.IDi).SIDj.T1')).H(Ri1'.IDi).SIDj).
+                    SIDj'.H(H(SIDj.XGWN).H(H(SIDj.H(H(H(Ri1'.IDi).XGWN).T1')).
+                    xor(F(A'.P).H(RNi'.H(Ri1'.IDi).SIDj.T1')).H(Ri1'.IDi).
+                    SIDj).T1'. T2').T1'.T2') =|> 
+ State' := 6 /\ T3' := new() 
+             /\ Fj' := H(SIDj.XGWN)
+             /\ E1' := H(H(H(Ri1'.IDi).XGWN).H(H(SIDj.H(H(H(Ri1'.IDi).
+                      XGWN).T1')).xor(F(A'.P),
+                      H(RNi'.H(Ri1'.IDi).SIDj.T1')).H(Ri1'.IDi).SIDj))
+             /\ Fij' := xor(xor(H(H(H(Ri1'.IDi).XGWN).T1'), H(Fj'.E1')),
+                        H(Fj'.T3'))
+             /\ Hj' := H(SIDj.H(H(H(Ri1'.IDi).XGWN).T1').T3')
+% Send the message m3 to sensor Sj via a public channel
+             /\ SND(Fij'.Hj'.E1'.T3')
+% GWN has freshly generated the timestamp T3 for sensor Sj 
+            /\ witness(GWN, Sj, gwn_sensor_t3, T3')
+% GWN's acceptance of the timestamp T2 generated for GWN by sensor Sj 
+            /\ request(Sj, GWN, sensor_gwn_t2, T2)
+end role
+
+
+
+
+
+%%%%%%% Role specification for sensor node Sj %%%%%%%%
+
+role sensor (Ui, GWN, Sj : agent,                                                         
+             H : hash_func,
+             SND, RCV: channel(dy))
+played_by Sj
+def=     
+  local State  : nat,
+        XGWN : text
+
+  const user_sensor_t1, user_sensor_rni,
+        sensor_gwn_t2, 
+        s1, s2, s3 : protocol_id
+
+  init  State := 0
+transition
+% Login and authentication phase
+% Receive the message m1 from Ui via a public channel 
+1. State = 0 /\ RCV(H(Ri1'.IDi).
+                xor(F(A'.P).H(RNi'.H(Ri1'.IDi).SIDj.T1')).
+                xor(RNi'.H(SIDj.H(H(H(Ri1'.IDi).XGWN).T1'))).
+                H(H(SIDj.H(H(H(Ri1'.IDi).XGWN).T1')).xor(F(A'.P).
+                H(RNi'.H(Ri1'.IDi).SIDj.T1')).H(Ri1'.IDi).SIDj).
+                T1' ) =|> 
+ State' := 2 /\ secret({XGWN,Ri1'}, s3, GWN)
+% Send the message m2 to the GWN via a public channel
+             /\ T2' := new() 
+             /\ Aj' := H(H(SIDj.XGWN).
+                         H(H(SIDj.H(H(H(Ri1'.IDi).XGWN).T1')).xor(F(A'.P).
+                         H(RNi'.H(Ri1'.IDi).SIDj.T1')).H(Ri1'.IDi).SIDj).
+                         T1'. T2')
+             /\ SND(H(Ri1'.IDi).xor(F(A'.P), H(RNi'.H(Ri1'.IDi).SIDj.T1')).
+                    H(H(SIDj.H(H(H(Ri1'.IDi).XGWN).T1')).xor(F(A'.P),
+                    H(RNi'.H(Ri1'.IDi).SIDj.T1')).H(Ri1'.IDi).SIDj).
+                    SIDj'.Aj'.T1'.T2')
+% Sj has freshly generated the timestamp T2 for GWN
+            /\ witness(Sj, GWN, sensor_gwn_t2, T2')
+% Receive the message m3 from GWN via a public channel
+2. State = 2 /\ RCV(xor(xor(H(H(H(Ri1'.IDi).XGWN).T1'), H(Fj'.E1')),
+                    H(Fj'.T3').H(SIDj.H(H(H(Ri1'.IDi).XGWN).T1').T3')).
+                    H(H(H(Ri1'.IDi).XGWN).H(H(SIDj.H(H(H(Ri1'.IDi).
+                    XGWN).T1')).xor(F(A'.P).H(RNi'.H(Ri1'.IDi).SIDj.T1')).
+                    H(Ri1'.IDi).SIDj)).T3') =|> 
+ State' := 4 /\ T4' := new()
+             /\ B' := new()
+             /\ Kj' := F(B'.P)
+             /\ Rij' := xor(H(F(A'.P).T4'.H(H(H(Ri1'.IDi).XGWN).T1')),Kj')
+             /\ E2' := H(H(H(H(Ri1'.IDi).XGWN).H(H(SIDj.H(H(H(Ri1'.IDi).
+                      XGWN).T1')).xor(F(A'.P).
+                      H(RNi'.H(Ri1'.IDi).SIDj.T1')).H(Ri1'.IDi).SIDj)).
+                      H(H(H(Ri1'.IDi).XGWN).T1').F(B'.F(A'.P)))
+% Send the message m4 to the user Ui via a public channel
+             /\ SND(Rij'.E2'.T4')
+% Sj has freshly generated the timestamp T4 for Ui
+            /\ witness(Sj, Ui, sensor_user_t4, T4')
+% Sj's acceptance of the timestamp T1 generated for Sj by Ui 
+            /\ request(Ui, Sj, user_sensor_t1, T1')
+% Sj's acceptance of the nonce RNi generated for Sj by Ui 
+            /\ request(Ui, Sj, user_sensor_rni, RNi')
+% Sj's acceptance of the timestamp T3 generated for Sj by GWN 
+            /\ request(Ui, Sj, gwn_sensor_t3, T3')
+end role 
+
+
+%%%%%%% Role specification for the session %%%%%%%%
+
+role session(Ui, GWN, Sj: agent, 
+             % H is hash function                                                         
+             H : hash_func,
+             SKuigwn: symmetric_key)
+def=
+  local  US, UR, GS, GR, SS, SR: channel (dy)
+  composition
+           user(Ui, GWN, Sj, H, SKuigwn, US, UR)
+        /\ gwn(Ui, GWN, Sj, H, SKuigwn, GS, GR)
+        /\ sensor(Ui, GWN, Sj, H, SS, SR)
+end role
+
+
+%%%%%%% Role specification for the goal and environment %%%%%%%%
+
+role environment()
+def=
+ const  ui, gwn, sj : agent,
+        h, f : hash_func, 
+        skuigwn: symmetric_key, 
+        idi, sidj, t1, t2,t3, t4 : text,
+        user_sensor_t1, user_sensor_rni,
+        sensor_gwn_t2, gwn_sensor_t3,
+        sensor_user_t4, s1, s2, s3: protocol_id
+intruder_knowledge ={sidj,t1,t2,t3,t4,h,f}
+  composition
+	session(ui, gwn, sj, h, skuigwn) 
+    /\	session(i, gwn, sj, h, skuigwn) 
+    /\  session(ui, i, sj, h, skuigwn)
+    /\  session(ui, gwn, i, h, skuigwn) 
+end role
+
+goal
+   secrecy_of s1
+   secrecy_of s2
+   secrecy_of s3
+
+   authentication_on user_sensor_t1
+   authentication_on user_sensor_rni
+   authentication_on sensor_gwn_t2
+   authentication_on gwn_sensor_t3
+   authentication_on sensor_user_t4
+end goal
+environment()
+

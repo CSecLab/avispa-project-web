@@ -1,0 +1,89 @@
+%% PROTOCOL: NSPK: Needham-Schroeder Public-Key Protocol
+%% VARIANT: original version (of 1978) without key server
+%% PURPOSE: Two-party mutual autentication
+%% ALICE_BOB:
+%% 1. A  - {Na.A}_Kb ----> B
+%% 2. A  B
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% définition du rôle alice, initiant le protocole
+role alice (A, B: agent,             
+            Ka, Kb: public_key,      
+            SND, RCV: channel (dy)) 
+played_by A def=
+
+  local State : nat, 
+        Na, Nb: text
+
+  init State := 0
+
+  transition  
+   
+    0.  State  = 0 /\ RCV(start) =|> 
+	State':= 1 /\ Na' := new() /\ SND({Na'.A}_Kb)
+
+    2.  State  = 1 /\ RCV({Na.Nb'}_Ka) =|> 
+	State':= 2 /\ SND({Nb'}_Kb) 
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% role bob à écrire
+role bob (A, B: agent,             
+            Ka, Kb: public_key,      
+            SND, RCV: channel (dy))
+played_by A def=
+
+  local State : nat, 
+        Na, Nb: text
+
+  init State := 0
+
+  transition  
+   
+    1.  State  = 0 /\ RCV({Na'.A}_Kb) =|> 
+  State':= 1 /\ Nb' := new() /\ SND({Na'.Nb'}_Ka) /\ secret(Nb', nb,{A,B}) 
+
+    3.  State  = 1 /\ RCV({Nb}_Kb) =|> 
+  State':= 2 /\ SND({Nb}_Kb) 
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% définition du rôle caractérisant une session
+role session(A, B: agent, Ka, Kb: public_key) def=
+
+  local SA, RA, SB, RB: channel (dy)
+
+  composition 
+
+	alice(A,B,Ka,Kb,SA,RA)
+     /\ bob  (A,B,Ka,Kb,SB,RB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% définition du rôle caractérisant le scenario à exécuter
+role environment() def=,
+
+
+    const a, b	       : agent	  ka, kb, ki   : public_key,
+    nb : protocol_id
+
+    intruder_knowledge = {a, b, ka, kb, ki, inv(ki)}
+
+    composition
+
+    session(a,b,ka,kb)
+    /\ session(a,b,ka,kb) /\ session(b,a,kb,ka) /\ session(a,i,ka,ki)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% pas de section goal (donc pas de propriétés à vérifier)
+goal
+    secrecy_of nb
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% lancement du rôle principal
+environment()

@@ -1,0 +1,109 @@
+% TEMA 1 : Versiunea 2.0 %
+role alice (A, S, B: agent,
+		K_AS : symmetric_key,
+		SND_SA, RCV_SA, SND_BA, RCV_BA: channel(dy))
+		played_by A
+	def=
+		local State : 	nat,
+		Na,Ns,Nb 	: 	text,
+		K_AB 		:	symmetric_key,
+		X : {symmetric_key.text.text}_symmetric_key
+	init State := 0
+	
+	transition
+	1. State = 0 /\ RCV_SA(start) =|>
+	State':= 1 /\ Na' := new()
+		/\ SND_SA(A.B.{Na'}_K_AS)
+	
+	2. State = 4 /\ RCV_SA(A.B.{K_AB'.Na.Nb'.X'}_K_AS)
+				/\ request(A,S,server_alice_na,Na')=|>
+	State':= 5 /\ SND_BA(A.B.X'.{Na.Nb'}_K_AB')
+	
+	3. State = 5 /\ RCV_BA(A.B.{Na}_K_AB) =|>
+	State':= 7 /\ request(A,B,alice_bob_na,Na)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role server (A, S, B : agent,
+		K_AS, K_BS : symmetric_key,
+		SND_AS, RCV_AS, SND_BS, RCV_BS: channel(dy))
+		played_by S
+	def=
+	local State : nat,
+		Ns,Na,Nb : text,
+		K_AB : symmetric_key
+
+	init State := 2
+	
+	transition
+	1. State = 2 /\ RCV_AS(A.B.{Na'}_K_AS) =|>
+	State':= 3 /\ Ns' := new() 
+		/\ SND_BS(A.B.{Ns'}_K_BS) /\ witness(S,B,server_bob_ns,Ns')
+		
+	2. State = 3 /\ RCV_BS(A.B.{Ns.Nb'}_K_BS) /\ request(S,B,server_bob_ns,Ns') =|>
+	State' := 4 /\ K_AB' := new() /\ 
+			SND_AS(A.B.{K_AB'.Na'.{K_AB'.Nb'.Na'}_K_BS}_K_AS)
+			/\witness(A,S,server_alice_na,Na')
+			/\ secret(K_AB',kab,{A, B, S})
+			
+		
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role bob (A, S, B: agent,
+		K_BS : symmetric_key,
+		SND_AB, RCV_AB, SND_SB, RCV_SB: channel(dy))
+		played_by B
+	def=
+	local State : nat,
+		Ns, Na, Nb : text,
+		K_AB : symmetric_key,
+		X : {symmetric_key.text.text}_symmetric_key
+	
+	init State := 3
+	
+	transition
+	1. State = 3 /\ RCV_SB(A.B.{Ns'}_K_BS) =|>
+	State':= 4 /\ Nb' := new() /\ SND_SB(A.B.{Ns'.Nb'}_K_BS)
+	
+	2. State = 4 /\ RCV_AB(A.B.X'.{Na'.Nb'}_K_AB) 
+				/\ request(B,A,bob_alice_nb,Nb) =|>
+	State' := 5 /\ SND_AB(A.B.{Na'}_K_AB) /\ witness(A,B,alice_bob_na,Na)
+	
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(A, S, B : agent,
+		K_AS, K_BS : symmetric_key)
+	def=
+		local
+		SSA, RSA,
+		SBA, RBA,
+		SAS, RAS,
+		SAB, RAB,
+		SSB, RSB,
+		SBS, RBS: channel (dy)
+	composition
+	alice (A, S, B, K_AS, SSA, RSA, SBA, RBA)
+	/\ server(A, S, B, K_AS, K_BS, SAS, RAS, SBS, RBS)
+	/\ bob (A, S, B, K_BS, SAB, RAB, SSB, RSB)
+end role
+
+role environment()
+	def=
+		const a, b, s : agent,
+		kas, kbs, kis : symmetric_key,
+		alice_bob_na, bob_alice_nb, server_bob_ns, server_alice_na, k_ab: protocol_id
+	
+	intruder_knowledge = {a, b, s, kis}
+	
+	composition
+	session(a,s,b,kas,kbs)
+		/\ session(a,s,i,kas,kis)
+		/\ session(i,s,b,kis,kbs)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+	secrecy_of k_ab
+	authentication_on alice_bob_na
+	authentication_on bob_alice_nb
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

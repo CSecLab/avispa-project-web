@@ -1,0 +1,103 @@
+NSSK in Alice & Bob notation:
+%%   1.  A -> S : A.B.Na
+%%   2.  S -> A : { Kab.B.Na.{ Kab.A}_Kbs}_Kas
+%%   3.  A -> B : { Kab.A }_Kbs
+%%   4.  B -> A : { Nb }_Kab
+%%   5.  A -> B : { Nb-1 }_Kab
+
+Denning-Sacco attack
+3.  E -> B : {Kab?, A}Kbs 
+4.  B -> E : { Nb }Kab?
+5.  E -> B : { Nb + 1 }Kab?
+
+
+
+Our script is as follows:
+
+role alice(
+  A,S,B  : agent,
+  Kas,Kbs : symmetric_key,
+  Succ  : hash_func,
+  Snd_sa,Rcv_sa,Snd_ba,Rcv_ba : channel(dy))
+ played_by A def=
+  local
+    State : nat,
+    Na,Nb : text,
+    Kab   : symmetric_key,
+    X     :{symmetric_key.agent}_symmetric_key
+  init  State:=0
+  transition
+   1. State  =0/\Rcv_ba(start)=|>
+      State':=2/\Na':=new()/\Snd_sa(A.B.Na')
+   2. State  =2/\Rcv_sa({Kab'.B.Na.X'}_Kas)=|>
+      State':=4/\Snd_ba(X')
+   3. State  =4/\Rcv_ba({Nb'}_Kab)=|>
+      State':=6/\Snd_ba({Succ(Nb')}_Kab)/\witness(A,B,bob_alice_nb,Nb')
+end role
+
+role server(
+  A,S,B : agent,
+  Kas,Kbs : symmetric_key,
+  Snd_as,Rcv_as : channel(dy))
+played_by S def=
+  local
+    State : nat,
+    Na    : text,
+    Kab   : symmetric_key
+  init  State:=1
+  transition
+   1. State  =1/\Rcv_as(A.B.Na')=|>
+      State':=3/\Kab':=new()/\Snd_as({Kab'.B.Na'.{Kab'.A}_Kbs}_Kas)/\secret(Kab',kab,{ \
+A,S,B}) end role
+
+role bob(
+  A,B : agent,
+  Kbs : symmetric_key,
+  Succ : hash_func,
+  Snd_ab,Rcv_ab : channel(dy))
+played_by B def=
+  local
+   State : nat,
+   Nb    : text,
+   Kab   : symmetric_key
+  init State:=5
+  transition
+   1. State  =5/\Rcv_ab({Kab'.A}_Kbs)=|>
+      State':=7/\Nb':=new()/\Snd_ab({Nb'}_Kab')
+   2. State  =7/\Rcv_ab({Succ(Nb)}_Kab)=|>
+      State':=9/\request(B,A,bob_alice_nb,Nb)
+end role
+
+role session(
+   A,S,B : agent,
+   Kas,Kbs : symmetric_key,
+   Succ  : hash_func)
+def=
+  local SSA,RSA,SAS,RAS,SBA,RBA,SAB,RAB : channel(dy)
+composition
+  alice(A,S,B,Kas,Kbs,Succ,SSA,RSA,SBA,RBA)
+/\server(A,S,B,Kas,Kbs,SAS,RAS)
+/\bob(A,B,Kbs,Succ,SAB,RAB)
+end role
+
+role environment()
+def=
+  const 
+   a,s,b : agent,
+   kas,kbs,kis : symmetric_key,
+   succ : hash_func,
+   bob_alice_nb,kab : protocol_id
+ intruder_knowledge={a,s,b,kis}
+ composition
+   session(a,s,b,kas,kbs,succ)
+/\ session(a,s,b,kas,kbs,succ)
+/\ session(a,s,i,kas,kis,succ)
+/\ session(i,s,b,kis,kbs,succ)
+end role
+
+goal
+  secrecy_of kab
+  authentication_on bob_alice_nb
+end goal
+
+environment()

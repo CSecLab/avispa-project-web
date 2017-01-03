@@ -1,0 +1,124 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%								USER ROLE								%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role user(
+	U,S	:agent,
+	P,Ppub	:public_key,
+	H	:function,
+	SND, RCV: channel(dy))
+played_by U
+def=
+	local State				:nat,
+	PW,X,Ra,R				:symmetric_key,
+	Username,Realm				:message,
+	Rb,Rc,Rr,V,Y,W,K,SK,Authu,Auths				:text
+const sec_x,sec_ra,sec_rb,sec_SK1, sec_Authu1, sec_Auths1, sec_pw1:protocol_id
+init State:=0
+transition
+1.State=0 /\ RCV(start)=|>
+  State':=1
+  /\ Rb':=new() 
+  /\ V':={Rb'}_R.X
+  /\ Y':= {Rb'}_H(H(PW.Ra).Username)
+  /\ W':={Y'}_Ppub
+  /\ SND(Username.V'.W')
+  /\ witness(U,S,nu,Rb')
+  /\ secret(Rb',sec_rb,U)
+  /\ secret(PW,sec_pw1,U)
+  /\ secret(Ra,sec_ra,U)
+  /\ secret(X,sec_x,U)
+
+2.State=1
+  /\ RCV(Realm.Auths'.{Rc'}_P.Rr')=|>
+  State':=2  
+  /\ K':= {Y'.Rc'}_P
+  /\ SK':=H(K'.Rr'.Username.X)
+  /\ Authu':=H(K'.W'.Rr'.SK'.X)
+  /\ SND(Realm.Authu)
+  /\ secret(PW,sec_pw1,U)
+  /\ secret(X,sec_x,U)
+  /\ secret(SK',sec_SK1,{U,S})
+  /\ request(U,S,ns,Ra)
+  /\ request(U,S,ns,PW)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%								SERVER ROLE								%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role server(
+	S,U	:agent,
+	SND,RCV	:channel(dy),
+	H	:function,
+	P,Ppub	:public_key )
+played_by S
+def=
+	local State	:nat,
+	PW	:symmetric_key,
+	Rb,Rc,Rr,V,Y,W,K,SK,Authu,Auths,X1				:text,
+	Username,Realm	:message
+const sec_rc,sec_rr,sec_SK2, sec_Authu2, sec_Auths2, sec_pw2:protocol_id
+transition
+1. 	State=0 /\ RCV(Username.V'.W')=|>
+	State':=1
+	/\ Rc':=new()
+	/\ Rr':=new()
+	/\ X1':={H(Username.inv(Ppub))}_P
+	/\ K':=1 %%{Rc'.inv(Ppub)}_{V'-X1'}%%%pas terminer chercher comment utiliser operateur - (moin) dans AVISPA (HLPSL)
+	/\ SK':=H(K'.Rr'.Username.X1')
+	/\ Auths':=H(K'.W'.Rr'.SK'.X1')
+	/\ SND(Realm.Auths'.{Rc'}_P.Rr')
+	/\ witness(S,U,ns,Rc')
+	/\ secret(Rc',sec_rc,S)
+	/\ secret(Rr',sec_rr,S)
+	/\ secret(PW,sec_pw2,S)
+	
+2.	State=2 /\ RCV(Realm.Authu')=|>
+	State':=3
+	/\ Authu':=H(K'.W'.Rr'.SK'.X1')
+	/\ secret(SK',sec_SK2,{U,S})
+	/\ request(S,U,nu,Rc)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%									SESSION ROLE									%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(
+	U,S	:agent,
+	H	:function,
+	P,Ppub	:public_key)
+def=
+local SU,RU,SS,RS	:channel(dy)
+composition
+user(U,S,P,Ppub,H,SU,RU)
+/\ server(S,U,SS,RS,H,P,Ppub)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%									ENVIRONMENT ROLE								%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+const
+nu,ns	:protocol_id,
+u,s,i	:agent,
+h	:function,
+p,ppub,qi	:public_key
+intruder_knowledge={u,s,h,p,ppub,qi}
+composition
+session(u,s,h,p,ppub)
+/\session(u,i,h,p,qi)
+/\session(i,s,h,ppub,qi)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%									 	GOAL										%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+secrecy_of
+	sec_pw1
+authentication_on nu
+authentication_on ns
+end goal
+%____________________________________________________________________________________%
+%...........................................Enveronment..............................%
+%ииииииииииииииииииииииииииииииииииииииииииииииииииииииииииииииииииииииииииииииииииии%
+
+environment()

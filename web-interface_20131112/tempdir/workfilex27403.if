@@ -1,0 +1,230 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilex27403
+
+section signature:
+
+state_server: agent * agent * agent * symmetric_key * symmetric_key * hash_func * text * text * text * text * nat * text * text * text * text * set(agent) * set(agent) * nat -> fact
+state_authenticator: agent * agent * agent * symmetric_key * hash_func * text * text * text * text * nat * text * text * text * scrypt(symmetric_key,text) * scrypt(symmetric_key,text) * pair(text,scrypt(symmetric_key,symmetric_key)) * nat -> fact
+state_client: agent * agent * agent * symmetric_key * symmetric_key * hash_func * text * text * text * text * nat * text * text * text * text * set(agent) * set(agent) * nat -> fact
+
+
+section types:
+
+Leap_Success_Message, Dummy_Leap_Success_Message: pair(text,scrypt(symmetric_key,symmetric_key))
+Client_Challenge_Message, Server_Challenge_Reply, Dummy_Client_Challenge_Message, Dummy_Server_Challenge_Reply: scrypt(symmetric_key,text)
+skey, client_server_ks, server_client_ks, ks: protocol_id
+set_143, set_142, set_124, set_123: set
+State, 8, 7, 6, 5, SID, 4, 3, 2, Dummy_State, 1, 0, SID2, SID1: nat
+Set_80, Set_79, Dummy_Set_80, Dummy_Set_79, Set_37, Dummy_Set_37, Dummy_Set_29, Set_29, ASGoal: set(agent)
+start, MGoal: message
+SSID, MAC_Addrs, Client_Challenge, Server_Challenge, Leap_Success, Failure, Server_Challenge_Pass, Access_Reject, EAPOL_Start, EAPOL_Request_Identity, Dummy_Leap_Success, Dummy_Server_Challenge_Pass, Dummy_Server_Challenge, Dummy_MAC_Addrs, Dummy_SSID, dummy_nonce, eap_start, eap_client_challenge, eap_request_authentication, eap_request_id, server_chall_pass, acc_rej, leap_succs, fails: text
+SHA2, sha2: hash_func
+Ks, Km, km, dummy_sk, kcsk, kisk, kcik: symmetric_key
+C, A, S, A2Goal, A1Goal, c1, i, a1, s1: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(c1).
+ iknows(a1).
+ iknows(s1).
+ iknows(sha2).
+ iknows(kisk).
+ iknows(kcik).
+ iknows(leap_succs).
+ iknows(fails).
+ iknows(acc_rej).
+ iknows(server_chall_pass).
+ iknows(eap_start).
+ iknows(eap_request_id).
+ iknows(i).
+ state_client(c1,a1,s1,kcsk,km,sha2,eap_start,eap_request_id,server_chall_pass,leap_succs,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_123,set_124,3).
+ state_authenticator(a1,c1,s1,kcsk,sha2,eap_start,eap_request_id,leap_succs,server_chall_pass,1,dummy_nonce,dummy_nonce,dummy_nonce,scrypt(dummy_sk,dummy_nonce),scrypt(dummy_sk,dummy_nonce),pair(dummy_nonce,scrypt(dummy_sk,dummy_sk)),4).
+ state_server(s1,c1,a1,kcsk,km,sha2,leap_succs,fails,server_chall_pass,acc_rej,3,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_142,set_143,5)
+
+
+section rules:
+
+step step_0 (C,A,S,Ks,Km,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Server_Challenge_Pass,SSID,MAC_Addrs,Client_Challenge,Server_Challenge,Set_29,Set_37,SID) :=
+ state_client(C,A,S,Ks,Km,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Server_Challenge_Pass,0,SSID,MAC_Addrs,Client_Challenge,Server_Challenge,Set_29,Set_37,SID).
+ iknows(start)
+ =>
+ state_client(C,A,S,Ks,Km,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Server_Challenge_Pass,1,SSID,MAC_Addrs,Client_Challenge,Server_Challenge,Set_29,Set_37,SID).
+ iknows(EAPOL_Start)
+
+step step_1 (C,A,S,Ks,Km,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Server_Challenge_Pass,Dummy_SSID,Dummy_MAC_Addrs,Client_Challenge,Server_Challenge,Dummy_Set_29,Set_37,SID,SSID,MAC_Addrs) :=
+ state_client(C,A,S,Ks,Km,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Server_Challenge_Pass,1,Dummy_SSID,Dummy_MAC_Addrs,Client_Challenge,Server_Challenge,Dummy_Set_29,Set_37,SID).
+ iknows(EAPOL_Request_Identity)
+=[exists SSID,MAC_Addrs]=>
+ state_client(C,A,S,Ks,Km,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Server_Challenge_Pass,2,SSID,MAC_Addrs,Client_Challenge,Server_Challenge,Dummy_Set_29,Set_37,SID).
+ iknows(pair(SSID,pair(MAC_Addrs,apply(SHA2,Ks)))).
+ secret(Ks,ks,Dummy_Set_29).
+ contains(C,Dummy_Set_29).
+ contains(S,Dummy_Set_29)
+
+step step_2 (C,A,S,Ks,Km,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Server_Challenge_Pass,SSID,MAC_Addrs,Client_Challenge,Dummy_Server_Challenge,Set_29,Set_37,SID,Server_Challenge) :=
+ state_client(C,A,S,Ks,Km,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Server_Challenge_Pass,2,SSID,MAC_Addrs,Client_Challenge,Dummy_Server_Challenge,Set_29,Set_37,SID).
+ iknows(pair(SSID,Server_Challenge))
+ =>
+ state_client(C,A,S,Ks,Km,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Server_Challenge_Pass,3,SSID,MAC_Addrs,Client_Challenge,Server_Challenge,Set_29,Set_37,SID).
+ iknows(pair(SSID,scrypt(Ks,Dummy_Server_Challenge))).
+ witness(C,S,client_server_ks,Ks)
+
+step step_3 (C,A,S,Ks,Km,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Dummy_Server_Challenge_Pass,SSID,MAC_Addrs,Client_Challenge,Server_Challenge,Set_29,Set_37,SID,Server_Challenge_Pass) :=
+ state_client(C,A,S,Ks,Km,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Dummy_Server_Challenge_Pass,3,SSID,MAC_Addrs,Client_Challenge,Server_Challenge,Set_29,Set_37,SID).
+ iknows(pair(SSID,Server_Challenge_Pass))
+ =>
+ state_client(C,A,S,Ks,Km,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Server_Challenge_Pass,4,SSID,MAC_Addrs,Client_Challenge,Server_Challenge,Set_29,Set_37,SID).
+ iknows(pair(SSID,scrypt(Ks,Client_Challenge))).
+ request(S,C,server_client_ks,Ks,SID)
+
+step step_4 (C,A,S,Ks,Km,SHA2,EAPOL_Start,EAPOL_Request_Identity,Dummy_Leap_Success,Server_Challenge_Pass,SSID,MAC_Addrs,Client_Challenge,Server_Challenge,Set_29,Dummy_Set_37,SID,Leap_Success) :=
+ state_client(C,A,S,Ks,Km,SHA2,EAPOL_Start,EAPOL_Request_Identity,Dummy_Leap_Success,Server_Challenge_Pass,4,SSID,MAC_Addrs,Client_Challenge,Server_Challenge,Set_29,Dummy_Set_37,SID).
+ iknows(pair(SSID,pair(Leap_Success,scrypt(Ks,Km))))
+ =>
+ state_client(C,A,S,Ks,Km,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Server_Challenge_Pass,5,SSID,MAC_Addrs,Client_Challenge,Server_Challenge,Set_29,Dummy_Set_37,SID).
+ secret(Km,km,Dummy_Set_37).
+ contains(C,Dummy_Set_37).
+ contains(S,Dummy_Set_37)
+
+step step_5 (A,C,S,Ks,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Server_Challenge_Pass,SSID,MAC_Addrs,Server_Challenge,Server_Challenge_Reply,Client_Challenge_Message,Leap_Success_Message,SID) :=
+ state_authenticator(A,C,S,Ks,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Server_Challenge_Pass,1,SSID,MAC_Addrs,Server_Challenge,Server_Challenge_Reply,Client_Challenge_Message,Leap_Success_Message,SID).
+ iknows(EAPOL_Start)
+ =>
+ state_authenticator(A,C,S,Ks,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Server_Challenge_Pass,2,SSID,MAC_Addrs,Server_Challenge,Server_Challenge_Reply,Client_Challenge_Message,Leap_Success_Message,SID).
+ iknows(EAPOL_Request_Identity)
+
+step step_6 (A,C,S,Ks,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Server_Challenge_Pass,Dummy_SSID,Dummy_MAC_Addrs,Server_Challenge,Server_Challenge_Reply,Client_Challenge_Message,Leap_Success_Message,SID,SSID,MAC_Addrs) :=
+ state_authenticator(A,C,S,Ks,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Server_Challenge_Pass,2,Dummy_SSID,Dummy_MAC_Addrs,Server_Challenge,Server_Challenge_Reply,Client_Challenge_Message,Leap_Success_Message,SID).
+ iknows(pair(SSID,pair(MAC_Addrs,apply(SHA2,Ks))))
+ =>
+ state_authenticator(A,C,S,Ks,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Server_Challenge_Pass,3,SSID,MAC_Addrs,Server_Challenge,Server_Challenge_Reply,Client_Challenge_Message,Leap_Success_Message,SID).
+ iknows(pair(SSID,pair(MAC_Addrs,apply(SHA2,Ks))))
+
+step step_7 (A,C,S,Ks,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Server_Challenge_Pass,SSID,MAC_Addrs,Dummy_Server_Challenge,Server_Challenge_Reply,Client_Challenge_Message,Leap_Success_Message,SID,Server_Challenge) :=
+ state_authenticator(A,C,S,Ks,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Server_Challenge_Pass,3,SSID,MAC_Addrs,Dummy_Server_Challenge,Server_Challenge_Reply,Client_Challenge_Message,Leap_Success_Message,SID).
+ iknows(pair(SSID,Server_Challenge))
+ =>
+ state_authenticator(A,C,S,Ks,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Server_Challenge_Pass,4,SSID,MAC_Addrs,Server_Challenge,Server_Challenge_Reply,Client_Challenge_Message,Leap_Success_Message,SID).
+ iknows(pair(SSID,Server_Challenge))
+
+step step_8 (A,C,S,Ks,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Server_Challenge_Pass,SSID,MAC_Addrs,Server_Challenge,Dummy_Server_Challenge_Reply,Client_Challenge_Message,Leap_Success_Message,SID,Server_Challenge_Reply) :=
+ state_authenticator(A,C,S,Ks,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Server_Challenge_Pass,4,SSID,MAC_Addrs,Server_Challenge,Dummy_Server_Challenge_Reply,Client_Challenge_Message,Leap_Success_Message,SID).
+ iknows(pair(SSID,Server_Challenge_Reply))
+ =>
+ state_authenticator(A,C,S,Ks,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Server_Challenge_Pass,5,SSID,MAC_Addrs,Server_Challenge,Server_Challenge_Reply,Client_Challenge_Message,Leap_Success_Message,SID).
+ iknows(pair(SSID,Server_Challenge_Reply))
+
+step step_9 (A,C,S,Ks,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Dummy_Server_Challenge_Pass,SSID,MAC_Addrs,Server_Challenge,Server_Challenge_Reply,Client_Challenge_Message,Leap_Success_Message,SID,Server_Challenge_Pass) :=
+ state_authenticator(A,C,S,Ks,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Dummy_Server_Challenge_Pass,5,SSID,MAC_Addrs,Server_Challenge,Server_Challenge_Reply,Client_Challenge_Message,Leap_Success_Message,SID).
+ iknows(pair(SSID,Server_Challenge_Pass))
+ =>
+ state_authenticator(A,C,S,Ks,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Server_Challenge_Pass,6,SSID,MAC_Addrs,Server_Challenge,Server_Challenge_Reply,Client_Challenge_Message,Leap_Success_Message,SID).
+ iknows(pair(SSID,Dummy_Server_Challenge_Pass))
+
+step step_10 (A,C,S,Ks,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Server_Challenge_Pass,SSID,MAC_Addrs,Server_Challenge,Server_Challenge_Reply,Dummy_Client_Challenge_Message,Leap_Success_Message,SID,Client_Challenge_Message) :=
+ state_authenticator(A,C,S,Ks,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Server_Challenge_Pass,6,SSID,MAC_Addrs,Server_Challenge,Server_Challenge_Reply,Dummy_Client_Challenge_Message,Leap_Success_Message,SID).
+ iknows(pair(SSID,Client_Challenge_Message))
+ =>
+ state_authenticator(A,C,S,Ks,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Server_Challenge_Pass,7,SSID,MAC_Addrs,Server_Challenge,Server_Challenge_Reply,Client_Challenge_Message,Leap_Success_Message,SID).
+ iknows(pair(SSID,Client_Challenge_Message))
+
+step step_11 (A,C,S,Ks,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Server_Challenge_Pass,SSID,MAC_Addrs,Server_Challenge,Server_Challenge_Reply,Client_Challenge_Message,Dummy_Leap_Success_Message,SID,Leap_Success_Message) :=
+ state_authenticator(A,C,S,Ks,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Server_Challenge_Pass,7,SSID,MAC_Addrs,Server_Challenge,Server_Challenge_Reply,Client_Challenge_Message,Dummy_Leap_Success_Message,SID).
+ iknows(pair(SSID,Leap_Success_Message))
+ =>
+ state_authenticator(A,C,S,Ks,SHA2,EAPOL_Start,EAPOL_Request_Identity,Leap_Success,Server_Challenge_Pass,8,SSID,MAC_Addrs,Server_Challenge,Server_Challenge_Reply,Client_Challenge_Message,Leap_Success_Message,SID).
+ iknows(pair(SSID,Leap_Success_Message))
+
+step step_12 (S,C,A,Ks,Km,SHA2,Leap_Success,Failure,Server_Challenge_Pass,Access_Reject,Dummy_SSID,Dummy_MAC_Addrs,Client_Challenge,Dummy_Server_Challenge,Dummy_Set_79,Set_80,SID,SSID,MAC_Addrs,Server_Challenge) :=
+ state_server(S,C,A,Ks,Km,SHA2,Leap_Success,Failure,Server_Challenge_Pass,Access_Reject,3,Dummy_SSID,Dummy_MAC_Addrs,Client_Challenge,Dummy_Server_Challenge,Dummy_Set_79,Set_80,SID).
+ iknows(pair(SSID,pair(MAC_Addrs,apply(SHA2,Ks))))
+=[exists Server_Challenge]=>
+ state_server(S,C,A,Ks,Km,SHA2,Leap_Success,Failure,Server_Challenge_Pass,Access_Reject,4,SSID,MAC_Addrs,Client_Challenge,Server_Challenge,Dummy_Set_79,Set_80,SID).
+ iknows(pair(SSID,Server_Challenge)).
+ secret(Ks,ks,Dummy_Set_79).
+ contains(C,Dummy_Set_79).
+ contains(S,Dummy_Set_79)
+
+step step_13 (S,C,A,Ks,Km,SHA2,Leap_Success,Failure,Server_Challenge_Pass,Access_Reject,SSID,MAC_Addrs,Client_Challenge,Server_Challenge,Set_79,Set_80,SID) :=
+ state_server(S,C,A,Ks,Km,SHA2,Leap_Success,Failure,Server_Challenge_Pass,Access_Reject,4,SSID,MAC_Addrs,Client_Challenge,Server_Challenge,Set_79,Set_80,SID).
+ iknows(pair(SSID,scrypt(Ks,Server_Challenge)))
+ =>
+ state_server(S,C,A,Ks,Km,SHA2,Leap_Success,Failure,Server_Challenge_Pass,Access_Reject,5,SSID,MAC_Addrs,Client_Challenge,Server_Challenge,Set_79,Set_80,SID).
+ iknows(pair(SSID,Server_Challenge_Pass)).
+ request(S,C,client_server_ks,Ks,SID)
+
+step step_14 (S,C,A,Ks,Km,SHA2,Leap_Success,Failure,Server_Challenge_Pass,Access_Reject,SSID,MAC_Addrs,Client_Challenge,Server_Challenge,Set_79,Dummy_Set_80,SID) :=
+ state_server(S,C,A,Ks,Km,SHA2,Leap_Success,Failure,Server_Challenge_Pass,Access_Reject,5,SSID,MAC_Addrs,Client_Challenge,Server_Challenge,Set_79,Dummy_Set_80,SID).
+ iknows(pair(SSID,scrypt(Ks,Client_Challenge)))
+ =>
+ state_server(S,C,A,Ks,Km,SHA2,Leap_Success,Failure,Server_Challenge_Pass,Access_Reject,6,SSID,MAC_Addrs,Client_Challenge,Server_Challenge,Set_79,Dummy_Set_80,SID).
+ iknows(pair(SSID,pair(Leap_Success,scrypt(Ks,Km)))).
+ witness(C,S,server_client_ks,Ks).
+ secret(Km,km,Dummy_Set_80).
+ contains(C,Dummy_Set_80).
+ contains(S,Dummy_Set_80)
+
+
+section properties:
+
+property secrecy_of_ks (MGoal,ASGoal) :=
+ [] ((secret(MGoal,ks,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_km (MGoal,ASGoal) :=
+ [] ((secret(MGoal,km,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_client_server_ks (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,client_server_ks,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,client_server_ks,MGoal))
+     /\ ((request(A1Goal,A2Goal,client_server_ks,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,client_server_ks,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_server_client_ks (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,server_client_ks,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,server_client_ks,MGoal))
+     /\ ((request(A1Goal,A2Goal,server_client_ks,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,server_client_ks,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_ks (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,ks,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_km (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,km,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_client_server_ks (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,client_server_ks,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,client_server_ks,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_client_server_ks (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,client_server_ks,MGoal,SID1).
+ request(A1Goal,A2Goal,client_server_ks,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_server_client_ks (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,server_client_ks,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,server_client_ks,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_server_client_ks (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,server_client_ks,MGoal,SID1).
+ request(A1Goal,A2Goal,server_client_ks,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

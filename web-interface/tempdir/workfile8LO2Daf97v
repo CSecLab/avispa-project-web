@@ -1,0 +1,64 @@
+role participant1(
+		P1,P2: agent,
+		SND,RCV : channel(dy),
+		G : nat)
+	
+	played_by P1 def=
+		local
+			State:nat, Nonce1:nat
+
+		init
+			State := 0
+
+		transition
+			step1. State=0 /\ RCV(start) =|> 
+					State':=1 /\ SND(G.exp(G,Nonce1))
+			
+end role
+
+role participant2(
+		P1,P2: agent,
+		SND,RCV: channel(dy),
+		G : nat)
+	
+	played_by P2 def=
+		local
+			State: nat, 
+			Nonce2:nat,
+			X, X1, X2 : nat
+
+		init
+			State := 1
+
+		transition
+			step1. State = 1 /\ RCV(X') /\ X'=X1'.X2' =|>
+					State':=2
+end role
+
+role session(
+		P1,P2: agent,
+		G : nat)
+	def=
+		local S1, R1, S2, R2 : channel (dy)
+	composition
+		participant1(P1,P2,S1,R1,G) /\ participant2 (P1,P2,S2,R2,G)
+end role
+
+role environment()
+	def=
+	const
+		protID : protocol_id,
+		a,b:agent,
+		g : nat
+
+	intruder_knowledge = {a,b,g}
+
+	composition
+		session(a,b,g) /\ session(i,b,g) /\ session(a,i,g)
+end role
+
+goal
+	secrecy_of g
+end goal
+
+environment()

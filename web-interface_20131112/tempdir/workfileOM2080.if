@@ -1,0 +1,239 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileOM2080
+
+section signature:
+
+state_paymentgateway: agent * agent * agent * text * nat * text * public_key * public_key * public_key * nat * text * text * message * message * message * message * symmetric_key * symmetric_key * symmetric_key * nat -> fact
+state_merchant: agent * agent * agent * text * nat * text * public_key * public_key * public_key * nat * text * text * text * text * message * message * message * message * symmetric_key * symmetric_key * symmetric_key * nat -> fact
+state_cardholder: agent * agent * agent * text * nat * text * public_key * public_key * public_key * nat * text * text * text * text * message * message * message * symmetric_key * set(agent) * set(agent) * set(agent) * nat -> fact
+
+
+section types:
+
+h: hash_func
+K1, K2, K3, Dummy_K3, Dummy_K2, Dummy_K1, dummy_sk: symmetric_key
+set_122, set_121, set_120: set
+Set_39, Set_37, Dummy_Set_39, Dummy_Set_37, Dummy_Set_34, Set_34, ASGoal: set(agent)
+OI, PI, DualSig, AuthReq, Dummy_AuthReq, Dummy_DualSig, Dummy_PI, Dummy_OI, start, dummy_msg, MGoal: message
+Sid, Response, OrderDesc, CardInf, Nc, Nm, Dummy_Response, Dummy_Sid, Dummy_Nm, Dummy_Nc, dummy_nonce, cardinf_c, cardinf_i, oderdesc: text
+PubK_C, PubK_M, PubK_P, pubk_c, pubk_m, pubk_p, pubk_i: public_key
+State, PurchAmt, 5, SID, 3, 4, 2, Dummy_State, 1, 0, SID2, SID1, purchamt: nat
+C, M, P, A2Goal, A1Goal, c, m, i, p: agent
+mc_deal, m_nonce, payment, order_2, order_1, cm_deal, c_nonce, cp_deal: protocol_id
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(c).
+ iknows(m).
+ iknows(p).
+ iknows(pubk_c).
+ iknows(pubk_m).
+ iknows(pubk_p).
+ iknows(pubk_i).
+ iknows(inv(pubk_i)).
+ iknows(cardinf_i).
+ iknows(h).
+ iknows(i).
+ state_cardholder(c,m,p,cardinf_c,purchamt,oderdesc,pubk_c,pubk_m,pubk_p,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,dummy_sk,set_120,set_121,set_122,3).
+ state_merchant(m,c,p,cardinf_c,purchamt,oderdesc,pubk_c,pubk_m,pubk_p,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_sk,dummy_sk,dummy_sk,4).
+ state_paymentgateway(p,c,m,cardinf_c,purchamt,oderdesc,pubk_c,pubk_m,pubk_p,0,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_sk,dummy_sk,dummy_sk,5)
+
+
+section rules:
+
+step step_0 (C,M,P,CardInf,PurchAmt,OrderDesc,PubK_C,PubK_M,PubK_P,Dummy_Nc,Nm,Sid,Response,OI,PI,DualSig,Dummy_K1,Set_34,Set_37,Set_39,SID,Nc,K1) :=
+ state_cardholder(C,M,P,CardInf,PurchAmt,OrderDesc,PubK_C,PubK_M,PubK_P,0,Dummy_Nc,Nm,Sid,Response,OI,PI,DualSig,Dummy_K1,Set_34,Set_37,Set_39,SID).
+ iknows(start)
+=[exists Nc,K1]=>
+ state_cardholder(C,M,P,CardInf,PurchAmt,OrderDesc,PubK_C,PubK_M,PubK_P,1,Nc,Nm,Sid,Response,OI,PI,DualSig,K1,Set_34,Set_37,Set_39,SID).
+ iknows(pair(scrypt(K1,Nc),crypt(PubK_M,pair(C,K1))))
+
+step step_1 (C,M,P,CardInf,PurchAmt,OrderDesc,PubK_C,PubK_M,PubK_P,Nc,Dummy_Nm,Dummy_Sid,Response,Dummy_OI,Dummy_PI,Dummy_DualSig,K1,Dummy_Set_34,Dummy_Set_37,Dummy_Set_39,SID,Nm,Sid) :=
+ state_cardholder(C,M,P,CardInf,PurchAmt,OrderDesc,PubK_C,PubK_M,PubK_P,1,Nc,Dummy_Nm,Dummy_Sid,Response,Dummy_OI,Dummy_PI,Dummy_DualSig,K1,Dummy_Set_34,Dummy_Set_37,Dummy_Set_39,SID).
+ iknows(scrypt(K1,pair(M,pair(Nc,pair(Nm,pair(Sid,crypt(inv(PubK_M),apply(h,pair(Nc,pair(Nm,Sid))))))))))
+ =>
+ state_cardholder(C,M,P,CardInf,PurchAmt,OrderDesc,PubK_C,PubK_M,PubK_P,2,Nc,Nm,Sid,Response,pair(OrderDesc,pair(PurchAmt,Sid)),pair(CardInf,pair(PurchAmt,pair(Sid,M))),pair(apply(h,pair(OrderDesc,pair(PurchAmt,Sid))),pair(apply(h,pair(CardInf,pair(PurchAmt,pair(Sid,M)))),crypt(inv(PubK_C),apply(h,pair(apply(h,pair(OrderDesc,pair(PurchAmt,Sid))),apply(h,pair(CardInf,pair(PurchAmt,pair(Sid,M))))))))),K1,Dummy_Set_34,Dummy_Set_37,Dummy_Set_39,SID).
+ iknows(scrypt(K1,pair(crypt(inv(PubK_C),pair(Nm,pair(pair(OrderDesc,pair(PurchAmt,Sid)),pair(apply(h,pair(OrderDesc,pair(PurchAmt,Sid))),pair(apply(h,pair(CardInf,pair(PurchAmt,pair(Sid,M)))),crypt(inv(PubK_C),apply(h,pair(apply(h,pair(OrderDesc,pair(PurchAmt,Sid))),apply(h,pair(CardInf,pair(PurchAmt,pair(Sid,M)))))))))))),pair(scrypt(K1,pair(pair(apply(h,pair(OrderDesc,pair(PurchAmt,Sid))),pair(apply(h,pair(CardInf,pair(PurchAmt,pair(Sid,M)))),crypt(inv(PubK_C),apply(h,pair(apply(h,pair(OrderDesc,pair(PurchAmt,Sid))),apply(h,pair(CardInf,pair(PurchAmt,pair(Sid,M))))))))),pair(CardInf,pair(PurchAmt,pair(Sid,M))))),crypt(PubK_P,K1))))).
+ witness(C,M,c_nonce,pair(Nc,Nm)).
+ witness(C,M,cm_deal,pair(Sid,pair(OrderDesc,pair(PurchAmt,Sid)))).
+ secret(OrderDesc,order_1,Dummy_Set_34).
+ secret(PurchAmt,order_2,Dummy_Set_37).
+ secret(CardInf,payment,Dummy_Set_39).
+ contains(C,Dummy_Set_34).
+ contains(M,Dummy_Set_34).
+ contains(C,Dummy_Set_37).
+ contains(M,Dummy_Set_37).
+ contains(P,Dummy_Set_37).
+ contains(C,Dummy_Set_39).
+ contains(P,Dummy_Set_39)
+
+step step_2 (C,M,P,CardInf,PurchAmt,OrderDesc,PubK_C,PubK_M,PubK_P,Nc,Nm,Sid,Dummy_Response,OI,PI,DualSig,K1,Set_34,Set_37,Set_39,SID,Response) :=
+ state_cardholder(C,M,P,CardInf,PurchAmt,OrderDesc,PubK_C,PubK_M,PubK_P,2,Nc,Nm,Sid,Dummy_Response,OI,PI,DualSig,K1,Set_34,Set_37,Set_39,SID).
+ iknows(scrypt(K1,pair(Response,pair(Sid,pair(PurchAmt,crypt(inv(PubK_P),apply(h,pair(Response,pair(Sid,PurchAmt)))))))))
+ =>
+ state_cardholder(C,M,P,CardInf,PurchAmt,OrderDesc,PubK_C,PubK_M,PubK_P,3,Nc,Nm,Sid,Response,OI,PI,DualSig,K1,Set_34,Set_37,Set_39,SID).
+ request(C,M,m_nonce,pair(Nc,Nm),SID).
+ request(C,M,mc_deal,pair(OI,apply(h,PI)),SID)
+
+step step_3 (M,C,P,CardInf,PurchAmt,OrderDesc,PubK_C,PubK_M,PubK_P,Dummy_Nc,Dummy_Nm,Dummy_Sid,Response,OI,PI,DualSig,AuthReq,Dummy_K1,K2,K3,SID,Nc,Nm,Sid,K1) :=
+ state_merchant(M,C,P,CardInf,PurchAmt,OrderDesc,PubK_C,PubK_M,PubK_P,0,Dummy_Nc,Dummy_Nm,Dummy_Sid,Response,OI,PI,DualSig,AuthReq,Dummy_K1,K2,K3,SID).
+ iknows(pair(scrypt(K1,Nc),crypt(PubK_M,pair(C,K1))))
+=[exists Nm,Sid]=>
+ state_merchant(M,C,P,CardInf,PurchAmt,OrderDesc,PubK_C,PubK_M,PubK_P,1,Nc,Nm,Sid,Response,OI,PI,DualSig,AuthReq,K1,K2,K3,SID).
+ iknows(scrypt(K1,pair(M,pair(Nc,pair(Nm,pair(Sid,crypt(inv(PubK_M),apply(h,pair(Nc,pair(Nm,Sid)))))))))).
+ witness(M,C,m_nonce,pair(Nc,Nm))
+
+step step_4 (M,C,P,CardInf,PurchAmt,OrderDesc,PubK_C,PubK_M,PubK_P,Nc,Nm,Sid,Response,Dummy_OI,Dummy_PI,Dummy_DualSig,Dummy_AuthReq,K1,Dummy_K2,K3,SID,OI,PI,DualSig,K2) :=
+ state_merchant(M,C,P,CardInf,PurchAmt,OrderDesc,PubK_C,PubK_M,PubK_P,1,Nc,Nm,Sid,Response,Dummy_OI,Dummy_PI,Dummy_DualSig,Dummy_AuthReq,K1,Dummy_K2,K3,SID).
+ iknows(scrypt(K1,pair(crypt(inv(PubK_C),pair(Nm,pair(OI,DualSig))),pair(scrypt(K1,pair(DualSig,PI)),crypt(PubK_P,K1)))))
+=[exists K2]=>
+ state_merchant(M,C,P,CardInf,PurchAmt,OrderDesc,PubK_C,PubK_M,PubK_P,2,Nc,Nm,Sid,Response,OI,PI,DualSig,pair(apply(h,OI),pair(apply(h,pair(OrderDesc,PurchAmt)),DualSig)),K1,K2,K3,SID).
+ iknows(pair(scrypt(K2,pair(pair(apply(h,OI),pair(apply(h,pair(OrderDesc,PurchAmt)),DualSig)),crypt(inv(PubK_M),apply(h,pair(apply(h,OI),pair(apply(h,pair(OrderDesc,PurchAmt)),DualSig)))))),pair(crypt(PubK_P,K2),pair(scrypt(K1,pair(DualSig,PI)),crypt(PubK_P,K1))))).
+ witness(M,C,mc_deal,pair(Sid,OI))
+
+step step_5 (M,C,P,CardInf,PurchAmt,OrderDesc,PubK_C,PubK_M,PubK_P,Nc,Nm,Sid,Dummy_Response,OI,PI,DualSig,AuthReq,K1,K2,Dummy_K3,SID,Response,K3) :=
+ state_merchant(M,C,P,CardInf,PurchAmt,OrderDesc,PubK_C,PubK_M,PubK_P,2,Nc,Nm,Sid,Dummy_Response,OI,PI,DualSig,AuthReq,K1,K2,Dummy_K3,SID).
+ iknows(pair(scrypt(K3,pair(Response,pair(Sid,pair(PurchAmt,crypt(inv(PubK_P),apply(h,pair(Response,pair(Sid,PurchAmt)))))))),crypt(PubK_M,K3)))
+ =>
+ state_merchant(M,C,P,CardInf,PurchAmt,OrderDesc,PubK_C,PubK_M,PubK_P,3,Nc,Nm,Sid,Response,OI,PI,DualSig,AuthReq,K1,K2,K3,SID).
+ iknows(scrypt(K1,pair(Response,pair(Sid,pair(PurchAmt,crypt(inv(PubK_P),apply(h,pair(Response,pair(Sid,PurchAmt))))))))).
+ request(M,C,c_nonce,pair(Nc,Nm),SID).
+ request(M,C,cm_deal,pair(Sid,OI),SID)
+
+step step_6 (P,C,M,CardInf,PurchAmt,OrderDesc,PubK_C,PubK_M,PubK_P,Sid,Dummy_Response,OI,Dummy_PI,Dummy_DualSig,Dummy_AuthReq,Dummy_K1,Dummy_K2,Dummy_K3,SID,Response,PI,DualSig,AuthReq,K1,K2,K3) :=
+ state_paymentgateway(P,C,M,CardInf,PurchAmt,OrderDesc,PubK_C,PubK_M,PubK_P,0,Sid,Dummy_Response,OI,Dummy_PI,Dummy_DualSig,Dummy_AuthReq,Dummy_K1,Dummy_K2,Dummy_K3,SID).
+ iknows(pair(scrypt(K2,pair(AuthReq,crypt(inv(PubK_M),apply(h,AuthReq)))),pair(crypt(PubK_P,K2),pair(scrypt(K1,pair(DualSig,PI)),crypt(PubK_P,K1)))))
+=[exists Response,K3]=>
+ state_paymentgateway(P,C,M,CardInf,PurchAmt,OrderDesc,PubK_C,PubK_M,PubK_P,1,Sid,Response,OI,PI,DualSig,AuthReq,K1,K2,K3,SID).
+ iknows(pair(scrypt(K3,pair(Response,pair(Sid,pair(PurchAmt,crypt(inv(PubK_P),apply(h,pair(Response,pair(Sid,PurchAmt)))))))),crypt(PubK_M,K3)))
+
+
+section properties:
+
+property authentication_on_cm_deal (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,cm_deal,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,cm_deal,MGoal))
+     /\ ((request(A1Goal,A2Goal,cm_deal,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,cm_deal,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_cp_deal (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,cp_deal,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,cp_deal,MGoal))
+     /\ ((request(A1Goal,A2Goal,cp_deal,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,cp_deal,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_mc_deal (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,mc_deal,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,mc_deal,MGoal))
+     /\ ((request(A1Goal,A2Goal,mc_deal,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,mc_deal,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_c_nonce (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,c_nonce,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,c_nonce,MGoal))
+     /\ ((request(A1Goal,A2Goal,c_nonce,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,c_nonce,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_m_nonce (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,m_nonce,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,m_nonce,MGoal))
+     /\ ((request(A1Goal,A2Goal,m_nonce,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,m_nonce,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property secrecy_of_order_1 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,order_1,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_order_2 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,order_2,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_payment (MGoal,ASGoal) :=
+ [] ((secret(MGoal,payment,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state authentication_on_cm_deal (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,cm_deal,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,cm_deal,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_cm_deal (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,cm_deal,MGoal,SID1).
+ request(A1Goal,A2Goal,cm_deal,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_cp_deal (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,cp_deal,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,cp_deal,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_cp_deal (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,cp_deal,MGoal,SID1).
+ request(A1Goal,A2Goal,cp_deal,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_mc_deal (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,mc_deal,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,mc_deal,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_mc_deal (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,mc_deal,MGoal,SID1).
+ request(A1Goal,A2Goal,mc_deal,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_c_nonce (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,c_nonce,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,c_nonce,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_c_nonce (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,c_nonce,MGoal,SID1).
+ request(A1Goal,A2Goal,c_nonce,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_m_nonce (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,m_nonce,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,m_nonce,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_m_nonce (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,m_nonce,MGoal,SID1).
+ request(A1Goal,A2Goal,m_nonce,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state secrecy_of_order_1 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,order_1,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_order_2 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,order_2,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_payment (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,payment,ASGoal) &
+ not(contains(i,ASGoal))
+

@@ -1,0 +1,144 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileKV8gZrEDZG
+
+section signature:
+
+state_server: agent * agent * agent * hash_func * hash_func * symmetric_key * nat * text * text * text * text * message * message * message * message * message * set(agent) * nat -> fact
+state_reader: agent * agent * agent * hash_func * hash_func * symmetric_key * nat * text * text * text * text * message * message * message * message * nat -> fact
+state_tag: agent * agent * agent * hash_func * hash_func * nat * text * text * text * text * message * message * message * message * message * set(agent) * nat -> fact
+
+
+section types:
+
+pseudo_number, iden_info, sym_key, tag_identity, interm: protocol_id
+k, ks, kr, kt, K: symmetric_key
+h, p, Hash, PRNG: hash_func
+Nr, Nt, Id, S, Dummy_S, Dummy_Nt, Dummy_Nr, dummy_nonce: text
+set_135, set_133, set_131, set_129, set_125, set_108: set
+State, 13, 12, 9, 7, 3, 2, 5, 1, SID, 0, 4, Dummy_State, SID2, SID1: nat
+r, t, b, R, T, BS, A2Goal, A1Goal, i: agent
+Set_73, Set_50, Dummy_Set_73, Dummy_Set_50, ASGoal: set(agent)
+M, N, V, U, Hv, start, Dummy_U, Dummy_N, Dummy_M, Dummy_Hv, Dummy_V, dummy_msg, MGoal: message
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(r).
+ iknows(t).
+ iknows(b).
+ iknows(h).
+ iknows(p).
+ iknows(ks).
+ iknows(kr).
+ iknows(i).
+ state_tag(t,r,b,h,p,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,set_108,3).
+ state_reader(r,t,b,h,p,k,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,dummy_msg,4).
+ state_server(b,r,t,h,p,k,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,set_125,5).
+ state_tag(r,i,b,h,p,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,set_129,7).
+ state_server(b,i,r,h,p,kr,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,set_131,9).
+ state_reader(r,i,b,h,p,kt,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,dummy_msg,12).
+ state_server(b,r,i,h,p,kt,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,set_135,13)
+
+
+section rules:
+
+step step_0 (T,R,BS,Hash,PRNG,Dummy_Nr,Dummy_Nt,Id,S,M,N,Dummy_V,U,Dummy_Hv,Dummy_Set_50,SID,Nr,Nt) :=
+ state_tag(T,R,BS,Hash,PRNG,0,Dummy_Nr,Dummy_Nt,Id,S,M,N,Dummy_V,U,Dummy_Hv,Dummy_Set_50,SID).
+ iknows(Nr)
+=[exists Nt]=>
+ state_tag(T,R,BS,Hash,PRNG,1,Nr,Nt,Id,S,M,N,apply(PRNG,pair(S,pair(Nr,Nt))),U,apply(Hash,Id),Dummy_Set_50,SID).
+ iknows(pair(apply(PRNG,pair(S,pair(Nr,Nt))),pair(apply(Hash,Id),Nt))).
+ secret(Id,tag_identity,Dummy_Set_50).
+ contains(T,Dummy_Set_50).
+ contains(BS,Dummy_Set_50)
+
+step step_1 (T,R,BS,Hash,PRNG,Nr,Nt,Id,Dummy_S,Dummy_M,Dummy_N,V,Dummy_U,Hv,Set_50,SID) :=
+ state_tag(T,R,BS,Hash,PRNG,1,Nr,Nt,Id,Dummy_S,Dummy_M,Dummy_N,V,Dummy_U,Hv,Set_50,SID).
+ iknows(N)
+ =>
+ state_tag(T,R,BS,Hash,PRNG,2,Nr,Nt,Id,xor(Dummy_S,apply(PRNG,pair(Dummy_S,apply(PRNG,pair(Dummy_S,Nr))))),apply(PRNG,pair(Dummy_S,Nr)),apply(PRNG,apply(PRNG,pair(Dummy_S,Nr))),V,apply(PRNG,pair(Dummy_S,apply(PRNG,pair(Dummy_S,Nr)))),Hv,Set_50,SID).
+ request(T,R,interm,apply(PRNG,apply(PRNG,pair(Dummy_S,Nr))),SID)
+
+step step_2 (R,T,BS,Hash,PRNG,K,Dummy_Nr,Nt,Id,S,V,M,N,Hv,SID,Nr) :=
+ state_reader(R,T,BS,Hash,PRNG,K,0,Dummy_Nr,Nt,Id,S,V,M,N,Hv,SID).
+ iknows(start)
+=[exists Nr]=>
+ state_reader(R,T,BS,Hash,PRNG,K,1,Nr,Nt,Id,S,V,M,N,Hv,SID).
+ iknows(Nr)
+
+step step_3 (R,T,BS,Hash,PRNG,K,Nr,Dummy_Nt,Id,S,Dummy_V,M,N,Dummy_Hv,SID,Nt,V,Hv) :=
+ state_reader(R,T,BS,Hash,PRNG,K,1,Nr,Dummy_Nt,Id,S,Dummy_V,M,N,Dummy_Hv,SID).
+ iknows(pair(V,pair(Hv,Nt)))
+ =>
+ state_reader(R,T,BS,Hash,PRNG,K,2,Nr,Nt,Id,S,V,M,N,Hv,SID).
+ iknows(pair(V,pair(Hv,pair(Nt,Nr))))
+
+step step_4 (R,T,BS,Hash,PRNG,K,Nr,Nt,Id,S,V,Dummy_M,Dummy_N,Hv,SID) :=
+ state_reader(R,T,BS,Hash,PRNG,K,2,Nr,Nt,Id,S,V,Dummy_M,Dummy_N,Hv,SID).
+ iknows(scrypt(K,S))
+ =>
+ state_reader(R,T,BS,Hash,PRNG,K,3,Nr,Nt,Id,S,V,apply(PRNG,pair(S,Nr)),apply(PRNG,apply(PRNG,pair(S,Nr))),Hv,SID).
+ iknows(apply(PRNG,apply(PRNG,pair(S,Nr)))).
+ iknows(apply(PRNG,pair(S,Nr))).
+ witness(R,T,interm,apply(PRNG,apply(PRNG,pair(S,Nr))))
+
+step step_5 (BS,R,T,Hash,PRNG,K,Dummy_Nr,Dummy_Nt,Id,S,M,N,Dummy_V,U,Dummy_Hv,Dummy_Set_73,SID,Nr,Nt) :=
+ state_server(BS,R,T,Hash,PRNG,K,0,Dummy_Nr,Dummy_Nt,Id,S,M,N,Dummy_V,U,Dummy_Hv,Dummy_Set_73,SID).
+ iknows(pair(V,pair(Hv,pair(Nt,Nr))))
+ =>
+ state_server(BS,R,T,Hash,PRNG,K,1,Nr,Nt,Id,S,M,N,apply(PRNG,pair(S,pair(Nr,Nt))),U,apply(Hash,Id),Dummy_Set_73,SID).
+ iknows(scrypt(K,S)).
+ secret(K,sym_key,Dummy_Set_73).
+ contains(BS,Dummy_Set_73).
+ contains(R,Dummy_Set_73)
+
+step step_6 (BS,R,T,Hash,PRNG,K,Nr,Nt,Id,Dummy_S,Dummy_M,N,V,Dummy_U,Hv,Set_73,SID,M) :=
+ state_server(BS,R,T,Hash,PRNG,K,1,Nr,Nt,Id,Dummy_S,Dummy_M,N,V,Dummy_U,Hv,Set_73,SID).
+ iknows(M)
+ =>
+ state_server(BS,R,T,Hash,PRNG,K,2,Nr,Nt,Id,xor(Dummy_S,apply(PRNG,pair(Dummy_S,M))),M,N,V,apply(PRNG,pair(Dummy_S,M)),Hv,Set_73,SID)
+
+
+section properties:
+
+property secrecy_of_tag_identity (MGoal,ASGoal) :=
+ [] ((secret(MGoal,tag_identity,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_sym_key (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sym_key,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_interm (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,interm,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,interm,MGoal))
+     /\ ((request(A1Goal,A2Goal,interm,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,interm,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_tag_identity (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,tag_identity,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_sym_key (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sym_key,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_interm (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,interm,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,interm,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_interm (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,interm,MGoal,SID1).
+ request(A1Goal,A2Goal,interm,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

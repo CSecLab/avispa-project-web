@@ -1,0 +1,272 @@
+%%% Protocol: An efficient and secure light weight user authentication
+%%% and key agreement scheme for wireless sensor networks
+
+% Role for the user Ui
+role user (Ui, GWN, Sj : agent,
+% symmetric key between Ui and GWN
+        SKuigwn : symmetric_key,
+% H is hash function
+         H : hash_func,
+         SND, RCV: channel(dy))
+played_by Ui
+def=
+local State : nat,
+     IDi, SIDj, PWi, MIi, MPi, Ri : text,
+     Xgwn, Xgwnsj, Rj, T1, T2, Xj, Ej, Dj : text,
+     Fj, M1, M2, M3, T11, T21, Ki, Kj : text,
+     M4, M5, NSIDj, M6, M7, T3, T4, SK, M8: text
+const sensor_gwn_rj, sensor_gwn_t1, gwn_sensor_t2,
+      user_sensor_t11, user_sensor_ki, sensor_gwn_kj,
+      sensor_gwn_t21, gwn_sensor_t3, sensor_user_t4,  
+      s1, s2, s3, s4 : protocol_id
+init State := 0
+ transition
+% User registration phase
+% Ui sends < MIi, MPi > to GWN via a secure channel
+1. State = 0 /\ RCV(start) =|>
+State' := 1 /\ Ri' := new()
+            /\ MIi' := H(IDi.Ri')
+            /\ MPi' := H(xor(xor(IDi,Ri'),PWi))
+            /\ SND({MIi'.MPi'}_SKuigwn)
+            /\ secret({IDi,PWi}, s1, Ui)
+            /\ secret(Ri', s2, GWN)
+% Ui receives  from GWN via a secure channel
+2. State = 1 /\ RCV({H(H(IDi.Ri').H(xor(xor(IDi.Ri'),PWi))).
+      xor(H(Xgwn),H(H(xor(xor(IDi,Ri'),PWi).H(H(IDi.Ri').Xgwn)))).
+      xor(H(H(IDi.Ri').Xgwn),H(H(IDi.Ri').
+      xor(H(Xgwn),H(H(xor(xor(IDi,Ri'),PWi).H(H(IDi.Ri')
+      .Xgwn))))))}_SKuigwn) =|>
+State' := 3 /\ secret(Xgwn, s3, GWN)
+% Login phase
+% Send  to Sj
+            /\ T11' := new()
+            /\ Ki' := new()
+            /\ M1' := xor(H(IDi.Ri'),H(H(Xgwn).T1))
+            /\ M2' := xor(Ki',H(H(H(IDi.Ri').Xgwn).T11'))
+            /\ M3' := H(Ki'.H(H(IDi.Ri').Xgwn).M1'.M2'.T11')
+            /\ SND(M1'.M2'.M3'.T11')
+% Ui has freshly generated the value T1 for Sj
+            /\ witness(Ui, Sj, user_sensor_t11, T11')
+% Ui has freshly generated the value Ki for Sj
+            /\ witness(Ui, Sj, user_sensor_ki, Ki')
+% Authentication and key agreement phase
+% Receive  from Sj
+3. State = 3 /\ RCV(xor(Kj',H(H(H(IDi.Ri').Xgwn).T3'.Ki')).
+                xor(Ki',H(H(Xgwn.SIDj).H(Xgwnsj.Xgwn).Kj'.T3')).
+                H(xor(Kj',H(H(H(IDi.Ri').Xgwn).T3'.Ki')).
+                xor(Ki',H(H(Xgwn.SIDj).H(Xgwnsj.Xgwn).Kj'.T3')).
+                H(H(xor(Ki',Kj')).T3'.T4').T3'.T4').T3'.T4') =|>
+% Ui's acceptance of the value T4 generated for Ui by Sj
+State' := 5 /\ request(Sj, Ui, sensor_user_t4, T4')
+end role
+
+
+
+% Role for the GWN
+role gwn (Ui, GWN, Sj : agent,
+% symmetric key between Ui and GWN
+        SKuigwn : symmetric_key,
+% H is hash function
+         H : hash_func,
+         SND, RCV: channel(dy))
+played_by GWN
+def=
+local State : nat,
+     IDi, SIDj, PWi, MIi, MPi, Ri : text,
+     Xgwn, Xgwnsj, Rj, T1, T2, Xj, Ej, Dj : text,
+     Fj, M1, M2, M3, T11, T21, Ki, Kj : text,
+     M4, M5, NSIDj, M6, M7, T3, T4, SK, M8: text
+const sensor_gwn_rj, sensor_gwn_t1, gwn_sensor_t2,
+      user_sensor_t11, user_sensor_ki, sensor_gwn_kj,
+      sensor_gwn_t21, gwn_sensor_t3, sensor_user_t4,  
+      s1, s2, s3, s4 : protocol_id
+init State := 0
+ transition
+% User registration phase
+% Receive the message < MIi, MPi > from Ui securely
+1.  State = 0 /\ RCV({H(IDi.Ri').H(xor(xor(IDi,Ri'),PWi))}_SKuigwn) =|>
+% Send the smart card to Ui securely
+State' := 2 /\  SND({H(H(IDi.Ri').H(xor(xor(IDi.Ri'),PWi))).
+            xor(H(Xgwn),H(H(xor(xor(IDi,Ri'),PWi).H(H(IDi.Ri').Xgwn)))).
+            xor(H(H(IDi.Ri').Xgwn),H(H(IDi.Ri').
+            xor(H(Xgwn),H(H(xor(xor(IDi,Ri'),PWi).H(H(IDi.Ri').
+            Xgwn))))))}_SKuigwn)
+            /\ secret({IDi,PWi}, s1, Ui)
+            /\ secret(Ri', s2, GWN)
+            /\ secret(Xgwn, s3, GWN)
+% Sensor node registration phase
+% Receive the message  from Sj
+2. State = 2 /\ RCV(SIDj.H(xor(xor(Xgwnsj,SIDj), Rj')).H(Xgwnsj.Rj'.
+                    SIDj.T1').T1') =|>         
+State' := 4 /\ secret({Xgwnsj}, s4, {GWN,Sj}) 
+            /\ T2' := new()
+            /\ Xj' := H(Xgwnsj.Xgwn)
+            /\ Ej' := xor(Xj',Xgwnsj)
+            /\ Dj' := xor(H(Xgwn.SIDj),H(Xgwnsj.T2'))
+            /\ Fj' := H(Xgwnsj.Xj'.Dj'.T2')
+% Send < dj, ej, fj, T2 > to Sj
+            /\ SND(Dj'.Ej'.Fj'.T2')
+% GWN has freshly generated the value T2 for Sj
+            /\ witness(GWN, Sj, gwn_sensor_t2, T2')
+% Authentication and key agreemet phase
+% Receive  from Sj
+3. State = 4 /\ RCV(xor(H(IDi.Ri'),H(H(Xgwn).T1')).
+               xor(Ki',H(H(H(IDi.Ri').Xgwn).T11')).
+               H(Ki'.H(H(IDi.Ri').Xgwn).xor(H(IDi.Ri'),H(H(Xgwn).T1')).
+               xor(Ki',H(H(H(IDi.Ri').Xgwn).T11')).T11').T11'.T21'.
+               NSIDj'.xor(H(H(Xgwnsj.Xgwn).T11'.T21'),Kj').
+               H(M4'.NSIDj'.T11'.T21'.Kj'))  =|>
+% Send  to Sj 
+State' := 6 /\ T3' := new()
+            /\ M6' := xor(Kj',H(H(H(IDi.Ri').Xgwn).T3'.Ki'))
+            /\ M7' := xor(Ki',H(H(Xgwn.SIDj).H(Xgwnsj.Xgwn).Kj'.T3'))
+            /\ SND(M6'.M7'.T3')
+% GWN has freshly generated the value T3 for Sj
+            /\ witness(GWN, Sj, gwn_sensor_t3, T3')
+% GWN's acceptance of the value rj generated for GWN by Sj
+             /\ request(Sj, GWN, sensor_gwn_rj, Rj)
+% GWN's acceptance of the value T1 generated for GWN by Sj
+             /\ request(Sj, GWN, sensor_gwn_t1, T1')
+% GWN's acceptance of the value kj generated for GWN by Sj
+             /\ request(Sj, GWN, sensor_gwn_kj, Kj')
+% GWN's acceptance of the value T2 generated for GWN by Sj
+             /\ request(Sj, GWN, sensor_gwn_t21, T21')    
+end role
+
+
+
+% Role for the sensor node Sj
+role sensor (Ui, GWN, Sj : agent,
+% H is hash function
+         H : hash_func,
+         SND, RCV: channel(dy))
+played_by Sj 
+def=
+local State : nat,
+     IDi, SIDj, PWi, MIi, MPi, Ri : text,
+     Xgwn, Xgwnsj, Rj, T1, T2, Xj, Ej, Dj : text,
+     Fj, M1, M2, M3, T11, T21, Ki, Kj, MNj, MPj: text,
+     M4, M5, NSIDj, M6, M7, T3, T4, SK, M8: text
+const sensor_gwn_rj, sensor_gwn_t1, gwn_sensor_t2,
+      user_sensor_t11, user_sensor_ki, sensor_gwn_kj,
+      sensor_gwn_t21, gwn_sensor_t3, sensor_user_t4,  
+      s1, s2, s3, s4 : protocol_id
+init State := 0
+ transition
+% Sensor node registration phase
+% Send the message  to GWN
+1.  State = 0 /\ RCV(start) =|>
+State' := 3 /\ Rj' := new()
+            /\ T1' := new()
+            /\ MPj' := H(Xgwnsj.Rj'.SIDj.T1')
+            /\ MNj' := H(xor(xor(Xgwnsj,SIDj), Rj'))
+            /\ SND(SIDj.MNj'.MPj'.T1')
+            /\ secret({Xgwnsj}, s4, {GWN,Sj})
+% Sj has freshly generated the value rj for GWN
+            /\ witness(Sj, GWN, sensor_gwn_rj, Rj')
+% Sj has freshly generated the value T1 for GWN
+            /\ witness(Sj, GWN, sensor_gwn_t1, T1')
+% Receive < dj, ej, fj, T2 > from GWN 
+2. State = 3 /\ RCV(xor(H(Xgwn.SIDj),H(Xgwnsj.T2')).
+ xor(H(Xgwnsj.Xgwn),Xgwnsj).
+ H(Xgwnsj.H(Xgwnsj.Xgwn).xor(H(Xgwn.SIDj),H(Xgwnsj.T2')).T2').T2') =|>
+% Sj's acceptance of the value T2 generated for Sj by GWN
+State' := 6 /\ secret({Xgwn}, s3, GWN)
+            /\ request(GWN, Sj, gwn_sensor_t2, T2')
+% Login phase
+% Receive  from Ui
+3. State = 6 /\ RCV(xor(H(IDi.Ri'),H(H(Xgwn).T1')).
+   xor(Ki',H(H(H(IDi.Ri').Xgwn).T11')).
+   H(Ki'.H(H(IDi.Ri').Xgwn).xor(H(IDi.Ri'),H(H(Xgwn).T1')).
+   xor(Ki',H(H(H(IDi.Ri').Xgwn).T11')).T11').T11') =|>
+% Authentication and key agreement phase
+% Send  to GWN
+State' := 9 /\ Kj' := new()
+            /\ T21' := new()
+            /\ NSIDj' := H(H(Xgwn.SIDj).T21') 
+            /\ M4' := xor(H(H(Xgwnsj.Xgwn).T11'.T21'),Kj')
+            /\ M5' := H(M4'.NSIDj'.T11'.T21'.Kj')
+            /\ SND(xor(H(IDi.Ri'),H(H(Xgwn).T1')).
+               xor(Ki',H(H(H(IDi.Ri').Xgwn).T11')).
+               H(Ki'.H(H(IDi.Ri').Xgwn).xor(H(IDi.Ri'),H(H(Xgwn).T1')).
+               xor(Ki',H(H(H(IDi.Ri').Xgwn).T11')).T11').T11'.T21'.
+               NSIDj'.M4'.M5')
+% Sj has freshly generated the value Kj for GWN
+            /\ witness(Sj, GWN, sensor_gwn_kj, Kj')
+% Sj has freshly generated the value T2 for GWN
+            /\ witness(Sj, GWN, sensor_gwn_t21, T21')
+% Receive  from GWN
+4. State = 9 /\ RCV(xor(Kj',H(H(H(IDi.Ri').Xgwn).T3'.Ki')).
+                xor(Ki',H(H(Xgwn.SIDj).H(Xgwnsj.Xgwn).Kj'.T3')).T3') =|>
+% Send  to Ui
+State' := 12 /\ T4' := new()
+             /\ SK' := H(H(xor(Ki',Kj')).T3'.T4')
+             /\ M8' := H(xor(Kj',H(H(H(IDi.Ri').Xgwn).T3'.Ki')).
+                xor(Ki',H(H(Xgwn.SIDj).H(Xgwnsj.Xgwn).Kj'.T3')).
+                SK'.T3'.T4')
+% Send  to Ui
+             /\ SND(xor(Kj',H(H(H(IDi.Ri').Xgwn).T3'.Ki')).
+                xor(Ki',H(H(Xgwn.SIDj).H(Xgwnsj.Xgwn).Kj'.T3')).
+                M8'.T3'.T4')
+% Sj has freshly generated the value T4 for Ui
+            /\ witness(Sj, Ui, sensor_user_t4, T4')
+% Sj's acceptance of the value T1 generated for Sj by Ui in login phase
+            /\ request(Ui, Sj, user_sensor_t11, T11)
+% Sj's acceptance of the value T3 generated for Sj by GWN in verification
+            /\ request(GWN, Sj, gwn_sensor_t3, T3')
+end role
+
+
+role session(Ui, GWN, Sj : agent,
+% symmetric key between Ui and RC
+        SKuigwn : symmetric_key,
+% H is hash function
+         H : hash_func)
+def=
+  local SN1, SN2, SN3, RV1, RV2, RV3 : channel (dy)
+composition
+   user(Ui, GWN, Sj, SKuigwn, H, SN1, RV1)
+/\ gwn(Ui, GWN, Sj, SKuigwn, H, SN2, RV2)
+/\ sensor(Ui, GWN, Sj, H, SN3, RV3)
+end role
+
+
+
+
+role environment()
+def=
+  const ui, gwn, sj: agent, 
+        skuigwn : symmetric_key, 
+        h : hash_func,
+        t1, t2, t3, t4, t11, t21: text,
+        sensor_gwn_rj, sensor_gwn_t1, gwn_sensor_t2,
+        user_sensor_t11, user_sensor_ki, sensor_gwn_kj,
+        sensor_gwn_t21, gwn_sensor_t3, sensor_user_t4,  
+        s1, s2, s3, s4 : protocol_id
+intruder_knowledge = {ui, gwn, sj, h, t1, t2, t3, 
+                      t4, t11, t21}
+composition
+   session(ui, gwn, sj, skuigwn, h)
+/\ session(i, gwn, sj, skuigwn, h)
+/\ session(ui, i, sj, skuigwn, h)
+/\ session(ui, gwn, i, skuigwn, h)
+end role
+goal
+  secrecy_of s1
+  secrecy_of s2
+  secrecy_of s4
+
+  authentication_on sensor_gwn_rj
+  authentication_on sensor_gwn_t1
+  authentication_on gwn_sensor_t2
+  authentication_on user_sensor_t11
+  authentication_on user_sensor_ki
+  authentication_on sensor_gwn_kj
+  authentication_on sensor_gwn_t21
+  authentication_on gwn_sensor_t3
+  authentication_on sensor_user_t4
+end goal
+environment()
+
+
+

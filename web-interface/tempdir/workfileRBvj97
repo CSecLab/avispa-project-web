@@ -1,0 +1,61 @@
+role role_S(C:agent,S:agent,AS:agent,PKC:public_key,PKS:public_key,PKAS:public_key,INC:function,SND,RCV:channel(dy))
+played_by S
+def=
+	local
+		State:nat,L:text,T:text,N3:text,N2:text
+	init
+		State := 0
+	transition
+		3. State=0 / RCV(C.S.{C.T'.L'.{N2'}_PKS}_inv(PKC)) =|> State':=1 / N3':=new() / SND(S.C.N3')
+		5. State=1 / RCV(AS.{AS.S.N3.C.PKC}_inv(PKAS)) =|> State':=2 / SND(S.C.{S.INC(N2)}_PKC)
+end role
+
+role role_C(C:agent,S:agent,AS:agent,PKC:public_key,PKS:public_key,PKAS:public_key,INC:function,SND,RCV:channel(dy))
+played_by C
+def=
+	local
+		State:nat,N1:text,L:text,T:text,N2:text
+	init
+		State := 0
+	transition
+		1. State=0 / RCV(start) =|> State':=1 / N1':=new() / SND(C.S.N1')
+		2. State=1 / RCV(AS.{AS.C.N1.S.PKS}_inv(PKAS)) =|> State':=2 / N2':=new() / witness(C,S,auth_2,N2') / L':=new() / T':=new() / SND(C.S.{C.T'.L'.{N2'}_PKS}_inv(PKC))
+		6. State=2 / RCV(S.C.{S.INC(N2)}_PKC) =|> State':=3
+end role
+
+role role_AS(AS:agent,PKS:public_key,PKAS:public_key,PKC:public_key,SND,RCV:channel(dy))
+played_by AS
+def=
+	local
+		State:nat,N1:text,C:agent,S:agent,N3:text
+	init
+		State := 0
+	transition
+		1. State=0 / RCV(C'.S'.N1') =|> State':=1 / SND(AS.{AS.C'.N1'.S'.PKS}_inv(PKAS))
+		4. State=1 / RCV(S.C.N3') =|> State':=2 / SND(AS.{AS.S.N3'.C.PKC}_inv(PKAS))
+end role
+
+role session1(INC:function,S:agent,C:agent,AS:agent,PKS:public_key,PKAS:public_key,PKC:public_key)
+def=
+	local
+		SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_AS(AS,PKS,PKAS,PKC,SND3,RCV3) / role_S(C,S,AS,PKC,PKS,PKAS,INC,SND2,RCV2) / role_C(C,S,AS,PKC,PKS,PKAS,INC,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		hash_0:function,pkas:public_key,authority:agent,server:agent,inc:function,client:agent,pks:public_key,pkc:public_key,auth_1:protocol_id,auth_2:protocol_id
+	intruder_knowledge = {}
+	composition
+		session1(inc,server,client,authority,pks,pkas,pkc)
+end role
+
+goal
+	authentication_on auth_1
+	authentication_on auth_2
+end goal
+
+environment()
+ 

@@ -1,0 +1,163 @@
+%converting all the commas in hash to dots for implying concatenation
+
+
+role user (U, S		:agent,             
+            X		:public_key,
+	    H		:hash_func,      
+            SND, RCV	:channel (dy))
+ 
+played_by U def=
+
+  local State      		:nat, 
+        ID, PW     		:text,
+	Bi, B      		:text, 
+	RPWi, Tu   		:text, 
+	T1, D2     		:text, 
+	Fi, Vi     		:text, 
+	TColSec, SK		:text, 
+	IMstar1new, IMstar2new  :text, 
+	V2    		        :text
+	D1, IM1, IM2, IM3, IM4  :text (fresh),
+	%CtrUi, TuX		:text
+
+  init State := 0
+
+  transition  
+   %Registration Phase
+    1.  State  = 0 /\ RCV(start) =|> 
+	State':= 1 /\ ID'  := new()
+		   /\ PW'  := new()
+		   /\ Bi'  := new()
+		   /\ B'   := new()
+		   /\ RPWi':= H(H(ID'.PW').H(Bi')) 
+		   /\ SND(ID'.H(H(ID'.PW'.B').H(Bi')))
+		   
+    %Seventh step just before the login phase
+    2.  State  = 1 /\ RCV(D1'.IM1'.IM2'.IM3'.IM4'.CtrUi') =|> 
+	State':= 2 /\ TuX' := new() %corresponding to the generation of TuX
+		   /\ T1' := new()
+		   /\ D2' := xor(RPWi, B) %After receiving the smart card from S
+		   /\ Fi' := H(RPWi.B) %After receiving the smart card from S 
+		   /\ X'  := xor(D1',H(H(ID.PW.B),H(Bi)))
+		   /\ Vi' := H(X'.IM1'.IM2'.{CtrUi'}_X'.TuX'.T1')
+		   /\ SND(IM1'.IM2'.TuX'.{CtrUi'}_X'.Vi'.T1') %instead of sending just M1'
+
+    3.  State   = 2 /\ RCV(Y1'.Y2'.Y3'.TuX'.T2') =|>
+	State' := 3 /\ TColSec'    := new() %Computing second time for various T of functions
+		    /\ SK'         := H(TColSec'.CtrUi)
+		    /\ T3'	   := new()
+		    /\ IMstar1new' := xor(Y1, xor(H(SK'.T1), H(ID.CtrUi)))
+		    /\ IMstar2new' := xor(Y2, xor(H(SK'.T2), H(ID.CtrUi)))
+		    /\ V2'         := H(IMstar1new'.IMstar2new'.SK'.T3')
+		    /\ SND(V2'.T3')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role server (U, S	:agent,
+	 %Xs		:public_key, change to symmetric key and is made a local variable because it is used only by the server
+	 X		:public_key,      
+	 H		:hash_func,      
+         SND, RCV	:channel (dy)) 
+played_by S def=
+
+  local State :nat, 
+	R: text, 
+	CtrUi, Ki		:text, 
+	IM3, IM1		:text, 
+	IM4, D1			:text, 
+	Ki, TCol		:text, 
+	Kinew, IMstar1, V	:text, 
+	IMstar2, SK, Y1, Y2, Y3 :text,
+	D1, IM1, IM2, IM3, IM4  :text,
+	Xs			:symmetric_key
+
+  init State := 0
+
+  transition 
+
+    1.  State  = 0 /\ RCV(ID'.H(H(ID'.PW'. B').H(Bi'))) =|> 
+	State':= 1 /\ R'    := new() 
+		   /\ Xs'   := new()
+		   /\ CtrUi':= new()
+		   /\ Ki'   := {R'.CtrUi'}_Xs'  %There could be no requirement of creating the symmetric key because we are trying to emulate that 							%Ki is encrypted by Xs: A symmetric key. BUt without the emulation requirement we could just 							%assume that it is already encrypted		   
+		   /\ IM3'  := xor(H(Xs'), Ki')
+		   /\ IM1'  := xor(H(Xs'), Ki')
+		   /\ IM4'  := xor(H(Xs'.Ki'), ID')
+		   /\ IM2'  := xor(H(Xs'.Ki'), ID')
+		   /\ D1'   := xor(H(ID.Xs'), H(H(ID.PW.B).H(Bi)))
+		   /\ SND(D1'.IM1'.IM2'.IM3'.IM4'.ID'.CtrUi') 
+		   
+
+    2.  State  = 1 /\ RCV(IM1'.IM2'.TuX'.{CtrUi'}_X'.Vi'.T1') =|>
+	%Leaving out the timestamp check
+	%There is no method in AVISPA to check the equality of elements
+	%so moving onto computing new elements 
+	State':= 2 /\ Ki'      := xor(IM1',H(Xs))
+		   /\ TCol'    := new() %This is a collection of Tu function that are successively used to compute SK
+		   /\ Rnew'    := new()
+		   /\ V'       := new()
+		   /\ T2'      := new() %second time_stamp
+		   /\ Kinew'   := {Rnew'.CtrUi'}_Xs
+		   /\ IMstar1' := xor(H(Xs), Kinew')
+		   /\ IMstar2' := xor(H(Xs, Kinew'), ID)
+		   /\ SK'      := H(TCol',CtrUi')
+		   /\ Y1'      := xor(xor(IMstar1', H(SK'.T1')), H(ID.CtrUi'))
+		   /\ Y2'      := xor(xor(IMstar1', H(SK'.T2')), H(ID.CtrUi'))
+		   /\ Y3'      := H(SK'.IMstar1'.IMstar2'.TuX'.T2')
+		   /\ SND(Y1'.Y2'.Y3'.TuX'.T2')
+	
+    3. State = 2  /\ RCV(V2'.T3') =|>
+       State' := 3 /\ IDnewstar' := new() %update in server database
+		  /\ Kinewstar' := new() %update in server database
+		 % /\ SND()	
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(USER, SERVER: agent, X: public_key) def=
+	
+  local SA, RA, SB, RB: channel (dy)
+
+  composition 
+
+	user(USER, SERVER, X, SA,RA)
+     /\ server  (SERVER, USER, X, SB,RB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+    const user, server	       : agent,
+	  x, ki   : public_key
+	  %na, nb,
+	  %alice_bob_nb,
+	  %bob_alice_na : protocol_id
+
+    intruder_knowledge = {user, server}
+
+    composition
+
+	session(user,server,x)
+     /\ session(user,i,x)
+     /\ session(i,server,ki)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%goal
+
+  %secrecy_of na, nb
+  %authentication_on alice_bob_nb
+  %authentication_on bob_alice_na
+
+%end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

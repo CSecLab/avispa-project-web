@@ -1,0 +1,79 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileIaG2n4l9Pv
+
+section signature:
+
+state_tag: agent * agent * text * text * text * text * hash_func * nat * nat -> fact
+state_reader: agent * agent * text * symmetric_key * nat * nat -> fact
+
+
+section types:
+
+r1, r2: protocol_id
+k_as, K_M: symmetric_key
+State, 2, 1, 4, SID, Dummy_State, 3: nat
+ASGoal: set(agent)
+start, MGoal: message
+t, r, R, T, A2Goal, A1Goal, i: agent
+M, Dummy_M, Dummy_ID_T, ID_H, SQN, ID_T, ide, sqne, idet, mte, rte: text
+H, ht: hash_func
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(i).
+ state_reader(t,r,ide,k_as,1,3).
+ state_tag(r,t,ide,sqne,idet,mte,ht,1,4)
+
+
+section rules:
+
+step step_0 (R,T,M,K_M,SID) :=
+ state_reader(R,T,M,K_M,1,SID).
+ iknows(start)
+ =>
+ state_reader(R,T,M,K_M,2,SID).
+ iknows(M)
+
+step step_1 (T,R,ID_H,SQN,Dummy_ID_T,Dummy_M,H,SID) :=
+ state_tag(T,R,ID_H,SQN,Dummy_ID_T,Dummy_M,H,1,SID).
+ iknows(Dummy_M)
+ =>
+ state_tag(T,R,ID_H,SQN,apply(H,pair(ID_H,SQN)),pair(ID_H,Dummy_M),H,2,SID).
+ iknows(pair(apply(H,pair(ID_H,SQN)),pair(ID_H,Dummy_M)))
+
+
+section properties:
+
+property secrecy_of_r1 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,r1,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_r2 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,r2,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property weak_authentication_on_r1 (A1Goal,A2Goal,MGoal,SID) :=
+ [] ((wrequest(A1Goal,A2Goal,r1,MGoal,SID)
+      /\ ~ equal(A2Goal,i))
+     => witness(A2Goal,A1Goal,r1,MGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_r1 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,r1,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_r2 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,r2,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state weak_authentication_on_r1 (A1Goal,A2Goal,MGoal,SID) :=
+ wrequest(A1Goal,A2Goal,r1,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,r1,MGoal)) &
+ not(equal(A2Goal,i))
+

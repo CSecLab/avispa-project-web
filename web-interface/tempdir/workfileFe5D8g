@@ -1,0 +1,152 @@
+role user (Ui, SNj, GWN : agent,
+SK1 : symmetric_key,
+% H is hash function
+H: hash_func, Snd, Rcv: channel(dy))
+played_by Ui
+def=
+local State : nat,
+IDi, PWi, DIDi,PWRi, Ai, TIDi, IDgwnh, IDsnj, Bi, Regi, Ri, Rj, Rk, T1, T2, T3, T4, Xk, Pj, Sran: text,
+ Bi, Ci, Di, Lii, SKi, Li, Ei, Qi, Kj, Fi, Yk, Gi, Hj, Kj: message,
+Inc : hash_func
+const user_gateway, gateway_snode, snode_user,
+subs1, subs2, subs3, subs4 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(start) =|>
+State' := 1 /\ R' :=new()
+/\ DIDi' :=H(IDi.R')
+/\ PWRi' := H(PWi.R')
+/\ Snd({DIDi'.PWRi'}_SK1)
+/\ secret({IDi, PWi}, subs1, Ui)
+
+2. State = 1 /\ Rcv({Regi.Ai.TIDi.IDgwnh}_SK1) =|>
+State' := 2 /\ Ri' := new() 
+/\ T1' := new()
+/\ Bi' := xor(Ai,H(DIDi.PWRi)) 
+/\ Ci' := H(IDgwnh.Bi.Ri'.T1')
+/\ Di' := xor(Bi',Ri')
+/\ Snd(IDgwnh.TIDi.IDsnj.Ci.Di.T1) 
+%/\ witness(Ui, S, alice_server, Ni')
+
+3. State = 2 /\ Rcv(Li'.Ei.Qi'.Kj.T4) =|>
+State' := 3 /\  Rj' := xor(Ri,Qi)  % line32
+/\ Rk' := xor(Kj,Rj)
+/\ Lii' := H(Ei.DIDi.Rj.Rk.T4)
+/\ SKi' := H(DIDi.Ri.Rj.Rk)
+end role 
+
+role gateway (GWN, Ui, SNj : agent,
+SK1 : symmetric_key,
+% H is hash function
+H : hash_func,
+Snd, Rcv: channel(dy) )
+played_by GWN
+def=
+local State : nat,
+IDi, PWi, DIDi,PWRi, Ai, TIDi, IDgwnh, IDsnj, Bi, Regi, Ri, Rj, Rk, T1, T2, T3, T4, Xk, Pj, Sran: text,
+ Bi, Ci, Di, Lii, SKi, Li, Ei, Qi, Kj, Fi, Yk, Gi, Hj, Kj: message,
+Inc : hash_func
+const user_gateway, gateway_snode, snode_user,
+subs1, subs2, subs3, subs4 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv({DIDi.PWRi}_SK1) =|>  %line53
+State' := 1 /\ TIDi' := new()
+/\ Regi' := H(DIDi'.PWRi')
+/\ Bi' := H(DIDi'.TIDi'.Xk)
+/\ Ai' := xor(Bi',H(xor(DIDi'.PWRi')))
+/\ secret({Xk}, subs2, {GWN})
+/\ secret({DIDi},subs3,{GWN,Ui})
+/\ Snd({Regi'.Ai'.IDgwnh.TIDi'}_SK1) 
+/\ Sran' := new()
+/\ Pj' := H(IDsnj.Sran')
+/\ secret({Pj',Sran'},subs4,{GWN,SNj})
+
+2. State =1 /\ Rcv(IDsnj.PSj') =|> 
+State' := 2 /\ Pj' := xor(PSj',Sran)
+
+3. State = 2 /\ Rcv(IDgwnh.TIDi.IDsnj.Ci.Di.T1) =|>
+State' := 3 /\  Rk' :=new()
+/\ T2' := new()
+/\ Ri' := xor(Bi,Di)  %line 71
+/\ Ei' := H(IDsnj.DIDi.Pj.Rk'.T2')
+/\ Fi' := xor(Pj,Rk')
+/\ Yk' := xor(Ri,H(Rk'))
+/\ Gi' := xor(DIDi,H(IDsnj.Rk'))
+/\ Snd(Ei'.Fi'.Yk'.Gi'.T2')
+4. State = 3 /\ Rcv(Hj.Kj.T3) =|>
+State' := 4 /\ T4' := new()
+/\ Rj' := xor(Kj,Rk)
+/\ Li' := H(Ei.DIDi.Rj.Rk.T4)
+/\ Qi' := xor(Rj,Ri)
+/\ Snd(Li'.Ei.Qi'.Kj.T4)
+end role
+
+role snode (SNj, Ui, GWN : agent,
+SK1 : symmetric_key,
+% H is hash function
+H : hash_func,
+Snd, Rcv: channel(dy) )
+played_by SNj
+def=
+local State : nat,
+IDi, PWi, DIDi,PWRi, Ai, TIDi, IDgwnh, IDsnj, Bi, Regi, Ri, Rj, Rk, T1, T2, T3, T4, Xk, Pj, Sran: text,
+ Bi, Ci, Di, Lii, SKi, Li, Ei, Qi, Kj, Fi, Yk, Gi, Hj, Kj: message,
+Inc : hash_func
+const user_gateway, gateway_snode, snode_user,
+subs1, subs2, subs3, subs4 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(start) =|>
+State' := 1 /\ PSj' := xor(Pj,Sran)
+/\ Snd(IDsnj.PSj')
+
+2. State = 1 /\ Rcv(Ei.Fi.Yk.Gi.T2) =|>
+State' := 2 /\ Rj' := new()
+/\ T3' :=new()
+/\ Rk' := xor(Fi,Pj)
+/\ Ri' := xor(Yk,H(Rk))
+/\ DIDi' := xor(Gi, H(IDsnj.Rk))
+/\ Hj' := H(Ei.DIDi.Rj'.T3') 
+/\ Kj' := xor(Ri,Rj')
+/\ Snd (Hj'.Kj'.T3')
+%/\ secret({BSj}, subs5, {S,Sj})
+%/\ witness(MS, SS, mserver_special_rms, Rms')
+%/\ request(MS, SS, mserver_special, Rms') %newline
+end role
+
+role session(Ui, SNj, GWN: agent,
+SK1 : symmetric_key,
+H: hash_func)
+def=
+local SI, SJ, RI, RJ, TI, TJ, PI, PJ: channel (dy)
+composition
+alice(Ui, S, Sj, SK1, H, SI, RI)
+/\ server(Ui, S, Sj, SK1, H, SJ, RJ)
+/\ aserver(Ui, S, Sj, SK1, H, TI, TJ)
+end role
+
+role environment()
+def=
+const ui, snj, gwn: agent,
+sk1: symmetric_key,
+h: hash_func,
+idi, pwi, didi,pwri, ai, tidi, idgwnh, idsnj, bi, regi, ri, rj, rk, t1, t2, t3, t4, xk, pj, sran: text,
+user_gateway, gateway_snode, snode_user,
+subs1, subs2, subs3, subs4 : protocol_id
+intruder_knowledge = {ui, snj, gwn, h}
+composition
+session( gwn, snj, ui, sk1, h)
+/\ session(ui, snj, gwn, sk1, h)
+/\ session(ui, gwn, snj, sk1, h)
+end role
+goal
+secrecy_of subs1
+secrecy_of subs2
+secrecy_of subs3
+secrecy_of subs4
+%authentication_on alice_server
+%authentication_on server_aserver
+%authentication_on aserver_alice
+end goal
+environment()

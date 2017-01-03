@@ -1,0 +1,120 @@
+% Secure VM migration module
+role client_cloud(A, B : agent,  
+           H : hash_func,
+           Ka, Kt: public_key,  %% Kt is the public key of a TTP (ie. CA)
+           SND, RCV: channel (dy))
+played_by A
+def=
+   local Ra : text,
+         Rb: text,
+         State: nat,
+         Kb: public_key
+         %M: hash(text.text.text)
+   init  State := 0
+
+   transition
+
+   1.  State = 0
+       /\ RCV(start)
+       =|>
+       State' := 2
+       /\ SND(A)
+ 
+     2.  State = 2
+       /\ RCV(Rb') =|>
+       State' := 3
+       /\ Ra' := new()
+       /\ SND (Ra'.Rb'.{H(Ra'.Rb')}_(inv(Ka)).Ka)
+       /\ witness(A,B,bob_alice_num,Ra'.Rb')
+
+   4.  State = 3
+     /\ RCV (Rb.Ra.{H(Rb.Ra)}_(inv(Kb)).Kb')
+	  =|>
+       State' := 5
+      %/\ witness(A,B,ra_toward_b,Ra.Rb)
+       /\ request(B,A,alice_bob_num,Ra.Rb)
+
+   
+
+
+end role
+
+
+%%%###########server
+role server_cloud(A, B : agent,
+         H : hash_func,
+         Kb, Kt: public_key,
+         SND, RCV: channel (dy))
+played_by B
+def=
+
+   local Rb, Ra: text,
+         State: nat,
+         Ka: public_key
+
+   init  State := 1
+
+   transition
+
+   1.  State = 1
+       /\ RCV(A)   =|>
+       State' := 3
+       /\ Rb' := new()
+       /\ SND(Rb')
+   2.  State = 3
+       /\ RCV(Ra'.Rb.{H(Ra'.Rb)}_(inv(Ka)).Ka')
+       =|>
+       State' := 5
+       /\ SND(Rb.Ra'.{H(Rb.Ra')}_(inv(Kb)).Kb)
+       /\ witness(B,A,alice_bob_num,Rb.Ra')
+       /\ request(A,B,bob_alice_num,Rb.Ra')	 
+end role
+
+
+
+role session(A,B: agent,
+             Ka, Kb, Kt: public_key,
+             H : hash_func)
+def=
+
+   local  SA, SB, RA, RB: channel (dy)
+
+   composition
+                client_cloud(A,B,H,Ka,Kt,SA,RA)
+           /\   server_cloud(A,B,H,Kb,Kt,SB,RB)
+
+end role
+
+
+
+role environment()
+def=  
+  % const na_nb1 : protocol_id,
+
+   const alice_bob_num,bob_alice_num : protocol_id,
+%   const ra_toward_b,rb_toward_a : protocol_id,
+         h       : hash_func,
+         a, b           : agent,
+         ka, kb, ki, kt : public_key
+
+   intruder_knowledge = { a, b, ka, kb, kt, ki, inv(ki),
+                          {i.ki}_(inv(kt)) }  
+
+   composition
+        session(a,b,ka,kb,kt,h)
+    /\  session(a,i,ka,ki,kt,h)
+    /\  session(i,b,ki,kb,kt,h)
+
+end role
+
+goal
+
+  %Alice authenticates Bob on na_nb1
+  authentication_on alice_bob_num  % Addresses G1, G2, G3, G7, G10
+  authentication_on bob_alice_num  % Addresses G1, G2, G3, G7, G10
+  %Bob authenticates Alice on na_nb2
+  %authentication_on na_nb2  % Addresses G1, G2, G3, G7, G10
+
+end goal
+
+environment()           

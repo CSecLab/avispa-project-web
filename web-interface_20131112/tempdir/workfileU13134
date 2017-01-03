@@ -1,0 +1,69 @@
+role mobile(
+	A,B,M: agent,
+	Kmb, Kma: symmetric_key,
+	SND, RCV: channel(dy))
+played_by M def=
+local	State 		: nat,
+	Data, TAN 	: text
+init	State := 12
+transition
+	12. State = 12 /\ RCV({Data'.TAN'}_Kmb) =|> State' := 15 /\ SND({Data'.TAN'}_Kma)
+end role
+
+
+role acustomer(
+	A,B,M : agent,
+	Kma : symmetric_key,
+	SND,RCV	: channel(dy))
+played_by A def=
+local	State 		: nat,
+	Data, TAN 	: text
+init	State := 10
+	
+	transition
+	10. State = 10 /\ RCV(start) =|> State':= 13 /\ Data' := new() /\ SND(Data') /\ witness(A,B,bank_acustomer_T,Data')
+	13. State = 13 /\ RCV({Data.TAN'}_Kma) =|> State':= 16 /\ SND(TAN')
+end role
+
+role bank(
+	A,B,M : agent,
+	Kmb : symmetric_key,
+	SND,RCV : channel(dy))
+played_by B def=
+local	State 		: nat,
+	Data, TAN 	: text
+init	State := 11
+
+transition
+	11. State = 11 /\ RCV(Data') =|> State':= 14 /\ TAN' := new() /\ SND({Data'.TAN'}_Kmb)
+	14. State = 14 /\ RCV(TAN) =|> State':= 17  /\ request(B,A,bank_acustomer_T,Data)
+end role
+
+role session(
+	A,B,M : agent,
+	Kma,Kmb : symmetric_key)
+	def=
+local	SA, RA, SB, RB, SM, RM: channel (dy)
+
+composition
+%	acustomer (A, B, M, Kma, SA, RA)  /\ mobile(A, B, M, Kmb, Kma, SM, RM) /\ bank (A, B, M, Kmb, SB, RB)
+	acustomer (A, B, M, Kma, SA, RA)  /\ bank (A, B, M, Kmb, SB, RB) /\ mobile(A, B, M, Kmb, Kma, SM, RM)
+end role
+
+role environment()
+	def=
+	const
+		bank_acustomer_T : protocol_id,
+		kma,kmb,kmi : symmetric_key,
+		a,b,m : agent
+	intruder_knowledge = {a,b,m,kmi}
+
+composition
+	session(a,i,m,kma,kmi)
+end role
+
+goal
+	authentication_on bank_acustomer_T
+end goal
+
+environment()

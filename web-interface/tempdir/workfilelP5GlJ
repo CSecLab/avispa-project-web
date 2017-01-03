@@ -1,0 +1,324 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role electric_vehicle(
+
+		EV_v,SC_v,EVSE_h,
+		SM_h,S_h,S_v 		: agent,
+		H				: hash_func,
+		K_H_h,K_U_v		: symmetric_key,
+		PK_U_v,PK_SM_h,
+		PK_S_h,PK_S_v		: public_key,
+		P_S_h				: text,
+		Snd,Rcv			: channel(dy)
+				)
+
+played_by EV_v
+
+def=
+
+local		State				: nat,
+		PSID_EV_v			: text
+
+init State := 0
+
+transition
+
+1. 	State = 0 /\ Rcv(start) =|>
+	State':= 1 /\ PSID_EV_v' := new()
+			/\ Snd(PSID_EV_v')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role electric_vehicle_supply_equipment(
+
+		EV_v,SC_v,EVSE_h,
+		SM_h,S_h,S_v 		: agent,
+		H				: hash_func,
+		K_H_h,K_U_v		: symmetric_key,
+		PK_U_v,PK_SM_h,
+		PK_S_h,PK_S_v		: public_key,
+		P_S_h				: text,
+		M_EVSE_h			: message,
+		Snd,Rcv			: channel(dy)
+				)
+
+played_by EVSE_h
+
+def=
+
+local		State				: nat,
+		PSID_EV_v,P_S_h,
+		Time_EVSE_h		: text,
+		C_EVSE_h,M_EVSE_h,
+		M_SM_h2			: message,
+		Hmac1,Hmac2		: message
+
+init State := 0
+
+transition
+
+1. 	State = 0 /\ Rcv(PSID_EV_v') =|>
+	State':= 1 /\ P_S_h':= new()
+			/\ Time_EVSE_h':= new()
+			/\ Snd(PSID_EV_v'.P_S_h'.Time_EVSE_h')
+
+2. 	State = 1 /\ Rcv(REQ_U_v')=|>
+	State':= 2 /\ C_EVSE_h':= {REQ_U_v'}_K_H_h
+			/\ M_EVSE_h':= SM_h.EVSE_h.C_EVSE_h'
+			/\ Hmac1':= H(M_EVSE_h'.K_H_h)
+			/\ Snd(M_EVSE_h'.Hmac1')
+
+3.	State = 2 /\ Rcv(M_SM_h2'.Hmac2')=|>
+	State':= 3
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role smart_card(
+
+		EV_v,SC_v,EVSE_h,
+		SM_h,S_h,S_v 		: agent,
+		H				: hash_func,
+		K_H_h,K_U_v		: symmetric_key,
+		PK_U_v,PK_SM_h,
+		PK_S_h,PK_S_v		: public_key,
+		P_S_h				: text,
+		Snd,Rcv			: channel(dy)
+				)
+
+played_by SC_v
+
+def=
+
+local		State				: nat,
+		PSID_EV_v,P_S_h,
+		Time_EVSE_h		: text,
+		M_U_v,Sig_U_v,
+		C_U_v,REQ_U_v		: message
+
+init State := 0
+
+transition
+
+1. 	State = 0 /\ Rcv(PSID_EV_v'.P_S_h'.Time_EVSE_h') =|>
+	State':= 1 /\ M_U_v' := S_v.PSID_EV_v'.P_S_h'.Time_EVSE_h'
+			/\ Sig_U_v':= {H(M_U_v')}_inv(PK_U_v)
+			/\ C_U_v':= {Sig_U_v'}_(K_U_v)
+			/\ REQ_U_v':= M_U_v'.C_U_v'
+			/\ Snd(REQ_U_v')
+			/\ secret(Sig_U_v',sigUv,{SC_v,S_v})
+			/\ reques(EVSE_h,SM_h,sm_evse_Mevse,M_EVSE_h')
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role smart_meter(
+
+		EV_v,SC_v,EVSE_h,
+		SM_h,S_h,S_v 		: agent,
+		H				: hash_func,
+		K_H_h,K_U_v		: symmetric_key,
+		PK_U_v,PK_SM_h,
+		PK_S_h,PK_S_v		: public_key,
+		P_S_h				: text,
+		Snd,Rcv			: channel(dy)
+               	) 
+
+played_by SM_h 
+
+def=
+
+ local	State				: nat,
+		PSID_EV_v,P_S_h,
+		Time_EVSE_h,
+		Time_SM_h			: text,
+		M_SM_h,Sig_SM_h,
+		C_U_v,REQ_U_v,
+		C_SM_h			: message
+
+init State := 0
+
+transition
+
+1. 	State = 0 /\ Rcv(M_EVSE_h'.Hmac1') =|>
+	State':= 1 /\ C_SM_h':= {REG_U_v'}_(PK_S_h)
+			/\ Time_SM_h':= new()
+			/\ M_SM_h':= S_h.SM_h.C_SM_h'.Time_SM_h'
+			/\ Sig_SM_h':= {H(M_SM_h')}_inv(PK_SM_h)
+			/\ Snd(M_SM_h'.Sig_SM_h')
+			/\ request(SM_h,EVSE_h,sm_evse_Mevse,M_EVSE_h')
+
+2. 	State = 1 /\ Rcv(M_S_h2'.Sig_S_h2') =|>
+	State':= 2 /\ C_SM_h2':= {PSID_EV_v'.Dec_S_v'}_K_H_h
+			/\ M_SM_h2':= EVSE_h.SM_h.C_SM_h2'
+			/\ Hmac2':= H(M_SM_h2'.K_H_h)
+			/\ Snd(M_SM_h2'.Hmac2') 		
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role supplier_host  ( 
+
+		EV_v,SC_v,EVSE_h,
+		SM_h,S_h,S_v 		: agent,
+		H				: hash_func,
+		K_H_h,K_U_v		: symmetric_key,
+		PK_U_v,PK_SM_h,
+		PK_S_h,PK_S_v		: public_key,
+		P_S_h				: text,
+		Snd,Rcv			: channel(dy)
+               	) 
+
+played_by S_h 
+
+def=
+
+ local	State				: nat,
+		PSID_EV_v,P_S_h,
+		Time_EVSE_h,
+		Time_S_h			: text,
+		M_S_h,Sig_S_h,
+		C_U_v,REQ_U_v,
+		C_S_h			: message
+
+init State := 0
+
+transition
+
+1. 	State = 0 /\ Rcv(M_SM_h'.Sig_SM_h') =|>
+	State':= 1 /\ C_S_h':= {REG_U_v'}_(PK_S_v)
+			/\ Time_S_h':= new()
+			/\ M_S_h':= S_h.S_v.C_S_h'.Time_S_h'
+			/\ Sig_S_h':= {H(M_S_h')}_inv(PK_S_h)
+			/\ Snd(M_S_h'.Sig_S_h')
+
+2. 	State = 1 /\ Rcv(M_S_v2'.Sig_S_v2') =|>
+	State':= 2 /\ C_S_h2':= {PSID_EV_v'.Dec_S_v'}_(PK_SM_h)
+			/\ Time_S_h2':= new()
+			/\ M_S_h2':= SM_h.S_h.C_S_h2'.Time_S_h2'
+			/\ Sig_S_h2':= {H(M_S_h2')}_inv(PK_S_h)
+			/\ Snd(M_S_h2'.Sig_S_h2')
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role supplier_visitor ( 
+
+		EV_v,SC_v,EVSE_h,
+		SM_h,S_h,S_v 		: agent,
+		H				: hash_func,
+		K_H_h,K_U_v		: symmetric_key,
+		PK_U_v,PK_SM_h,
+		PK_S_h,PK_S_v		: public_key,
+		P_S_h				: text,
+		Snd,Rcv			: channel(dy)
+               	) 
+
+played_by S_v 
+
+def=
+
+ local	State				: nat,
+		PSID_EV_v,P_S_h,
+		Time_EVSE_h,
+		Time_S_v,Dec_S_v		: text,
+		M_S_h,Sig_S_h,
+		C_U_v,REQ_U_v,
+		C_S_h			: message
+
+init State := 0
+
+transition
+
+1. 	State = 0 /\ Rcv(M_S_h'.Sig_S_h') =|>
+	State':= 1 /\ Dec_S_v':= new()
+			/\ Time_S_v':= new()
+			/\ M_S_v1':= PSID_EV_v'.S_h.Dec_S_v'.Time_S_v'
+			/\ Sig_S_v1':= {H(M_S_v1')}_inv(PK_S_v)
+			/\ C_S_v':= {M_S_v1'.Sig_S_v1'}_(PK_S_h)
+			/\ M_S_v2':= S_h.S_v.C_S_v'.Time_S_v'
+			/\ Sig_S_v2':= {H(M_S_v2')}_inv(PK_S_v)
+			/\ Snd(M_S_v2'.Sig_S_v2')
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(
+
+		EV_v,SC_v,EVSE_h,
+		SM_h,S_h,S_v 				: agent,
+		K_H_h,K_U_v				: symmetric_key,
+		PK_U_v,PK_SM_h,
+		PK_S_h,PK_S_v				: public_key,
+		H						: hash_func
+               ) 
+
+def=
+
+ local	SndEV_v,RcvEV_v,SndSC_v,RcvSC_v,SndEVSE_h,RcvEVSE_h,SndSM_h,RcvSM_h,SndS_h,RcvS_h,SndS_v,RcvS_v 		: channel(dy)
+
+ composition
+  		electric_vehicle(EV_v,EVSE_h,K_H_h,H,SndEV_v,RcvEV_v)
+/\ electric_vehicle_supply_equipment(EVSE_h,EV_v,SC_v,SM_h,K_H_h,PK_U_v,PK_SM_h,PK_S_h,H,SndEVSE_h,RcvEVSE_h)
+	  /\ smart_card(SC_v,EVSE_h,K_U_v,SndSC_v,RcvSC_v)
+		electric_vehicle(EV_v,EVSE_v,SndEV_v,RcvEV_v) 
+	  /\ smart_meter(SM_h,EVSE_h,S_h,K_H_h,H,SndSM_h,RcvSM_h)
+	  /\ supplier_host(SC_h,SM_h,S_v,SndS_h,RcvS_h)
+	  /\ supplier_visitor(SC_v,S_v,SndS_v,RcvS_v)
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() 
+
+def=
+
+  const h						: hash_func, 
+        ev,evse,sc,sm,sh,sv 		: agent,
+        pk_u,pk_sm,pk_sh,pk_sv,pk_i	: public_key,
+	   k_u,k_h,k_i				: symmetric_key,
+	   sigUv,sm_evse_Mevse		: protocol_id
+      
+        		
+
+
+ intruder_knowledge = {i,pk_u,pk_sm,pk_sh,pk_sv,pk_i,inv_(pk_i),k_i}
+
+ composition
+  	session(ev,evse,sc,sm,sh,sv,h,k_u,k_h) 
+  /\ session(i,evse,sc,sm,sh,sv,h,k_i,k_h)
+  /\ session(ev,i,sc,sm,sh,sv,h,k_u,k_i)
+  /\ session(ev,evse,i,sm,sh,sv,h,k_i,k_h)
+  /\ session(ev,evse,sc,i,sh,sv,h,k_u,k_i)
+  /\ session(ev,evse,sc,sm,i,sv,h,k_i,k_h)
+  /\ session(ev,evse,sc,sm,sh,i,h,k_u,k_i)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  % Entity authentication (G1)
+  % Message authentication (G2)
+  % Replay protection (G3)
+  % Accountability (G17)
+  % Proof of Origin (G18)
+  % Proof of Delivery (G19)
+  authentication_on sm_evse_Mevse
+  weak_authentication_on sm_evse_Mevse
+
+  % ID protection (Eavesdr.) (G13)
+  % Conifidentiality (G12) --- Missing in table of D6.1
+  % secrecy_of order
+  secrecy_of Sig_U_v
+end goal
+
+environment()

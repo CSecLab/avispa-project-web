@@ -1,0 +1,105 @@
+%%- S- sensor ,SP- Service Provider  
+%%HLPSL:
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  Secure Communication Protocol 1%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role sensor(S, SP  : agent, H : hash_func, Snd,Rec: channel(dy))   %% Sensor
+    played_by S
+    def=
+
+      local  	State     : nat,
+		Sk	  : symmetric_key,
+		Username  : text,
+		Hello     : text,
+		Rp,Rs     : nat,
+		Msg 	  : text,
+	        Passwd    : text
+	
+      const sk : protocol_id
+      init State := 0
+      transition
+
+       1. State = 0
+          /\ Rec(start) =|>
+          State' := 1 
+	  /\ Snd(Hello)
+       2. State = 1
+           /\ Rec(Rp') =|>
+	   State' := 2 
+	   /\ Rs' := new()
+	   /\  Snd (Username.Rs'.{H(Rs'.Rp')}_Passwd)  %%concatenated message with username
+       3.  State = 2
+	    /\ Rec({Sk'}_Passwd) =|>
+	    State' := 3
+	    /\ Snd({Msg.H(Msg)}_Sk')
+         % /\ Snd({inv(Pku)}_Sk')
+   	     /\ secrecy(S,SP,sk,Sk') 
+
+
+    end role
+
+%% service provider Role
+role serviceprovider(SP,S: agent,H : hash_func,Snd,Rec: channel(dy))  % service provider
+    played_by SP
+    def=
+      local  State     : nat,
+	     Sk	       : symmetric_key,
+	     Hello     : text,
+	     Rp,Rs     : nat,
+	     Username  : text,
+	     Msg       : text,
+             Passwd    : text
+
+      const pw : protocol_id
+      init State := 0
+
+      transition
+
+       1. State = 0
+          /\ Rec(Hello) =|>     
+	  State' := 2 
+	  /\ Rp' := new()
+	  /\ Snd (Rp')
+       
+       2. State = 2
+  	  /\  Rec(Username.Rs'.{H(Rs'.Rp')}_Passwd) =|>
+  	  State' := 4 
+	  /\ Sk' := new()
+          /\ Snd({Sk'}_Passwd)
+        % /\ secrecy(KM,U,pw,Passwd')
+       3. State = 4
+	  /\ Rec({Msg.H(Msg)}_Sk') =|>
+	  State' := 6 
+			
+         
+         	 
+end role
+
+role session (S, SP : agent,H : hash_func) def=
+
+      local SS, RS, SSP, RSP: channel (dy)
+      composition
+
+             		 sensor(S,SP,H,SS,RS)
+			  /\ serviceprovider(SP,S,H,SSP,RSP)
+          
+    end role
+
+role environment() def=
+
+      const  s,sp,i         : agent,
+      h: hash_func
+      intruder_knowledge={i,s,sp}   
+
+      composition
+
+            session(s,sp,h)
+        % /\ session(a,i)
+        % /\ session(i,b)
+     
+    end role
+   goal
+	secrecy_of sk   %%communication on sk
+%secrecy_of sk,pw   %%communication on sk
+    end goal
+    environment()
+

@@ -1,0 +1,166 @@
+role alice(A, B : agent,  
+           H, PRF, KeyGen: hash_func,
+           KpubA, KpubCA: public_key, 
+           SND, RCV: channel (dy))
+
+played_by A
+def=
+
+   local Na, Sid,Cs1,Cs2,Cs3, PMS: text,
+         Nb: text,
+         State: nat,
+         Finished: hash(hash(text.text.text).agent.text.text.text.text),
+         ClientK, ServerK: hash(agent.text.text.hash(text.text.text)),
+         KpubB: public_key,
+         MS: hash(text.text.text)
+
+const sec_clientk, sec_serverk : protocol_id
+   
+
+   init  State := 0
+
+   transition
+
+   1.  State = 0
+       / RCV(start)
+       =|>
+       State' := 2
+       / Na' := new()
+       / Cs1' := new()
+       / Cs2' := new()
+       / Cs3' := new()
+       / Sid' := new()
+       
+       / SND(A.Na'.Sid'.Cs1'.Cs2'.Cs3')
+
+  
+
+   2.  State = 2
+       / RCV(Nb'.Sid'.Cs1'.{B.KpubB'}_(inv(KpubCA)))
+       =|>
+       State' := 4
+       / PMS' := new()
+       / MS' := PRF(PMS'.Na.Nb')
+       / Finished' := H(MS'.A.Na.Nb'.Cs1'.Sid')
+       / ClientK' := KeyGen(A.Na.Nb'.MS')
+       / ServerK' := KeyGen(B.Na.Nb'.MS')
+       / SND({PMS'}_KpubB'.
+              {A.KpubA}_(inv(KpubCA)).
+              {H(Nb'.B.PMS')}_(inv(KpubA)).
+              {H(MS'.
+               A.Na.Nb'.Cs1'.Sid')
+              }_ClientK)
+       / witness(A,B,na_nb2,Na.Nb')
+
+
+   4.  State = 4
+       / RCV({H(MS'.B.Na.Nb'.Cs1'.Sid')}_ServerK)
+       =|>
+       State' := 6
+       / request(A,B,na_nb1,Na.Nb)
+       / secret(ClientK,sec_clientk,{A,B})
+       / secret(ServerK,sec_serverk,{A,B})
+
+end role
+
+
+
+role bob(A, B : agent,
+         H, PRF, KeyGen: hash_func,
+         KpubB, KpubCA: public_key,
+         SND, RCV: channel (dy))
+played_by B
+def=
+
+   local Na, Nb, Sid,Cs1, PMS: text,
+	 Finished: hash(hash(text.text.text).agent.text.text.text.text),
+         State: nat,
+         MS: hash(text.text.text),
+         
+         ClientK, ServerK: hash(agent.text.text.hash(text.text.text)),
+         KpubA: public_key
+
+   init  State := 1
+
+   transition
+
+   1.  State = 1
+       / RCV(A.Na'.Sid'.Cs1')
+       =|>
+       State' := 3
+       / Nb' := new()
+       
+       / SND(Nb'.Sid'.Cs1'.{B.KpubB}_(inv(KpubCA)))
+       / witness(B,A,na_nb1,Na'.Nb')
+
+   2.  State = 3
+       / RCV({PMS'}_KpubB.{A.KpubA'}_(inv(KpubCA)).
+              {H(Nb.B.PMS')}_(inv(KpubA')).
+              {H(PRF(PMS'.Na.Nb).
+               A.Na.Nb.Cs1.Sid)
+              }_ClientK)
+       =|>
+       State' := 5
+       / MS' := PRF(PMS'.Na.Nb)
+       
+       / ClientK' := KeyGen(A.Na.Nb.MS')
+       / ServerK' := KeyGen(B.Na.Nb.MS')
+       
+       / Finished' := H(MS'.B.Na.Nb.Cs1.Sid)
+       / SND({Finished'
+              }_ServerK)
+       / request(B,A,na_nb2,Na.Nb)
+
+end role
+
+
+
+role session(A,B: agent,
+             KpubA, KpubB, KpubCA: public_key,
+             H, PRF, KeyGen: hash_func)
+def=
+
+   local  SA, SB, RA, RB: channel (dy)
+
+   composition
+                alice(A,B,H,PRF,KeyGen,KpubA,KpubCA,SA,RA)
+           /   bob(A,B,H,PRF,KeyGen,KpubB,KpubCA,SB,RB)
+
+end role
+
+
+
+role environment()
+def=
+
+   const na_nb1, na_nb2 : protocol_id,
+         h, prf, keygen : hash_func,
+         a, b           : agent,
+         ka, kb, ki, ks : public_key
+
+   intruder_knowledge = { a, b, ka, kb, ks, ki, inv(ki),
+                          {i.ki}_(inv(ks))}  
+
+   composition
+        session(a,b,ka,kb,ks,h,prf,keygen)
+    /  session(a,i,ka,ki,ks,h,prf,keygen)
+    /  session(i,b,ki,kb,ks,h,prf,keygen)
+
+end role
+
+
+
+goal
+
+   secrecy_of sec_clientk,sec_serverk  % Addresses G7
+  %Alice authenticates Bob on na_nb1
+  authentication_on na_nb1  % Addresses G1, G2, G3, G7, G10
+  %Bob authenticates Alice on na_nb2
+  authentication_on na_nb2  % Addresses G1, G2, G3, G7, G10
+
+end goal
+
+
+
+environment()
+  

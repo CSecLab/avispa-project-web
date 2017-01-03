@@ -1,0 +1,191 @@
+% test
+% note that , in case if there is hash function , the output of the hash function is represented by message variable, but when it is used for the first time in sendor %receive you must use the entire form and do not represent the hash output as a message variable, you use the message variable of the hash function for secrecy purposes
+
+% add secrecy of P, L, DS in the reply message, then check it , after that complete the entire protocol, then just think how to add the reply attack test using function success
+
+% Role of a new client C
+role clientAuthNAgent ( C, AS 		: agent, 
+			PUc, PUas	: public_key,
+			Hash 		: function,
+			SND_AS, RCV_AS  : channel(dy)) % send to and receive from AS
+played_by C def=
+		local 	State					: nat,
+			IPch, Emailu, CVPc, PCertc	   	: text,
+			Tc ,Tas, Tasg, Rc, Ras			: text,
+			SKc_sp					: symmetric_key,
+			Mc					: text.text.text.text,			
+			NA_IdenT_RequestContent			: {text.text.text.text}_symmetric_key.{symmetric_key}_public_key.agent.text ,
+			
+			ACRc1	,ACRc2				: message,
+			%K 					: message
+			%IdenTInfo				: text.text.text 
+			%MsgNAas				: {message}_symmetric_key.text.agent
+			
+			SKc_dl, Kc, Pc, Lc			: message,
+			LogFlag, CryptMethod, IssueDate		: text,
+			ValidTo, ValidFrom			: text,
+			ACR1c, ACR2c				: message,
+			NA_IdenT_ResponseContent		: {message.message}_symmetric_key.agent.text
+									% message.text.message.message.message.text.text.text.text
+		const   sec_c_SKc_sp, sec_c_Mc		        : protocol_id  %  for secrecy use
+       			
+
+		init State := 0
+		transition
+
+%  do another try in which no use for compound variable except for receiving variable
+			1. State   = 0  / RCV_AS(start) =|>
+   			   State' := 2  / SKc_sp' := new() / Tc' := new()/IPch' := new() / Emailu' := new() / CVPc' := new() / PCertc' := new()
+					/ Mc' := IPch'.Emailu'.CVPc'.PCertc'
+			       		/ NA_IdenT_RequestContent' := {Mc'}_SKc_sp'.{SKc_sp'}_(PUas).C.Tc'	       
+			
+				       		
+			
+					/ SND_AS(NA_IdenT_RequestContent'.{Hash(NA_IdenT_RequestContent')}_inv(PUc))               		
+			
+					/ witness(C,AS,authenricationserver_client_dn,inv(PUc))
+
+					/ secret (SKc_sp',sec_c_SKc_sp,{C,AS})
+	       				/ secret (Mc',sec_c_Mc,{C,AS})
+			
+			
+			2. State = 2   	/ RCV_AS({SKc_dl'.LogFlag'.Kc'.Pc'.Lc'.CryptMethod'.IssueDate'.ValidFrom'.ValidTo'}_SKc_sp'.AS.Tas'.{Hash({ACR1c'.ACR2c'}_SKc_sp'.AS.Tas')}_inv(PUas))  =|>
+					
+					%/ secret (ACRc1',acrc1,{C,AS}) 
+					%/ secret (ACRc2',acrc2,{C,AS}) /
+		  	State':= 4 	/ request(C,AS,client_authenricationserver_nd,inv(PUas))
+			
+
+end role
+
+
+%-----Modelling the Authentication Server------------------
+
+% Role of a new Authentication Server
+
+role gateAuthNService ( C, AS		: agent, 
+			    PUc, PUas		: public_key,
+			    Hash 		: function,
+			    SND_C, RCV_C 	: channel(dy))
+played_by AS def=
+		local 	State					: nat,
+			IPch, Emailu, CVPc, PCertc		: text,
+			Tc, Tcg ,Tasg, Tas ,Rc, Ras		: text,
+			SKc_sp 					: symmetric_key,
+			Mc					: text.text.text.text,			
+			NA_IdenT_RequestContent			: {text.text.text.text}_symmetric_key.{symmetric_key}_public_key.agent.text, 			
+			
+			R1as, T1asg, R2as, T2asg,LogFlag	: text,			
+			SKc_dl, Kc, Pc, Lc			: message,
+			CryptMethod, IssueDate			: text,
+			ValidTo, ValidFrom			: text,
+			ACR1c, ACR2c				: message,
+			NA_IdenT_ResponseContent		: {message.message}_symmetric_key.agent.text,
+
+
+			K , P, L, DSc, ACRc1, ACRc2		: message
+			
+			%MsgNAas				: {message}_symmetric_key.text.agent,
+			
+			%			
+			%
+			
+			
+		const   sec_as_SKc_sp ,sec_as_Mc	        : protocol_id  %  for secrecy use
+		
+		init State := 1
+
+		transition
+
+			1. State   = 1  / RCV_C({IPch'.Emailu'.CVPc'.PCertc'}_SKc_sp'.{SKc_sp'}_(PUas).C.Tc'.{Hash({Mc'}_SKc_sp'.{SKc_sp'}_(PUas).C.Tc')}_inv(PUc)) =|> 
+			   			
+			   State':= 3   /equest(AS,C,authenricationserver_client_dn,inv(PUc))
+					/ R1as'  := new()/ T1asg' := new() / LogFlag' := new()
+					/ SKc_dl' := Hash(R1as'.T1asg') / ACR1c' := SKc_dl'.LogFlag'
+					/ R2as':= new() / T2asg' := new() / Tas' :=	new()				
+					/ CryptMethod' := new() / IssueDate' := new() / ValidTo' := new() / ValidFrom' := new() 
+					/ Kc'  := Hash(SKc_sp'.inv(PUas))/ Pc' := Hash(C.R2as'.T2asg') / Lc' := Hash(C.IPch'.Tas')
+					/ ACR2c' := Kc'.Pc'.Lc'.CryptMethod'.IssueDate'.ValidFrom'.ValidTo'
+					/ NA_IdenT_ResponseContent' := {ACR1c'.ACR2c'}_SKc_sp'.AS.Tas'
+
+					%/ Tasg' := new() / Ras' := new()
+					%/ K' := Hash(SKc_sp'.inv(PUas).Tasg')/P' := Hash(C.Tasg'.Ras')/L' := Hash(C.IPch'.Tasg')/DSc' := Hash(Ras'.IPch'.Tasg')
+					%/ secret(K',k,{AS,C})/secret(P',p,{AS,C})/secret(L',l,{AS,C})/secret(DSc',dsc,{AS,C})	
+					%/ MsgNAas' := {Hash(Kc'.inv(PUas).Tasg')}_Kc'.Tas'.AS  %%%  
+					
+					/ SND_C(NA_IdenT_ResponseContent'.{Hash(NA_IdenT_ResponseContent')}_inv(PUas)) 
+					/witness(AS,C,client_authenricationserver_nd,inv(PUas))
+					
+					/ secret (SKc_sp',sec_as_SKc_sp,{C,AS})
+	       				/ secret (Mc',sec_as_Mc,{C,AS})
+
+end role
+
+%------Modelling the Session --------------------------------
+
+
+role session(
+		C, AS			 : agent,
+		PUc, PUas		 : public_key,
+		Hash 			 : function)
+def=
+	local 	SNDASC, RCVASC, SNDCAS, RCVCAS : channel (dy)
+
+composition
+
+clientAuthNAgent(C,AS,PUc,PUas,Hash,SNDASC,RCVASC)
+/ gateAuthNService(C,AS,PUc,PUas,Hash,SNDCAS,RCVCAS)
+
+
+end role
+
+
+%-------Modelling the Environment----------------------------
+
+role environment()
+def=
+	const	c, as, i	: agent,
+	puc, puas, pui		: public_key, 
+	h			: function,
+	authenricationserver_client_dn  ,client_authenricationserver_nd, k, p, l, dsc: protocol_id,
+	acrc1, acrc2		: protocol_id
+
+
+intruder_knowledge = {c, as, puc, puas, pui, inv(pui)}
+
+composition
+session(c,as,puc,puas,h)
+%/session(c,as,puc,puas,h)
+end role
+
+%----- Modelling the security Goals -----
+
+goal
+
+
+authentication_on authenricationserver_client_dn
+authentication_on client_authenricationserver_nd
+secrecy_of sec_c_SKc_sp,
+	   sec_as_SKc_sp,
+	   sec_as_Mc,
+	   sec_c_Mc
+secrecy_of k, p, l, dsc
+secrecy_of acrc1, acrc2
+end goal
+
+% --------Call of the Main Role---------------------------------
+
+environment()
+
+%------------------------------------------
+
+
+%---- later after the protocol is modeled with out error
+%  add set that contains agent.secretpaymentkey and make the condition
+%  as 2.1.3 Example in user manual
+%  also, you can use th KeyRing to check if the private key used to sign the
+%  message is existing based on his the entity id and public key.
+%  the reciever of the message he can look if he has the id associated with the %  public key, then it means that the private key used to sign the message is %  valid.
+%  also model with intruder.
+%  
+ 

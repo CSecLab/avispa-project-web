@@ -1,0 +1,149 @@
+%%%% Role of User
+
+role user_role (User, Server : agent,
+			Snd, Rcv : channel(dy),
+			Hash : hash_func,
+			K : symmetric_key)
+
+played_by User
+def= 
+	local State : nat,
+	ID, Pw, R, RPW, L, J, T, Ts, C1, C2, C3, D, AID, Sk : text,
+	Y : symmetric_key
+	
+	const user_server_Pw, user_server_RPW, secret_a_pwd, secret_a_sk, user_server_c1, user_server_c2, user_server_hash : protocol_id, 
+	user_server_j, user_server_r, user_server_l : protocol_id
+	
+	init State := 0
+	
+	transition
+	1. State = 0 /\ Rcv(start) =|>
+		State' :=1 /\ ID' := new() /\Pw' := new() /\ RPW' := Hash(ID.Pw)
+					/\ Snd(User.RPW)
+					/\ witness(User, user_server_Pw, Pw)
+					/\ witness(User, user_server_RPW, RPW)
+					/\ witness(User, Server, user_server_hash, Hash) 
+					/\ secret(Hash,user_server_hash,{User,Server})
+					/\ secret(Pw,secret_a_pwd,{User})
+	
+	2. State = 1 /\ Rcv({L'.Y'}_K) =|>
+		State' := 2 /\ R':= new() /\ RPW':= R.Pw /\ J' := xor(L,RPW)
+					/\ T' := new() /\ C1' := Hash(T.J)
+					/\ D' := new() /\ AID' := xor(ID, Hash(Y.T.D))
+					/\ Snd(AID.T.D.C1)
+					/\ witness(User, user_server_j, J) 
+					/\ witness(User, user_server_r, R) 
+					/\ request(User, user_server_l, L)
+					
+	3. State = 2 /\ Rcv(C1', Ts') =|>
+		State':= 3 /\ C2' := Hash(xor(xor(C1,J),Ts))
+					
+	4. State = 3 /\ C2 = C1 =|>
+		State' := 4 /\ Sk' := Hash(xor(C2,J))
+					/\ Snd(User.Sk')
+					/\ witness(Server, user_server_c1, C1) 
+					/\ witness(Server, user_server_c2, C2)
+					/\ secret(Sk',secret_a_sk,{User,Server})
+					
+		
+end role
+
+
+%%%% Role of Server
+
+role server_role (User, Server : agent,
+				Snd, Rcv : channel(dy),
+				Hash : hash_func,
+				K : symmetric_key)
+				
+played_by Server
+def= 
+	local State : nat,
+	ID, RPW, N, L, AID, T, D, C1, J, IDU, Ts, C2, Sk : text,
+	X, Y : symmetric_key
+	
+	const user_server_x, user_server_j, user_server_l, user_server_rpw, user_server_n, secret_b_sk, user_server_hash: protocol_id
+	
+	init State :=0
+	
+	transition
+	1.State = 0 /\ Rcv(User.RPW') =|>
+		State' :=1 /\ N' := 0 /\ IDU' := ID.N /\ X' := new() /\ Y' := new()
+					/\ J' := Hash(X.IDU)
+					/\ L' := xor(J,RPW)
+					/\Snd({L.Y}_K)
+					/\ witness(Server, user_server_x, X) 
+					/\ witness(Server, user_server_j, J) 
+					/\ witness(Server, user_server_l, L) 
+					/\ witness(User, user_server_rpw, RPW)
+					/\ witness(Server, User, user_server_n, N) 
+					/\ witness(User, Server, user_server_hash, Hash) 
+					/\ secret(Hash,user_server_hash,{User,Server})
+					/\ secret(N,user_server_n,{User,Server})
+					/\ secret(X,user_server_x,{Server})
+					
+	2.State = 1 /\ Rcv(AID', T', D', C1') =|>
+		State' := 2 /\ ID' := xor(AID, Hash(Y.T.D))
+					/\ IDU' := ID.N
+					/\ Ts' := new() 
+					/\ C2' := Hash(xor(xor(C1,J),Ts))
+					/\ Snd(C2.Ts)
+					/\ witness(Server, user_server_c1, C1) 
+					/\ witness(Server, user_server_c2, C2)
+					
+	3. State = 2 /\ Rcv(User.Sk') =|>
+		State' := 3 /\ secret(Sk',secret_b_sk,{User,Server})
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(User, Server : agent,
+			Hash : hash_func,
+			K : symmetric_key)
+			
+def= 
+	local SU, RU, SS, RS : channel(dy)
+	
+	composition
+		user_role(User, Server, SU, RU, Hash, K)
+		/\ server_role(Server, User, SS, RS, Hash, K)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+	const user, server : agent,
+		h, hi : hash_func,
+		k, ki : symmetric_key
+	
+	intruder_knowledge = {user, server, k, ki}
+	
+	composition
+		session(user, server, h, k)
+		/\ session(user, server, hi, ki)
+		
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+	secrecy_of user_server_n, user_server_Pw, user_server_x, user_server_RPW, user_server_c1, user_server_c2, user_server_j,user_server_l, user_server_r
+	secrecy_of secret_b_sk, secret_a_sk, user_server_x, user_server_hash
+	authentication_on  pw, user_server_n, secret_b_sk, secret_a_sk
+
+	
+	weak_authentication_on user_server_hash
+	weak_authentication_on user_server_x
+	weak_authentication_on user_server_Pw
+	weak_authentication_on user_server_RPW
+	weak_authentication_on user_server_n
+	weak_authentication_on user_server_r
+	
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

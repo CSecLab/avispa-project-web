@@ -1,0 +1,85 @@
+role alice(
+A,B,S : agent,
+Kas: symmetric_key,
+Kab : protocol_id,
+SND,RCV: channel(dy))
+played_by  A def=
+local
+Kab : protocol_id,
+State,Ta:nat,
+M,Na:text,
+Kab:message
+init 
+State := 0
+transition
+1.State = 0 
+/\RCV(start) =|> State' := 2 
+/\ Kab':= new() 
+/\ Ta':= new() 
+/\ SND(A,{Kab'.Ta'.B}_Kas) 
+/\ secret(Kab',Kab,{A,B,S})
+/\request(A,S,alice_server_Kas,Kas)
+2.State=2 /\ RCV({B}_Kab) =|> State':= 6/\ Na':=new() /\ SND ({A.Na'}_kab)  /\ request(A,B,alice_bob_na,Na')
+3.State=6 /\ RCV({B.M'}_kab) =|> State':= 12 
+end role
+role bob(
+A,B,S : agent,
+Kbs : symmetric_key,
+Kab : protocol_id,
+SND,RCV: channel(dy))
+played_by B def=
+local
+Kab : protocol_id,
+State,Ts:nat,
+M,Na:text,
+Kab:message
+init 
+State:=5
+transition
+1.State= 5 
+/\ RCV({A.kab.Ts}_Kbs) =|> State':= 7/\ witness(B,S,server_bob_Kbs,Kbs)
+2.State= 7 /\ RSV({A.Na'}_kab) =|> State':= 9 /\ M':= xor(Na',1)
+3.State= 9 /\  SND({B.M'}_kab) =|> State':= 11 /\ witness(B,A,alice_bob_na,Na')
+end role
+role server(
+A,B,S : agent,
+Kas,Kbs: symmetric_key,
+Kab : protocol_id,
+SND,RCV: channel(dy))
+played_by S def=
+local
+Kab : protocol_id,
+State,Ts,Ta: nat, 
+Kab:message
+init 
+State:=1
+transition
+1.State= 1 /\ RCV(A,{B.Kab.Ta}_kas) =|> State':= 3 /\ Ts':= new() /\ witness(S,A,alice_server_Kas,Kas)
+2.State= 3 /\  SND({A.Kab.Ts'}_Kbs) /\ SND({B}_Kab) =|> State':= 5/\request(S,B,server_bob_Kbs,Kbs)
+end role
+role session(A,B,S :agent,
+Kas,Kbs  :symmetric_key) def=
+local
+SA, RA, SB, RB , SS, RS : channel (dy) 
+composition  alice( A,B,S,Kas,sa,ra) /\ bob(B,A,S,Kbs,sb,rb) /\ server(S,A,B,Kas,Kbs,ss,rs)
+end role
+role environment()
+def=
+const 
+a,b,s :agent,
+Kab,server_bob_Kbs, alice_bob_na, alice_server_Kas : protocol_id,
+Kas,Kbs,Kab : symmetric_key
+intruder_knowledge = {a,b,s,Kab}
+composition
+Session(a,b,s,Kas,Kbs,Kab)
+/\ Session(i,b,s,kis,kib)
+/\ Session(a,i,s,kis,kai)
+/\ Session(a,b,i,kai,kbi,Kab)
+end role
+goal
+secrecy_of Kab
+authentication_on server_bob_Kbs
+authentication_on alice_bob_na
+authentication_on alice_Server_Kas
+end goal
+environment()

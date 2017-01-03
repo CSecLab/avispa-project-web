@@ -1,0 +1,99 @@
+role client(A, B : agent,
+			PW : symmetric_key,
+			Snd_BA, Rcv_BA : channel (dy))
+played_by A
+def=
+	local Result : text,
+		State : nat
+	
+	init  State := 0
+	
+	transition
+	
+1.	State = 0
+	/\ Rcv_BA(start)
+	=|>
+	State' := 2
+	/\ Snd_BA(B.A.PW)
+	/\ witness(A,B,ctos,PW)
+	
+2.	State = 2
+	/\ Rcv_BA(A.B.Result')
+	=|>
+	State' := 4
+	
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role server(A, B : agent,
+			PW : symmetric_key,
+			Snd_AB, Rcv_AB : channel (dy))
+played_by B
+def=
+	local Result : text,
+		State : nat
+	
+	init  State := 1
+	
+	transition
+
+1.	State = 1
+	/\ Rcv_AB(B.A.PW)
+	=|>
+	State' := 3
+	/\ Result' := new()
+	/\ Snd_AB(A.B.Result')
+	/\ request(B,A,ctos,PW)
+	/\ secret(PW,sec_kAB,{A,B})	
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(A, B : agent,
+			PW : symmetric_key)
+			
+def=
+
+   local  
+   
+   SND_BA, RCV_BA, SND_AB, RCV_AB: channel (dy)
+                  
+   composition
+                client(A, B, PW, SND_BA, RCV_BA)
+           /\   server(A, B, PW, SND_AB, RCV_AB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+
+def=
+
+   const a, b : agent,
+         kab, kai, kib : symmetric_key
+
+   intruder_knowledge = { a, b, kai, kib }  
+
+   composition
+        session(a,b,kab)
+    /\  session(a,i,kai)
+    /\  session(i,b,kib)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+	secrecy_of sec_kAB
+	
+	authentication_on ctos
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

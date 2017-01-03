@@ -1,0 +1,69 @@
+role ue(
+	UE,SP,B :agent,
+	Hash:hash_func,
+	SND,RCV:channel(dy))
+played_by UE def=
+  local State:nat,
+	Kus,Kub,Ksb:symmetric_key,
+	N_ue:text
+  const i:text
+  init State:=0
+  transition
+	1.State  =0/\RCV(start)=|>
+	  State':=2/\N_ue':=new()
+		   /\SND(i.Hash(Hash(N_ue')).{i.Hash(Hash(N_ue'))}_Kus)
+	2.State  =2/\RCV({ms}_Kus)=|>
+	  State':=4/\SND(i.Hash(Hash(N_ue')).{i.Hash(Hash(N_ue'))}_Kub)
+end role
+role sp(
+	UE,SP,B:agent,
+	Hash:hash_func,
+	SND,RCV:channel(dy))
+played_by SP def=
+  local State:nat,
+  	Kue,Kub,Ksb:symmetric_key
+  const ms:text
+  init State:=1
+  transition
+	2.State  =1/\RCV(i.Hash(Hash(N_ue')).{i.Hash(Hash(N_ue'))}_Kus)=|>
+	  State':=3/\SND({ms}_Kus)
+end role
+role biller(
+	UE,SP,B:agent,
+	Hash:hash_func,
+	SND,RCV:channel(dy))
+played_by B def=
+  local State:nat,
+	Kus,Kub,Ksb:symmetric_key
+  init State:=0
+  transition
+	1.State  =0/\RCV(i.Hash(Hash(N_ue')).{i.Hash(Hash(N_ue'))}_Kub)=|>
+	  State':=2
+end role
+role session(
+	UE,SP,B:agent,
+	Kue,Kub,Ksb:symmetric_key)
+def=
+  local SU,RU,SS,RS,SB,RB:channel(dy)
+  composition
+	ue(UE,SP,B,Kue,SU,RU)
+	/\sp(SP,UE,B,Kus,SS,RS)
+	/\b(B,UE,SP,Kas,Kbs,SB,RB)
+end role
+role environment()
+def=
+  const a,b,s :agent,
+	kas,kbs,kis:symmetric_key,
+	kab,server_alice_kab,bob_serber_kab:protocol_id
+  intruder_knowledge={a,b,s,kis}
+  composition
+	session(a,b,s,kas,kbs)
+	/\session(a,i,s,kas,kis)
+	/\session(i,b,s,kis,kbs)
+end role
+goal
+secrecy_of kab
+authentication_on server_alice_kab
+authentication_on bob_server_kab
+end goal
+environment()  

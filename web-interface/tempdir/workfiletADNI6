@@ -1,0 +1,151 @@
+%% PROTOCOL: (MS-)CHAPv2
+%% Challenge/Response Authentication Protocol, version 2
+%% PURPOSE:
+%% Mutual authentication between a server and a client who share a password.
+%% CHAPv2 is the authentication protocol for the Point-to-Point Tunneling Protocol
+%% suite (PPTP).
+%% REFERENCE:
+%% \cite{RFC2759}
+%% MODELER:
+%%\begin{itemize}
+%%\item Haykal Tej, Siemens CT IC 3, 2003
+%%\item Paul Hankes Drielsma, ETH Z\"urich
+%%\end{itemize}
+%%
+%% ALICE_BOB:
+%% We assume that the server \verb!B! and client \verb!A! share 
+%% password \verb!k(A,B)! in advance.  The server and client generate
+%% nonces \verb!Nb! and \verb!Na!, respectively.
+%%\begin{verbatim}
+%%  1. A -> B : A
+%%  2. B -> A : Nb
+%%  3. A -> B : Na,H(k(A,B),(Na,Nb,A))
+%%  4. B -> A : H(k(A,B),Na)
+%%\end{verbatim}
+%%
+%% LIMITATIONS:
+%%
+%%Issues abstracted from:
+%%\begin{itemize}
+%%\item Message structure: As is standard, we abstract away from the concrete details
+%% of message structure such as bit lengths, etc.  What is left after this abstraction
+%% contains several redundancies, however (at least in the Dolev-Yao model).
+%% We therefore eliminate these redundancies, retaining the core of the data
+%% dependencies of the protocol. 
+%%\end{itemize}
+%%
+%% PROBLEMS: 3
+%% CLASSIFICATION: G1, G2, G12
+%% ATTACKS: None
+%%
+%% NOTES:
+%% A cryptanalysis of this protocol in its full complexity can be found
+%% in~\cite{schneier99cryptanalysis}.
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+%%HLPSL:
+role alice(A,B   : agent,
+           	K   : symmetric_key,
+	   	Hash     : hash_func,
+           	Snd, Rcv: channel(dy))
+played_by A
+def=
+           
+  local State  : nat,
+        Na, Nb , ida, idb : text,
+        K1      : message
+
+  init  State := 0
+transition
+
+ 1. State = 0  /\ Rcv(start) =|>
+     State':= 1 /\ Na' := new() /\ Snd(Na')
+                /\ Snd(Hash(Na.ida'))  
+
+  2. State = 2  /\ Rcv(Nb') /\Rcv(Hash(Nb.idb')) =|> 
+     State':= 3 /\ witness(A,B,bob_alice_nb,Nb')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role bob (B, A: agent,
+               K: symmetric_key,
+	       Hash : hash_func,
+               Snd, Rcv:channel(dy))
+played_by B
+def=
+
+  local State : nat, 
+	Nb,Na, ida, idb    : text,
+	K1 : message
+
+  init  State := 1
+
+  transition
+
+  1. State = 1  /\ Rcv(Na') =|> /\ Rcv(Hash(Na.ida')) 
+     State':= 2 /\ Nb' := new() /\ Snd(Nb')
+                /\ Snd(Hash(Nb.idb')) 
+
+  2.     State':= 3 /\ request(B,A,bob_alice_nb,Nb)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role session(A,B: agent,
+	     K : symmetric_key,
+	     Hash: hash_func)
+def=
+
+   local SA,SB,RA,RB: channel (dy)
+
+   composition
+           alice(A,B,K,Hash,SA,RA)  /\
+           bob(A,B,K,Hash,SB,RB)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role environment()
+def=
+
+  const bob_alice_nb,
+        k1 : protocol_id,
+	a,b : agent,
+	kab,kai,kbi: symmetric_key,
+	h: hash_func
+
+
+intruder_knowledge = {a,b,h,kai,kbi}
+composition
+session(a,b,kab,h)
+/\ session(a,i,kai,h)
+/\session(i,b,kib,h)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+  secrecy_of k1
+authentication_on bob_alice_nb
+end goal
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+
+
+
+
+
+
+
+

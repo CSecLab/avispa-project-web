@@ -1,0 +1,68 @@
+role role_A(A:agent,B:agent,C:agent,D:agent,KPa:public_key,KPb:public_key,KPc:public_key,KPd:public_key,SND,RCV:channel(dy))
+played_by A
+def=
+	local
+		State:nat,Na:text,Nb:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ Na':=new() /\ witness(A,B,auth_1,Na') /\ SND({Na'.A}_KPb)
+		3. State=1 /\ RCV({Na.Nb'}_KPa) =|> State':=2
+end role
+
+role role_B(A:agent,B:agent,C:agent,D:agent,KPa:public_key,KPb:public_key,KPc:public_key,KPd:public_key,SND,RCV:channel(dy))
+played_by B
+def=
+	local
+		State:nat,Na:text,Nb:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV({Na'.A}_KPb) =|> State':=1 /\ request(B,A,auth_1,Na') /\ Nb':=new() /\ SND({Na'.Nb'}_KPa)
+end role
+
+role role_C(A:agent,B:agent,C:agent,D:agent,KPa:public_key,KPb:public_key,KPc:public_key,KPd:public_key,SND,RCV:channel(dy))
+played_by C
+def=
+	local
+		State:nat,Nc:text,Nd:text
+	init
+		State := 0
+	transition
+		2. State=0 /\ RCV(start) =|> State':=1 /\ Nd':=new() /\ SND({Nd'.D}_KPd)
+		4. State=1 /\ RCV({Nc'.Nd}_KPc) =|> State':=2
+end role
+
+role role_D(A:agent,B:agent,C:agent,D:agent,KPa:public_key,KPb:public_key,KPc:public_key,KPd:public_key,SND,RCV:channel(dy))
+played_by D
+def=
+	local
+		State:nat,Nc:text,Nd:text
+	init
+		State := 0
+	transition
+		2. State=0 /\ RCV({Nd'.D}_KPd) =|> State':=1 /\ Nc':=new() /\ SND({Nc'.Nd'}_KPc)
+end role
+
+role session1(A:agent,B:agent,C:agent,D:agent,KPa:public_key,KPb:public_key,KPc:public_key,KPd:public_key)
+def=
+	local
+		SND4,RCV4,SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_D(A,B,C,D,KPa,KPb,KPc,KPd,SND4,RCV4) /\ role_C(A,B,C,D,KPa,KPb,KPc,KPd,SND3,RCV3) /\ role_B(A,B,C,D,KPa,KPb,KPc,KPd,SND2,RCV2) /\ role_A(A,B,C,D,KPa,KPb,KPc,KPd,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		hash_0:function,kc:public_key,ka:public_key,normalnode2:agent,normalnode1:agent,keyholdingnode1:agent,keyholdingnode2:agent,kb:public_key,kd:public_key,auth_1:protocol_id
+	intruder_knowledge = {ka,kb,kc,kd}
+	composition
+		session1(normalnode1,keyholdingnode1,normalnode2,keyholdingnode2,ka,kb,kc,kd)
+end role
+
+goal
+	authentication_on auth_1
+end goal
+
+environment()

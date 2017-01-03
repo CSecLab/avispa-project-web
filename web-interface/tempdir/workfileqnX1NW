@@ -1,0 +1,100 @@
+%%- S- sensor ,SP- Service Provider  
+%%HLPSL:
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  Secure Communication Protocol 2%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role sensor(S, SP  : agent, H : hash_func, PuS,PuSP  : public_key, Snd,Rec: channel(dy))   %% Sensor
+    played_by S
+    def=
+
+      local  	State     : nat,
+		MsgK	  : symmetric_key,
+		Username  : text,
+		Hello     : text,
+		Rp,Rs     : text,
+		Msg 	  : text,
+	        Passwd    : text
+	
+      const sk2: protocol_id
+%	const pw : protocol_id
+      init State := 0
+      transition
+
+       1. State = 0
+          /\ Rec(start) =|>
+          State' := 1 
+          /\ MsgK' := new()
+	  /\ Snd( {MsgK'.{H({Msg}_MsgK')}_inv(PuS)}_PuSP) 	 
+       3.  State = 1
+	    /\ Rec({Msg}_MsgK') =|>
+	    State' := 3
+	  /\ secret(MsgK',sk2,{SP,S})
+    
+	
+    end role
+
+%% service provider Role
+role serviceprovider(SP,S: agent,H : hash_func,PuS,PuSP  : public_key,Snd,Rec: channel(dy))  % service provider
+    played_by SP
+    def=
+      local  State     : nat,
+	     MsgK       : symmetric_key,
+	     Hello     : text,
+	     Rp,Rs     : text,
+	     Username  : text,
+	     Msg       : text,
+             Passwd    : text
+
+      const sk1,pw : protocol_id
+      init State := 0
+
+      transition
+
+       1. State = 0
+          /\ Rec( {MsgK'.{H({Msg}_MsgK')}_inv(PuS)}_PuSP) =|>
+	  %/\ Rec({Msg.H(Msg)}_Sk') =|>
+	  State' := 1
+	 %/\ secret(MsgK',sk1,{SP,S})
+	 /\ Snd({Msg}_MsgK')
+	
+     
+         	 
+end role
+
+role session (S, SP : agent,H : hash_func, PuS,PuSP  : public_key) def=
+
+      local SS, RS, SSP, RSP: channel (dy)
+      composition
+
+             		 sensor(S,SP,H,PuS,PuSP,SS,RS)
+	
+		%	 /\ serviceprovider(S,SP,H,SSP,RSP)
+          
+    end role
+
+role environment() def=
+
+%      const  s_sp_nonce  : protocol_id,
+      const  s,sp,i         : agent,
+      h: hash_func,
+      pus, pusp, ki : public_key
+      intruder_knowledge={i,s,sp}   
+
+      composition
+
+            session(s,sp,h,pus,pusp)
+        % /\ session(a,i)
+        % /\ session(i,b)
+     
+    end role
+   goal
+
+secrecy_of sk1
+
+%,pw   %%communication on sk and passwd   %G12
+%authentication_on s_sp_nonce  % Addresses G1, G2, G3 ,G18
+%authentication_on sp_s_nonce  % Addresses G1, G2, G3 ,G18
+%  authentication_on bob_alice_num  % Addresses G1, G2, G3 , G18
+
+end goal
+environment()
+

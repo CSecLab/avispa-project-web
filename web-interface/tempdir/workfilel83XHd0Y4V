@@ -1,0 +1,59 @@
+role cardholder(C,M,P: agent,
+                AI : text,
+                PurchAmt : nat,
+                OrderDesc : text,
+                EncK_C, SignK_C,
+                EncK_M, SignK_M,
+                EncK_P, SignK_P : public_key
+               ) played_by C def=
+
+ local S : nat,
+       LID_M, Chall_C : text,
+       XID, Chall_M : text,
+       OI,PI,DualSig : message,
+       K1 : symmetric_key,
+       SND, RCV: channel (dy)
+
+ init S := 0
+
+ transition
+
+ % =|> Purchase Initiate Request
+ 1. S = 0 /
+    RCV(start)
+    =|>
+    S' := 1 /
+    LID_M' := new() /
+    Chall_C' := new() /
+    SND(LID_M'.Chall_C')
+
+ % Purchase Initiate Response =|> Purchase Request
+ 2. S = 1 /
+    RCV(LID_M.Chall_C.XID'.Chall_M'.
+        {h(LID_M.Chall_C.XID'.Chall_M')}_inv(SignK_M))
+    =|>
+    S' := 2 /
+    OI' := XID'.Chall_C.h(OrderDesc.PurchAmt).Chall_M' /
+    PI' := LID_M.XID'.h(OrderDesc.PurchAmt).PurchAmt.M.h(XID'.AI) /
+    DualSig' := h(OI').h(PI').{h(h(OI').h(PI'))}_inv(SignK_C) /
+    K1' := new() /
+    SND(OI'.DualSig'.
+        {DualSig'.PI'}_K1'.{AI.K1'}_EncK_P) /
+    witness(C,M,deal,OI'.h(PI')) /
+    witness(C,P,deal,OI'.PI') /
+    secret(OrderDesc,order,{C,M}) /
+    secret(PurchAmt,order,{C,M,P}) /
+    secret(PI',payment,{C,P}) /
+    secret(AI,payment,{C,P})
+
+ % Purchase Response =|>
+ 3. S = 2 /
+    RCV(LID_M.XID.Chall_C.h(PurchAmt).
+        {h(LID_M.XID.Chall_C.h(PurchAmt))}_inv(SignK_M))
+    =|>
+    S' := 3 /
+    request(C,M,deal,OI.h(PI))
+    % / request(C,P,deal,OI.PI) %% cannot be done; see notes, item 2
+
+end role
+ 

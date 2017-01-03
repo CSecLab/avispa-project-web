@@ -1,0 +1,58 @@
+role Alice (A, B: agent,
+Ka, Kb: public_key,
+L: text set,
+SND, RCV: channel (dy)) played_by A def=
+exists State : nat, Na : text(fresh), Nb: text
+init State=0
+transition
+step1. State=0 / RCV(start)
+=|> State’=1 / L’=cons(Na’,L) / SND({Na’.A}Kb)
+step2. State=1 / RCV({Na.Nb’}Ka) / not(in(Nb’,L))
+=|> State’=2 / SND({Nb’}Kb) / L’=cons(Nb’,L)
+end role
+role Bob(A, B: agent,
+Ka, Kb: public_key,
+L: text set,
+SND,RCV: channel (dy)) played_by B def=
+exists State : nat, Na: text, Nb: text (fresh)
+init State=0
+transition
+step1. State=0 / RCV({Na’.A}Kb) / not(in(Na’,L))
+=> State’=1 / L’=cons(Nb’,cons(Na’,L)) / SND({Na’.Nb’}Ka)
+step2. State=1 / RCV({Nb}Ka)
+=> State’=2
+end role
+role NSPK(S, R: agent -> channel (dy),
+Instances: (agent,agent, public_key,public_key) set,
+Agents: agent set)
+def=
+exists A, B: agent, Ka, Kb: public_key,
+L: agent -> text set
+init
+/_{in(A,Agents)} L(A)=[]
+composition
+/_{in((A,B,Ka,Kb),Instances)}
+Alice(A,B,Ka,Kb,L(A),S(A),R(A))
+/ Bob(A,B,Ka,Kb,L(B),S(B),R(B))
+end role
+role Environment() def=
+composition
+NSPK([(a,s_a),(b,s_b)],
+[(a,r_a),(b,r_b)],
+
+% S
+% R
+
+[(a,b,ka,kb),(a,i,ka,ki)],
+% Instances
+[a,b,i])
+% Agents
+end role
+goal
+Alice weakly authenticates Bob on Nb
+Bob weakly authenticates Alice on Na
+secrecy_of Na, Nb
+end goal
+Environment()
+
+ 

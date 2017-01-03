@@ -1,0 +1,105 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileDcN64u
+
+section signature:
+
+state_coordinateur: agent * agent * hash_func * hash_func * hash_func * nat * text * message * set(text) * set(text) * set(text) * nat -> fact
+state_noeud: agent * agent * hash_func * hash_func * hash_func * nat * text * message * set(text) * set(text) * set(text) * set(agent) * nat -> fact
+
+
+section types:
+
+noeud_coordinateur_index, key: protocol_id
+dummy_set: set(message)
+Fprime, F, Index, Dummy_Index, Dummy_Fprime, Dummy_F: set(text)
+set_82, set_80, set_65: set
+No, Dummy_No, dummy_nonce: text
+State, 10, 6, 4, SID, 2, Dummy_State, 3, 1, 0, SID2, SID1: nat
+Dummy_Set_22, Set_22, ASGoal: set(agent)
+Key, Dummy_Key, start, dummy_msg, MGoal: message
+Ch, H, Mac, ch, h, mac: hash_func
+N, C, A2Goal, A1Goal, n, c, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(n).
+ iknows(c).
+ iknows(mac).
+ iknows(h).
+ iknows(i).
+ state_noeud(n,c,mac,h,ch,0,dummy_nonce,dummy_msg,dummy_set,dummy_set,dummy_set,set_65,3).
+ state_coordinateur(c,n,mac,h,ch,0,dummy_nonce,dummy_msg,dummy_set,dummy_set,dummy_set,4).
+ state_noeud(n,i,mac,h,ch,0,dummy_nonce,dummy_msg,dummy_set,dummy_set,dummy_set,set_80,6).
+ state_coordinateur(c,i,mac,h,ch,0,dummy_nonce,dummy_msg,dummy_set,dummy_set,dummy_set,10)
+
+
+section rules:
+
+step step_0 (N,C,Mac,H,Ch,Dummy_No,Dummy_Key,Index,Dummy_F,Dummy_Fprime,Dummy_Set_22,SID,No,F,Fprime) :=
+ state_noeud(N,C,Mac,H,Ch,0,Dummy_No,Dummy_Key,Index,Dummy_F,Dummy_Fprime,Dummy_Set_22,SID).
+ iknows(start)
+=[exists Fprime,F,No]=>
+ state_noeud(N,C,Mac,H,Ch,1,No,apply(H,pair(F,Fprime)),Index,F,Fprime,Dummy_Set_22,SID).
+ iknows(pair(N,pair(C,pair(No,pair(apply(Ch,pair(F,Fprime)),apply(Mac,pair(No,Fprime))))))).
+ secret(apply(H,pair(F,Fprime)),key,Dummy_Set_22).
+ contains(N,Dummy_Set_22).
+ contains(C,Dummy_Set_22)
+
+step step_1 (N,C,Mac,H,Ch,No,Key,Dummy_Index,F,Fprime,Set_22,SID,Index) :=
+ state_noeud(N,C,Mac,H,Ch,1,No,Key,Dummy_Index,F,Fprime,Set_22,SID).
+ iknows(pair(scrypt(Key,pair(N,pair(C,Index))),apply(Mac,pair(Key,pair(Index,pair(N,C))))))
+ =>
+ state_noeud(N,C,Mac,H,Ch,2,No,Key,Index,F,Fprime,Set_22,SID).
+ iknows(apply(Mac,pair(Key,pair(No,Dummy_Index)))).
+ witness(N,C,noeud_coordinateur_index,Dummy_Index)
+
+step step_2 (C,N,Mac,H,Ch,Dummy_No,Dummy_Key,Dummy_Index,Dummy_F,Dummy_Fprime,SID,No,Index,F,Fprime) :=
+ state_coordinateur(C,N,Mac,H,Ch,0,Dummy_No,Dummy_Key,Dummy_Index,Dummy_F,Dummy_Fprime,SID).
+ iknows(pair(N,pair(C,pair(No,pair(apply(Ch,pair(F,Fprime)),apply(Mac,pair(No,Fprime)))))))
+=[exists Index]=>
+ state_coordinateur(C,N,Mac,H,Ch,1,No,apply(H,pair(F,Fprime)),Index,F,Fprime,SID).
+ iknows(pair(scrypt(apply(H,pair(F,Fprime)),pair(N,pair(C,Index))),apply(Mac,pair(apply(H,pair(F,Fprime)),pair(Index,pair(N,C))))))
+
+step step_3 (C,N,Mac,H,Ch,No,Key,Index,F,Fprime,SID) :=
+ state_coordinateur(C,N,Mac,H,Ch,1,No,Key,Index,F,Fprime,SID).
+ iknows(apply(Mac,pair(Key,pair(No,Index))))
+ =>
+ state_coordinateur(C,N,Mac,H,Ch,2,No,Key,Index,F,Fprime,SID).
+ request(N,C,noeud_coordinateur_index,Index,SID)
+
+
+section properties:
+
+property secrecy_of_key (MGoal,ASGoal) :=
+ [] ((secret(MGoal,key,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_noeud_coordinateur_index (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,noeud_coordinateur_index,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,noeud_coordinateur_index,MGoal))
+     /\ ((request(A1Goal,A2Goal,noeud_coordinateur_index,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,noeud_coordinateur_index,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_key (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,key,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_noeud_coordinateur_index (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,noeud_coordinateur_index,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,noeud_coordinateur_index,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_noeud_coordinateur_index (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,noeud_coordinateur_index,MGoal,SID1).
+ request(A1Goal,A2Goal,noeud_coordinateur_index,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

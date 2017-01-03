@@ -1,0 +1,72 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileOAnewu
+
+section signature:
+
+state_client: agent * agent * agent * agent * public_key * public_key * nat * text * text * text * text * text * text * nat -> fact
+
+
+section types:
+
+SK: symmetric_key
+sk, userpass: protocol_id
+14, 8, State, 11, 9, 7, 5, 6, 3, 4, 2, 1, 0, Dummy_State, SID: nat
+Username, CN, Action, Response, Password, Data, Usercomponent, Cert_ede, Cert_kms, Edekey, EdData, Dummy_CN, Dummy_Password, Dummy_Username, dummy_nonce: text
+Set_71, ASGoal: set(agent)
+start, MGoal: message
+PUcsa, PUede, pucsa, puede, ki: public_key
+C, CAS, EDE, AUTHZ, c, cas, AUTZ, ede, autz, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(c).
+ iknows(cas).
+ iknows(ede).
+ iknows(autz).
+ iknows(pucsa).
+ iknows(puede).
+ iknows(ki).
+ iknows(inv(ki)).
+ iknows(i).
+ state_client(c,cas,ede,autz,pucsa,puede,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,3)
+
+
+section rules:
+
+step step_0 (C,CAS,EDE,AUTZ,PUcsa,PUede,Dummy_Username,Dummy_Password,CN,Action,Response,Data,SID,Username,Password) :=
+ state_client(C,CAS,EDE,AUTZ,PUcsa,PUede,0,Dummy_Username,Dummy_Password,CN,Action,Response,Data,SID).
+ iknows(start)
+=[exists Password,Username]=>
+ state_client(C,CAS,EDE,AUTZ,PUcsa,PUede,2,Username,Password,CN,Action,Response,Data,SID).
+ iknows(crypt(PUcsa,pair(Username,Password)))
+
+step step_1 (C,CAS,EDE,AUTZ,PUcsa,PUede,Username,Password,Dummy_CN,Action,Response,Data,SID,CN) :=
+ state_client(C,CAS,EDE,AUTZ,PUcsa,PUede,2,Username,Password,Dummy_CN,Action,Response,Data,SID).
+ iknows(Response)
+=[exists CN]=>
+ state_client(C,CAS,EDE,AUTZ,PUcsa,PUede,4,Username,Password,CN,Action,Response,Data,SID).
+ iknows(crypt(PUcsa,pair(Username,pair(CN,Action))))
+
+step step_2 (C,CAS,EDE,AUTZ,PUcsa,PUede,Username,Password,CN,Action,Response,Data,SID) :=
+ state_client(C,CAS,EDE,AUTZ,PUcsa,PUede,4,Username,Password,CN,Action,Response,Data,SID).
+ iknows(Response)
+ =>
+ state_client(C,CAS,EDE,AUTZ,PUcsa,PUede,6,Username,Password,CN,Action,Response,Data,SID)
+
+
+section properties:
+
+property secrecy_of_sk (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sk,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_sk (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sk,ASGoal) &
+ not(contains(i,ASGoal))
+

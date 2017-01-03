@@ -1,0 +1,58 @@
+role gateway(GW,KDC:agent,
+ Pgw,Pkdc:�public_key,
+ H1, H2          : hash_func, 
+IDgw, P            :�text,
+SND,RCV:channel(dy))
+played_by�GW�def=
+local�State�:nat,
+Kgw, group-req          :text
+        M                  : message
+         
+init State�:=0
+transition
+0.State= 0�/�RCV(start)�=|>�
+        State':= 1 / Kgw' := new() 
+                   / SND({Kgw'.P , IDgw}_Pkdc)
+                   / secret(P,EC,{GW, KDC}) 
+                   / request(KDC, GW, keyserv_gateway_ec, IDgw)
+    2.  State  = 2 / RCV(M') =|> 
+        
+end role
+
+role key_server ( KDC, GW        : agent,
+             Pgw, Pkdc        : public_key,
+             P                : text,
+             H1, H2           : hash_func, 
+             SND, RCV         : channel (dy))
+played_by KDC def=
+  local State : nat, 
+        Kgw : text
+        M, M1            : message
+         
+  transition
+    1.  State  = 1 / RCV({Kgw'.P, IDgw}_Pkdc) =|> 
+        State':= 2 / M1' := H1(Kgw'.P, IDgw)
+                   / M' := ((M1')_inv(Pkdc)) 
+                   / SND({M'})
+                   / secret(M',Dg,{GW, KDC})
+    
+end role
+
+role session(GW, KDC    :agent,
+             Pgw, Pkdc       : public_key,
+             H1, H2          : hash_func, 
+             IDgw, P            : text)
+def=
+      local SNDGW, RCVGW, SNDKDC, RCVKDC    :channel(dy)
+ composition
+             gateway(GW, KDC, Pgw, Pkdc, H1, H2, IDgw, P, SGW, RGW) 
+           /key_server(KDC, GW, Pgw, Pkdc, H1, H2, IDgw, P, SKDC, RKDC)
+
+end role
+
+role enviroment()
+
+def= 
+const GW, KDC, SM        : agent,
+      K
+ 

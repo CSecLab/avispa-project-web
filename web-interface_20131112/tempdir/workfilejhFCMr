@@ -1,0 +1,136 @@
+role reader(
+	A,B				: agent,
+	K				: symmetric_key,
+	FK,Hash				: hash_func,
+	SND,RCV				: channel(dy)
+	)
+
+played_by A
+def=
+	local 
+	State 								: nat,
+	M1,M2,M3,M4,XNew,YNew,XOld,YOld					: text,
+	N1,N2								: text,
+	L								: text
+
+	
+	init State := 0
+
+	transition
+
+	1. State = 0 /\ RCV(start) =|>
+	   		State' := 2 /\ N1' := new() /\ SND(N1')
+	   
+	2. State = 2 /\ RCV(N2'.M1'.M2') =|>
+	   		State' := 4 
+			/\ L' := Hash(K) 
+			/\ XOld' := xor(M1',Hash(xor(L',N2')))
+		       	/\ YOld' := {FK(XOld')}_K
+	
+	3. State = 4 /\ M2 = Hash(xor(YOld,xor(N1, N2))) =|>
+			State' := 6
+			/\ request(A,B,reader_tag_m2,M2)
+			/\ XNew' := Hash(xor(XOld,xor(YOld,xor(N1,N2))))
+		     	/\ YNew' := {FK(XNew')}_K
+	
+	4. State = 6 =|> 
+		     State' := 8
+                     /\ M3' := xor(YNew,Hash(xor(XNew,YOld)))
+		     /\ M4' := Hash(xor(XOld,YNew))
+		     /\ SND(M3'.M4')
+		     /\ witness(A,B,tag_reader_m4,M4')
+		     
+	end role
+
+role tag(
+	A,B				: agent,
+	Hash				: hash_func,
+	SND,RCV				: channel(dy),
+	L,XOld,YOld			: text
+	)
+	
+played_by B
+
+def=
+
+	local 
+	      	State						: nat,
+	      	M1,M2,M3,M4					: text,
+		XNew,YNew					: text,
+	      	N1,N2						: text
+	      
+	      
+	init State := 1
+	
+	transition
+	
+	1. State = 1 /\ RCV(N1') =|> N2' := new() /\ State' := 3
+	
+	2. State = 3 =|> 
+		     	State' := 5
+                     	/\ M1' := xor(XOld,Hash(xor(L,N2)))
+		     	/\ M2' := Hash(xor(YOld,xor(N1,N2)))
+		     	/\ SND(N2.M1'.M2') 
+			/\ secret(XOld,xd,{A,B})
+			/\ secret(YOld,yd,{A,B})
+		     	/\ witness(B,A,reader_tag_M2,M2')
+		     
+	3. State = 5 /\ RCV(M3'.M4') =|> 
+                     State' := 7
+		     /\ XNew' := Hash(xor(XOld,xor(YOld,xor(N1,N2))))
+		     /\ YNew' := xor(M3',Hash(XNew',YOld))
+
+	4. State = 7 /\ M4 = Hash(XNew,YNew) =|> 
+                     State' := 9 
+		     /\ request(B,A,tag_reader_M4,M4)
+		     /\ XOld' := XNew
+                     /\ YOld' := YNew
+	
+end role
+
+role session(
+	A,B		: agent,
+	K		: symmetric_key,
+	FK,Hash		: hash_func,
+	L,XOld,YOld	: text
+	)
+	
+	def=
+
+	local SA,RA,SB,RB : channel(dy)
+
+	init L := Hash(K)
+	
+	composition
+		reader(A,B,K,FK,Hash,SA,RA)
+		/\ tag(A,B,Hash,SB,RB,L,XOld,YOld)
+end role
+
+role environment()
+
+def=
+
+	const
+		tag_reader_m4,reader_tag,m2			: protocol_id,
+		xd,yd						: protocol_id,
+		kab,kai,kib					: symmetric_key,
+		a,b						: agent,
+		h,fk						: hash_func,
+		xold,yold,l					: text
+		
+	intruder_knowledge = {a,b,fk,h,l,kai,kib,xold,yold}
+	
+	composition
+		session(a,b,kab,fk,h,l,xold,yold)
+		/\ session(a,i,kai,fk,h,l,xold,yold)
+		/\ session(i,b,kib,fk,h,l,xold,yold)
+		
+end role
+
+goal
+	secrecy_of xd,yd
+	authentication_on tag_reader_m4
+	authentication_on reader_tag_m2
+end goal
+
+environment()

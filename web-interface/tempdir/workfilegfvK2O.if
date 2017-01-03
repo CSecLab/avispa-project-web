@@ -1,0 +1,149 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilegfvK2O
+
+section signature:
+
+state_role_TargetOs: agent * agent * agent * public_key * public_key * nat * text * message * message * message * message * nat -> fact
+state_role_Server: agent * agent * agent * public_key * public_key * public_key * nat * text * text * symmetric_key * public_key * public_key * message * nat -> fact
+state_role_SourceOs: agent * agent * agent * public_key * public_key * nat * message * message * message * message * nat -> fact
+state_role_SourceTree: agent * agent * agent * agent * symmetric_key * symmetric_key * public_key * public_key * nat * message * message * text * public_key * set(agent) * nat -> fact
+
+
+section types:
+
+set_133: set
+Dummy_Set_25, ASGoal, Set_25: set(agent)
+sr: protocol_id
+Nonce, Cred, Dummy_Nonce, Dummy_Cred, dummy_nonce: text
+SealedPwd, ServerCert, PwdToken, EncCred, Dummy_PwdToken, Dummy_SealedPwd, Dummy_EncCred, Dummy_ServerCert, Dummy_SealedCred, SealedCred, SourceCert, dummy_msg, MGoal, start: message
+State, 4, 6, SID, 5, 3, Dummy_State, 2, 1, 0: nat
+PKServer, PKTarget, PKServerCA, PKDevCA, PKSource, Dummy_PKTarget, Dummy_PKSource, Dummy_PKServer, dummy_pk, pksource, pktarget, pki, pkserver, pkdevca, pkserverca: public_key
+TargetSealKey, Pwd, dummy_sk, Dummy_Pwd, pwi, sourcesealkey, targetsealkey, isealkey, pwd, pwdi, SourceSealKey: symmetric_key
+TargetTree, TargetOs, SourceTree, Server, SourceOs, provisioner, sourceos, sourcetree, server, targetos, targettree, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(provisioner).
+ iknows(sourceos).
+ iknows(sourcetree).
+ iknows(server).
+ iknows(targetos).
+ iknows(targettree).
+ iknows(pksource).
+ iknows(pktarget).
+ iknows(pki).
+ iknows(inv(pki)).
+ iknows(pkdevca).
+ iknows(pkserverca).
+ iknows(i).
+ state_role_SourceTree(sourcetree,sourceos,server,i,sourcesealkey,pwd,pksource,pkserverca,0,dummy_msg,dummy_msg,dummy_nonce,dummy_pk,set_133,3).
+ state_role_SourceOs(sourceos,sourcetree,server,pksource,pkdevca,0,dummy_msg,dummy_msg,dummy_msg,dummy_msg,4).
+ state_role_Server(server,sourceos,targetos,pkserver,pkdevca,pkserverca,0,dummy_nonce,dummy_nonce,dummy_sk,dummy_pk,dummy_pk,dummy_msg,5).
+ state_role_TargetOs(targetos,i,server,pki,pkdevca,0,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,dummy_msg,6)
+
+
+section rules:
+
+step step_0 (SourceTree,SourceOs,Server,TargetTree,SourceSealKey,Pwd,PKSource,PKServerCA,SealedPwd,SealedCred,Dummy_Cred,PKServer,Set_25,SID,Cred) :=
+ state_role_SourceTree(SourceTree,SourceOs,Server,TargetTree,SourceSealKey,Pwd,PKSource,PKServerCA,0,SealedPwd,SealedCred,Dummy_Cred,PKServer,Set_25,SID).
+ iknows(start)
+=[exists Cred]=>
+ state_role_SourceTree(SourceTree,SourceOs,Server,TargetTree,SourceSealKey,Pwd,PKSource,PKServerCA,1,SealedPwd,SealedCred,Cred,PKServer,Set_25,SID).
+ iknows(pair(SourceTree,pair(SourceOs,scrypt(SourceSealKey,pair(Cred,Pwd)))))
+
+step step_1 (SourceTree,SourceOs,Server,TargetTree,SourceSealKey,Dummy_Pwd,PKSource,PKServerCA,SealedPwd,SealedCred,Dummy_Cred,Dummy_PKServer,Dummy_Set_25,SID,Pwd,Cred,PKServer) :=
+ state_role_SourceTree(SourceTree,SourceOs,Server,TargetTree,SourceSealKey,Dummy_Pwd,PKSource,PKServerCA,1,SealedPwd,SealedCred,Dummy_Cred,Dummy_PKServer,Dummy_Set_25,SID).
+ iknows(pair(SourceOs,pair(SourceTree,pair(crypt(inv(PKServerCA),PKServer),scrypt(SourceSealKey,pair(Cred,Pwd))))))
+ =>
+ state_role_SourceTree(SourceTree,SourceOs,Server,TargetTree,SourceSealKey,Pwd,PKSource,PKServerCA,2,SealedPwd,SealedCred,Cred,PKServer,Dummy_Set_25,SID).
+ iknows(pair(SourceTree,pair(SourceOs,crypt(PKServer,pair(Cred,Pwd))))).
+ secret(Dummy_Cred,sr,Dummy_Set_25).
+ contains(SourceTree,Dummy_Set_25).
+ contains(Server,Dummy_Set_25).
+ contains(TargetTree,Dummy_Set_25)
+
+step step_2 (SourceOs,SourceTree,Server,PKSource,PKDevCA,Dummy_SealedCred,ServerCert,SourceCert,EncCred,SID,SealedCred) :=
+ state_role_SourceOs(SourceOs,SourceTree,Server,PKSource,PKDevCA,0,Dummy_SealedCred,ServerCert,SourceCert,EncCred,SID).
+ iknows(pair(SourceTree,pair(SourceOs,SealedCred)))
+ =>
+ state_role_SourceOs(SourceOs,SourceTree,Server,PKSource,PKDevCA,1,SealedCred,ServerCert,SourceCert,EncCred,SID)
+
+step step_3 (SourceOs,SourceTree,Server,PKSource,PKDevCA,SealedCred,Dummy_ServerCert,SourceCert,EncCred,SID,ServerCert) :=
+ state_role_SourceOs(SourceOs,SourceTree,Server,PKSource,PKDevCA,1,SealedCred,Dummy_ServerCert,SourceCert,EncCred,SID).
+ iknows(pair(Server,pair(SourceOs,ServerCert)))
+ =>
+ state_role_SourceOs(SourceOs,SourceTree,Server,PKSource,PKDevCA,2,SealedCred,ServerCert,SourceCert,EncCred,SID).
+ iknows(pair(SourceOs,pair(SourceTree,pair(ServerCert,SealedCred))))
+
+step step_4 (SourceOs,SourceTree,Server,PKSource,PKDevCA,SealedCred,ServerCert,SourceCert,Dummy_EncCred,SID,EncCred) :=
+ state_role_SourceOs(SourceOs,SourceTree,Server,PKSource,PKDevCA,2,SealedCred,ServerCert,SourceCert,Dummy_EncCred,SID).
+ iknows(pair(SourceTree,pair(SourceOs,EncCred)))
+ =>
+ state_role_SourceOs(SourceOs,SourceTree,Server,PKSource,PKDevCA,3,SealedCred,ServerCert,SourceCert,EncCred,SID).
+ iknows(pair(SourceOs,pair(Server,pair(EncCred,SourceCert))))
+
+step step_5 (Server,SourceOs,TargetOs,PKServer,PKDevCA,PKServerCA,Cred,Nonce,Pwd,PKSource,PKTarget,EncCred,SID) :=
+ state_role_Server(Server,SourceOs,TargetOs,PKServer,PKDevCA,PKServerCA,0,Cred,Nonce,Pwd,PKSource,PKTarget,EncCred,SID).
+ iknows(start)
+ =>
+ state_role_Server(Server,SourceOs,TargetOs,PKServer,PKDevCA,PKServerCA,1,Cred,Nonce,Pwd,PKSource,PKTarget,EncCred,SID).
+ iknows(pair(Server,pair(SourceOs,crypt(inv(PKServerCA),PKServer))))
+
+step step_6 (Server,SourceOs,TargetOs,PKServer,PKDevCA,PKServerCA,Dummy_Cred,Dummy_Nonce,Dummy_Pwd,Dummy_PKSource,PKTarget,EncCred,SID,Cred,Nonce,Pwd,PKSource) :=
+ state_role_Server(Server,SourceOs,TargetOs,PKServer,PKDevCA,PKServerCA,1,Dummy_Cred,Dummy_Nonce,Dummy_Pwd,Dummy_PKSource,PKTarget,EncCred,SID).
+ iknows(pair(Server,pair(SourceOs,pair(crypt(PKServer,pair(Cred,Pwd)),crypt(inv(PKDevCA),PKSource)))))
+=[exists Nonce]=>
+ state_role_Server(Server,SourceOs,TargetOs,PKServer,PKDevCA,PKServerCA,2,Cred,Nonce,Pwd,PKSource,PKTarget,EncCred,SID).
+ iknows(pair(Server,pair(TargetOs,pair(Nonce,crypt(inv(PKServerCA),PKServer)))))
+
+step step_7 (Server,SourceOs,TargetOs,PKServer,PKDevCA,PKServerCA,Cred,Nonce,Pwd,PKSource,Dummy_PKTarget,Dummy_EncCred,SID,PKTarget) :=
+ state_role_Server(Server,SourceOs,TargetOs,PKServer,PKDevCA,PKServerCA,2,Cred,Nonce,Pwd,PKSource,Dummy_PKTarget,Dummy_EncCred,SID).
+ iknows(pair(TargetOs,pair(Server,pair(crypt(PKServer,pair(Pwd,pair(Nonce,PKTarget))),crypt(inv(PKDevCA),PKTarget)))))
+ =>
+ state_role_Server(Server,SourceOs,TargetOs,PKServer,PKDevCA,PKServerCA,3,Cred,Nonce,Pwd,PKSource,PKTarget,crypt(PKTarget,pair(Cred,Pwd)),SID).
+ iknows(pair(Server,pair(TargetOs,crypt(PKTarget,pair(Cred,Pwd)))))
+
+step step_8 (TargetOs,TargetTree,Server,PKTarget,PKDevCA,Nonce,Dummy_SealedPwd,ServerCert,PwdToken,EncCred,SID,SealedPwd) :=
+ state_role_TargetOs(TargetOs,TargetTree,Server,PKTarget,PKDevCA,0,Nonce,Dummy_SealedPwd,ServerCert,PwdToken,EncCred,SID).
+ iknows(pair(TargetTree,pair(TargetOs,SealedPwd)))
+ =>
+ state_role_TargetOs(TargetOs,TargetTree,Server,PKTarget,PKDevCA,1,Nonce,SealedPwd,ServerCert,PwdToken,EncCred,SID)
+
+step step_9 (TargetOs,TargetTree,Server,PKTarget,PKDevCA,Dummy_Nonce,SealedPwd,Dummy_ServerCert,PwdToken,EncCred,SID,Nonce,ServerCert) :=
+ state_role_TargetOs(TargetOs,TargetTree,Server,PKTarget,PKDevCA,1,Dummy_Nonce,SealedPwd,Dummy_ServerCert,PwdToken,EncCred,SID).
+ iknows(pair(Server,pair(TargetOs,pair(Nonce,ServerCert))))
+ =>
+ state_role_TargetOs(TargetOs,TargetTree,Server,PKTarget,PKDevCA,2,Nonce,SealedPwd,ServerCert,PwdToken,EncCred,SID).
+ iknows(pair(TargetOs,pair(TargetTree,pair(Nonce,pair(ServerCert,SealedPwd)))))
+
+step step_10 (TargetOs,TargetTree,Server,PKTarget,PKDevCA,Nonce,SealedPwd,ServerCert,Dummy_PwdToken,EncCred,SID,PwdToken) :=
+ state_role_TargetOs(TargetOs,TargetTree,Server,PKTarget,PKDevCA,2,Nonce,SealedPwd,ServerCert,Dummy_PwdToken,EncCred,SID).
+ iknows(pair(TargetTree,pair(TargetOs,PwdToken)))
+ =>
+ state_role_TargetOs(TargetOs,TargetTree,Server,PKTarget,PKDevCA,3,Nonce,SealedPwd,ServerCert,PwdToken,EncCred,SID).
+ iknows(pair(TargetOs,pair(Server,pair(PwdToken,crypt(inv(PKDevCA),PKTarget)))))
+
+step step_11 (TargetOs,TargetTree,Server,PKTarget,PKDevCA,Nonce,SealedPwd,ServerCert,PwdToken,Dummy_EncCred,SID,EncCred) :=
+ state_role_TargetOs(TargetOs,TargetTree,Server,PKTarget,PKDevCA,3,Nonce,SealedPwd,ServerCert,PwdToken,Dummy_EncCred,SID).
+ iknows(pair(Server,pair(TargetOs,EncCred)))
+ =>
+ state_role_TargetOs(TargetOs,TargetTree,Server,PKTarget,PKDevCA,4,Nonce,SealedPwd,ServerCert,PwdToken,EncCred,SID).
+ iknows(pair(TargetOs,pair(TargetTree,EncCred)))
+
+
+section properties:
+
+property secrecy_of_sr (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sr,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_sr (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sr,ASGoal) &
+ not(contains(i,ASGoal))
+

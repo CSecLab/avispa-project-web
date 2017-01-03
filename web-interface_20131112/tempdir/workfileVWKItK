@@ -1,0 +1,104 @@
+role alice(Bs,Ni: agent,
+	  H,Mac:hash_func,
+	  Km: symmetric_key,
+	  SND_Ni,RCV_Ni: channel(dy))
+played_by Bs
+def=
+
+local	 State:nat,
+	Am1,Am2,Data1,Data2:text,
+	Size1,Size2:nat
+	
+init
+ State:=0
+
+transition
+	1. State=0 /\ RCV_Ni(start)=|> 
+	   State' :=2 /\ Data1' := new()
+			/\ Size1' := new()
+			/\ Am1' := new()
+			/\ SND_Ni(Ni.Am1'.Size1'.Data1'.
+				{Mac(Ni.Am1'.Size1'.Data1')}_H(Km,Ni))
+                        /\ witness(BS,Ni,Kmac1,H(Km,Ni))
+	2. state=2 /\ RCV_Ni(BS.Am2'.Size2'.Data2'.{Mac(BS.Am2'.Size2'.Data2')}_K)=|>
+		State' :=9
+			/\ request(Ni,BS,Kmac2,k)
+			/\ secret (H(Km,Ni),Kmac,{Ni,BS})
+end role 
+%%////////////////////////////////////////////////
+%%/////////////////////////////////////////////////
+%%///////////////////////////////////////////////
+role bob (Ni,BS: agent,
+	  Km: symmetric_key,
+	  Mac,H :hash_func,
+	  RCV_BS,SND_BS: channel(dy))
+played_by Ni
+def=
+
+local	 State:nat,
+	Data1,Data2:text,
+	Size1,Size2:nat
+	Am1,Am2:text
+init State:=1
+
+transition
+	1.State=1 /\  RCV_BS(Ni.Am1'.Size1'.Data1'.{Mac(Ni.Am1'.Size1'.Data1')}_K)=|>
+		State' :=9
+			/\ Data2' := new()
+			/\ Size2' := new()
+			/\ Am2' := new()
+			/\ SND(BS.Am2'.Size2'.Data2'.
+				{Mac(BS.Am2'.Size2'.Data2')}_H(Km,Ni))
+			/\ witnes(Ni,BS,Kmac2,H(Km,Ni)
+			/\ request(Ni,BS,Kmac1,k)
+			/\ secret (H(Km,Ni),Kmac,{Ni,BS})
+	
+end role 
+
+%%////////////////////////////////////////////////
+%%/////////////////////////////////////////////////
+%%///////////////////////////////////////////////
+
+role session(Ni,BS: agent,
+		  Km: symmetric_key,
+		  Mac,H :function)
+def=
+	local SNi,RNi,SBS,RBS: channel (dy)
+	
+	composition
+		BS(Ni,BS,Km,Mac,H,SBS,RBS)
+	     /\ Ni(Ni,BS,Km,Mac,H,SNi,RNi)
+end role
+
+%%////////////////////////////////////////////////
+%%/////////////////////////////////////////////////
+%%///////////////////////////////////////////////
+					
+role environment()
+def =
+	const 
+		Kmac1,Kmac2 :protocol_id
+		BS,Ni 		:agent
+		Km 		:symmetric_key
+		Mac:function
+		H : hash_func
+	intruder_knowledge = { BS,Ni,H,i}
+	
+	composition
+		session(Ni,BS,Km,Mac,H)	/\
+		session(i,BS,Mac,H)	/\
+		session(i,Ni,Mac,H)
+end role
+
+
+%%///////////////////////////////////////////////
+%%///////////////////////////////////////////////
+%%///////////////////////////////////////////////
+
+goal
+	authentication_on Kmac1
+	authentication_on Kmac2
+end goal
+
+environment()
+	                  

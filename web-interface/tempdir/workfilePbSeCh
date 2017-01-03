@@ -1,0 +1,87 @@
+role  responder(Y, Z  : agent,
+		Hfunc : hash_func,
+           	Snd, Rcv: channel(dy),
+	   	IPubKey, RPubKey : public_key)
+
+played_by Z
+
+def=
+         local State  : nat,
+         UIDA,TS,TK,KAB:  text
+         const alice_bob,  bob_alice, sub1 : protocol_id
+
+   init  State := 0
+
+
+  transition
+   1. State   = 0 /\ Rcv({TS'.TK'.UIDA}_inv(IPubKey)) =|>  
+      State' := 1 /\ KAB' := new()
+                  /\ Snd({KAB'.TS'}_inv(RPubKey))
+                  /\ witness (Z, Y, bob_alice, KAB')
+                  /\ request (Y, Z, alice_bob, TK')
+                    
+end role
+
+role initiator (Y,Z: agent,
+	   	Hfunc : hash_func,
+      	Snd, Rcv: channel(dy),
+	   	IPubKey, RPubKey : public_key)
+played_by Y
+def=
+         local State  : nat,
+         UIDA,R, TK, TS, KAB:  text
+         const alice_bob,  bob_alice, sub1 : protocol_id
+
+   init  State := 0
+
+  transition
+   1. State   = 0 /\ Rcv(start) =|>
+      State' := 1 /\ R':=new()
+      		  /\ UIDA' := new()
+                  /\ TK' := R'.hFunc(UIDA)
+                  /\ TS' := new()
+                  /\ Snd({TS'.TK'.UIDA}_inv(IPubKey)) 
+                  /\ witness (Y, Z, alice_bob, TK')
+   2. State = 1   /\ Rcv({KAB'.TS'}_inv(RPubKey)) =|> 
+      State' := 2 /\ request (Z, Y, bob_alice, KAB')
+      		  /\ secret({KAB'},sub1,{Y,Z})
+                  
+ 
+end role
+
+role session(Y,Z: agent,
+             Hfunc: hash_func
+	)
+def=
+
+  local  SA, SB, RA, RB : channel (dy),
+         IPubKey, RPubKey : public_key
+         const alice_bob, bob_alice, sub1 : protocol_id
+           
+  composition
+           initiator(Y,Z,Hfunc, SA, RA,IPubKey, RPubKey)
+       /\  responder(Y,Z,Hfunc, SB, RB,IPubKey, RPubKey)
+end role 
+
+role environment()
+def=
+
+  const x,y : agent,
+        hFunc   : hash_func,
+        uaid :  text,
+        pub_keya,pub_keyb :public_key,
+        alice_bob,  bob_alice, sub1 : protocol_id
+
+  intruder_knowledge = {x, y,hFunc,uaid,pub_keya,pub_keyb}
+
+  composition
+	session(x,y,hFunc)  
+end role
+
+goal
+  secrecy_of sub1
+  authentication_on alice_bob
+  authentication_on bob_alice
+end goal
+ 
+environment()

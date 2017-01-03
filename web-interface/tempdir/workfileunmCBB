@@ -1,0 +1,93 @@
+role client( C, S : agent , 
+	SND,RCV : channel (dy) , 
+	H : hash_func , 
+	P, Qs : public_key )  
+played_by C def= 
+local State : nat , 
+	PW : symmetric_key, 
+	Kcs, Rs, Rc, Sigma, SKu, Tc, Ts, F, M1, M2, M3, M4, M5 : text, 
+	Username , Realm : message 
+	const sec_kcs1 , sec_sku , 
+	sec_rc , sec_pw : protocol_id 
+
+init State :=0 
+transition 
+1. State =0/\RCV(start)=|> 
+State' :=1 
+/\ Rc':=new ()
+/\ M1' :=new()
+/\ M2' :=new()
+/\ M3' :=new()
+/\ M4' :=new()
+/\ M5' :=new()
+/\ SND({Rc'}_P ) 
+/\ witness(C, S , Nc , Rc') 
+/\ secret(Rc', sec_rc , A) 
+2. State =1 
+/\ RCV( {Rs'}_P.H({Rc.Rs'}_P. {Rc'}_Qs.{Rs'}_P, {Rc'}_P)) =|> 
+State':=2 
+/\ F':=H({M1.Rc.Rs}_P)
+/\ SND(F.xor2(M1,M2).xor2(M2,M3).xor2(M3,M4).xor2(M4,M5)) 
+/\Kas':=H({M1.Rc.Rs}_P.{Rc}_P.{Rs}_P) 
+/\ secret(Kcs', sec_kcs1, {C,S}) 
+/\ request (C, S, Ns, Rc) 
+end role 
+role server ( 
+S ,C : agent, 
+SND,RCV : channel(dy), 
+H : hash_func, 
+P, Qs : public_key)  
+played_by S 
+def= 
+local State : nat, 
+PW : symmetric_key, 
+Rc, Rs, Sigma, SKs, Ta, Ts, F, Kcs, M1, M2, M3, M4, M5 : text, 
+Username, Realm : message 
+const sec_kcs2, sec_rs, sec_pw1 : protocol_id 
+init State :=0 
+transition 
+1. State =0/\RCV({Rc'}_P)=|> 
+State':=1 
+/\Rc':=new( ) 
+/\ Sigma':=H({Rs'.Rc}_P.{{Rc}_P}_inv (Qs ).{Rs'}_P,{Rc}_P) 
+/\SND({Rs'}_P.Sigma') 
+/\ witness (S, C, Ns, Rs' ) 
+/\ secret (Rs', sec_rs, S) 
+2. State=2 /\RCV(F'.xor2(M1,M2).xor2(M2,M3).xor2(M3,M4).xor2(M4,M5))=|> 
+State':=3 
+/\F':=H({Rs.Rc.M1}_P) 
+/\Kas':=H({Rs.Rc.M1}_P.{Rc}_P.{Rs}_P) 
+/\ secret (Kcs', sec_kcs2, {C, S}) 
+/\ request (S ,C, Nc , Rs) 
+end role 
+role session ( 
+C, S : agent , 
+H : hash_func , 
+P, Qs : public_key ) 
+def= 
+local 
+SC, RC, SS, RS : channel (dy) 
+composition 
+client (C, S, SC, RC, H, P, Qs) 
+/\ server (S, C, SS, RS, H, P, Qs) 
+end role 
+role environment ( ) 
+def= 
+const Nc, Ns : protocol_id , 
+c, s, i : agent , 
+h : hash_func ,  
+p, qs, qi : public_key 
+intruder_knowledge={c, s, h, p, qs, qi} 
+composition 
+session (c, s, h, p, qs) 
+/\ session (c, i, h, p, qi) 
+/\ session (i, s, h, qs, qi) 
+end role 
+goal 
+secrecy_of 
+sec_kcs1, sec_kcs2, sec_rc, sec_rs, sec_pw, 
+sec_pw1 
+authentication_on Nc 
+authentication_on Ns 
+end goal 
+environment ( )

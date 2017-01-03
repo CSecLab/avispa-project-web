@@ -1,0 +1,138 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%HLPSL:
+
+role tag(
+		A, S: agent,             
+        SND, RCV: channel (dy),
+		P, Y: public_key,
+		H: hash_func )
+		
+played_by A
+def=
+
+  local State: nat, 
+        K, C2, Xi, C3: text,
+		C0, C1, Kk: message
+		
+  const sec_k1, sec_kk1, sec_xi1,
+		server_tag_c2, tag_server_c0: protocol_id		
+
+  init State := 0
+
+  transition  
+   
+    1.  State = 0 /\ RCV(C0') =|> 
+	State' := 1
+	/\ K' := new()
+	/\ Kk' := {K'}_P	
+	/\ C1' := {K'}_pair(C0',Y)		%%%%%%%%%%%%%
+	/\ C2' := xor(Xi, H(Kk'))
+	/\ SND(C1', C2')
+	/\ secret(K',sec_k1,A)
+	/\ secret(Kk',sec_kk1,{A,S})	
+	/\ secret(Xi,sec_xi1,{A,S})	
+	/\ witness(A,S,server_tag_c2,C2')
+
+    2.  State = 1 /\ RCV(C3') =|> 
+	State' := 2
+	/\ request(A,S,tag_server_c0,C0)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role server(
+			S, A: agent,      
+			SND, RCV: channel (dy),
+			P, Y: public_key, 
+			H: hash_func ) 
+played_by S
+def=
+
+  local State: nat, 
+		R, K, C2, Xi, C3: text,
+		C0, C1, Kk: message
+  
+  const sec_r, sec_k2, sec_xi2,
+		server_tag_c2, tag_server_c0: protocol_id			
+
+  init State := 0
+
+  transition 
+
+    1.  State = 0 /\ RCV(start) =|> 
+	State' := 1
+	/\ R' := new() 
+	/\ C0' := {R'}_P 
+	/\ SND(C0')
+	/\ secret(R',sec_r,S) 
+	/\ witness(S,A,tag_server_c0,C0')
+
+    2.  State = 1 /\ RCV(C1', C2') =|> 
+	State' := 2 
+	/\ Xi' := xor(C2', H(Kk'))
+	/\ C3' := H(Xi', Kk)
+	/\ SND(C3')
+	/\ secret(Kk,sec_k2,{S,A})
+	/\ secret(Xi',sec_xi2,{S,A})	
+	/\ witness(S,A,server_tag_c2,C2')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(
+			A, S: agent, 
+			P, Y: public_key,
+			H: hash_func ) 
+def=
+
+  local SA, RA, SS, RS: channel (dy)
+
+  composition 
+
+	tag(A,S,SA,RS,P,Y,H)
+     /\ server(S,A,SS,RS,P,Y,H)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() 
+def=
+
+    const a, s, i: agent,
+	  h: hash_func,
+	  p, y, qi: public_key,
+	  sec_k1, sec_kk1, sec_xi1, sec_r, sec_k2, sec_xi2,
+	  server_tag_c2, tag_server_c0: protocol_id		%%%%%%%
+
+    intruder_knowledge = {a, s, p, y, h, qi}
+
+    composition
+
+	session(a,s,p,y,h)
+	/\ session(a,i,p,qi,h)		%%%%%%
+	/\ session(i,s,p,y,h)		%%%%%%
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of sec_k1
+  secrecy_of sec_kk1
+  secrecy_of sec_xi1
+  secrecy_of sec_r
+  secrecy_of sec_k2
+  secrecy_of sec_xi2
+  
+  authentication_on server_tag_c2
+  authentication_on tag_server_c0
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

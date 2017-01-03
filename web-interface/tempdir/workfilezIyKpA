@@ -1,0 +1,152 @@
+%% PROTOCOL:  Neumann Stubblebine
+%% PURPOSE: Two-party mutual authentication
+%% 
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%HLPSL:
+role alice(A, B , TS : agent,             
+            Kas,Kbs,Kab : symmetric_key,      
+            SND, RCV: channel(dy)) 
+	played_by A def=
+
+	local State : nat, 
+        Na, Nb, Ma, Mb, Tb: text
+	const kas,kbs: symmetric_key,
+			kab : protocol_id
+
+  init State := 0
+
+  transition  
+   
+    0.  State  = 0 /\ RCV(start) =|> 
+		State':= 1 /\ Na' := new() /\ SND(Na'.A)
+		   /\ witness(B,A,bob_alice_na,Na')
+
+    2.  State  = 4 /\ RCV({B.Na.kab.Tb}_kas , {A.kab.Tb}_kbs , Nb) /\ Na=Na' =|> 
+		State':= 5 /\ SND({Nb'}_Kbs) 
+		   		   
+	3.  State  = 4 /\ RCV({B.Na.kab.Tb}_kas , {A.kab.Tb}_kbs , Nb) /\ Na/=Na' =|> 
+		State':= 9 %%Abort session
+	
+	4.  State  = 4 /\ RCV({B.Na.kab.Tb}_kas , {A.kab.Tb}_kbs , Nb) /\ Na=Na' /\ SND({Nb}_kab) =|> 
+		State':= 6 /\ Ma' := new() /\ SND({A.kab.Tb}_kbs) /\ request(A,B,alice_bob_mb,Mb)
+		
+		   
+		   		   
+	5.  State  = 7 /\ RCV( Mb ,{Ma}_kab ) /\ Ma=Ma' =|> 
+		State':= 8 /\ SND({Mb'}_kab) 
+		   
+		   
+	6.  State  = 7 /\ RCV( Mb ,{Ma}_kab ) /\ Ma/=Ma' =|> 
+		State':= 9 %%Abort session
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob(A, B , TS : agent,      
+			Kas,Kbs,Kab : symmetric_key,      
+			SND, RCV: channel(dy)) 
+played_by B def=
+
+  local State : nat, 
+	Na, Nb, Ma, Mb: text,
+	Tb : text	
+	
+  const kas,kbs : symmetric_key,
+	kab : protocol_id
+	
+
+  init State := 2
+
+  transition 
+
+    1.  State  = 2 /\ RCV(Na,A) =|> 
+		State':= 3 /\ Nb' := new() /\ Tb' := new() /\ SND(B,Nb',{A.Na.Tb'}_kbs)
+			/\ request(B,A,bob_alice_na,Na)
+			
+
+    2.  State  = 5 /\ RCV({A.kab.Tb}_kbs, {Nb}_kab) /\ Nb' = Nb =|> 
+		State':= 6
+	
+	3.  State  = 6 /\ RCV({A.kab.Tb}_kbs , Ma) /\ Nb' = Nb =|> 
+		State':= 7 /\ Mb' := new() /\ SND({Ma}_kab)
+		
+	4.  State  = 6 /\ RCV({A.kab.Tb}_kbs , Ma) /\ Nb' = Nb =|> 
+		State':= 7 /\ Mb' := new() /\ SND({Ma}_kab)
+					/\ witness(A,B,alice_bob_mb,Mb')
+	
+	5.  State  = 8 /\ RCV({Mb'}_kab) /\ Mb'/=Mb =|>
+		State':= 9 %%Abort session
+		
+	5.  State  = 8 /\ RCV({Mb'}_kab) /\ Mb'=Mb =|>
+		State':= 10 %%final state --- establish session
+		
+	
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role trustedserver(A,B,TS: agent,      
+         Kas, Kbs: symmetric_key,      
+         SND, RCV: channel (dy)) 
+played_by TS def=
+
+  local State : nat, 
+	Na, Nb, Ma, Mb ,Tb: text	
+  	
+  const  kas, kbs: symmetric_key,
+			kab : protocol_id
+
+  init State := 3
+
+  transition 
+
+    1.  State  = 3 /\ RCV(B , {A.Na.Tb}_kbs , Nb) =|> 
+		State':= 4 /\ Kab':= new()  /\  SND(Nb,{B.Na.Kab'.Tb}_kas,{A.Kab'.Tb}_kbs )
+				/\ secret(kab,{A,B,TS})
+		     
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(A, B , TS: agent, Kas , Kbs:symmetric_key) def=
+
+  local SA, RA, SB, RB , STS, RTS : channel (dy)
+
+  composition 
+
+	alice(A,B,TS,kas,kbs,SA,RA) /\ bob  (A,B,TS,kas,kbs,SB,RB) /\  trustedserver(A,B,TS,kas,kbs,STS,RTS) 
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+    const     a,b,ts        : agent,
+	  kas, kbs, kis   : symmetric_key,
+	  kab, alice_bob_mb, bob_alice_na : protocol_id
+
+    intruder_knowledge = {a,b,ts,kis}
+
+    composition
+	session(a,b,ts,kas , kbs) /\ session(a,i,ts,kas , kis) /\ session(i,b,ts,kbs , kis)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of kab
+  authentication_on alice_bob_mb
+  authentication_on bob_alice_na
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

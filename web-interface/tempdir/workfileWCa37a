@@ -1,0 +1,183 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                  %
+%            OpendID Connect Core 1.0              %
+%                                                  %
+%              February 25, 2014                   %
+%                                                  %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                                                  %
+% E’ assunto che il Client (Relying Party) sia già %
+%    registrato sull'Authorization Server (OpendID %
+%    Provider) con [Client_ID] e [Client_Secret]   %
+%                                                  %
+% [CSKey] rappresenta la chiave simmetrica segreta %
+%    derivata dal valore Client_Secret e condivisa %
+%    tra Client (RP) e Authorization Server (OP)   %
+%                                                  %
+% Le comunicazioni tra Agenti utilizzano il TLS    %
+%    e sono simulate con le chiavi simmetriche:    %
+%  [ROKey] per Relying Party  OpenID Provider   %
+%  [RTKey] per Relying Party  Token End-Point   %
+%  [RUKey] per Relying Party  UserInfoEnd-Point %
+%						   			  %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role relyingparty 	(
+	RP,OP,TE		:	agent,
+	ClientId, URI	:	text,
+	ROKey,RTKey,CSKey	:	symmetric_key,
+	SND,RCV		:	channel(dy) )
+played_by RP
+def=
+	local
+		State		:	nat,
+		Stat,Code,IdToken : text
+	init
+		State := 0
+	transition
+
+	1. 	State=0 /\ RCV(start) =|>
+
+%% 1A. SND Authentication Request
+
+			State':=1 
+			/\ Stat':=new() 
+			/\ secret(Stat',sec_1,{RP,OP}) 
+			/\ SND({ClientId.Stat'.URI}_ROKey)
+
+%% 4B. RCV Authentication Response 
+
+	2. 	State=1 /\ RCV({Code'.Stat'}_ROKey) =|> 
+
+%% 5A. SND Token Request
+
+			State':=2 
+			/\ secret(Stat',sec_1,{RP,OP}) 
+			/\ secret(Code',sec_2,{RP,OP}) 
+			/\ SND({Code'.URI}_RTKey)
+
+%% 6B. RCV Token Response 
+
+	3. 	State=2 /\ RCV({{IdToken'}_CSKey}_RTKey) =|> 
+			State':=3 
+			/\ secret(IdToken',sec_3,{RP,TE})
+end role
+
+role openidprovider	(
+	OP,RP,TE		:	agent,
+	ClientId, URI	:	text,
+	ROKey			:	symmetric_key,
+	SND,RCV		:	channel(dy) )
+played_by OP
+def=
+	local
+		State		:	nat,
+		Code,Stat	:	text
+	init
+		State := 0
+	transition
+
+%% 1B. RCV Authentication Request 
+
+	1. 	State=0 /\ RCV({ClientId.Stat'.URI}_ROKey) =|> 
+
+%% 4A. SND Authentication Response
+			State':=1 
+			/\ witness(OP,RP,auth_1,ClientId)
+			/\ witness(OP,RP,auth_2,URI)
+			/\ secret(Stat',sec_1,{RP,OP}) 
+			/\ Code':=new() 
+			/\ secret(Code',sec_2,{RP,OP}) 
+			/\ SND({Code'.Stat'}_ROKey)
+end role
+
+role tokenendpoint	(
+	TE,RP,OP		:	agent,
+	URI			: 	text,
+	RTKey,CSKey		:	symmetric_key,
+	SND,RCV		:	channel(dy) )
+played_by TE
+def=
+	local
+		State		:	nat,
+		Code,IdToken:	text
+	init
+		State := 0
+	transition
+
+%% 5B. RCV Token Request 
+
+	1. 	State=0 /\ RCV({Code'.URI}_RTKey) =|> 
+
+%% 6A. SND Token Response
+
+			State':=1 
+			/\ secret(Code',sec_2,{RP,OP}) 
+			/\ witness(TE,RP,auth_3,Code') 
+			/\ witness(OP,RP,auth_4,URI)
+			/\ IdToken':=new() 
+			/\ secret(IdToken',sec_3,{RP,TE}) 			
+			/\ SND({{IdToken'}_CSKey}_RTKey)
+end role
+
+
+role session 	(
+	RP,OP,TE		:	agent,
+	ClientId,URI	:	text,
+	ROKey,RTKey,CSKey	:	symmetric_key )
+def=
+	local
+		SND1,RCV1,SND2,RCV2,SND3,RCV3 :	channel(dy)
+	composition
+		relyingparty(RP,OP,TE,ClientId,URI,ROKey,RTKey,CSKey,
+				SND1,RCV1) 
+	     /\ openidprovider(OP,RP,TE,ClientId,URI,ROKey,
+				SND2,RCV2) 
+	     /\ tokenendpoint(TE,RP,OP,URI,RTKey,CSKey,
+				SND3,RCV3)
+end role
+
+role environment()
+def=
+	const
+		rp,op,te	:	agent,
+		clientid,uri:	text,
+		rokey,rtkey,rikey,cskey:symmetric_key,
+		auth_1,auth_2,auth_3,auth_4,
+		sec_1,sec_2,sec_3: protocol_id
+	intruder_knowledge = {rp,op,te,rikey,i}
+	composition
+
+%% Senza Intruder
+
+ 	session(rp,op,te,clientid,uri,rokey,rtkey,cskey)	
+ 	/\ session(rp,op,te,clientid,uri,rokey,rtkey,cskey)	
+
+%% L'intruder è il Client: Relying Party	
+
+% 	/\ session(i,op,te,clientid,uri,rikey,rikey,cskey)
+
+%% L'intruder è l'Authentication Server: OpenID Provider	
+
+%	/\ session(rp,i,te,clientid,uri,rikey,rtkey,cskey)
+
+%% L'intruder è il Token End-Point	
+
+%	/\ session(rp,op,i,clientid,uri,rokey,rikey,cskey)
+		
+end role
+
+goal
+
+	authentication_on auth_1	%% Autentica RP su OP con ClientID
+	authentication_on auth_2	%% Autentica RP su OP con URI
+	authentication_on auth_3	%% Autentica RP su TE con Code
+	authentication_on auth_4	%% Autentica RP su OP con URI
+	secrecy_of sec_1			%% Stat segreto tra RP e OP
+	secrecy_of sec_2			%% Code segreto tra RP e OP
+	secrecy_of sec_3			%% IdToken segreto tra RP e TE 
+
+end goal
+
+environment()

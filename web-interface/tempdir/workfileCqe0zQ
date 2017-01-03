@@ -1,0 +1,114 @@
+%Definicion de roles
+role cliente(
+	C, B, T		: agent, 	%%Agentes
+	Pkc, Pkb	: public_key,	%Llaves públicas
+	Hash		: hash_func,	%Función hash
+	SND, RCV	: channel(dy))	%Canal y modelo de ataque
+
+	played_by C def=
+		local
+			State	 : nat,
+			Enrolreq, Url, Downloadreq, Finish, Package : message
+		init
+			State := 1
+		transition
+			1. State   = 1 /\ RCV(start) =|>
+			   State' := 3 /\ SND(Enrolreq)
+
+			2. State   = 3 /\ RCV(Url') =|>
+			   State' := 5 /\ SND(Downloadreq)
+			
+			3. State   = 5 /\ RCV(Package') =|>
+			   State' := 6 /\ SND(Finish)
+			
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role banco(
+	C,B,T		: agent,
+	Pkc, Pkb	: public_key,
+	Hash		: hash_func,
+	SND, RCV	: channel(dy))
+
+	played_by B def=
+		local
+			State	 : nat,
+			Enrolreq, Url : message
+			
+		init
+			State := 2
+		transition
+			1. State   = 2 /\ RCV(Enrolreq') =|>
+			   State' := 6 /\ SND(Url)
+			
+			2. State = 6 /\ RCV(Finish') =|>
+			   State' := 7 /\ request(B,C,b_c_url, Url') 
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role tienda(
+	C,B,T		: agent,
+	Pkc, Pkb	: public_key,
+	Hash		: hash_func,
+	SND, RCV	: channel(dy))
+
+	played_by T def=
+		local
+			State	: nat,
+			Downloadreq, Package, Finish : message
+			
+		init
+			State := 4
+		transition
+			1. State   = 4 /\ RCV(Downloadreq') =|>
+			   State' := 5 /\ SND(Package)		
+			
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+role session (C, B, T : agent,
+	      Hash: hash_func,
+	      Pkc, Pkb  : public_key) 
+	def=
+		local RC, SC, RB, SB, RT, ST : channel (dy)
+
+  const url : protocol_id
+
+  composition
+
+	  cliente(C,B,T,Pkc,Pkb,Hash,SC,RC)
+       /\ banco(C,B,T, Pkc,Pkb,Hash,SB,RB)
+       /\ tienda(C,B,T,Pkc,Pkb,Hash,ST,RT)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment() def=
+
+  const c, b, t     : agent,
+	hash : hash_function, 
+	pkc, pkb : public_key
+
+  intruder_knowledge={c,b,t,Pkc,Pkb}
+
+  composition
+
+	session(c,b,t,Hash,Pkc,Pkb)
+     /\	session(c,b,t,Hash,Pkc,Pkb)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+goal
+
+   secrecy_of url
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+environment()
+
+	

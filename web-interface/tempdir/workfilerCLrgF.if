@@ -1,0 +1,96 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilerCLrgF
+
+section signature:
+
+state_user_agent_client: agent * agent * text * hash_func * nat * text * nat -> fact
+state_sip_server: agent * agent * text * hash_func * nat * text * nat -> fact
+
+
+section types:
+
+y, sip200, sip401, sipregister: protocol_id
+h, H: hash_func
+pwd, Nonce, PWD, Dummy_Nonce, dummy_nonce: text
+A2Goal, A1Goal, uac, ss, UAC, SS, Dummy_UAC, i: agent
+start, MGoal: message
+SID1, SID, 4, State, 3, 2, 1, Dummy_State, SID2: nat
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(uac).
+ iknows(ss).
+ iknows(sipregister).
+ iknows(sip401).
+ iknows(sip200).
+ iknows(h).
+ iknows(i).
+ state_sip_server(ss,uac,pwd,h,1,dummy_nonce,3).
+ state_user_agent_client(uac,ss,pwd,h,1,dummy_nonce,4)
+
+
+section rules:
+
+step step_0 (SS,Dummy_UAC,PWD,H,Dummy_Nonce,SID,UAC,Nonce) :=
+ state_sip_server(SS,Dummy_UAC,PWD,H,1,Dummy_Nonce,SID).
+ iknows(pair(sipregister,UAC))
+=[exists Nonce]=>
+ state_sip_server(SS,UAC,PWD,H,2,Nonce,SID).
+ iknows(pair(sip401,Nonce))
+
+step step_1 (SS,UAC,PWD,H,Nonce,SID) :=
+ state_sip_server(SS,UAC,PWD,H,2,Nonce,SID).
+ iknows(pair(sipregister,pair(UAC,pair(Nonce,apply(H,pair(Nonce,apply(H,pair(UAC,PWD))))))))
+ =>
+ state_sip_server(SS,UAC,PWD,H,3,Nonce,SID).
+ iknows(sip200).
+ request(SS,UAC,y,pair(sipregister,pair(UAC,pair(Nonce,apply(H,pair(Nonce,apply(H,pair(UAC,PWD))))))),SID)
+
+step step_2 (UAC,SS,PWD,H,Nonce,SID) :=
+ state_user_agent_client(UAC,SS,PWD,H,1,Nonce,SID).
+ iknows(start)
+ =>
+ state_user_agent_client(UAC,SS,PWD,H,2,Nonce,SID).
+ iknows(pair(sipregister,UAC))
+
+step step_3 (UAC,SS,PWD,H,Dummy_Nonce,SID,Nonce) :=
+ state_user_agent_client(UAC,SS,PWD,H,2,Dummy_Nonce,SID).
+ iknows(pair(sip401,Nonce))
+ =>
+ state_user_agent_client(UAC,SS,PWD,H,3,Nonce,SID).
+ iknows(pair(sipregister,pair(UAC,pair(Nonce,apply(H,pair(Nonce,apply(H,pair(UAC,PWD)))))))).
+ witness(UAC,SS,y,apply(H,pair(Nonce,apply(H,pair(UAC,PWD)))))
+
+step step_4 (UAC,SS,PWD,H,Nonce,SID) :=
+ state_user_agent_client(UAC,SS,PWD,H,3,Nonce,SID).
+ iknows(sip200)
+ =>
+ state_user_agent_client(UAC,SS,PWD,H,4,Nonce,SID)
+
+
+section properties:
+
+property authentication_on_y (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,y,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,y,MGoal))
+     /\ ((request(A1Goal,A2Goal,y,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,y,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state authentication_on_y (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,y,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,y,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_y (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,y,MGoal,SID1).
+ request(A1Goal,A2Goal,y,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

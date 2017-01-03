@@ -1,0 +1,88 @@
+% Role of the initiator:
+role alice (A, B: agent,             
+            Ka, Kb: public_key,  
+            SND, RCV: channel(dy))
+played_by A def=
+
+  local State : nat,
+        Na, Nb: text
+
+  init State := 0
+
+  transition
+  1. State = 0 / RCV(start) =|>
+     State':= 1 / Na':= new() 
+                / SND(A.B.{Na}_Kb)
+                / witness(A,B,alice_bob_na, Na')
+                / secret(Na',na,{A,B})
+
+  2. State = 1 / RCV(B.A.{Na'.Nb'}_Ka) =|>
+     State':= 2 / SND({Nb'}_Kb)
+                / request(A,B,bob_alice_nb,Nb')
+end role
+
+
+role bob(A, B: agent,      
+         Kb, Ka: public_key,  
+         SND, RCV: channel(dy))
+played_by B def=
+
+  local State: nat,
+        Na, Nb: text
+
+  init State := 1
+
+  transition 
+  1. State = 1 / RCV(A.B.{Na'}_Kb)=|>
+     State':= 2 / Nb':= new() 
+                / SND(B.A.{Na'.Nb'}_Ka)
+                / witness(B,A,bob_alice_nb, Nb')
+                / secret(Nb',nb,{A,B})
+
+  2. State = 2 / RCV({Nb}_Kb) 
+               / request(B,A,alice_bob_na,Na')
+end role
+
+
+role session(A,B :agent,
+          Ka,Kb: public_key)
+
+def=
+
+  local SA,RA,SB,RB : channel(dy)
+
+  composition
+          alice(A,B,Ka,Kb,SA,RA)
+       / bob(A,B,Ka,Kb,SB,RB)
+
+end role
+
+
+% The main role:
+role environment() def=
+
+  const a, b, i: agent,
+        ka, kb, ki: public_key,
+        na, nb, alice_bob_na, bob_alice_nb: protocol_id
+
+  intruder_knowledge = {a, b, ka, kb, ki, inv(ki)}
+
+  composition
+      session(a,b,ka,kb)
+   / session(a,b,ka,kb)
+   / session(a,i,ka,ki)
+   / session(i,b,ki,kb)
+end role
+
+% Description of goal properties:
+goal
+
+  secrecy_of na, nb
+  authentication_on alice_bob_na
+  authentication_on bob_alice_nb
+
+end goal
+
+
+% Call of the main role:
+environment() 

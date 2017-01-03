@@ -1,0 +1,71 @@
+role sm(
+	SM,MDMS : agent,
+	SMU,MDU : public_key,
+	H : function,
+	SND,RCV : channel(dy))
+played_by SM def=
+local   SMID : text,
+        T_sm : text,
+		SM_N : message,
+		Reply : message,
+        State : nat
+init
+    State:=0
+transition
+     0. State = 0 /\ RCV(start) =|>
+        State':= 2 /\ SMID':=new()
+		           /\ SM_N':=xor(SMID',H(inv(SMU)))
+                   /\ SND({SM_N'.T_sm.SMID'}_MDU)
+                   /\ witness(MDMS,SM,smid,SMID')
+     2. State = 2 /\ RCV(Reply) =|>	 
+        State':=4
+end role
+
+role mdms(
+	SM,MDMS : agent,
+	SMU,MDU : public_key,
+	H : function,
+	SND,RCV : channel(dy))
+played_by MDMS def=
+local   SMID : text,
+        T_sm : text,
+		SM_N : message,
+		Reply : message,
+        State : nat
+init
+    State:=1
+transition
+     1. State = 1 /\ RCV({SM_N'.T_sm.SMID'}_MDU) =|>
+        State':= 3 /\ SND(Reply)
+	               /\ request(MDMS,SM,smid,SMID') 
+end role
+
+role session(
+	SM,MDMS : agent,
+	SMU,MDU : public_key,
+	H : function)
+def=
+local 
+SMDMS,RMDMS,SSM,RSM:channel(dy)
+composition
+	sm(SM,MDMS,SMU,MDU,H,SSM,RSM)
+	/\ mdms(SM,MDMS,SMU,MDU,H,SMDMS,RMDMS)
+end role
+
+role environment()
+def=
+   const a,b,i : agent,
+         ka,kb,ki : public_key,
+	     h : function,
+         smid : protocol_id
+	     intruder_knowledge={a,b,i,ka,kb,ki,h,inv(ki)} 
+  composition 
+    session(a,b,ka,kb,h) 
+   /\session(a,i,ka,ki,h)
+   /\session(i,b,ki,kb,h)
+end role
+
+goal
+authentication_on smid
+end goal
+environment()

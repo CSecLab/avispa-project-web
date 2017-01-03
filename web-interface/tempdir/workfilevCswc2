@@ -1,0 +1,55 @@
+Role reader (R,T : agent,
+		Hello,K1,K2,K3,K4,IDen : text,
+		SND,RCV: channel (dy) played_by R def=
+Local
+	IDS : text,
+	A,B,C,D : message, %xor(xor(text,text),text),
+	N1,N2 :message,
+	state:nat
+init State :=0
+	transition
+		0.State =0 /\ ensuremath {\backslash) RCV (start) =|> 
+		state':=2 /\ SND(hello)
+		
+		2.State =2 /\ ensuremath {\backslash} RCV (IDS') =|> 
+		state':= 4 /\ N1' :=new() /\ N2':=new()
+			/\ A':= xor(xor(IDS',K1),N1')
+			/\ B':= xor(xor(IDS',K2),N1')
+			/\ C':= xor(xor(IDS',K3),N2')
+			/\ SND ( (A').(b').(c'))
+			%/\ witness':= (R,R,authK1,K1)
+			
+		4. state=4/\ RCV (xor(xor(xor(IDS,IDen),N1),N2))=|>
+		state':6/\ secret(IDen,idtag,{R,T})
+			/\ request(R,T,authid,IDen)
+end role				
+
+
+
+Role tag (R,T : agent,
+		Hello,K1,K2,K3,K4,IDen,IDS : text,
+		SND,RCV: channel (dy)) played_by T def=
+Local
+	A,B,C,D : message,
+	N1,N2 :message,
+	state:nat
+init State :=1
+	transition
+		1.State =1 /\ RCV (Hello) =|> 
+		state':=3 /\ SND(IDS)
+
+		3.State =3 /\ RCV (xor(xor(IDS,K1),N1').xor(xor(IDS,K2),N1').xor(xor(IDS,K3),N2')) =|> 
+		state':=5 /\ SND(xor(xor(xorIDS,IDen),xor(xor(xor(xor(IDS,K1),N1'),IDS),K1))'
+							xor(xor(xor(xor(IDS,K3),N2'),IDS),K3)))
+
+			/\ secret(IDen,idtag,{R,T})
+			/\ request(T,R,authK1,K1)
+			/\ witness(T,R,authid,IDen)
+
+
+		3.state=3 /\rcv ((A').(B').(C')) =|>
+		state':5 /\ N1' :=xor(xor(A',IDS),K1)
+			/\ N2' :=xor(xor(C',IDS),K3)
+			/\ SND (xor(xor(xor(IDS,IDen),N1'),N2'))
+
+end role

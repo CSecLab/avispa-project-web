@@ -1,0 +1,183 @@
+{\rtf1\ansi\ansicpg1252\deff0\deflang1033{\fonttbl{\f0\fnil\fcharset0 Calibri;}}
+{\*\generator Msftedit 5.41.21.2509;}\viewkind4\uc1\pard\sa200\sl276\slmult1\lang9\f0\fs22 %% PROTOCOL: EKE: Encrypted Key Exchange\par
+%% VARIANT: basic\par
+%% PURPOSE: Encrypted key exchange\par
+%% REFERENCE:\par
+%% \\url\{http://citeseer.ist.psu.edu/bellovin92encrypted.html\}\par
+%% MODELER:\par
+%% \\begin\{itemize\}\par
+%%   \\item Haykal Tej, Siemens CT IC 3, 2003\par
+%%   \\item Sebastian M\{\\"o\}dersheim, ETH Z\{\\"u\}rich, December 2003\par
+%% \\end\{itemize\}\par
+%%\par
+%% ALICE_BOB:\par
+%% \\begin\{verbatim\}\par
+%% A -> B : \{Ea\}_Kab        |    Key exchange part\par
+%% B -> A : \{\{K\}_Ea\}_Kab    |\par
+%% A -> B : \{Ca\}_K          |\par
+%% B -> A : \{Ca,Cb\}_K       |    Challenge/Response\par
+%% A -> B : \{Cb\}_K          |    Authentication part\par
+%% \\end\{verbatim\}\par
+%%\par
+%% LIMITATIONS: None\par
+%%\par
+%% PROBLEMS: 3\par
+%%\par
+%% CLASSIFICATION: G2 G12\par
+%%\par
+%% ATTACKS: \par
+%% \\begin\{verbatim\}\par
+%% i -> (a,3): start\par
+%% (a,3) -> i: \{Ea(1)\}_kab\par
+%% i -> (a,6): \{Ea(1)\}_kab\par
+%% (a,6) -> i: \{\{K(2)\}_Ea(1)\}_kab \par
+%% i -> (a,3): \{\{K(2)\}_Ea(1)\}_kab\par
+%% (a,3) -> i: \{Na(3)\}_K(2) witness(a,b,na,Na(3))\par
+%% i -> (a,6): \{Na(3)\}_K(2)\par
+%% (a,6) -> i: \{Na(3),Nb(4)\}_K(2) witness(a,b,nb,Nb(4))\par
+%% i -> (a,3): \{Na(3),Nb(4)\}_K(2)\par
+%% (a,3) -> i: \{Nb(4)\}_K(2)  request(a,b,nb,Nb(4))\par
+%% \\end\{verbatim\}\par
+%%\par
+%% Parallel session attack, man-in-the-middle\par
+%% between A as initiator and A as responder, attacker\par
+%% masquerades as B, but no secret nonces are exposed.\par
+%%\par
+%%\par
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\par
+%%HLPSL:\par
+\par
+role eke_Init (A,B: agent,\par
+               Kab: symmetric_key,\par
+               Snd,Rcv: channel(dy))\par
+played_by A\par
+def=\par
+\par
+  local State   : nat,\par
+        Ea      : public_key,\par
+        Na,Nb,K : text\par
+\par
+  const sec_k1 : protocol_id\par
+\par
+  init  State := 0\par
+\par
+  transition\par
+\par
+   1. State = 0\par
+      /\\ Rcv(start)  /\\ Rcv(\{B\}_Kab)\par
+      =|> \par
+      State' := 1\par
+      /\\ Ea' := new()\par
+      /\\ Snd(\{Ea'\}_Kab) \par
+\par
+   2. State = 1\par
+      /\\ Rcv(\{\{K'\}_Ea\}_Kab)\par
+      =|> \par
+      State' := 2\par
+      /\\ Na' := new()\par
+      /\\ Snd(\{Na'\}_K') \par
+      /\\ secret(K',sec_k1,\{A,B\})\par
+      /\\ witness(A,B,na,Na')\par
+\par
+   3. State = 2\par
+      /\\ Rcv(\{Na.Nb'\}_K) \par
+      =|> \par
+      State' := 3\par
+      /\\ Snd(\{Nb'\}_K) \par
+      /\\ request(A,B,nb,Nb')\par
+\par
+end role\par
+\par
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\par
+\par
+role eke_Resp (B,A: agent,\par
+               Kab: symmetric_key,\par
+ \tab        Snd,Rcv: channel(dy))\par
+played_by B\par
+def=\par
+\par
+  local State   : nat,\par
+        Na,Nb,K : text,\par
+\tab Ea      : public_key\par
+\par
+  const sec_k2 : protocol_id\par
+\par
+  init  State := 0\par
+\par
+  transition\par
+\par
+   1. State = 0 /\\ Rcv(\{Ea'\}_Kab)\par
+      =|> \par
+      State' := 1\par
+      /\\ K' := new()\par
+      /\\ Snd(\{\{K'\}_Ea'\}_Kab) \par
+      /\\ secret(K',sec_k2,\{A,B\})\par
+\par
+   2. State = 1 /\\ Rcv(\{Na'\}_K)\par
+      =|> \par
+      State' := 2\par
+      /\\ Nb' := new()\par
+      /\\ Snd(\{Na'.Nb'\}_K)\par
+      /\\ witness(B,A,nb,Nb')\par
+\par
+   3. State = 2\par
+      /\\ Rcv(\{Nb\}_K)\par
+      =|> \par
+      State' := 3\par
+      /\\ request(B,A,na,Na)\par
+\par
+end role\par
+\par
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\par
+\par
+role session(A,B: agent,\par
+\tab      Kab: symmetric_key)\par
+def=\par
+\par
+  local SA, RA, SB, RB: channel (dy)\par
+\par
+  composition\par
+     eke_Init(A,B,Kab,SA,RA)\par
+  /\\ eke_Resp(B,A,Kab,SB,RB)\par
+\par
+end role\par
+\par
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\par
+\par
+\par
+role environment()\par
+def=\par
+\par
+  const a, b   : agent,\par
+        kab    : symmetric_key,\par
+        na, nb : protocol_id\par
+\par
+  intruder_knowledge=\{a,b\}\par
+\par
+  composition\par
+      session(a,b,kab)\par
+   /\\ session(b,a,kab)\par
+ \par
+end role\par
+\par
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\par
+\par
+goal\par
+\par
+ % Confidentiality (G12)\par
+ secrecy_of sec_k1, sec_k2\par
+\par
+ % Message authentication (G2)\par
+ % EKE_Init authenticates EKE_Resp on nb\par
+ authentication_on nb\par
+\par
+ % Message authentication (G2)\par
+ % EKE_Resp authenticates EKE_Init on na\par
+ authentication_on na\par
+\par
+end goal\par
+\par
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\par
+\par
+environment()\par
+}

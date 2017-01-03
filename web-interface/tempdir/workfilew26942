@@ -1,0 +1,212 @@
+role mn (
+		M,CP,NP                :	agent,
+		PanaAuthKey          :	symmetric_key,
+		SesIden,KeyID        : text,
+		DeriveAAAKeyInt,
+                                DeriveNewAAAKey : hash_func ,    
+                                                                                                                                                                 %text,text,text -> symmetric_key,
+                                                                                                                                                                  % error    :  text , it seems we must write the 
+                                                                                                                                                                  % function without defining it
+		                                                                                                                                  %symmetric_key,text,text -> symmetric_key,
+		DeriveBit          : text -> text,
+		SMNcP,RMNcP,
+		SMNnP,RMNnP:channel(dy))
+
+	played_by M def=
+
+		local
+			State : nat,
+			NewMNID , NPaaID , PaaNonce,
+			Sbit , NPaanonce , Pbit , NewKeyID , AlgID , Cbit , MNnonce : text,
+			DeriveFunc : hash_func,
+			NewPanaAuthKey,IkAAA : symmetric_key
+                                init
+			State := 0
+
+		transition
+		1. State = 0 /\ RCV(start) =|>
+		   State':= 1 	/\ NewMNID':= DeriveFunc(NPaaID)
+				/\ SMNcP({NewMNID.NPaaID})
+
+		2. State = 1 /\ RMNnP(SesIden'.Sbit'.NPaaNonce')=|>
+		   State':= 8 	/\ MNnonce':= new()
+				/\ SMNnP({SesIden'.Sbit'.MNnonce'}_PanaAuthKey)
+
+		3. State = 8 /\ RMNnP({Pbit'.NewKeyID'.AlgID}_NewPanaAuthKey')=|>
+		   
+                                   State':= 12 /\ IkAAA':= DeriveAAAKeyInt(SesIden',NewMNID',KeyID)
+				/\ NewAaaKey':= DeriveNewAAAKey(IkAAA',NPaaNonce',MNnonce')
+				/\ Cbit':= DeriveBit(Cbit)
+				/\ SMNnP({Cbit'.NewKeyID'}_NewPanaAuthKey')
+                                                                /\ NewPanaAuthKey':= DeriveFunc(IKAAA',NewAaaKey')				
+                                                                /\ witness(M,LnP,m_np_newpanaauthkey,NewPanaAuthKey)
+
+end role
+role cPAA (
+		CP,CA,NP,M : agent,
+		PKnPaa,SKnAaa,PKnAaa : symmetric_key,
+		KeyID : text,
+		DeriveAAAKeyInt :  hash_func,          %text,text,text -> symmetric_key,
+		ScPcA,RcPcA,
+		ScPnP,RcPnP,
+		RMNcP : channel(dy))
+
+	played_by CP def=
+
+		local
+			State : nat,
+			NPaaID,NewMNID : text,
+			PAN,PCI: text.text,
+			IkAAA : symmetric_key,
+                                                   PCI:message
+
+		init
+			State := 1
+
+		transition
+		1. State = 1 /\ RMNcP(NewMNID'.NPaaID) =|>
+		   State':= 2 /\ ScPcA(NPaaID)
+				/\ request(LcP,LcA,Npaaid,NPaaID)
+
+		2. State = 3 /\ RcPcA(PKnAaa) =|>
+		   State':= 4 /\ ScPnP(PCI')
+		
+		3. State = 4 /\ RcPnP(SesIden'.Sbit'.NPaaNonce'.{NPaaID.PKnPaa}_SKnAaa)=|>
+		   State':= 10 /\ IkAAA':= DeriveAAAKeyInt(SesIden',NewMNID',KeyID)
+				/\ ScPnP({IkAAA'}_PKnPaa)
+end role
+
+role cAAA (
+		CP,CA : agent,
+		RcPcA,ScPcA : channel(dy))
+
+	played_by CA def=
+
+		local
+			State : nat,
+			NPaaID : text
+			
+
+		init
+			State := 2
+
+		transition
+		1. State = 2 /\ RcPcA(nPaaID) =|>
+		   State':= 3 /\ ScPcA(PKnAaa)
+				/\ witness(CP,CA,npaaid,NPaaID)
+
+end role
+role nPAA (
+		NA,NP,M,CP : agent,
+		PKnPaa,PKcAaa,PanaAuthKey,SKnAaa: symmetric_key,
+		%... : hash_func,
+		DeriveBit : text -> text,
+		DeriveNewPanaAuth,DeriveNewAAAKey  :hash_func,  
+		                                                                                             %DeriveNewAAAKey : symmetric_key,text,text -> symmetric_key,
+		SesIden : text,
+		ScPnP,
+		SMNnP,RMNnP,
+		SnPnA,RnPnA : channel(dy))
+
+	played_by NP def=
+
+		local
+			State : nat,
+			CPaaID,NewMNID,
+			Sbit,NPaaNonce,MNnonce,NPaaID,AlgID,NewKeyID,Pbit : text,
+			PAN: text.text,
+			NewPanaAuthKey,IkAAA,NewAaaKey : symmetric_key
+
+		init
+			State := 4
+
+		transition
+		1. State = 4 /\ RMNnP(NewMNID'.NPaaID) =|>
+		   State':= 5 /\ SnPnA(CPaaID)
+				/\ request(NP,NA,cpaaid,CPaaID)
+		2. State = 5 /\ RnPnA(PKcAaa) =|>
+		   State':= 7 /\ Sbit':=Derive(Sbit) /\ PaaNonce':= new() /\ SesIden':= new()
+				/\ SMNnP(SesIden'.Sbit'.NPaaNonce')
+				/\ request(M,NP,m_np_newpanaauthkey,NewPanaAuthKey)
+		3. State = 7 /\ RMNnP({SesIden'.Sbit'.MNnonce'}_PanaAuthKey)=|>			%-----PAN'? / {...}_PAN'?
+		   State':= 9 /\ScPnP(SesIden'.Sbit'.NPaaNonce'.{NPaaID.PKnPaa}_SKnAaa)
+		4. State = 9 /\ RcPnP({IkAAA'}_PKnPaa)=|>
+		   State':= 11 /\ NewAaaKey':= DeriveNewAAAKey(IkAAA',NPaaNonce',MNnonce')
+				/\NewPanaAuthKey':= DeriveFunc(IKAAA',NewAaaKey')					%-----Need more info about Algorithm-ID ?
+				/\ NewKeyID':= new() /\ Pbit':= DeriveBit(Pbit)
+				/\ SMNnP({Pbit'.NewKeyID'.AlgID'}_NewPanaAuthKey')
+				/\ secret(NewPanaAuthKey,newpanaauthkey,{NP,M})
+end role
+
+%-------------------------------------------------------------------------
+role nAAA (
+		NA,NP : agent,
+		RnPnA,SnPnA : channel(dy))
+
+	played_by NA def=
+
+		local
+			state : nat,
+			CPaaID : text
+						
+
+		init
+			State := 5
+
+		transition
+		1. State = 5 /\ RnPnA(cPaaID) =|>
+		   State':= 6 /\ SnPnA(PKcAaa)
+				/\ witness(NP,NA,cpaaid,CPaaID)
+
+end role
+
+role session (
+		M,CP,CA,NA,NP : agent,
+		PKnPaa,SKnAaa,PKnAaa,PKcAaa,PanaAuthKey : symmetric_key,
+		%... : hash_func)
+
+	def=
+
+		local
+			ScPcA,RcPcA,SnPnA,RnPnA,
+			ScPnP,RcPnP,SMNnP,RMNnP,
+			SMNcP,RMNcP : channel (dy)
+
+		composition
+			mn(M,CP,NP,PanaAuthKey,
+			SMNcP,RCV,SMNnP,RMNnP)
+			/\ cVD (CP,CA,NP,PKnPaa,SKnAaa,PKnAaa,
+			   ...,ScPcA,RcPcA,ScPnP,RcPnP,RMNcP)
+			/\ nVD (NA,NP,CP,M,PKnPaa,PKcAaa,PanaAuthKey,
+			   SKnAaa,...,ScPnP,SMNnP,RMNnP,SnPnA,RnPnA)
+end role
+role environment()
+	def=
+
+		const
+			sKnAaa,panaAuthKey : symmetric_key,
+			M,LcP,LnP,LcA,LnP : agent,
+			... : hash_func
+		
+		intruder_knowledge = {M,LcP,LnP,LcA,LnP,.,panaAuthKey}
+
+		composition
+			session(M,LcP)
+			/\ session(M,LnP,panaAuthKey)
+			/\ session(LnP,LcP,LsKnAaa)
+			/\ session(M,LcP)
+			/\ session(M,LcP)
+			/\ session(LnP,i,sKnAaa)
+			/\ session(i,LcP,sKnAaa)
+			/\ session(M,i,panaAuthKey)
+			session(i,nP,panaAuthKey)
+end role
+
+goal
+	secrecy_of newpanaauthkey
+	authentication_on m_np_newpanaauthkey
+	authentication_on npaaid
+	authentication_on cpaaid
+end goal
+
+environment()

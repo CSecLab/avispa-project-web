@@ -1,0 +1,192 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileHgekuB
+
+section signature:
+
+state_url: agent * agent * nat * agent * nat -> fact
+state_relying_party: agent * nat * agent * agent * agent * text * message * nat -> fact
+state_openid_provider: agent * agent * agent * symmetric_key * hash_func * nat * agent * hash_func * symmetric_key * text * message * text * text * message * set(agent) * nat -> fact
+state_user: agent * agent * agent * agent * symmetric_key * hash_func * nat * text * message * text * text * message * nat -> fact
+
+
+section types:
+
+set_162, set_158, set_153, set_150, set_133: set
+user_session_key, o_r_signautre, op_user_authentication: protocol_id
+Nc, Nb, Na, Dummy_Na, Dummy_Nc, Dummy_Nb, dummy_nonce: text
+Set_71, Dummy_Set_71, ASGoal: set(agent)
+21, 19, State, 17, 15, 13, 11, 26, 25, 23, 18, 16, 14, 10, 9, 8, 6, 7, SID, 5, 4, 3, Dummy_State, 2, 1, 0, SID2, SID1: nat
+Ks, X, Dummy_X, Dummy_Ks, start, dummy_msg, MGoal: message
+H, Hash, dummy_hash, h: hash_func
+Ko, K, Dummy_Ko, dummy_sk, kuo, kio, kui: symmetric_key
+R, L, O, U, Dummy_O, Dummy_L, Dummy_U, Dummy_R, dummy_agent, A2Goal, A1Goal, o, r, u, l, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(o).
+ iknows(r).
+ iknows(u).
+ iknows(l).
+ iknows(kio).
+ iknows(kui).
+ iknows(h).
+ iknows(i).
+ state_user(u,r,o,l,kuo,h,0,dummy_nonce,dummy_msg,dummy_nonce,dummy_nonce,dummy_msg,3).
+ state_openid_provider(o,u,l,kuo,h,11,dummy_agent,dummy_hash,dummy_sk,dummy_nonce,dummy_msg,dummy_nonce,dummy_nonce,dummy_msg,set_133,4).
+ state_relying_party(r,1,dummy_agent,dummy_agent,dummy_agent,dummy_nonce,dummy_msg,5).
+ state_url(l,o,19,dummy_agent,6).
+ state_user(u,r,o,i,kuo,h,0,dummy_nonce,dummy_msg,dummy_nonce,dummy_nonce,dummy_msg,8).
+ state_openid_provider(o,u,i,kuo,h,11,dummy_agent,dummy_hash,dummy_sk,dummy_nonce,dummy_msg,dummy_nonce,dummy_nonce,dummy_msg,set_150,9).
+ state_relying_party(r,1,dummy_agent,dummy_agent,dummy_agent,dummy_nonce,dummy_msg,10).
+ state_openid_provider(o,i,l,kio,h,11,dummy_agent,dummy_hash,dummy_sk,dummy_nonce,dummy_msg,dummy_nonce,dummy_nonce,dummy_msg,set_153,14).
+ state_relying_party(r,1,dummy_agent,dummy_agent,dummy_agent,dummy_nonce,dummy_msg,15).
+ state_url(l,o,19,dummy_agent,16).
+ state_user(u,i,o,l,kuo,h,0,dummy_nonce,dummy_msg,dummy_nonce,dummy_nonce,dummy_msg,18).
+ state_openid_provider(o,u,l,kuo,h,11,dummy_agent,dummy_hash,dummy_sk,dummy_nonce,dummy_msg,dummy_nonce,dummy_nonce,dummy_msg,set_158,19).
+ state_url(l,o,19,dummy_agent,21).
+ state_user(u,r,i,l,kui,h,0,dummy_nonce,dummy_msg,dummy_nonce,dummy_nonce,dummy_msg,23).
+ state_relying_party(r,1,dummy_agent,dummy_agent,dummy_agent,dummy_nonce,dummy_msg,25).
+ state_url(l,i,19,dummy_agent,26)
+
+
+section rules:
+
+step step_0 (U,R,O,L,K,Hash,Na,X,Nb,Nc,Ks,SID) :=
+ state_user(U,R,O,L,K,Hash,0,Na,X,Nb,Nc,Ks,SID).
+ iknows(start)
+ =>
+ state_user(U,R,O,L,K,Hash,2,Na,X,Nb,Nc,Ks,SID).
+ iknows(pair(U,pair(R,L)))
+
+step step_1 (U,R,O,L,K,Hash,Na,X,Dummy_Nb,Nc,Ks,SID,Nb) :=
+ state_user(U,R,O,L,K,Hash,2,Na,X,Dummy_Nb,Nc,Ks,SID).
+ iknows(pair(U,pair(O,pair(R,L)))).
+ iknows(start)
+=[exists Nb]=>
+ state_user(U,R,O,L,K,Hash,4,Na,X,Nb,Nc,Ks,SID).
+ iknows(pair(O,pair(U,pair(R,pair(L,scrypt(K,Nb))))))
+
+step step_2 (U,R,O,L,K,Hash,Na,X,Nb,Dummy_Nc,Dummy_Ks,SID,Nc) :=
+ state_user(U,R,O,L,K,Hash,4,Na,X,Nb,Dummy_Nc,Dummy_Ks,SID).
+ iknows(scrypt(K,Nc))
+ =>
+ state_user(U,R,O,L,K,Hash,6,Na,X,Nb,Nc,apply(Hash,pair(Nb,Nc)),SID).
+ iknows(scrypt(apply(Hash,pair(Nb,Nc)),Nc)).
+ witness(U,O,op_user_authentication,Nc)
+
+step step_3 (U,R,O,L,K,Hash,Dummy_Na,Dummy_X,Nb,Nc,Ks,SID,Na,X) :=
+ state_user(U,R,O,L,K,Hash,6,Dummy_Na,Dummy_X,Nb,Nc,Ks,SID).
+ iknows(pair(U,pair(O,pair(R,pair(L,pair(Na,X))))))
+ =>
+ state_user(U,R,O,L,K,Hash,8,Na,X,Nb,Nc,Ks,SID).
+ iknows(pair(U,pair(O,pair(R,pair(L,pair(Na,X))))))
+
+step step_4 (O,U,L,K,Hash,Dummy_R,H,Ko,Na,X,Dummy_Nb,Dummy_Nc,Dummy_Ks,Dummy_Set_71,SID,R,Nb,Nc) :=
+ state_openid_provider(O,U,L,K,Hash,11,Dummy_R,H,Ko,Na,X,Dummy_Nb,Dummy_Nc,Dummy_Ks,Dummy_Set_71,SID).
+ iknows(pair(O,pair(U,pair(R,pair(L,scrypt(K,Nb))))))
+=[exists Nc]=>
+ state_openid_provider(O,U,L,K,Hash,13,R,H,Ko,Na,X,Nb,Nc,apply(Hash,pair(Nb,Nc)),Dummy_Set_71,SID).
+ iknows(scrypt(K,Nc)).
+ secret(apply(Hash,pair(Nb,Nc)),user_session_key,Dummy_Set_71).
+ contains(U,Dummy_Set_71).
+ contains(O,Dummy_Set_71)
+
+step step_5 (O,U,L,K,Hash,R,H,Dummy_Ko,Dummy_Na,X,Nb,Nc,Ks,Set_71,SID,Ko,Na) :=
+ state_openid_provider(O,U,L,K,Hash,13,R,H,Dummy_Ko,Dummy_Na,X,Nb,Nc,Ks,Set_71,SID).
+ iknows(scrypt(Ks,Nc))
+=[exists Ko,Na]=>
+ state_openid_provider(O,U,L,K,Hash,15,R,H,Ko,Na,X,Nb,Nc,Ks,Set_71,SID).
+ iknows(pair(U,pair(O,pair(R,pair(L,pair(Na,apply(H,pair(O,pair(R,pair(L,pair(Na,Ko))))))))))).
+ request(O,U,op_user_authentication,Nc,SID)
+
+step step_6 (O,U,L,K,Hash,R,H,Ko,Na,X,Nb,Nc,Ks,Set_71,SID) :=
+ state_openid_provider(O,U,L,K,Hash,15,R,H,Ko,Na,X,Nb,Nc,Ks,Set_71,SID).
+ iknows(pair(O,pair(R,pair(L,pair(Na,apply(H,pair(O,pair(R,pair(L,pair(Na,Ko))))))))))
+ =>
+ state_openid_provider(O,U,L,K,Hash,17,R,H,Ko,Na,X,Nb,Nc,Ks,Set_71,SID).
+ witness(U,O,o_r_signautre,apply(H,pair(O,pair(R,pair(L,pair(Na,Ko))))))
+
+step step_7 (R,Dummy_U,O,Dummy_L,Na,X,SID,U,L) :=
+ state_relying_party(R,1,Dummy_U,O,Dummy_L,Na,X,SID).
+ iknows(pair(U,pair(R,L)))
+ =>
+ state_relying_party(R,3,U,O,L,Na,X,SID).
+ iknows(pair(R,L))
+
+step step_8 (R,U,Dummy_O,L,Na,X,SID,O) :=
+ state_relying_party(R,3,U,Dummy_O,L,Na,X,SID).
+ iknows(pair(R,pair(L,O)))
+ =>
+ state_relying_party(R,5,U,O,L,Na,X,SID).
+ iknows(pair(U,pair(O,pair(R,L))))
+
+step step_9 (R,U,O,L,Dummy_Na,Dummy_X,SID,Na,X) :=
+ state_relying_party(R,5,U,O,L,Dummy_Na,Dummy_X,SID).
+ iknows(pair(U,pair(O,pair(R,pair(L,pair(Na,X))))))
+ =>
+ state_relying_party(R,7,U,O,L,Na,X,SID).
+ iknows(pair(O,pair(R,pair(L,pair(Na,X))))).
+ request(U,R,o_r_signautre,X,SID)
+
+step step_10 (L,O,Dummy_R,SID,R) :=
+ state_url(L,O,19,Dummy_R,SID).
+ iknows(pair(R,L))
+ =>
+ state_url(L,O,21,R,SID).
+ iknows(pair(R,pair(L,O)))
+
+
+section properties:
+
+property secrecy_of_user_session_key (MGoal,ASGoal) :=
+ [] ((secret(MGoal,user_session_key,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_op_user_authentication (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,op_user_authentication,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,op_user_authentication,MGoal))
+     /\ ((request(A1Goal,A2Goal,op_user_authentication,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,op_user_authentication,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_o_r_signautre (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,o_r_signautre,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,o_r_signautre,MGoal))
+     /\ ((request(A1Goal,A2Goal,o_r_signautre,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,o_r_signautre,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_user_session_key (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,user_session_key,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_op_user_authentication (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,op_user_authentication,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,op_user_authentication,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_op_user_authentication (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,op_user_authentication,MGoal,SID1).
+ request(A1Goal,A2Goal,op_user_authentication,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_o_r_signautre (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,o_r_signautre,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,o_r_signautre,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_o_r_signautre (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,o_r_signautre,MGoal,SID1).
+ request(A1Goal,A2Goal,o_r_signautre,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

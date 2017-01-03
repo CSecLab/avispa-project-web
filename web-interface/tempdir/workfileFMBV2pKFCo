@@ -1,0 +1,95 @@
+role alice(
+    A,B	    : agent,
+    K	    : symmetric_key,
+    Hash    : hash_func, % hash function used
+    SND,RCV : channel(dy)) % channel for its agent
+    played_by A def=
+
+	local
+	    State   : nat, % natural number
+	    Na,Nb   : text,
+	    K1	    : message % ?? check the user guide for type explanation
+
+	init
+	    State   := 0
+
+	transition
+
+	1.  State = 0 /\ RCV(start) =|> % A to start the protocol execution
+	    State' := 2 /\ Na' := new() % generate a nonce
+			/\ SND({Na'}_K) % send the nonce encrypted using K
+
+	2.  State = 2 /\ RCV({Nb'}_K) =|> % if it receives a message from B encrypted with K
+	    State' := 4 /\ K1' := Hash(Na.Nb') % generate a key by hashing the Na and Nb
+			/\ SND({Nb'}_K1') % send the Nb to B encrypted with K1
+			/\ witness(A,B,bob_alice_nb,Nb')
+
+end role
+
+role bob(
+    A,B	    : agent,
+    K	    : symmetric_key,
+    Hash    : hash_func,
+    SND,RCV : channel(dy))
+    played_by B def=
+
+	local
+	    State   : nat,
+	    Na,Nb   : text,
+	    K1	    : message
+
+	init
+	    State   := 1
+
+	transition
+
+	1.  State = 1 /\ RCV({Na'}_K) =|>
+	    State' := 3 /\ Nb' := new()
+			/\ SND({Nb'}_K)
+			/\ K1' := Hash(Na'.Nb')
+			/\ secret(K1',k1,{A,B}) % ???
+
+	2.  State = 3 /\ RCV({Nb}_K1) =|>
+	    State' := 5 /\ request(B,A,bob_alice_nb,Nb)
+
+end role
+
+role session( % composite-role define interaction between agents
+    A,B	    : agent,
+    K	    : symmetric_key,
+    Hash    : hash_func)
+    def=
+
+	local SA, SB, RA, RB : channel (dy)
+
+	composition
+
+	    alice(A,B,K,Hash,SA,RA) % instantinate alice --> A
+	/\  bob(A,B,K,Hash,SB,RB) % instantinate bob --> B
+
+end role
+
+role environment()
+def=
+    const
+	bob_alice_nb,
+	k1	    : protocol_id,
+	kab,kai,kib	: symmetric_key,
+	a,b	    : agent,
+	h	    : hash_func
+
+	intruder_knowledge = {a,b,h,kai,kib}
+
+	composition
+	    session(a,b,kab,h)
+	/\	session(a,i,kai,h)
+	/\	session(i,b,kib,h)
+
+end role
+
+goal
+    secrecy_of k1 % k1 should only be known by A and B
+    authentication_on bob_alice_nb % bob authenticates alice based on the nonce it receives (step 3 on bob)
+end goal
+
+environment()

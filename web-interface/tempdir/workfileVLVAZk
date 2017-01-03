@@ -1,0 +1,103 @@
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role server(S, T:agent,
+	 H,F,G:hash_func,
+	 ID :text,
+                 SND,  RCV: channel(dy))
+
+played_by S def=
+local State:  nat,
+         Nr,Nt:text,
+         Auth1:message
+init State :=0
+transition
+
+0. State =0       /\ RCV(start)
+  =|> State' :=2
+                       /\  Nr' := new() 
+                       /\  SND(Nr')
+
+1.State =2      /\ RCV(F(ID.Nr'.Nt').Nt')
+=|> State' :=2 /\ Auth1' := F(ID.Nr'.Nt')
+                     /\ request(S,T,id3,Auth1')
+
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role tag( T, S :agent,
+             H,F,G : hash_func,
+             ID : text,	  
+              SND,RCV : channel(dy))
+
+played_by T def=
+
+local  State  : nat ,
+Nr, Nt  :text ,
+Auth :hash(text.text.text)
+
+init State :=1 
+
+transition 
+
+0.State =1 /\ RCV(Nr') 
+=|> State' :=3
+/\ Nt' := new() 
+/\ SND(F(ID.Nr'.Nt').Nt')
+%/\ witness (T , S , trk , K )
+/\ secret (ID , id , {T , S})
+
+1. State = 3 /\ RCV (F(ID'.Nr'.Nt'))
+=|> State' := 3 /\ ID' := G(ID) 
+	      /\ Auth' := F(ID'.Nr'.Nt')
+	      /\ request(S,T,trid,Auth')	
+                      
+                     
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session( T , S :agent,
+                     H,F,G:hash_func,
+	     ID :text
+		)
+def=
+ 
+local SND, RCV : channel(dy)
+
+composition 
+
+tag(T,S,H,F,G,ID,SND,RCV)
+/\ server(S,T,H,F,G,ID, SND , RCV)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role enviroment() def=
+const 
+id, id3, trid, trk : protocol_id,
+h,f,g : hash_func,
+tag,server : agent,
+iden,idi : text
+
+intruder_knowledge = { tag , server, h,f,g, i, idi} 
+composition
+
+session (tag,server, iden,h,f,g)
+/\ session(tag,iden,h,f,g)
+%/\ session (i,server,idi,h,f,g)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+
+secrecy_of id
+authentication_on trid
+authentication_on id3
+authentication_on trk
+end goal 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+enviroment()
+ 
+                         

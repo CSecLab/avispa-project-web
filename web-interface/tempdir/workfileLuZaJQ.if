@@ -1,0 +1,171 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileLuZaJQ
+
+section signature:
+
+state_server: agent * agent * symmetric_key * symmetric_key * text * text * text * nat * text * nat -> fact
+state_tag: agent * agent * symmetric_key * symmetric_key * text * text * text * nat * text * set(agent) * nat -> fact
+
+
+section types:
+
+auth_Server, id, auth_K, auth_P, auth_EPC, auth_Tag: protocol_id
+crc: hash_func
+set_84, set_82, set_68: set
+3, State, 10, 6, 4, SID, Dummy_State, 1, 2, SID2, 0, SID1: nat
+Set_43, Dummy_Set_43, ASGoal: set(agent)
+start, MGoal: message
+Auth, Nr, Nt, EPC, Dummy_Auth1, Dummy_Auth, Dummy_Nt, Dummy_Nr, dummy_nonce, Auth1, epc, epci: text
+K, P, Dummy_P, Dummy_K, k, p, kis, kit: symmetric_key
+T, S, tag, A2Goal, A1Goal, server, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(tag).
+ iknows(server).
+ iknows(kis).
+ iknows(kit).
+ iknows(epci).
+ iknows(crc).
+ iknows(i).
+ state_tag(tag,server,k,p,epc,dummy_nonce,dummy_nonce,1,dummy_nonce,set_68,3).
+ state_server(server,tag,k,p,epc,dummy_nonce,dummy_nonce,0,dummy_nonce,4).
+ state_tag(tag,i,k,kit,epc,dummy_nonce,dummy_nonce,1,dummy_nonce,set_82,6).
+ state_server(server,i,kis,p,epci,dummy_nonce,dummy_nonce,0,dummy_nonce,10)
+
+
+section rules:
+
+step step_0 (T,S,K,P,EPC,Dummy_Nr,Dummy_Nt,Auth,Dummy_Set_43,SID,Nr,Nt) :=
+ state_tag(T,S,K,P,EPC,Dummy_Nr,Dummy_Nt,1,Auth,Dummy_Set_43,SID).
+ iknows(Nr)
+=[exists Nt]=>
+ state_tag(T,S,K,P,EPC,Nr,Nt,3,Auth,Dummy_Set_43,SID).
+ iknows(pair(xor(apply(crc,pair(EPC,pair(Nr,Nt))),K),Nt)).
+ witness(T,S,auth_EPC,EPC).
+ witness(T,S,auth_K,K).
+ secret(EPC,id,Dummy_Set_43).
+ contains(T,Dummy_Set_43).
+ contains(S,Dummy_Set_43)
+
+step step_1 (T,S,Dummy_K,Dummy_P,EPC,Nr,Dummy_Nt,Dummy_Auth,Set_43,SID,Nt) :=
+ state_tag(T,S,Dummy_K,Dummy_P,EPC,Nr,Dummy_Nt,3,Dummy_Auth,Set_43,SID).
+ iknows(xor(apply(crc,pair(EPC,Nt)),Dummy_P))
+ =>
+ state_tag(T,S,apply(succ,Dummy_K),apply(succ,Dummy_P),EPC,Nr,Nt,3,xor(apply(crc,pair(EPC,Nt)),Dummy_P),Set_43,SID).
+ request(S,T,auth_Server,xor(apply(crc,pair(EPC,Nt)),Dummy_P),SID)
+
+step step_2 (S,T,K,P,EPC,Dummy_Nr,Nt,Auth1,SID,Nr) :=
+ state_server(S,T,K,P,EPC,Dummy_Nr,Nt,0,Auth1,SID).
+ iknows(start)
+=[exists Nr]=>
+ state_server(S,T,K,P,EPC,Nr,Nt,2,Auth1,SID).
+ iknows(Nr)
+
+step step_3 (S,T,K,P,EPC,Nr,Dummy_Nt,Dummy_Auth1,SID,Nt) :=
+ state_server(S,T,K,P,EPC,Nr,Dummy_Nt,2,Dummy_Auth1,SID).
+ iknows(pair(xor(apply(crc,pair(EPC,pair(Nr,Nt))),K),Nt))
+ =>
+ state_server(S,T,K,P,EPC,Nr,Nt,4,xor(apply(crc,pair(EPC,pair(Nr,Nt))),K),SID)
+
+step step_4 (S,T,Dummy_K,Dummy_P,EPC,Nr,Dummy_Nt,Auth1,SID,Nt) :=
+ state_server(S,T,Dummy_K,Dummy_P,EPC,Nr,Dummy_Nt,4,Auth1,SID).
+ iknows(xor(apply(crc,pair(EPC,Nt)),Dummy_P))
+ =>
+ state_server(S,T,apply(succ,Dummy_K),apply(succ,Dummy_P),EPC,Nr,Nt,4,Auth1,SID).
+ witness(S,T,auth_EPC,EPC).
+ witness(S,T,auth_P,Dummy_P)
+
+
+section properties:
+
+property secrecy_of_id (MGoal,ASGoal) :=
+ [] ((secret(MGoal,id,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_auth_Server (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,auth_Server,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,auth_Server,MGoal))
+     /\ ((request(A1Goal,A2Goal,auth_Server,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,auth_Server,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_auth_K (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,auth_K,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,auth_K,MGoal))
+     /\ ((request(A1Goal,A2Goal,auth_K,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,auth_K,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_auth_EPC (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,auth_EPC,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,auth_EPC,MGoal))
+     /\ ((request(A1Goal,A2Goal,auth_EPC,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,auth_EPC,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_auth_P (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,auth_P,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,auth_P,MGoal))
+     /\ ((request(A1Goal,A2Goal,auth_P,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,auth_P,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_id (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,id,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_auth_Server (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,auth_Server,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,auth_Server,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_auth_Server (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,auth_Server,MGoal,SID1).
+ request(A1Goal,A2Goal,auth_Server,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_auth_K (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,auth_K,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,auth_K,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_auth_K (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,auth_K,MGoal,SID1).
+ request(A1Goal,A2Goal,auth_K,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_auth_EPC (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,auth_EPC,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,auth_EPC,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_auth_EPC (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,auth_EPC,MGoal,SID1).
+ request(A1Goal,A2Goal,auth_EPC,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_auth_P (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,auth_P,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,auth_P,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_auth_P (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,auth_P,MGoal,SID1).
+ request(A1Goal,A2Goal,auth_P,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

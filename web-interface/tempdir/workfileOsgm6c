@@ -1,0 +1,50 @@
+role role_TC(TC:agent,Knwk:symmetric_key,Ktcl:symmetric_key,Ktcs:public_key,Ktce:public_key,MAC:function,Atc:text,SND,RCV:channel(dy))
+played_by TC
+def=
+	local
+		State:nat,D:agent,Ad:text,Kde:public_key,Kds:public_key,Kl:symmetric_key
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(D') =|> State':=1 /\ SND(TC.{Knwk}_Ktcl)
+		3. State=1 /\ RCV({Kds'.Kde'}_Knwk) =|> State':=2 /\ SND({Ktcs.Ktce}_Knwk)
+		5. State=2 /\ RCV({MAC(Ad'.Kds.Ktcs.Kde.Ktce.Kl')}_Knwk) =|> State':=3 /\ SND({MAC(Atc.Ktcs.Kds.Ktce.Kde.Kl')}_Knwk)
+end role
+
+role role_D(D:agent,TC:agent,Ktcl:symmetric_key,Kds:public_key,Kde:public_key,MAC:function,Ad:text,SND,RCV:channel(dy))
+played_by D
+def=
+	local
+		State:nat,Knwk:symmetric_key,Atc:text,Ktcs:public_key,Ktce:public_key,Kl:symmetric_key
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ SND(D)
+		2. State=1 /\ RCV(TC.{Knwk'}_Ktcl) =|> State':=2 /\ SND({Kds.Kde}_Knwk')
+		4. State=2 /\ RCV({Ktcs'.Ktce'}_Knwk) =|> State':=3 /\ Kl':=new() /\ secret(Kl',sec_2,{}) /\ SND({MAC(Ad.Kds.Ktcs'.Kde.Ktce'.Kl')}_Knwk)
+		6. State=3 /\ RCV({MAC(Atc'.Ktcs.Kds.Ktce.Kde.Kl)}_Knwk) =|> State':=4
+end role
+
+role session1(Atc:text,Ktce:public_key,Ktcs:public_key,Knwk:symmetric_key,D:agent,TC:agent,Ktcl:symmetric_key,Kds:public_key,Kde:public_key,MAC:function,Ad:text)
+def=
+	local
+		SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_D(D,TC,Ktcl,Kds,Kde,MAC,Ad,SND2,RCV2) /\ role_TC(TC,Knwk,Ktcl,Ktcs,Ktce,MAC,Atc,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		hash_0:function,sedKey2:public_key,tclKey:symmetric_key,sed:agent,esiKey1:public_key,const_1:text,esiKey2:public_key,nwkKey:symmetric_key,esi:agent,sedKey1:public_key,mac:function,const_1:text,sec_1:protocol_id,sec_2:protocol_id
+	intruder_knowledge = {esi,sed,esiKey1,esiKey2,sedKey1,sedKey2,mac}
+	composition
+		session1(const_1,esiKey2,esiKey1,nwkKey,sed,esi,tclKey,sedKey1,sedKey2,mac,const_1)
+end role
+
+goal
+	secrecy_of sec_1
+	secrecy_of sec_2
+end goal
+
+environment()

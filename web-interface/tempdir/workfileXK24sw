@@ -1,0 +1,89 @@
+%% TEK Generation with Four Participants
+%% First Role of the first Class
+role member11 (M111,M211,M121,M131: agent, Alpha: nat, Snd, Rcv: channel(dy))
+   played_by M111 def=
+   local State: nat, R1: text, X1, TEK1: message
+   const id1, a_M111_M211_R2, a_M211_M111_R22: protocol_id
+   init State:=O
+   transition
+      step1. State=O / Rcv(start)
+             =|> R1' := new()
+             / Snd(exp(Alpha,R1'))
+             / State':=1
+             / witness(M111, M211, a_M211_M111_R22, exp(Alpha,R1'))
+      step2. State=1 / Rcv(X1')
+             =|> TEK1':=exp(X1',R1)
+             / State':=2
+             / secret(TEK1', id1, {M111, M211})
+             / request(M111, M211, a_M111_M211_R2, X1')
+end role
+
+%% Second Role of The First Class
+role member12 (M111 ,M211 ,M121 ,M131: agent, Alpha: nat, TEK2init, TEK3init: symmetric_key, F: hash_func, Snd, Rcv: channel(dy))
+   played_by M211 def=
+   local State: nat, R2: text, X2, TEK1: message
+   const id1 ,id2,id3,a_M111_M211_R2,a_M211_M111_R22: protocoUd
+   init State:=O
+   transition
+      step1. State=O / Rcv(X2')
+             =|> R2':=new()
+             / TEK1':= exp(X2', R2')
+             / Snd(exp(Alpha, R2'))
+             / Snd({F(TEK1')}_TEK2init, {F(F(TEK1'))}_TEK3init)
+             / State':=1
+             / secret(TEK1', id1 ,{M111, M211})
+             / secret(F(TEK1'),id2,{M111, M211, M121})
+             / secret(F(F(TEK1')),id3,{M111, M211, M131})
+             / witness(M211, M111, a_M111_M211_R2, exp(Alpha,R2'))
+             / request(M211, M111, a_M211_M111_R22, X2')
+end role
+
+%% Third Role: A member from The second class
+role member2 (M111, M211, M121, M131: agent, TEK2init: symmetric_key, Snd, Rcv: channel(dy))
+   played_by M121 def=
+   local State: nat, TEK2: symmetric_key
+   const id2: protocol_id
+   init State:=O
+   transition
+      step1. State=O / Rcv({TEK2'}_TEK2init)
+             =|> State':=1
+             / secret(TEK2', id2, {M111, M211, M121})
+end role
+
+%% Third Role: A member from The second class
+role member3 (M111, M211, M121, M131: agent, TEK3init: symmetric_key, Snd, Rcv: channel(dy))
+   played_by M131 def=
+   local State: nat, TEK3: symmetric_key
+   const id3: protocol_id
+   init State:=O
+   transition
+      step1. State=O / Rcv({TEK3'}_TEK3init)
+             =|> State':=1
+             / secret(TEK3', id3, {M111, M211, M131})
+end role
+
+%% The role session between the four participants
+role keyGeneration(SC, RC: channel(dy), M111, M211, M121, M131: agent, F: hash_func, Alpha: nat, TEK2init, TEK3init: symmetric_key) 
+   def=
+   composition
+      / member11(M111, M211, M121, M131, Alpha, SC, RC)
+      / member12(M111, M211, M121, M131, Alpha, TEK2init, TEK3init, F, SC, RC)
+      / member2(M111, M211, M121, M131, TEK2init, SC, RC)
+      / member3(M111, M211, M121, M131, TEK3init, SC, RC)
+end role
+
+%%The main role
+role environment() 
+   def=
+   local Snd, Rcv: channel(dy)
+   const m111, m211, m121, m131: agent, f: hash_func, alpha: nat, tekin2, tekin3: symmetric_key
+   intruder_knowledge = {m111 ,m211 ,m121 ,m131}
+   composition
+      keyGeneration(Snd,Rcv,m111 ,m211 ,m121 ,m131 ,f,alpha,tekin2,tekin3)
+end role
+
+goal
+   secrecy_of id1, id2, id3
+   authentication_on a_M111 M211 R2
+   authentication- on a- M211 M111 R22
+end goal 

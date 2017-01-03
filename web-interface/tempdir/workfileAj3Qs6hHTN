@@ -1,0 +1,116 @@
+role alice( S, SNk   : agent,
+            H  : hash_func,
+			SKss: symmetric_key,
+		   Snd, Rcv: channel(dy))
+
+% Player by the responder: the server S
+
+played_by S
+
+def=
+ 
+local State  : nat,
+
+	UIDi,Pi,RPWi,Ni,N1,Yi, MK, N2, N3, SIDj: text
+	     
+	const alice_alice_Ni, alice_alice_Yi, alice_bob_N1, alice_bob_N2, bob_alice_N3, subs1, subs2, subs3, subs4, subs5 : protocol_id
+
+init  State := 0
+ 
+	transition
+
+% User registration phase
+
+% Receive the registration request message from Ui
+
+1. State   = 0 /\Rcv(start)=|>
+    State' := 1 /\ N2' := new()
+				/\N1' := new()
+                /\ secret({SIDj}, subs5, {S,SNk})
+               /\ witness(S, SNk, alice_bob_N2, N2')
+			   /\ witness(S, SNk, alice_bob_N1, N1')
+% Send the registration acknowledgment message to SNk snd (Gi,Hi,Ki,H)
+               
+			   /\ Snd(xor(N2',H(SIDj,SKss)), xor(N1',H(SKss.N2')), H(N1'.SKss.N2'.SIDj))
+
+2. State   = 1 /\Rcv(xor(H(N1'.N2'),N3'), H(N1'.N2'.SKss.N3'.SIDj))=|>
+    State' := 2 /\ request (SNk, S, bob_alice_N3, N3')
+           
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+role bob ( S, SNk   : agent,
+              H  : hash_func,
+			  SKss: symmetric_key,
+		      Snd, Rcv: channel(dy))
+
+% Player by the responder: the server S
+
+played_by SNk
+
+def=
+ 
+local State  : nat,
+
+	UIDi,Pi,RPWi,Ni,N1,Yi, MK, N2, N3, SIDj: text
+	     
+const alice_alice_Ni, alice_alice_Yi, alice_bob_N1, alice_bob_N2, bob_alice_N3, subs1, subs2, subs3, subs4, subs5 : protocol_id
+
+init  State := 0
+ 
+	transition
+	1. State   = 0 /\Rcv(xor(N2',H(SIDj,SKss)), xor(N1',H(SKss.N2')), H(N1'.SKss.N2'.SIDj)) =|>
+	   
+	   State' := 1/\ request(S, SNk, alice_bob_N2, N2')
+			  /\ secret({SIDj}, subs5, {S, SNk})
+			  /\ request(S, SNk, alice_bob_N1, N1')
+			  /\ N3' := new()
+			  /\Snd(xor(H(N1'.N2'),N3'), H(N1'.N2'.SKss.N3'.SIDj))
+			  /\witness(SNk, S, bob_alice_N3, N3')
+			
+end role
+	
+
+	
+	
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(S,SNk: agent,
+             H : hash_func,
+			 SKss: symmetric_key)
+			 
+			 
+             
+def=
+  local  Snd, Rcv: channel (dy)
+  composition
+     alice(S, SNk, H, SKss, Snd, Rcv)
+ /\  alice  (S, SNk, H,SKss,  Snd, Rcv)
+ end role 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+def=
+  const s, snk: agent,
+        h: hash_func,
+		skss: symmetric_key,
+		alice_bob_N1, alice_bob_N2, bob_alice_N3, subs1, subs2, subs3, subs4, subs5 : protocol_id
+  intruder_knowledge = {s,snk, h}
+  composition
+	   session(s, snk, h, skss) 
+	/\ session(s, snk,  h, skss) 
+end role
+goal
+  %secrecy_of subs1
+  %secrecy_of subs2
+  %secrecy_of subs3
+  secrecy_of subs4
+  secrecy_of subs5
+  %authentication_on alice_alice_Ni 
+  %authentication_on alice_alice_Yi 
+  authentication_on alice_bob_N1 
+  authentication_on alice_bob_N2    
+  authentication_on bob_alice_N3 
+     
+end goal
+environment()

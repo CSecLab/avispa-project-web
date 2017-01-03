@@ -1,0 +1,69 @@
+role alice(
+A,B        : agent,
+K           :symmetric_key,
+Succ      :hash_func,
+SND,RCV :channel (dy))
+ played_by A def=
+
+local State : nat,
+        Na    : text
+init State := 0
+
+transition
+
+0.  State = 0  /\ RCV(start) =|>
+    State’:= 2 /\  Na'  := new( )
+                  /\ SND( {Na’}_K)
+                   
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob(
+A,B       :agent,
+K           :symmetric_key,
+Succ       :hash_func,
+SND,RCV:channel(dy)),
+played by B_def=
+local
+State:nat,
+Na   :text
+init State :=1
+transition
+1.   State  =1  /\ RCV({Na'}_k) =1>
+      State':=3  /\ SND({Succ(Na')}_K)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(
+A,B   :agent,
+K :symmetric_key,
+Succ  :hash_func)
+def=
+local SA,SB,RA,RB  :channel  (dy)
+
+alice(A,B,K,Succ,SA,RA)
+/\ bob  (A,B,K,Succ,SB,RB)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+  def=
+
+const
+   a,b :agent,
+   k :symmetric_key,
+   succ:hash_func
+
+compositon
+   session(a,b,k,succ)
+
+end role
+
+goal
+
+end goal
+
+
+environment()
+
+ 

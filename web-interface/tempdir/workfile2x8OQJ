@@ -1,0 +1,45 @@
+role role_E(E:agent,S:text,IdN:text,SND,RCV:channel(dy))
+played_by E
+def=
+	local
+		State:nat,Te:text,Ts:text,K:symmetric_key
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ Te':=new() /\ Ts':=new() /\ SND(S.Ts'.Te')
+		2. State=1 /\ RCV({IdN}_K') =|> State':=2
+end role
+
+role role_N(N:agent,IdN:text,SND,RCV:channel(dy))
+played_by N
+def=
+	local
+		State:nat,Te:text,S:text,Ts:text,K:symmetric_key
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(S'.Ts'.Te') =|> State':=1 /\ K':=new() /\ SND({IdN}_K')
+end role
+
+role session1(S:text,E:agent,N:agent,IdN:text)
+def=
+	local
+		SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_N(N,IdN,SND2,RCV2) /\ role_E(E,S,IdN,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		hash_0:function,e:agent,s:text,n:agent,const_1:text,auth_1:protocol_id
+	intruder_knowledge = {}
+	composition
+		session1(s,e,n,const_1)
+end role
+
+goal
+	authentication_on auth_1
+end goal
+
+environment()

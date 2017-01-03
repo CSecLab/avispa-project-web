@@ -1,0 +1,174 @@
+
+role user (
+A, B				: agent,
+H				: hash_func,
+ID				: text,
+SND,RCV				: channel(dy)
+)
+
+
+played_by A
+
+def=
+
+	local State				: nat,
+        PW, B, Y1, T, TS			: text,
+	RPW, M1, M2, M3, M4, M5, M6, M7, M8     : text
+
+const sec_pw, sec_b, m4, m7, m8, t, ts		: protocol_id
+
+init State := 0
+transition
+
+
+	1. State = 0 /\ RCV(start) =|>
+		   State' := 2 /\ PW' := new()
+			       /\ B' := new()
+                               /\ RPW' := H(B'.PW')
+			       /\ SND(ID.RPW') 
+			       /\ secret(PW',sec_pw,{A})
+			       /\ secret(B',sec_b,{A})
+			       
+	
+
+
+	2. State = 2 /\ RCV(M2'.M3'.M4'.H) =|> 
+		   State' := 4 /\ M1':= xor(M2',H(xor(ID,RPW)))
+			       /\ Y1' := cor(M3',H(xor(M1',RPW)))
+			       /\ M4' := H(ID.RPW.Y1'.M1')
+		               /\ request(A,B,m4,M4')  
+                               /\ T' := new()
+		               /\ M6':= xor(Y1',xor(H(xor(ID,M1')),H(xor(ID,xor(M1',T')))))
+			       /\ M7' := H(ID.M1'.Y1'.xor(M1',Y1').T')
+                               /\ witness(A,B,t,T')
+                               /\ witness(A,B,m7,M7')
+                               /\ SND(ID.M6'.M7'.T')
+		       
+       3. State = 4 /\ RCV(M8'.TS') =|> 
+		   State' := 6 /\ request(A,B,ts,TS') 	       
+		        /\ M8' := H(ID.Y1'.xor(M1',Y1').TS')
+			 /\ request(A,B,m8,M8')
+		        
+	
+end role
+
+	
+role server(
+	B, A				: agent,
+	X, Y				: symmetric_key,
+	H				: hash_func,
+	ID				: text,
+	SND,RCV				: channel(dy)
+	)
+	
+
+played_by B
+
+def=
+
+	local State					: nat,
+	Y1, T, TS		 	     		: text,
+	RPW, M1, M2, M3, M4, M5, M6, M7, M8		: text			      
+
+const sec_x, sec_y, m4, m7, m8, t, ts		: protocol_id
+	      
+init State := 1
+transition
+	 
+	1. State = 1 /\ RCV(ID.RPW') =|>  
+	   	State' := 3 /\ Y1' := new()
+		     /\ M1' := H((xor(ID,X)).Y)
+		     /\ M2':= xor(M1',H(xor(ID,RPW')))
+		     /\ M3' := cor(Y1',H(xor(M1',RPW')))
+                     /\	M4' := H(ID.RPW'.Y1'.M1') 
+		     /\ witness(B,A,m4,M4') 
+		     /\ SND(M2'.M3'.M4'.H)
+		     /\ secret(X,sec_x,{B})
+		     /\ secret(Y,sec_y,{B})
+		   
+	  
+	
+	2. State = 3 /\ RCV(ID.M6'.M7'.T') =|>
+		State' := 5 /\ request(B,A,t,T')
+                         /\ M1' := H((xor(ID,X)).Y)
+                         /\ Y1':= xor(M6',xor(H(xor(ID,M1')),H(xor(ID,xor(M1',T')))))
+			 /\ M7' := H(ID.M1'.Y1'.xor(M1',Y1').T')
+			 /\ request(B,A,m7,M7')		        
+			 /\ TS' := new()
+			 /\ M8' := H(ID.Y1'.xor(M1',Y1').TS')
+			 /\ witness(B,A,ts,TS')
+			 /\ witness(B,A,M8,M8')
+         
+
+end role
+
+
+role session(
+
+	A, B		: agent,
+	X, Y		: symmetric_key,
+	H		: hash_func,
+	ID		: text
+	)
+	
+def=
+
+	local SA, RA, SB, RB : channel(dy)
+
+	
+composition
+		user(A,B,H,ID,SA,RA)
+		/\ server(B,A,X,Y,H,ID,SB,RB)
+
+
+end role
+
+
+
+role environment()
+
+
+def=
+
+	const	a,b,i						: agent,
+		x, y, xi, yi					: symmetric_key,
+		h						: hash_func,
+		id, idi						: text,
+		sec_pw, sec_b, sec_x, sec_y, m4, m7, m8, t, ts 	: protocol_id
+		
+	intruder_knowledge = {a,b,h,idi,xi,yi}
+	
+composition
+
+		session(a,b,x,y,h,id)
+		/\ session(a,b,x,y,h,id)
+		/\ session(a,i,xi,yi,h,idi)
+		/\ session(i,b,xi,yi,h,idi)
+		
+end role
+
+
+
+
+
+goal
+	secrecy_of sec_pw, sec_b, sec_x, sec_y
+	authentication_on m4
+	authentication_on m7
+	authentication_on m8
+	authentication_on t
+	authentication_on ts
+	
+
+end goal
+
+
+
+environment()
+    
+
+
+
+
+
+  

@@ -1,0 +1,55 @@
+role client(
+		C, P, T			:	agent,
+		Kc				:	public_key,
+		Ktca				:	public_key,
+		Hash				:	hash_func,
+		SND, RCV			:	channel(dy))
+
+	played_by C def=
+
+		local
+			State			:	nat,
+			Sctca			:	symmetric_key,
+			Scp			:	symmetric_key,
+			TGT			:	message,
+			Authentifiant	:	message,
+			Nc, Nt		:	text
+
+		init
+			State := 0
+
+		transition
+
+			1. State = 0 /\ RCV(start) =|> State' := 1 /\ SND(Kc.{Hash(C.Kc)}_inv(Ktca))/\ Nc' := new() /\ SND({Nc'}_Ktca) /\ witness(C, T, authentifier_t, Nc')
+			2. State = 1 /\ RCV({Nt'}_Kc) =|> State' := 2 /\ request(T, C, authentifier_c, Nt') /\ SND({Hash(Nc.Nt')}_Ktca)
+			3. State = 2 /\ RCV({TGT'}_Kc) /\ RCV({Sctca'}_Kc)=|> State' := 3 /\ secret(Sctca', sctca, {C,T})
+
+
+
+
+
+role tca(
+		C, P, T			:	agent,
+		Kc				:	public_key,
+		Kp				:	public_key,
+		Ktca				:	public_key,
+		Hash				:	hash_func,
+		SND, RCV			:	channel(dy))
+
+	played_by T def=
+
+		local
+			State			:	nat,
+			Sctca			:	symmetric_key,
+			Scp			:	symmetric_key,
+			TGT			:	message,
+			Authentifiant	:	message,
+			Nc, Nt		:	text
+
+		init
+			State := 0
+
+		transition
+
+			1. State = 0 /\ RCV(Kc.{Hash(C.Kc)}_inv(Ktca)) /\ RCV({Nc'}_Ktca) =|> State' := 1 /\ request(C, T, authentifier_t, Nc') /\ Nt' := new() /\ SND({Nt'}_Kc /\ witness(T, C, authentifier_c, Nt')
+			2. State = 1 /\ RCV({Hash(Nc.Nt')}_Ktca) =|> State' := 2 /\ TGT' := new() /\ Sctca' := new() /\ SND({TGT'}_Kc) /\ SND({Sctca'}_Kc) /\ secret(Sctca', sctca, {C,T})

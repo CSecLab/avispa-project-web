@@ -1,0 +1,150 @@
+role sdSrc (SrcTEE, SDsrc, SDdest: agent,
+			PKSrcTEE, PKSDsrc, PKSDdest: public_key, 
+			SDCred: text,
+			SND, RCV: channel (dy))
+	
+	played_by SDsrc def=
+	
+	local
+		State: nat,
+		EncSD: text,
+		KProxy: public_key	
+		
+	init State:=0
+	
+	transition
+	
+	0.State  = 0 /\ RCV(start) =|> State':=1  
+	1.State'=1 =|>  EncSD':= {SDCred}_PKSDsrc /\ SND(SDsrc.SrcTEE.EncSD')/\
+	secret(SDCred,transfer,{SDsrc, SDdest})
+	%%/\ equal({EncSD'}_KProxy, {SDCred}_PKSDdest)
+	
+end role
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role src (SrcTEE, SDsrc, DesTEE: agent,             
+          PKSrcTEE, PKSDsrc, PKDesTEE: public_key,
+ 	  	  SK : symmetric_key, 
+ 	  	  SND, RCV: channel (dy)) 
+	
+	played_by SrcTEE def=
+	
+	local 
+		State : nat, 
+       	EncSD, TimeStamp: text,
+		Ack: message, 
+		KProxy: public_key
+
+ 	init State := 0
+
+ 	transition  
+   	
+	0.State  = 0 /\ RCV(SrcTEE.SDsrc.EncSD) =|> State':= 1 /\ SND(SrcTEE.DesTEE.{{EncSD}_KProxy}_SK)
+	1.State'=1 =|> RCV({SrcTEE.DesTEE.Ack.TimeStamp}_SK)
+	
+end role
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role dest (SrcTEE, DesTEE, SDdest: agent,             
+           PKSrcTEE, PKdesTEE, PKSDdest: public_key, 
+ 	   	   SK : symmetric_key, 
+           SND, RCV: channel (dy)) 
+
+	played_by DesTEE def=
+
+	local 
+		State : nat, 
+       	EncSD, TimeStamp: text,
+		Ack, Param: message,
+		KProxy: public_key
+		
+ 	 init State := 0
+
+ 	 transition  
+
+	0.State=0 /\RCV(DesTEE.SrcTEE.{{EncSD}_KProxy}_SK)=|> State':=1 /\ SND(SrcTEE.DesTEE.{Ack.TimeStamp}_SK)
+	
+	1.State'=1 =|> SND(DesTEE.SDdest.{EncSD}_KProxy)
+
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role sdDest(DesTEE, SDdest: agent,
+			PKDesTEE, PKSDdest: public_key, 
+			SND, RCV: channel (dy))
+	
+	played_by SDdest def=
+	
+	local
+		State: nat,
+		EncSD: text,
+		KProxy: public_key	
+		
+	init State:=0
+	
+	transition
+	
+	0.State'= 0 =|> RCV(SDdest.DesTEE.{EncSD}_KProxy)  
+end role
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(SDsrc, SDdest, SrcTEE, DesTEE: agent, 
+	     PKSDsrc, PKSDdest, PKSrcTEE, PKDesTEE: public_key,      
+	     SK : symmetric_key,
+	     SDCred: text) 
+
+	def=
+	local S0, R0, S1, R1, S2, R2, S3, R3, S4, R4, S5, R5 : channel (dy)
+
+	composition 
+	
+	sdSrc(SrcTEE, SDsrc, SDdest, PKSrcTEE, PKSDsrc, PKSDdest, SDCred,S0, R0)
+	/\src(SrcTEE, SDsrc, DesTEE, PKSrcTEE, PKSDsrc, PKDesTEE,SK,S1, R1) 	
+	/\dest(SrcTEE, DesTEE, SDdest,PKSrcTEE, PKDesTEE, PKSDdest, SK, S2, R2)
+     /\ sdDest(DesTEE, SDdest, PKDesTEE, PKSDdest,S3, R3)
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() 
+	def=
+
+    	const 
+    		sdsrc, sddest, srctee, destee: agent,
+			pksdsrc, pksddest, pksrctee, pkdestee, ki: public_key,
+			sk: symmetric_key,
+			transfer : protocol_id,
+			sdcred: text
+
+	intruder_knowledge = { srctee, destee, pksrctee, pkdestee, ki, inv(ki)}
+
+   	composition
+
+	session(sdsrc, sddest, srctee, destee, pksdsrc, pksddest, pksrctee, pkdestee, sk, sdcred)
+	/\ session(sdsrc, sddest, i, destee, pksdsrc, pksddest, pksrctee, pkdestee, sk, sdcred)
+	/\ session(sdsrc, sddest, srctee, i, pksdsrc, pksddest, pksrctee, pkdestee, sk, sdcred)
+	
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of transfer
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+

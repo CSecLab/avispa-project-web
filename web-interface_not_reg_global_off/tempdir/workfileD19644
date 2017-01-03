@@ -1,0 +1,124 @@
+%%C <- S: Rs
+%%C -> S: {Rc}_Es, {f(Rs), P, C}_Kcs, in which Kcs = f(Rc, Rs)
+%%C <- S: {f(Rc)}_Kcs. 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role server     (S,C    : agent,
+   	   	 				 F      : hash_func,
+   	   	 				 Es     : public_key,
+           	     Snd, Rcv: channel(dy))
+played_by S
+def=
+           
+  local State    : nat,
+        Ns, Nc   : text,
+	      Kcs      : symmetric_key,
+	      P        : text,
+        ID       : text
+%%%end TA helping %%%
+  
+  init  State := 0
+
+  transition
+   1. State   = 0 /\ Rcv(start) =|>
+      State' := 2 /\ Ns' := new() /\ Snd(Ns')  
+   2. State   = 2 /\ Rcv({Nc'}_inv(Es).{F(Ns).P'.ID'}_F(Nc',Ns)) =|>
+      State' := 4 /\ Kcs':= F(Nc,Ns)
+                  /\ Snd({f(Nc)}_Kcs')
+   	              %/\ request(S,C,s_c_kcs,Kcs')
+   	              %/\ request(S,C,s_c_p,P)
+   	              %/\ request(S,C,s_c_id,ID)
+   	              /\ request(S,C,c_s_nc,Nc)
+   								/\ secret(Nc,nc,{S,C}) 
+                  /\ secret(Kcs,kcs,{S,C})	
+									
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role client    (S,C   : agent,
+	   	F     : hash_func,
+        	Es    : public_key,
+           	Snd, Rcv: channel(dy))
+played_by C
+def=
+           
+  local State  : nat,
+        Ns, Nc : text,
+	      Kcs    : symmetric_key,
+	      P      : text,
+	      ID     : text
+
+  init  State := 1	
+
+  transition
+   1. State   = 1 /\ Rcv(Ns') =|>
+			State' := 3 /\ Nc' := new()
+									/\ Kcs':= F(Nc',Ns)
+									/\ Snd({Nc'}_Es.{f(Ns).P.ID}_Kcs')
+									%/\ witness(C,S,s_c_kcs,Kcs')
+									%/\ witness(C,S,s_c_p,P)
+   	              %/\ witness(C,S,s_c_id,ID)
+									/\ witness(C,S,c_s_nc,Nc')
+   								/\ secret(P,p,{C,S})
+   								/\ secret(ID,id,{C,S})
+									
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role session(S, C: agent, 
+	     Es  : public_key,
+             Kcs : symmetric_key,
+             F   : hash_func) def=
+
+   local SS, RS, SC, RC: channel (dy)
+
+
+  composition 
+	server(S,C,F,Es,SC,RC)
+     /\ client(S,C,F,Es,SS,RS)
+
+end role	
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role environment() def=
+
+    const s, c	 : agent,
+	  kcs, ksi, kci: symmetric_key,
+	  es           : public_key,	
+	  f            : hash_func,
+	  s_c_kcs, s_c_p, s_c_id, c_s_nc,
+	  nc, id, p    : protocol_id
+
+    intruder_knowledge = {s, c, f, ksi, kci }
+
+    composition
+	     	session(s,c,es,kcs,f)
+    	 	/\ session(s,i,es,ksi,f)
+     		/\ session(i,c,es,kci,f)
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+goal
+
+  %secrecy_of nc
+  secrecy_of p, id, kcs, nc
+  %%authentication_on s_c_kcs
+  %authentication_on s_c_p
+  %authentication_on s_c_id
+  authentication_on c_s_nc  
+
+end goal
+
+environment()

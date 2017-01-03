@@ -1,0 +1,92 @@
+role member1 (Suspect, RSU1, RSU2, CA: agent,
+TEK_RSU:symmetric_key,
+Seq_Num_RSU1:nat,
+Pseudo_Cert_Suspect:text,
+Snd, Rcv: channel(dy))
+played_by RSU1 def=
+local State: nat
+const id1: protocol_id
+init State:=0
+transition
+step1. State=0 / Rcv(start)
+=|> Snd({Pseudo_Cert_Suspect.Seq_Num_RSU1}
+_(TEK_RSU))
+/ secret(Pseudo_Cert_Suspect,id1,{RSU1,RSU2})
+/ State’:=1
+end role
+role member2 (Suspect, RSU1, RSU2, CA: agent,
+Seq_Suspect:nat,
+Pseudo_pub_key_suspect:public_key,
+Cert_Suspect,Pseudo_Cert_Suspect:text,
+Snd, Rcv: channel(dy))
+played_by Suspect def=
+local State: nat,
+PUB_CA: public_key,
+Kill:text
+const id2,id3: protocol_id
+init State:=0
+transition
+step1. State=0 / Snd({Cert_Suspect.Pseudo_
+Cert_Suspect.Seq_Suspect}_inv(Pseudo_pub_
+key_suspect))
+=|> witness(Suspect,RSU2,id2,Seq_Suspect)
+/ State’:=1
+step2. State=1 / Rcv({Kill’.Cert_Suspect’}
+_inv(PUB_CA’))
+=|> request(Suspect,CA,id3,Kill)
+/ State’:=2
+end role
+role member3 (Suspect, RSU1, RSU2, CA: agent,
+TEK_RSU:symmetric_key,
+Pub_Key_RSU2: public_key,
+Seq_Num_RSU2:nat,
+Snd, Rcv: channel(dy))
+played_by RSU2 def=
+local State: nat,
+Pseudo_Cert_Suspect,Cert_Suspect:text,
+Pseudo_pub_key_suspect:public_key,
+Seq_Num_RSU1,Seq_Suspect:nat
+const id1,id2,id4: protocol_id
+init State:=0
+transition
+step1. State=0 / Rcv({Pseudo_Cert_Suspect’.
+Seq_Num_RSU1’}_(TEK_RSU’))
+=|> secret(Pseudo_Cert_Suspect,
+id1,{RSU1,RSU2})
+/ State’:=1
+step2. State=1 / Rcv({Cert_Suspect’.
+Pseudo_Cert_Suspect’.Seq_Suspect’}
+_inv(Pseudo_pub_key_suspect’))
+=|> request(RSU2,Suspect,id2,Seq_Suspect)
+/ State’:=2
+step3. State=2 / Snd({Cert_Suspect.
+Seq_Num_RSU2}_inv(Pub_Key_RSU2))
+=|> witness(RSU2,CA,id4,Cert_Suspect)
+/ State’:=3
+end role
+role member4 (Suspect, RSU1, RSU2, CA: agent,
+PUB_CA: public_key,
+Kill:text,
+Snd, Rcv: channel(dy))
+played_by CA def=
+local State: nat,
+Cert_Suspect:text,
+Seq_Num_RSU2:nat,
+Pub_Key_RSU2:public_key
+const id3,id4: protocol_id
+init State:=0
+transition
+step1. State=0 / Rcv({Cert_Suspect’.
+Seq_Num_RSU2’}_inv(Pub_Key_RSU2’))
+=|> request(CA,RSU2,id4,Cert_Suspect)
+/ State’:=1
+step2.State=1 / Snd({Kill.Cert_Suspect}
+_inv(PUB_CA))
+=|> witness(CA,Suspect,id3,Kill)
+/ State’:=2
+end role
+goal
+secrecy_of id1
+authentication_on id2,id3,id4
+end goal
+  

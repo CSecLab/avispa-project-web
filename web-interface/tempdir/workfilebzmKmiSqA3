@@ -1,0 +1,115 @@
+role alice(A, B, S    : agent, 
+           Ka, Kb, Ks : public_key,
+           Snd, Rcv   : channel(dy)) played_by A def=
+
+  local State : nat, 
+        M     : text,
+        K     : symmetric_key,
+        C     : {text}_symmetric_key,
+        L     : hash(text.symmetric_key),
+        NRO , NRR,
+        SubK, ConK: message
+
+  const h: hash_func
+
+  init  State := 0
+
+  transition
+
+   0.   State  = 0 /\ Rcv(start)
+        =|>
+        State':= 1
+        /\ M':=new() 
+        /\ K':=new()
+        /\ C':={M'}_K' 
+        /\ L':=h(M'.K') 
+        /\ NRO':={fNRO.B.L'.C'}_inv(Ka) 
+        /\ Snd   (fNRO.B.L'.C'.NRO') 
+        /\ witness(A,B,bob_alice_nro,NRO')
+
+   10.  State  = 1
+        /\ B=i /\ iknows(M)
+        --|>
+        wrequest(A,A,dishonest_bob_prematurely_learns_M,M)
+
+   1.   State  = 1
+        /\ Rcv   (fNRR.A.L.NRR') 
+        /\ NRR'= {fNRR.A.L.C}_inv(Kb)
+        =|>
+        State':= 2
+        /\ SubK':={fSUB.B.L.K}_inv(Ka) 
+        /\ Snd    (fSUB.B.L.K.SubK') 
+        /\ request(A,B,alice_bob_nrr,NRR')
+        /\ witness(A,S,server_alice_sub,SubK')
+        /\ witness(A,B,bob_learns_M_only_after_alice_got_NRR,K)
+
+   2.   State  = 2 
+        --|>
+        State':= 3 
+        /\ Snd(fREQ.A.B.L) 
+
+   3.   State  = 3 
+        /\ Rcv   (fCON.A.B.L.K.ConK') 
+        /\ ConK'={fCON.A.B.L.K}_inv(Ks)
+        =|>
+        State':= 4 
+        /\ request(A,S,alice_server_con,ConK') 
+        % Non-repudiation of Receipt: Alice has checked both NRR and ConK
+%       /\ B=i --> iknows(ConK') 
+%   4.   State  = 4 
+%       /\ B=i /\ not(iknows(ConK))
+%       --|>
+%       wrequest(A,A,despite_evidence_dishonest_bob_does_not_have_ConK,ConK)
+
+end role
+
+
+
+role bob(B, A, S    : agent,
+         Kb, Ka, Ks : public_key,
+         Snd, Rcv   : channel (dy)) played_by B def=
+
+  local State : nat, 
+        M     : text,
+        K     : symmetric_key,
+        C     : {text}_symmetric_key,
+        L     : hash(text.symmetric_key),
+        NRO, NRR, 
+        ConK: message
+
+  init  State := 0
+
+  transition
+
+   0.   State  = 0 
+        /\ Rcv  (fNRO.B.L'.C'.NRO')
+        /\ NRO'={fNRO.B.L'.C'}_inv(Ka) 
+        =|>
+        State':= 1   
+        /\ NRR':={fNRR.A.L'.C'}_inv(Kb)
+        /\ Snd   (fNRR.A.L'.NRR')
+        /\ wrequest(B,A,bob_alice_nro,NRO')
+        /\ witness(B,A,alice_bob_nrr,NRR')
+
+   1.   State  = 1  
+        --|>
+        State':= 2 
+        /\ Snd(fREQ.A.B.L) 
+
+   2.   State  = 2 
+        /\ Rcv   (fCON.A.B.L.K'.ConK') 
+        /\ ConK'={fCON.A.B.L.K'}_inv(Ks) 
+        /\ C = {M'}_K'  % M is extracted here!
+        =|>
+        State':= 3 
+        /\ request(B,S,bob_server_con,ConK')
+        /\ wrequest(B,A,bob_learns_M_only_after_alice_got_NRR,K')
+        % Non-repudiation of Origin: Bob has checked both NRO and ConK
+%       /\ A=i --> iknows(ConK') 
+%   3.   State  = 3 
+%       /\ A=i /\ not(iknows(ConK))
+%       --|>
+%       wrequest(B,B,despite_evidence_dishonest_alice_does_not_have_ConK,ConK)
+
+end role
+

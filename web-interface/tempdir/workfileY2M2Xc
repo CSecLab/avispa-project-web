@@ -1,0 +1,62 @@
+role sed(S,E      : agent,
+         Ktcl     : symmetric_key,
+         JoinReq  : protocol_id,
+         SND,RCV  : channel(dy))
+played_by S
+def=
+	local   State:nat,
+                Knwk:symmetric_key
+	init    State := 0
+        accept  State  = 4
+	transition
+		1. State  = 0 /\ RCV(start) =|> 
+                   State':= 2 /\ SND({S.JoinReq}_Ktcl)
+
+		2. State  = 2 /\ RCV({Knwk'}_Ktcl) =|> 
+                   State':= 4 
+end role
+
+role esi(E       : agent,
+         Knwk,Ktcl : symmetric_key,
+         JoinReq   : protocol_id,
+         SND,RCV   : channel(dy))
+played_by E
+def=
+	local   State:nat,S:agent
+	init    State := 1
+        accept  State  = 3
+	transition
+		1. State  = 1 /\ RCV({S'.JoinReq}_Ktcl) =|> 
+                   State':= 3 /\ SND({Knwk}_Ktcl)  
+                              /\ secret(Knwk,network_key,{S,E})
+		 
+end role
+
+role session(S,E       : agent,
+             JoinReq   : protocol_id,
+             Knwk,Ktcl : symmetric_key)
+def=
+	local   SNDu,RCVu,SNDv,RCVv:channel(dy)
+
+	composition
+		sed(S,E,Ktcl,JoinReq,SNDu,RCVu) /\ esi(E,Knwk,Ktcl,JoinReq,SNDv,RCVv)
+end role
+
+role environment()
+def=
+	const s,e                  : agent,
+              ktcl,kn              : symmetric_key,
+              network_key,join_req : protocol_id
+
+	intruder_knowledge = {s,e,join_req}
+
+	composition
+		session(s,e,join_req,kn,ktcl)
+end role
+
+goal
+	secrecy_of network_key
+        
+end goal
+
+environment()

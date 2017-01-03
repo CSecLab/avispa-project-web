@@ -1,0 +1,97 @@
+role client(C,S: agent,
+	    Kc, Ks: public_key,
+	    Sk: symmetric_key,
+	    SND, RCV: channel (dy)) 
+played_by C def=
+
+  local State : nat, 
+        Na, Nb: text
+
+  init State := 0
+
+  transition
+	
+	0.  State  = 0 /\ RCV(start) =|> 
+            State':= 2 /\ Sk' := new() /\ Na' := new() 
+		   /\ SND({Na'.Sk'.{dgst(Na'.Sk'.C)}_inv(Kc)}_Ks)
+                   /\ secret(Sk',skc,{C,S}) 
+
+        2.  State  = 2 /\ RCV({Nb'.Na.{dgst(Nb'.Na.S)}_inv(Ks)}_Kc) =|> 
+            State':= 4
+		   /\ SND({Nb'.{dgst(Nb'.C)}_inv(Ks)}_Ks)
+		   /\ secret(Sk,skc,{C,S}) 
+		   /\ request(C,S,client_server_na,Na)
+                   /\ witness(C,S,server_client_nb,Nb')
+	
+end role
+
+% server
+role server(C,S: agent,
+	    Kc, Ks: public_key,
+	    Sk: symmetric_key,
+	    SND, RCV: channel (dy)) 
+played_by S def=
+
+  local State : nat, 
+        Na, Nb: text
+
+  init State := 1
+
+  transition
+	
+	1.  State  = 1 /\ RCV({Na'.Sk'.{dgst(Na'.Sk'.C)}_inv(Kc)}_Ks) =|> 
+            State':= 3 /\ Nb' := new() /\
+		    SND({Na'.Nb'.{dgst(Na'.Nb'.S)}_inv(Ks)}_Kc)
+		   /\ witness(S,C,client_server_na,Na')
+	3.  State  = 3 /\ RCV({Nb.{dgst(Nb.C)}_inv(Ks)}_Ks) =|> 
+            State':= 5 
+		   /\ request(S,C,server_client_nb,Nb)
+		   
+end role
+
+role session(C,S: agent,
+	     Kc, Ks: public_key,
+	     Sk: symmetric_key)
+def=
+local SC, RC, SS, RS: channel(dy)
+
+composition
+
+	client(C,S,Kc,Ks,Sk,SC,RC)
+	/\
+	server(C,S,Kc,Ks,Sk,SS,RS)
+end role
+
+
+
+role environment() def=
+
+    const c, s         : agent,
+          kc, ks, ki   : public_key,
+	  skc,ski      : symmetric_key,
+	  dgst	       : hash_func,
+          na, nb,
+          client_server_na,server_client_nb : protocol_id
+
+    intruder_knowledge = {c, s, kc, ks, ki, inv(ki), ski, dgst}
+
+    composition
+
+        session(c,s,kc,ks,skc)
+     /\ session(c,i,kc,ki,skc)
+     /\ session(i,s,ki,ks,ski)
+
+end role
+
+
+goal
+
+  secrecy_of na, nb, skc
+  authentication_on client_server_na
+  authentication_on server_client_nb
+
+end goal
+
+
+
+environment()

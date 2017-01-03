@@ -1,0 +1,150 @@
+Skip to content
+Personal Open source Business Explore
+Sign upSign inPricingBlogSupport
+This repository
+Search
+ Watch 1  Star 0  Fork 0 agschipor/1st-MSc-year-Protocols
+ Code  Issues 0  Pull requests 0  Pulse  Graphs
+Branch: master Find file Copy path1st-MSc-year-Protocols/Project1/protocol.hlpsl
+495dc9a  on Mar 28, 2015
+@agschipor agschipor added first project
+1 contributor
+RawBlameHistory     137 lines (94 sloc)  3.33 KB
+% Client (C) - proiect
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role client (A, B, S: agent,
+	  K_SA: symmetric_key,
+            	  Snd, Rcv: channel (dy))
+
+played_by A
+def=
+  local St            : nat,
+  K_SB, K_AB     : symmetric_key,
+  Na, Nb             : text
+
+  init St := 0
+
+  transition
+
+  1. St = 0   /\  Rcv(start) =|> 
+      St':= 1  /\  Na' := new()
+                   /\  Snd(A.{A.B.Na'}_K_SA)
+
+  2. St = 1   /\  Rcv({Na.B.Nb.K_AB}_K_SA.{Nb.A.K_AB}_K_SB) =|>
+      St':= 2  /\  Snd({Nb.A.K_AB}_K_SB.{Na.Nb}_K_AB)
+               /\  witness(A,B,as_client_Nb,Nb)
+
+  3. St = 2   /\  Rcv({Na}_K_AB) =|>
+     St':=3   /\  request(A,B,client_as_Na,Na)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+% Ticket Granting Server (S)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role ticket_server (S, A, B: agent,
+	               K_SA, K_SB: symmetric_key,
+                               Snd, Rcv: channel (dy))
+
+played_by S
+def=
+  local St           : nat,
+           K_AB   : symmetric_key,
+           Na, Nb             : text
+
+  init St := 0
+
+  transition
+
+  1. St = 0   /\  Rcv({A.B.Na}_K_SA.{A.Nb}_K_SB) =|> 
+     St':= 1  /\  K_AB':= new()
+                   /\  Snd({Na.B.Nb.K_AB'}_K_SA.{Nb.A.K_AB'}_K_SB)
+                   /\ secret(K_AB', sec_g_K_AB, {A,B,S})
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+% Authentication Server (B)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role authentication_server (B, A, S: agent,
+                                             K_SB: symmetric_key,
+                                             Snd, Rcv: channel (dy))
+
+played_by B
+def=
+  local St            : nat,
+  K_AB , K_SA    : symmetric_key,
+  Na, Nb             : text
+
+  init St := 0
+
+  transition
+
+  1. St = 0   /\  Rcv(A.{A.B.Na}_K_SA) =|> 
+      St':= 1  /\  Nb':= new() 
+                   /\  Snd({A.B.Na}_K_SA.{A.Nb'}_K_SB)
+
+  2. St = 1   /\  Rcv({Nb.A.K_AB}_K_SB.{Na.Nb}_K_AB) =|>
+      St':= 2 /\  request(B,A,as_client_Nb,Nb)  
+              /\  Snd({Na}_K_AB)
+              /\  witness(B,A,client_as_Na,Na)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(A, B, S: agent,
+             K_SA, K_SB: symmetric_key)
+def= 
+  local Snd_A, Rcv_A, Snd_B, Rcv_B, Snd_S, Rcv_S: channel (dy)
+
+  composition
+       client(A, B, S, K_SA, Snd_A, Rcv_A)
+    /\ authentication_server(B, A, S, K_SB, Snd_B, Rcv_B)
+    /\ ticket_server(S, A, B, K_SA, K_SB, Snd_S, Rcv_S)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment() 
+def=
+  const 
+        client_as_Na,
+        as_client_Nb,
+        a, b, s : agent,
+        kas, kbs, kis : symmetric_key,
+        sec_g_K_AB  : protocol_id
+
+  intruder_knowledge = {a, b, s, kis}
+  
+  composition
+    session(a,b,s,kas,kbs)
+    /\ session(a,i,s,kas,kis)
+    /\ session(i,b,s,kis,kbs)
+end role
+
+goal
+  secrecy_of sec_g_K_AB
+  authentication_on client_as_Na
+  authentication_on as_client_Nb
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+Status API Training Shop Blog About
+© 2016 GitHub, Inc. Terms Privacy Security Contact Help

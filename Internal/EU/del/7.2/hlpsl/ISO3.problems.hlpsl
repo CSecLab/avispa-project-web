@@ -1,0 +1,155 @@
+%% DISCUSSION & ISSUES:
+%% -----------
+%% LucaC: 
+%%
+%% - I have corrected the protocol wrt HLPSL_GUIDELINES.
+%%
+
+%% 1-3-3  ISO3
+%%%%% [ETHZ] Also known as "ISO (Public Key) Two-Pass Mutual Authentication Protocol" ClarkJacob 6.6.3
+
+%% A-B Notation:
+
+%% 1. A --> B : {PKa,A}SKc, Ra, B, Text2,{Na,B,Text1}_SKa
+%% 2. B --> A : {PKb,B}SKc, Rb, A, Text4,{Nb,A,Text3}_SKb
+
+%% SKc is the private key of the server C.
+%% {PKa,A}SKc is the certificate of agent A
+
+%%--------------------------Nhlpsl-spec ---------------------
+
+role ISO3_Init( A, B     : agent,	
+                Pka, Pks : public_key,
+                Snd, Rcv : channel(dy)) played_by A def=
+
+   exists State		   : nat,
+          Na		   : text(fresh),
+          Nb, Text3, Text4 : text,
+          Pkb		   : public_key
+
+   owns Snd
+
+   init State = 0 
+
+   knowledge(A)={A,B,Pka,Pks,ctext1,ctext2}
+
+  transition
+
+   1.    State=0 /\ Rcv(start)
+      =|> 
+         Snd(Pka.A.{Pka.A}inv(Pks).Na'.B.ctext2.{Na'.B.ctext1}inv(Pka)) 
+      /\ State'=1
+      /\ witness(A,B,na,Na')
+
+   2.    State=1 
+      /\ Rcv(Pkb'.B.{Pkb'.B}inv(Pks).Nb'.A.Text4'.{Nb'.A.Text3'}inv(Pkb'))
+      =|> 
+         State'=2
+      /\ wrequest(A,B,nb,Nb')
+
+end role
+
+%%  (*------------------------------------------------------*)
+
+role ISO3_Resp (B, A     : agent, 					
+                Pkb, Pks : public_key,
+                Snd, Rcv : channel(dy)) played_by B def=
+
+   exists State: nat,
+          Nb: text(fresh),
+          Na,Text1,Text2 : text,
+          Pka: public_key
+
+   owns Snd
+
+
+   init State = 0
+
+   knowledge(B)={A,B,Pkb,Pks,ctext3,ctext4}
+
+  transition
+
+   1.    State=0 
+      /\ Rcv(Pka'.A.{Pka'.A}inv(Pks).Na'.B.Text2'.{Na'.B.Text1'}inv(Pka'))
+      =|> 
+         Snd(Pkb.B.{Pkb.B}inv(Pks).Nb'.A.ctext4.{Nb'.A.ctext3}inv(Pkb)) 
+      /\ State'=1
+      /\ witness(B,A,nb,Nb')
+      /\ wrequest(B,A,na,Na')
+
+end role
+
+%%  (*------------------------------------------------------*)
+
+
+%% LC: if you would like to use the same server public key for each
+%%     session, you should avoid permutation on Pks.
+
+role Session (A, B     : agent,
+	      Pka, Pkb : public_key,
+              Pks      : public_key,
+	      SA, RA, SB, RB: channel (dy)) def=
+
+  %% LC: is it correct to use the same channel SA in both the
+  %%     initiator and responder? I think it is not, so I have 
+  %%     changed it. Please check! The old version is commented.
+  %%
+  %%  composition
+  %%
+  %%          ISO3_Init(A,B,Pka,Pks,SA,RA)
+  %%       /\ ISO3_Resp(B,A,Pkb,Pks,SA,RB)
+
+  composition
+
+          ISO3_Init(A,B,Pka,Pks,SA,RA)
+       /\ ISO3_Resp(B,A,Pkb,Pks,SB,RB)
+
+end role
+
+%%  (*------------------------------------------------------*)
+
+role Environment() def=
+
+  const ctext1, ctext2, ctext3, ctext4 : text,
+	na, nb : protocol_id
+
+  knowledge(i)={a,b,c,pks,pki,inv(pki)}
+
+  %% LC: sufficient for finding the attacks
+
+  composition
+
+	Session(a,b,pka,pkb,pks,sa1,ra1,sb1,rb1)
+     /\	Session(a,b,pka,pkb,pks,sa2,ra2,sb2,rb2)
+     /\	Session(b,a,pkb,pka,pks,sb3,rb3,sa3,ra3)
+
+%%   composition
+%% 
+%% 	Session(a,b,pka,pkb,pks,sa1,ra1,sb1,rb1)
+%%      /\	Session(a,c,pka,pkc,pks,sa2,ra2,sc2,rc2)
+%%      /\	Session(a,a,pka,pka,pks,sa3,ra3,sa3,ra3)
+%%      /\	Session(b,a,pkb,pka,pks,sb4,rb4,sa4,ra4)
+
+end role
+
+%%  (*------------------------------------------------------*)
+
+goal
+
+%% init. authenticates Resp. on Nb
+
+   ISO3_Init weakly authenticates ISO3_Resp on Nb
+
+%% Resp. authenticates Init. on Na
+
+   ISO3_Resp weakly authenticates ISO3_Init on Na
+
+end goal
+
+%%  (*------------------------------------------------------*)
+
+Environment()
+
+ 
+
+

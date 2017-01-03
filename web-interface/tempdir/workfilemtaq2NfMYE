@@ -1,0 +1,218 @@
+
+role mobile(M, S,C: agent,
+       
+             SNDMC,RCVMC ,SYNC,RCV,RCVSM,SNDSM       : channel(dy), 
+              F: hash_func,
+              K_S: public_key)
+played_by M def=
+
+  local State: nat,
+        Time, N: message,
+        T_prev:  message, 
+        Key_prev_prev, Key_prev, Key_prev2: message, % should be: symmetric_key,
+        M_prev, M1: message,
+        Hash_prev, Hash: message, 
+        Compare: bool,
+        Gap,Gap2: message, 
+         Na : text,
+        
+        CertB ,MacB,Key_CertB,Key_MacB: text
+
+  const true, false: bool,
+        zero: nat,
+        succ: nat -> nat,
+        buffered, compared_and_buffered: protocol_id % signals just for tracing
+           
+  init State :=0
+
+
+  transition
+
+  % initialise. 
+     0. State  = 0 /\   RCVMC (start)   =|>
+         State':=1 /\  Na':=new()  /\   SNDMC(Na')
+
+  1.State = 1 /\ RCVMC(CertB'.MacB'.Na')       =|> 
+
+    State':=2  /\ Key_CertB':=({tick(N').F(Key_MacB')}_inv(K_S)) 
+                  /\ Compare':= false /\ Gap':= zero
+                /\ Time':= t_0 /\ SYNC(Time')
+
+   arrive.
+ State= 2    /\ Time /= N  /\  RCVSM (M1'.Hash'.MacB')  =|> 
+     State':=3 /\ Key_prev2':= MacB'/\ Gap2':= zero
+
+ adjust_Key_prev2.
+             RCV(start) /\ 
+ State= 4   /\   Gap2 /= Gap   =|> 
+    State':= 5   /\ Key_prev2':= F(Key_prev2) /\ Gap2':= succ(Gap2)
+
+buffer.
+    RCV(start) /\
+ State=5 /\   Compare = false /\ Gap2 = Gap
+                    /\ Key_prev_prev = F( Key_prev2) =|> 
+    State':=6  
+                 /\ Key_prev_prev':=  MacB
+                /\ M_prev':=M1
+               /\ Hash_prev':= Hash
+                /\ T_prev':= tick(Time)
+                /\ Compare':= true /\ Gap':= zero
+                /\ Time':= tick(Time) /\ SYNC(Time'.buffered)
+     
+   compare_and_buffer.
+             RCV(start) /\ 
+ State=6 /\Compare = true /\ Gap2 = Gap
+                    /\ Hash_prev = hash_(Key_prev2,M_prev) % check previous message
+                    /\ Key_prev_prev = F(Key_prev2) =|> 
+
+     State':=7  /\ Key_prev_prev':=MacB
+                       /\ M_prev':= M1/\ Hash_prev':= Hash 
+                      /\ T_prev':= tick(Time)
+                      /\ Compare':= true /\ Gap':= zero
+                     /\ Time':= tick(Time) /\ SYNC(Time'.compared_and_buffered) 
+                     /\ request(S,S,sender_msgstream,MacB) %msgstream should: be T_prev
+
+   lose. 
+ State=7 /\  Time /= N 
+                     /\ RCV(loss) =|> 
+       State':= 8 /\ Gap':= succ(Gap)
+                /\ Time':= tick(Time) /\ SYNC(Time') 
+
+end role
+
+
+%-----------------------------------------
+role cloudlet (S,M,C: agent,
+            SNDCS, RCVCS,
+             SNDMC,RCVMC ,SYNC,RCV       : channel(dy), 
+            F: hash_func,
+            K_S: public_key)
+played_by C def=
+local State: nat,
+       
+        Nb,Na: text,
+ Time, N: message, % current time and final time, should be: text,
+        Key_prev, K: message, % should be: symmetric_key,
+        M2,Bakb: text,
+         CertB : text
+ ,MacB,Ts: text
+
+  const k_N: symmetric_key
+
+     init State :=1
+
+  transition
+
+  
+ 1.    State  = 1 /\   RCVMC(Na')          =|>
+     State':=2 /\  Nb':=new()  /\   SNDCS(Nb')
+ 
+ 2.   State  = 2 /\ RCVCS   (  CertB',Bakb',Ts',MacB' )    =|>
+     State':= 3  /\  SNDMC (CertB'.MacB'.Na')
+   
+ 3. State =3 /\  RCVMC (Time')   =|>
+     State':= 4 /\  SYNC(Time')
+              
+  
+end role
+%-----------------------------------------------------------
+
+
+role server(S,M,C: agent,
+            SNDCS, RCVCS,
+             SYNC,RCV,RCVSM,SNDSM        : channel(dy), 
+            F: hash_func,
+            K_S: public_key)
+played_by S def=
+
+  local State: nat,
+        Time, N: message, % current time and final time, should be: text,
+        Key_prev, K: message, % should be: symmetric_key,
+        CertB,KeyT,MacB,Ts:text,
+        Cb,Bakb: text,
+   Nb:text
+
+  const k_N: symmetric_key
+
+  init State := 1
+
+  transition
+
+  1. State  = 1 /\ RCVCS(Nb') =|>
+     State':= 2 /\ Time':= t_0 /\ N':= tick(tick(tick(t_0)))  
+                      /\ MacB':= F(F(F(k_N)))   
+                     /\  CertB' :=  ({tick(N').F(MacB')}_inv(K_S)) 
+                     /\ SNDCS(CertB',{Bakb'}_inv(K_S),{Ts'},{MacB'})
+             
+
+     2.      State  = 2 /\ RCVCS(Time) 
+                                /\ MacB = F(K') /\ Time /= N =|> 
+
+             State':=3 /\ M' := new()   %M'
+                            /\ SNDSM(M'.hash_(K',M').F(K')) 
+                            /\ MacB' := K'
+                            /\ Time' := tick(Time)
+                    /\ witness(S,S,sender_msgstream,M') %msgstream should be: tick(Time)
+                 
+end role
+
+%-----------------------------------------------------------------------------------
+
+role session(S,C,M: agent,
+             SNDCS, RCVCS,  SNDMC,RCVMC ,SYNC,RCV,RCVSM,SNDSM        : channel(dy), 
+             F: hash_func,
+             K_S: public_key)
+def=
+  composition
+           mobile  (S,M,C,SNDMC,RCVMC ,SYNC,RCV,RCVSM,SNDSM , F, K_S)
+       /\  cloudlet(S,M,C,SNDCS, RCVCS,SNDMC,RCVMC ,SYNC,RCV, F, K_S)
+      /\ server (S,M,C,SNDCS, RCVCS,SYNC,RCV,RCVSM,SNDSM, F, K_S)
+end role
+
+%-------------------------------------------------
+
+role environment() def=
+
+  const s,m,c: agent,
+       
+ sndcs, rcvcs,  sndmc,rcvmc ,sync,rcv ,rcvsm,sndsm   
+,sndci, rcvci,rcvim,sndim,
+sndic,rcvic ,sync,rcv ,rcvsi,sndsi
+,sndis, rcvis,  sndmi,rcvmi
+
+
+: channel(dy),  
+
+
+ % smc,imc,sic,smi,sync    : channel(dy), 
+        hash_: hash_func,
+        f: hash_func,
+        k_S,k_i: public_key,
+        tick: text -> text,
+        t_0: text,
+        loss: text,
+        sender_msgstream: protocol_id
+
+
+  intruder_knowledge = {s,m,c,hash_,loss,f,k_S,k_i}
+
+  composition
+   session(s,m,c,  sndcs, rcvcs,  sndmc,rcvmc ,sync,rcv ,rcvsm,sndsm ,f,k_S) 
+ /\ session(i,m,c, sndci, rcvci,  sndmc,rcvmc ,sync,rcv ,rcvim,sndim ,f,k_S) 
+      /\ session(s,i,c, sndcs, rcvcs,  sndic,rcvic ,sync,rcv ,rcvsi,sndsi , f,k_S) 
+     /\ session(s,m,i, sndis, rcvis,  sndmi,rcvmi ,sync,rcv ,rcvsm,sndsm , f,k_S) 
+
+end role
+%----------------------------------------------------------------------
+
+goal
+
+  authentication_on sender_msgstream  
+
+end goal
+
+
+
+
+
+environment()

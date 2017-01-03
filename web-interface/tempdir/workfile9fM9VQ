@@ -1,0 +1,119 @@
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% reader Role
+role reader(
+T,R,D:agent,
+H:hash_func,
+SND_RT,RCV_RT,SND_RD,RCV_RD:channel(dy))
+
+played_by R def=
+
+	local
+		State:nat,
+		Rr:text,
+		M2:text.message,
+		M3:message
+	init
+		State := 0
+
+	transition
+		1. State=0 /\ RCV_RT(start) =|>
+		   State':=1 /\ Rr':=new() /\ SND_RT(Rr')
+		2. State=1 /\ RCV_RT(M2') =|>
+		   State':=2 /\ SND_RD(M2'.Rr)
+		3. State=2 /\ RCV_RD(M3') =|>
+		   State':=3 /\ SND_RT(M3')
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% tag Role
+role tag(
+T,R,D:agent,
+Id,K:text,
+H:hash_func,
+SND_TR,RCV_TR:channel(dy))
+
+played_by T def=
+	local
+		State:nat,
+		Rt,Rr:text	
+
+	init
+		State := 0
+
+	transition
+		1. State=0 /\ RCV_TR(Rr') =|>
+		   State':=1 /\ Rt':=new() /\ SND_TR(xor(Rt',K).H(xor(xor(Rt',Rr'),Id))) /\ witness(T,D,database_tag_id,Id) /\ witness(T,D,database_tag_k,K)
+		2. State=1 /\ RCV_TR(H(xor(xor(Id,Rt),K))) =|>
+		   State':=2 /\ K':=xor(xor(xor(H(xor(xor(Rt,Rr),Id)),Rt),K),K) /\ secret(K',sessionkey,{D,T})
+end role
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% database Role
+role database(
+T,R,D:agent,
+H:hash_func,
+Id,K:text,
+SND_DR,RCV_DR:channel(dy))
+
+played_by D def=
+	local
+		State:nat,
+		Rr,Rt:text
+
+	init
+		State := 0
+
+	transition
+		1. State=0 /\ RCV_DR(xor(Rt',K).H(xor(xor(Rt',Rr'),Id)).Rr') =|>
+		   State':=1 /\ SND_DR(H(xor(xor(Id,Rt'),K))) /\ K':=xor(xor(xor(H(xor(xor(Rt',Rr'),Id)),Rt'),K),K) /\ secret(K,sessionkey,{D,T}) /\ secret(Id,tidsecrecy,{D,T})
+end role
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% session
+role session(
+T,R,D 	:agent,
+Hash	:hash_func,
+Tid,Ktd	:text
+)
+def=
+	local
+		SRD,RRD,SRT,RRT,SDR,RDR,STR,RTR:channel(dy)
+	composition
+		database(T,R,D,Hash,Tid,Ktd,SDR,RDR) /\
+		tag(T,R,D,Tid,Ktd,Hash,STR,RTR) /\
+		reader(T,R,D,Hash,SRT,RRT,SRD,RRD)
+end role
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% environment
+role environment()
+def=
+	const
+		h					:hash_func,
+		tid,ktd,ki,idi		:text,
+		t,r,d				:agent,
+		database_tag_id,database_tag_k,sessionkey,tidsecrecy		:protocol_id
+
+	intruder_knowledge = {t,r,d,ki,idi}
+
+	composition
+		session(t,r,d,h,tid,ktd) 
+	%	/\
+	%	session(i,r,d,h,idi,ki)
+end role
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% goal
+goal
+	authentication_on database_tag_id
+	authentication_on database_tag_k
+	secrecy_of sessionkey
+	secrecy_of tidsecrecy
+end goal
+
+environment()

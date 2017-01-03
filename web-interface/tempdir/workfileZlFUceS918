@@ -1,0 +1,234 @@
+%****************************************Source**************************************************%
+role sourceNode(
+				A,B,C,D,F: agent,
+				Ka, Kb, Kc, Kd, Kf : public_key,
+				Hf : function, %Hash function
+				KeySet : (public_key) set,
+				RCV, SND : channel(dy)
+				)
+	played_by A def=
+		local
+			State : nat,
+			REQstatic, REPstatic : text,
+			SREQ, SREP : protocol_id,
+			Hashnew, Oldhash, Na, Nd : message %Na, et Nd a enlever peut être, KHC = Tophash%%
+		init
+		State := 0
+		
+
+		transition
+			step1.
+				State = 0  /\ RCV(start) =|>
+				State':= 8 /\ Na' := new()
+						   /\ Hash_new' := new()
+						   /\ Hash_new' := Hf(A,B,Oldhash)
+						   /\ SND(SREQ.REQstatic.Na'.Oldhash.Hashnew'.{Na'.SREQ.REQstatic}_inv(Ka)) %%% Normalement tous les messages est crypté avec seul la clé privée de A
+						   /\ witness(A,B,Na,Na')
+				
+			step2.
+				State = 8 /\ RCV(SREP.REPstatic.Nd'.Oldhash.Hashnew'.{Nd'.SREP.REPstatic'}_inv(Kb).H) /\ in(Kb, KeySet)/\ Hashnew'=Hf(A,B,Oldhash)=|>
+				State':=9 /\ wrequest(A,B,Na,Na') %weak authentication%
+				
+end role
+
+%****************************************R1:intermediate_node1**************************************************%GGG
+
+role nodeOne(
+				A,B,C,D,F : agent,
+				Ka, Kb, Kc, Kd, Kf : public_key,
+				Hf : function,
+				KeySet : (public_key) set,
+				RCV, SND: channel(dy)
+				)
+	played_by B 
+def=
+		local
+			State : nat,
+			REQstatic, REPstatic : text,
+			SREQ, SREP : protocol_id,
+			Hashnew, Oldhash, Na, Nd : message %Na, et Nd a enlever peut être, KHC = Tophash%%
+		init
+		State := 1
+		
+		
+		transition
+			step1.
+				State = 1 /\ RCV(SREQ.REQstatic.Na'.Oldhash.Hashnew.{Na'.SREQ.REQstatic}_inv(Ka)) /\ in(Ka, KeySet)/\ Hashnew = Hf(A,B,Oldhash)=|>
+																			
+				State':=7 /\ request(B,A,Na,Na')
+						  /\ Oldhash := Hashnew
+						  /\ Hashnew := Hf(B,C,Oldhash)
+						  /\ SND(SREQ.REQstatic.Na'.Oldhash.Hashnew.{Na.SREQ.REQstatic}_inv(Kb))
+						  /\ witness(B,C,Nb,Na')
+						%/\ secret(Ka, Kb)
+				
+			step2.
+				State = 7 /\ RCV(SREP.REPstatic.Nd'.Oldhash.Hashnew.{Nd'.SREP.REPstatic}_inv(Kc)) /\ in(Kc, KeySet) /\ Hashnew = Hf(B,C,Oldhash)=|>
+				State':=8 /\ Oldhash' := Hashnew
+				          /\ Hashnew' := Hf(A,B,Oldhash)
+					      /\ SND(SREP.REPstatic.Nd'.Oldhash.Hashnew.{Nd'.SREP.REPstatic}_inv(Kb))
+				
+end role
+
+%******************************************R2************************************************%
+
+role nodeTwo(
+				A,B,C,D,F : agent,
+				Ka, Kb, Kc, Kd, Kf : public_key,
+				Hf : function,
+				KeySet : (public_key) set,
+				RCV, SND : channel(dy)
+				)
+	played_by C 
+def=
+		local
+			State : nat,
+			REQstatic, REPstatic : text,
+			SREQ, SREP : protocol_id,
+			Hashnew, Oldhash, Na, Nd : message %Na, et Nd a enlever peut être, KHC = Tophash%%
+		init
+		State := 2
+		
+		
+		transition
+			step1.
+				State = 2 /\ RCV(SREQ.REQstatic.Na'.Oldhash.Hashnew.{Na'.SREQ.REQstatic}_inv(Kb)) /\ in(Kb, KeySet)/\ Hashnew = Hf(B,C,Oldhash)=|>
+																			
+				State':=6 /\ request(C,B,Nb,Na')
+						/\ Oldhash:= Hashnew
+						/\ Hashnew := Hf(C,D,Oldhash) 
+						  /\ SND(SREQ.REQstatic.Na'.Oldhash.Hashnew.{Na'.SREQ.REQstatic}_inv(Kc))
+							/\ witness(C,D,	Nc,Na')
+				
+			step2.
+				State = 6 /\ RCV(SREP.REPstatic.Nd'.Oldhash.Hashnew.{Nd'.SREP.REPstatic}_inv(Kd)) /\ in(Kd, KeySet)/\ Hashnew = Hf(C,D,Oldhash) =|>
+				State':=7 /\ Oldhash':=Hashnew
+				          /\ Hashnew' := Hf(B,C,Oldhash)
+					      /\ SND(SREP.REPstatic.Nd'.Oldhash.Hashnew.{Nd'.SREP.REPstatic}_inv(Kc))
+end role
+
+%***************************************R3***************************************************%
+
+role nodeThree(
+				A,B,C,D,F : agent,
+				Ka, Kb, Kc, Kd, Kf : public_key,
+				Hf : function,
+				KeySet : (public_key) set,
+				RCV, SND : channel(dy)
+				)
+	played_by D 
+def=
+		local
+			State : nat,
+			REQstatic, REPstatic : text,
+			SREQ, SREP : protocol_id,
+			Hashnew, Oldhash, Na, Nd : message %Na, et Nd a enlever peut être, KHC = Tophash%%
+		init
+		State := 3
+		
+		
+		transition
+			step1.
+				State = 3 /\ RCV(SREQ.REQstatic.Na'.Oldhash.Hashnew.{Na'.SREQ.REQstatic}_inv(Kc)) /\ in(Kc, KeySet) /\ Hashnew = Hf(C,D,Oldhash) =|>
+																			
+				State':=5 /\ request(D,C,Nc,Na')
+						/\ Oldhash:= Hashnew
+						/\ Hashnew := Hf(D,F,Oldhash) 
+						  /\ SND(SREQ.REQstatic.Na'.Oldhash.Hashnew.{Na'.SREQ.REQstatic}_inv(Kd))
+							/\ witness(D,F,Nd,Na')
+				
+			step2.
+				State = 5 /\ RCV(SREP.REPstatic.Nd'.Oldhash.Hashnew.{Nd'.SREP.REPstatic}_inv(Kf)) /\ in(Kf, KeySet)/\ Hashnew = Hf(D,F,Oldhash) =|>
+				State':=6 /\ Oldhash':=Hashnew
+				          /\ Hashnew' := Hf(C,D,Oldhash)
+					      /\ SND(SREP.REPstatic.Nd'.Oldhash.Hashnew.{Nd'.SREP.REPstatic}_inv(Kd))
+						
+end role
+
+%*****************************************DN*************************************************%
+
+role destNode(			A,B,C,D,F : agent,
+				Ka, Kb, Kc, Kd, Kf : public_key,
+				Hf : function,
+				KeySet : (public_key) set,
+				RCV, SND: channel(dy)
+				)
+	played_by F 
+def=
+		local
+			State : nat,
+			REQstatic, REPstatic : text,
+			SREQ, SREP : protocol_id,
+			Hashnew, Oldhash, Na, Nd : message %Na, et Nd a enlever peut être, KHC = Tophash%%
+		init
+		State := 4
+		
+		transition
+		step1.
+			State = 4   /\ request(F,D,Nf,Na')
+					/\ RCV(SREQ.REQstatic.Na'.Oldhash.Hashnew.{Na'.SREQ.REQstatic}_inv(Kd)) /\ in(Kd, KeySet)  /\ Hashnew=Hf(D,F,Oldhash)=|>
+					  /\ Nd' := new()
+					  /\ Hashnew :=Hf(F,D,Oldhash)
+					  /\ SND(SREP.REPstatic.Nd'.Oldhash.Hashnew'.{Nd'.SREP.REPstatic}_inv(Kf))
+				
+						
+end role
+
+%*******************************************Session***********************************************%
+
+role session(
+			A,B,C,D,F : agent,
+			Ka, Kb, Kc, Kd, Kf : public_key,
+			Hf : function,
+			KeySet : (public_key) set
+			
+			)
+	def=
+		local
+			RCV,SND: channel(dy)
+		composition
+			   sourceNode(A,B,C,D,F,Ka,Kb,Kc,Kd,Kf,Hf,KeySet,RCV,SND)
+			/\ nodeOne(A,B,C,D,F,Ka,Kb,Kc,Kd,Kf,Hf,KeySet,RCV,SND)
+			/\ nodeTwo(A,B,C,D,F,Ka,Kb,Kc,Kd,Kf,Hf,KeySet,RCV,SND)
+			/\ nodeThree(A,B,C,D,F,Ka,Kb,Kc,Kd,Kf,Hf,KeySet,RCV,SND)
+			/\ destNode(A,B,C,D,F,Ka,Kb,Kc,Kd,Kf,Hf,KeySet,RCV,SND)
+end role
+
+%*************************************Environment*****************************************************%
+
+role environment()
+    def=
+
+	local
+		KeySet : (public_key) set
+	const
+		a,b,c,d,f : agent,
+		ka, kb, kc, kd, kf, ki : public_key,
+		na,nb,nc,nd,nf : protocol_id,
+		hf : function
+	init
+		KeySet := {ka, kb, kc, kd, kf}
+
+		intruder_knowledge={a,b,c,d,f,ki,inv(ki)}
+						
+	composition
+
+		session(a,b,c,d,f,ka,kb,kc,kd,kf,hf,KeySet)
+						
+end role
+
+%*****************************************GOAL*************************************************%
+
+goal
+%secrecy_of ka
+authentication_on na
+authentication_on nb
+authentication_on nc
+authentication_on nd
+authentication_on nf	
+		
+end goal
+
+%*****************************************END*************************************************%
+
+environment()

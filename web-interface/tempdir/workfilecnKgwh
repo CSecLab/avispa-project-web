@@ -1,0 +1,31 @@
+role alice( A, B, S : agent,
+SND, RCV : channel(dy),
+H : hash_func,
+PWA : symmetric_key,
+M, G :text)
+%''Played_ by'' A
+def=
+
+local 
+State : nat,
+X, Z , P1 : text,
+GY, Key :message
+const sec_m_Key : protocol_id
+init State := 0
+
+%transition
+
+%1. State = 0 /\ RCV(start) =|>
+State' := 1 /\ X' := new()
+/\ P1' := new()
+/\ SND(xor(exp(G,X'), exp(M,PWA)). exp(G,P1'))
+2. State = 1 /\ RCV(xor(exp(GY',Z'), H(PWA.A.B.exp(G,X).exp(exp(G,P1),Z')))
+exp(G,Z').H(A.B.Key')) =|>
+State':= 2 /\ Key' := exp(exp(GY',Z'), X)
+/\ SND(H(A.B. Key'))
+/\ witness(A,B,key1,Key')
+/\ request(A,B,key,Key)
+/\ secret(Key,sec_m_Key,A,B)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+

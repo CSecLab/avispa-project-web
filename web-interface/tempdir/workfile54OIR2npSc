@@ -1,0 +1,89 @@
+role reader 
+        (T,R : agent,
+         H : hash_func,
+         S : symmetric_key,
+         SND,RCV : channel(dy))
+played_by R
+def=
+local
+    State : nat,
+    Nr,Nt : text,
+    V,M,N : message
+init
+State := 0
+transition
+1. State = 0   /\ RCV(start) =|>
+   State':= 1  /\ Nr':= new()
+               /\ SND(Nr')
+2. State = 1   /\ RCV(V'.Nt')  =|>
+   State':= 2  /\ V':= H(xor(xor(S,Nr),Nt'))
+               /\ request(R,T,tag_secret,S)
+               /\ M':=H(S.Nr.Nt')
+               /\ N':=H(M')
+               /\ SND(N')
+               /\ secret(M',inter,{T,R}) 
+               /\ witness(R,T,sec,M')
+end role
+
+% Tag function..........................
+
+role tag (T,R: agent,
+         H: hash_func,  
+         S: symmetric_key,
+         SND, RCV: channel(dy))
+played_by T
+def=
+local
+    State : nat,
+    Nr,Nt : text,
+    M,N,V,U : message
+init
+State := 3
+transition
+1. State = 3     /\ RCV(Nr') =|>
+   State':= 4  /\ Nt' := new() 
+               /\ V':= H(xor(xor(S,Nr'),Nt'))
+               /\ SND(V'.Nt')
+               /\ witness(T,R,tag_secret,S)
+               /\ M':=H(S.Nr'.Nt')
+               /\ N':=H(M')
+2. State = 4    /\ RCV(N)  =|>
+   State':=5   /\ request(T,R,sec,M)
+               /\ U':=H(S.M)
+               /\ S':=xor(S,U')
+
+end role
+              
+          
+role session(
+T,R : agent,
+H : hash_func,
+S : symmetric_key)
+def=
+local ST, SR, RT, RR : channel (dy)
+composition
+reader (T,R,H,S,SR,RR)
+/\ tag(T,R,H,S,ST,RT)
+end role
+
+role environment()
+def=
+const
+sec,inter,tag_secret : protocol_id,
+s,sri,sit : symmetric_key,
+t,r : agent,
+h : hash_func
+intruder_knowledge = {t,r,h,sri,sit}
+composition
+session(r,t,h,s)
+/\ session(r,i,h,sri)
+/\ session(i,t,h,sit)
+
+end role
+
+goal
+secrecy_of inter
+authentication_on sec
+end goal
+
+environment()

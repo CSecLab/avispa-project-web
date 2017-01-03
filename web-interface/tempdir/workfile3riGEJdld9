@@ -1,0 +1,110 @@
+role user(
+	U, L, H: agent,
+	SNDUL, RCVUL : channel(dy),
+	G: text,
+	B: message,
+	Password : text,
+	Hash: function
+	)
+	played_by U def=
+		
+	local
+		State : nat,
+		K : text
+	
+	init 
+		State := 0
+
+transition
+1. 	State = 0 /\ RCVUL(start) =|>
+	State' := 3 /\ K' := new() /\ SNDUL(exp(G,K').xor(Hash(Password),exp(B,K')))
+
+end role
+
+role loginserver(
+	U, L, H: agent,
+	SNDLU, RCVLU, SNDLH, RCVLH : channel(dy),
+	Data1, Data2: message)
+	played_by L def=
+		
+	local 
+		State : nat,
+		Data3,Data4 : message
+
+	init 
+		State := 1
+
+transition
+1. 	State = 1 /\ RCVLU(Data3'.Data4') =|>
+	State' := 4 /\ SNDLH(Data1.Data3'.xor(Data2, Data4'))
+
+end role
+
+role honeychecker(
+	U, L, H: agent,
+	SNDHL, RCVHL : channel(dy),
+	G : text,
+	Private: text,
+	Hash : function) 
+	played_by H def=
+	
+	local
+		State : nat,
+		Data1, Data3: message,
+		Data2, Data4: message
+	
+	init 
+		State := 2
+
+transition
+1. 	State = 2 /\ RCVHL(Data1'.Data3'.xor(Data2',Data4')) /\ xor(exp(Data1',Private),exp(Data3',Private)) = xor(Data2',Data4') =|>
+	State' := 5 /\ secret(password,pid1,{U})
+
+end role
+
+role session(U, L, H: agent,
+	G: text,
+	Private: text,	
+	B: message,
+	Password: text,
+	Hash : function)
+	def=
+
+	local 
+		SNDUL,RCVUL,SNDLU,RCVLU,SNDLH,RCVLH,SNDHL,RCVHL : channel(dy),
+		Data1, Data2: message
+	
+	composition 
+		user(U,L,H,SNDUL,RCVUL,G,B,Password,Hash)
+		/\ loginserver(U,L,H,SNDLU,RCVLU,SNDLH,RCVLH,Data1,Data2)
+		/\ honeychecker(U,L,H,SNDHL,RCVHL,G,Private,Hash)
+
+end role
+
+role environment()
+	def=
+	const 
+	pid1: protocol_id,
+	u, l, h: agent,
+	g : text,
+	private_key_of_honeychecker: text,
+	password: text,
+	hf: function
+
+	intruder_knowledge = {u,l,h,g,exp(g,private_key_of_honeychecker),hf}
+
+	composition 
+		session(u,l,h,g,private_key_of_honeychecker,exp(g,private_key_of_honeychecker),password,hf)
+		/\ session(i,l,h,g,private_key_of_honeychecker,exp(g,private_key_of_honeychecker),password,hf)
+		/\ session(u,i,h,g,private_key_of_honeychecker,exp(g,private_key_of_honeychecker),password,hf)
+		/\ session(u,l,i,g,private_key_of_honeychecker,exp(g,private_key_of_honeychecker),password,hf)
+
+end role
+
+goal
+
+secrecy_of pid1
+
+end goal
+
+environment()

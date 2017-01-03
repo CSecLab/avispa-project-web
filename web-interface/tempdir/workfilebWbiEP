@@ -1,0 +1,174 @@
+role user (Ui, GWN, Sj : agent,
+SKey1 : symmetric_key,
+SKey2 : symmetric_key,
+H: hash_func, 
+Snd, Rcv: channel(dy))
+played_by Ui
+def=
+local State : nat,
+IDi, PWi, Bi, Fngi, Di, Li, SCNi, IDj, EIDj, Ki, Kj, T1 : text,
+Bi, Ei, Fi, Gi, M1, M2, M3, SKi, M10, M11, M4, M5: message,
+Inc : hash_func
+const user_gateway, gateway_sensor, 
+sensor_user, subs1, subs2, subs3, subs4, subs5, subs6, subs7, subs8 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(start) =|>
+State' := 1 /\ IDi' := new()
+/\ Snd({IDi}_SKey1)
+%send registration request message to CMS
+/\ secret({IDi}, subs1, {Ui,GWN,Sj})
+2. State = 1 /\ Rcv({Di'.Li'.SCNi'}_SKey1) =|>
+% Receive smart card securely from the CMS
+% Start login phase
+State' := 2 /\ Ki' := new()
+/\ T1' := new()
+/\ Bi' := H(Fngi)
+/\ Ei' := H(IDi.PWi.Bi')
+/\ Fi' := xor(Di, H(IDi.PWi))
+/\ Gi' := xor(Li, H(xor(PWi,IDi)))
+/\ M1' := xor(IDi, H(Li.T1'))     %line 30
+/\ M2' := xor(Ki', H(Di.T1'))
+/\ M3' := H(Di.Ki'.T1')
+/\ EIDj' := xor(IDj, H(IDi.Ki'.T1'))
+/\ Snd(M1'. M2'. M3'. T1'. EIDj'. SCNi)
+/\ secret({PWi}, subs2, {Ui}) 
+%sends login message to the CMS through public channel
+%/\ witness(Ui, CMS, alice_server, A') 
+% Receive reply message from the PSj
+3. State = 2 /\ Rcv(M4') =|>
+State' := 3 /\  M5':= H(Di.IDi.Ki'.T1')
+/\ Snd(M5') 
+4. State = 3 /\ Rcv(M11'. M10) =|>
+State' := 4 /\  Kj' := xor(M10,Ki)
+/\ SKi' := H(IDi.IDj.Ki.Kj')
+/\ secret({Ki,Kj}, subs3, {Ui,GWN,Sj})
+/\ secret({SKi'}, subs4, {Ui,GWN,Sj})
+end role
+
+role gateway (GWN, Ui, Sj  : agent,
+SKuisj1 : symmetric_key,  
+SKuisj2 : symmetric_key,  
+H: hash_func,
+Snd, Rcv: channel(dy) )
+played_by GWN
+def=
+local State : nat,
+IDi, IDgwn, PWi, Bi, Fngi, Di, Li, SCNi, IDj, EIDj, Ki, Kj, T1, Xgwn, Xj, Rshrd, Ts1, T2, T3 : text,
+Bi, Ei, Fi, Gi, M1, M2, M3, SKi, SKgwn, M10, M11, M4, M5, S1, S2, M6, M7, M8, M9, M10, M11: message,
+Inc : hash_func
+const user_gateway, gateway_sensor, 
+sensor_user, subs1, subs2, subs3, subs4, subs5, subs6, subs7, subs8 : protocol_id
+init State :=0
+transition
+% Receives registration message from Ui
+1. State = 0 /\ Rcv({IDi'}_SKey1) =|>
+State' := 1 /\ SCNi' := new()
+/\ Di':= H(IDi.Xgwn)
+/\ Li' := H(SCNi'.Xgwn)
+/\ Snd({Di'.Li'.SCNi'}_SKey1)
+/\ IDj' := new()
+/\ Xj' := H(IDj'.Xgwn)
+/\ Rshrd' := new()
+/\ Snd({IDj'. Xj'. Rshrd'}_SKey2)
+/\ secret({Xgwn}, subs5, {GWN})
+/\ secret({Xj}, subs6, {GWN,Sj})
+2. State = 1 /\ Rcv(S1'.S2'. Ts1') =|> 
+State' := 2 /\ IDj' := xor(S1, H(Rshrd.Ts1))
+/\ Xj' := H(IDj' . Xgwn)
+/\ S2' := H(IDj'. Xj'. Rshrd. Ts1)
+% Receives login message of the propsoed protocol
+3. State = 2 /\ Rcv(M1'. M2'. M3'. T1'. EIDj'. SCNi) =|> 
+State' := 3 /\ Li' := H(SCNi. Xgwn)
+/\ IDi' := xor(M1,H(Li'.T1))
+/\ M4' := H(IDi'.Di.T1)
+/\ Snd(M4')
+4. State = 3 /\ Rcv(M5') =|> 
+State' := 4 /\ T2' := new()
+/\ IDj' := xor(EIDj, H(IDi. Ki. T1))
+/\ M6' := H(IDi. IDj'.IDgwn.Xj.Ki.T2')
+/\ M7' := xor(IDi,H(IDgwn. Xj. T2'))
+/\ M8' := xor(Ki, H(IDi.Xj))
+/\ Snd(IDgwn. M6'. M7'. M8'. T2')
+5. State = 4 /\ Rcv(M9'.M10'.T3') =|> 
+State' := 5 /\ Kj' := xor(M10,Ki)
+/\ SKgwn' := H(IDi.IDj.Ki.Kj')
+/\ M11' := H(SKgwn'.IDi.Di.Kj')
+/\ Snd(M11'. M10)
+end role
+
+role sensor (Sj, Ui, GWN : agent, %line 100
+SKuisj1 : symmetric_key,
+SKuisj2 : symmetric_key,
+% H is hash function
+H: hash_func,
+Snd, Rcv: channel(dy) )
+played_by Sj
+def=
+local State : nat,
+IDi, IDgwn, IDj, Ki, Kj, Ts1, Xj, Rshrd, T2, T3 : text,
+S1, S2, SKj, M9, M10, M6, M7, M8: message,
+Inc : hash_func
+const user_gateway, gateway_sensor, 
+sensor_user, subs1, subs2, subs3, subs4, subs5, subs6, subs7, subs8 : protocol_id
+init State :=0
+transition
+% Receive authentication message CMS during mutual  authentication phase
+1. State = 0 /\ Rcv({IDj'. Xj'. Rshrd'}_SKey2) =|>
+State' := 1 /\ Ts1' := new()
+/\ S1' := xor(IDj, H(Rshrd.Ts1'))
+/\ S2' := H(IDj. Xj. Rshrd. Ts1')
+/\ Snd(S1'.S2'. Ts1')
+% send authentication message to the Ui
+%/\ witness(PSj,Ui,pserver_alice, B')
+%/\ request(Ui, PSj, pserver_alice, B')
+/\ secret({Rshrd}, subs7, {Sj,GWN})
+2. State = 1 /\ Rcv(IDgwn. M6'. M7'. M8'. T2') =|>
+State' := 2 /\ Kj' := new()
+/\ T3' := new()
+/\ IDi' := xor(M7, H(IDgwn.Xj'.T2))   % line 130
+/\ Ki' := xor(M8, H(IDi'.Xj))
+/\ SKj' := H(IDi'.IDj.Ki'.Kj')
+/\ M9' := H(SKj'. Xj. Kj'. T3')
+/\ M10' := xor(Ki',Kj')
+/\ Snd(M9'.M10'.T3')
+end role
+
+role session(Ui, GWN, Sj: agent,
+SKey1 : symmetric_key,
+SKey2 : symmetric_key,
+H: hash_func)
+def=
+local SI, SJ, RI, RJ, PI, PJ: channel (dy)
+composition
+user(Ui, GWN, Sj, SKey1, Skey2, H, SI, RI)
+/\ gateway(Ui, GWN, Sj, SKey1, Skey2, H, SJ, RJ)
+/\ sensor(Ui, GWN, Sj, SKey1, SKey2, H, PI, PJ)
+end role
+role environment()
+def=
+const ui, gwn, sj: agent,
+skey1 : symmetric_key,
+skey2 : symmetric_key,
+h: hash_func,
+idi, idgwn, idj, pwi, ei, fi, gi, scni, ts1, t1, t2, t3, ki, kj, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, eidj : text,
+user_gateway, gateway_sensor, sensor_user, subs1, subs2, subs3, 
+subs4, subs5, subs6, subs7 : protocol_id
+intruder_knowledge = {ui, gwn, sj, h, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, eidj, ei, fi, gi, scni}
+composition
+session( gwn, ui, sj, skey1, skey2, h)
+/\ session(ui, gwn, sj, skey1, skey2, h)
+/\ session(sj, ui, gwn, skey1, skey2, h)
+end role
+goal
+secrecy_of subs1
+secrecy_of subs2
+secrecy_of subs3
+secrecy_of subs4
+secrecy_of subs5
+secrecy_of subs6
+secrecy_of subs7
+authentication_on user_gateway_ki
+authentication_on gateway_sensor_kj
+end goal
+environment()

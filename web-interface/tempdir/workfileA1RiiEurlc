@@ -1,0 +1,232 @@
+role client(C,B,M:agent,
+            SKc,Kc,Kcb,Kbc,SKcm,SKmc,Kcm,Kmc,Km,SKm:symmetric_key,
+			Mul,Sub,H:hash_func,
+			Pubc,Mpk,Pubm:public_key,
+			Snd,Rcv:channel(dy))
+played_by C
+def=
+local State:nat,
+    Xc,G,IDc,IDb,Msk,Nb,IMEIc,W,V,Dc,K1,N,Ts,Vc,Rvc,Rwc,Rc,E,R,M1,M2,M3,Z,CNO,C1,TDc,Amt,A,U,S,K2,K3,K,Y,D,K4,K5,R1,Invno,Proddet,Nm,IDm,Nc,Reqconf,Ecash,Tnew,Q,Xm,V1,Vm,Vz,K6,K7,F1,Succ,Bill  :text
+      
+	  const client_xc,bank_msk, merchant_xm,subs1,subs2,subs3,subs4,subs5,subs6,subs7,subs8:protocol_id
+init State := 0
+transition
+1.State =0 /\Rcv(start)=|>
+  State':=1/\IDc':=new()
+           /\Xc':=new()
+           /\Pubc':=exp(G,Xc)
+           /\Snd(IDc.Pubc)
+           /\secret({Xc},subs1,{C,B})
+		   /\secret({Xc},subs2,{C,M})
+
+2. State=1/\Rcv(IDb.Mpk.Nb)=|>
+   State':=2/\IMEIc':=new()
+            /\W':=H(IMEIc)
+            /\V':=H(Xc.IDc)
+            /\Dc':=xor(W,IMEIc)
+            /\K1':=H(IMEIc.Pubc.Xc)
+            /\Snd(IDc.IDb.Dc.K1.W.Nb)
+			/\secret({IMEIc},subs3,{C,B})
+
+3. State=2/\Rcv({IDc.TDc}_Kc)=|>
+   State':=3/\SKc':=exp(Mpk,Xc)
+            /\Kc':=H(SKc'.Dc.K1)
+            /\N':=new()
+			/\U':=new()
+            /\Ts':=new()
+            /\Vc':=H(W.Xc.V)
+            /\E':=H(Vc.N)
+			/\A':=exp(G,U)
+			/\Rwc':=H(N.H(Amt).SKc)
+			/\Rvc':=xor(A,Rwc)
+			/\K2':=exp(G,Mul(E,Xc))
+			/\K3':=Sub(Mul(E,Xc),Mul(U,Rwc))
+			/\Z':=xor(H(K1.K3),H(U))
+			/\Kcb':=H(K2.Ts.Mpk)
+            /\Snd(Dc.{H(Amt).A.K3.Rvc.Ts}_Kc.{Amt.TDc.Z}_Kcb)
+			/\secret({Vc},subs4,{C,B})
+
+4. State=3/\Rcv({IDb.M1.M3.H(CNO).CNO.TDc}_Kbc)=|>
+   State':=4/\C1':=xor(Z,M1)
+            /\M2':=Mul(exp(G,M3),exp(Pubc,M1))
+			/\Nc':=new()
+			/\Snd(Dc.Pubc.Nc.{Pubc.Dc.Invno.Proddet}_H(Dc.Pubc.Nc))
+			
+			
+5. State=4/\Rcv(IDm.Pubm.Nm.{Pubm.IDm.Reqconf.Nc}_H(IDm.Pubm.Nm))=|>
+   State':=5/\K':=new()
+            /\Tnew':=new()
+            /\Y':=exp(G,K)
+			/\Ecash':=H(CNO.C1.M3)
+			/\D':=H(Vc.K)
+			/\K4':=exp(G,Mul(D.Xc))
+			/\K5':=Sub(Mul(D,Xc),Mul(R1,Tnew,K))
+			/\R1':=H(Dc.Invno.H(CNO))
+			/\SKcm':=exp(Pubm,Xc)
+			/\Kcm':=H(SKcm.IDm.IDc.Nc.Nm)
+			/\Snd({CNO.K5.Tnew.R1.Y.{Ecash.H(CNO).{Ecash.TDc}_Kcb}_K4}_Kcm)
+			
+6. State =5/\Rcv({Succ.Bill.Invno}_Kcm)=|>
+   State':=6/\request(C,M,client_xc,Xc')
+
+end role 
+            
+role bank(C,B,M:agent,
+            SKc,Kc,Kcb,Kbc,SKcm,SKmc,Kcm,Kmc,Km,SKm:symmetric_key,
+			Mul,Sub,H:hash_func,
+			Pubc,Mpk,Pubm:public_key,
+			Snd,Rcv:channel(dy))
+played_by B
+def=
+local State:nat,
+Xc,G,IDc,IDb,Msk,Nb,IMEIc,W,V,Dc,K1,N,Ts,Vc,Rvc,Rwc,Rc,E,R,M1,M2,M3,Z,CNO,C1,TDc,Amt,A,U,S,K2,K3,K,Y,D,K4,K5,R1,Invno,Proddet,Nm,IDm,Nc,Reqconf,Ecash,Tnew,Q,Xm,V1,Vm,Vz,K6,K7,F1,Succ,Bill         :text
+      
+	  const client_xc,bank_msk, merchant_xm,subs1,subs2,subs3,subs4,subs5,subs6:protocol_id
+init State := 0
+transition
+1.State =0 /\Rcv(IDc,Pubc)=|>
+  State':=1/\IDb':=new()
+           /\Msk':=new()
+           /\Nb':=new()
+           /\Mpk':=exp(G,Msk)
+           /\Snd(IDb.Mpk.Nb)
+           /\secret({Msk},subs3,{B,C})
+		   /\secret({Msk},subs4,{B,M})
+
+2. State=1 /\Rcv(IDc.IDb.Dc.K1.W.Nb)=|>
+   State':=2/\TDc':=xor(W,H(Msk))
+            /\SKc':=exp(Pubc,Msk)
+            /\Kc':=H(SKc.Dc.K1)
+            /\Snd({IDc.TDc}_Kc)
+
+3. State=2/\Rcv(Dc.{H(Amt).A.K3.Rvc.Ts}_Kc.{Amt.TDc.Z}_Kcb)=|>
+   State':=3/\Rwc':=xor(Rvc,A)
+           /\K2':=Mul(exp(G,K3),exp(A,Rwc'))
+		   /\Kbc':=H(K2'.Mpk.Ts)
+           /\R':=new()
+		   /\CNO':=new()
+		   /\S':=H(R)
+           /\M1':=xor(Z,H(R))
+           /\M2':=exp(G,Mul(R,H(CNO)))
+           /\M3':=Sub(Mul(R,H(CNO)),Mul(M1,Msk))
+           /\Snd({IDb.M1.M3.H(CNO).CNO.TDc}_Kbc)
+		   
+4. State=3/\Rcv(IDm.Pubm.H(Q).CNO.{Vz.K7.{Ecash.TDc}_Kcb}_Km)=|>
+	State':=4/\	F1':=H(H(CNO).H(Q))
+	         /\SKm':=exp(Pubm,Msk)
+	         /\Km':=(SKm'.F1'.IDm)
+             /\Vm':=xor(Vz,F1')	
+             /\K6':=Mul(exp(G,K7),exp(Pubm,Vm))	
+             /\Succ':=new()
+		     /\Bill':=new()
+		     /\Snd({Succ.Bill.IDb}_Km)
+			 
+
+end role
+
+
+
+role merchant(C,B,M:agent,
+            SKc,Kc,Kcb,Kbc,SKcm,SKmc,Kcm,Kmc,Km,SKm:symmetric_key,
+			Mul,Sub,H:hash_func,
+			Pubc,Mpk,Pubm:public_key,
+			Snd,Rcv:channel(dy))
+played_by M
+def=
+local State:nat,
+    Xc,G,IDc,IDb,Msk,Nb,IMEIc,W,V,Dc,K1,N,Ts,Vc,Rvc,Rwc,Rc,E,R,M1,M2,M3,Z,CNO,C1,TDc,Amt,A,U,S,K2,K3,K,Y,D,K4,K5,R1,Invno,Proddet,Nm,IDm,Nc,Reqconf,Ecash,Tnew,Q,Xm,V1,Vm,Vz,K6,K7,F1,Succ,Bill    :text
+      
+	  const client_xc,bank_msk, merchant_xm,subs1,subs2,subs3,subs4,subs5,subs6:protocol_id
+init State := 0
+transition
+1.State =0 /\Rcv(Dc.Pubc.Nc.{Pubc.Dc.Invno.Proddet}_H(Dc.Pubc.Nc))=|>
+  State':=1/\Xm':=new()
+           /\Pubm':=exp(G,Xm)
+		   /\IDm':=new()
+		   /\Nm':=new()
+		   /\Snd(IDm.Pubm.Nm.{Pubm.IDm.Reqconf.Nc}_H(IDm.Pubm.Nm))
+		   /\secret({Xm},subs5,{M,C})
+		   /\secret({Xm},subs6,{M,B})
+		   
+2.State =1/\Rcv({CNO.K5.Tnew.R1.Y.{Ecash.H(CNO).{Ecash.TDc}_Kcb}_K4}_Kcm)=|>
+  State':=2/\SKmc':=exp(Pubc,Xm)
+           /\Kmc':=H(SKmc.IDm.Dc.Nc.Nm)
+		   /\K4':=Mul(exp(G,K5),exp(Y,Mul(R1,Tnew)))
+		   /\Q':=new()
+		   /\V1':=H(IDm.Xm)
+		   /\Vm':=H(V1.Q)
+		   /\F1':=H(H(CNO).H(Q))
+		   /\Vz':=xor(F1,Vm)
+		   /\K6':=exp(G,Ecash)
+		   /\K7':=Sub(Ecash,Mul(Vm,Xm))
+		   /\SKm':=exp(Mpk,Xm)
+		   /\Km':=H(SKm.F1.IDm)
+		   /\Snd(IDm.Pubm.H(Q).CNO.{Vz.K7.{Ecash.TDc}_Kcb}_Km)
+		   
+3. State=2/\Rcv({Succ.Bill.IDb}_Km)=|>
+	State':=3/\Snd({Succ.Bill.Invno}_Kcm)	   
+
+end role
+
+
+role session(C,B,M:agent,
+            SKc,Kc,Kcb,Kbc,SKcm,SKmc,Kcm,Kmc,Km,SKm:symmetric_key,
+			Mul,Sub,H:hash_func,
+			Pubc,Mpk,Pubm:public_key
+			)
+			
+def=
+local SC,SB,SM,RC,RB,RM:channel(dy)	
+composition
+client(C,B,M,SKc,Kc,Kcb,Kbc,SKcm,SKmc,Kcm,Kmc,Km,SKm,H,Mul,Sub,Pubc,Mpk,Pubm,SC,RC)
+/\bank(C,B,M,SKc,Kc,Kcb,Kbc,SKcm,SKmc,Kcm,Kmc,Km,SKm,H,Mul,Sub,Pubc,Mpk,Pubm,SB,RB)
+/\merchant(C,B,M,SKc,Kc,Kcb,Kbc,SKcm,SKmc,Kcm,Kmc,Km,SKm,H,Mul,Sub,Pubc,Mpk,Pubm,SM,RM)
+
+end role
+
+
+
+
+
+
+		
+ role environment()
+def=
+const c,b,m,i:agent,
+      skc,kc,kcb,kbc,skcm,skmc,kcm,kmc,km,skm:symmetric_key,
+	  mul,sub,h:hash_func,
+	  pubc,mpk,pubm:public_key,
+	  
+	  
+	  
+	  g,idc,idb,w,v,dc,k1,vc,rvc,rwc,rc,e,m1,m2,m3,z,c1,tdc,amt,u,a,s,k2,k3,k4,k5,k6,k7,succ,bill,reqconf,f1,y,invno,proddet,idm,ecash,tnew,vi,vm,vz:text,
+          client_xc,bank_msk, merchant_xm,subs1,subs2,subs3,subs4,subs5,subs6:protocol_id
+
+
+intruder_knowledge={c,b,m,mul,sub,h,mpk,pubc,pubm}
+
+composition
+   session(c,b,m,skc,kc,kcb,kbc,skcm,skmc,kcm,kmc,km,skm,h,mul,sub,mpk,pubc,pubm)
+ /\session(c,b,m,skc,kc,kcb,kbc,skcm,skmc,kcm,kmc,km,skm,h,mul,sub,mpk,pubc,pubm) 
+/\session(c,b,m,skc,kc,kcb,kbc,skcm,skmc,kcm,kmc,km,skm,h,mul,sub,mpk,pubc,pubm) 
+
+ 
+ 
+ end role
+ 
+ goal
+ secrecy_of subs1
+ secrecy_of subs2
+ secrecy_of subs3
+ secrecy_of subs4
+ secrecy_of subs5
+ secrecy_of subs6
+ authentication_on client_xc
+ authentication_on merchant_xm
+ authentication_on bank_msk
+ end goal
+ 
+ environment()
+ 
+ 
+

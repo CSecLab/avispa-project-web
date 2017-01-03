@@ -1,0 +1,128 @@
+
+role mn(MN,MNMAG1,MNMAG2,CNMAG,CN: agent,
+	KCN,KMN: public_key,
+	SK,SK1,SKMN,SKMN1: symmetric_key,
+	HASHE: hash_func,
+	SND,RCV,RCV1,SND1: channel(dy))
+	played_by MN def= 
+	local  NCNMAG,NCN,MSG,MNADDR,MNMAG1DADDR,PCOAMN,HOAMN,NMN,NMNMAG2,CONN1,CONN2,MNMAG1ADDR,MNMAG2ADDR,NMNMAG21,NMNMAG1: text,State: nat
+	init State :=0
+	transition
+	 0.State =0 /\ RCV(start) =|>
+	State':=5/\ CONN1':=new()/\SND(CONN1')
+
+ 	5.State =5/\ RCV(MNMAG1ADDR'.MNADDR'. NMN'. NMNMAG1'. {PCOAMN'.NMNMAG1'}_SKMN.HASHE(NMN'.NMNMAG1'))/\RCV1(MNMAG2ADDR'.MNMAG1ADDR'.{PCOAMN'.HOAMN'.NMN'}_SK.HASHE(NMNMAG2'.NMN'))=|> 
+	State' :=11/\MNADDR':=new()/\MNMAG2ADDR':=new()/\PCOAMN':=new()/\NMN':=new()/\SND(MNADDR'.MNMAG2ADDR'.NMN'.{PCOAMN'.NMN'}_SK.HASHE(NMN'))/\request(MN,MNMAG2,mn_mnmag2_pcoamn,PCOAMN')
+	11.State=11/\RCV(MNMAG2ADDR'.MNMAG1ADDR'.{PCOAMN'.HOAMN'.NMN'}_SK.HASHE(NMNMAG2'.NMN'))=|>State':=13
+	13.State = 13/\RCV(HASHE(NCNMAG'.NCN').{{MSG'}_KCN}_SK1)=|>State':=14
+end role
+
+role mnmag1(MN,MNMAG1,MNMAG2,CNMAG,CN: agent,
+	KCN,KMN: public_key,
+	SK,SK1,SKMN,SKMN1: symmetric_key,
+	HASHE: hash_func,
+	SND,RCV: channel(dy))
+	played_by MNMAG1 def= 
+
+local NCNMAG,NCN,MSG,MNMAG2ADDR,MNADDR,PCOAMN,HOAMN,NMN,NMNMAG2,CONN1,CONN2,NMNMAG21,NMNMAG1,MNMAG1ADDR:  text ,State: nat
+	init State :=1
+	transition
+
+	1.State =1 /\ RCV(CONN1')=|>State':=6/\MNMAG1ADDR':=new()/\MNADDR':=new()/\PCOAMN':=new()/\NMNMAG1':=new()/\NMN':=new()/\NMNMAG1':=new()/\SND(MNMAG1ADDR'.MNADDR'. NMN'. NMNMAG1'. {PCOAMN'.NMNMAG1'}_SKMN.HASHE(NMN'.NMNMAG1'))
+6.State = 6/\RCV(MNMAG2ADDR.MNMAG1ADDR.{PCOAMN.NMNMAG21'}_SK.HASHE(NMNMAG21'.NMNMAG1))/\RCV(HASHE(NCNMAG'.NCN').{{MSG'}_KCN}_SK1)=|>State':=10/\SND(HASHE(NCNMAG'.NCN').{{MSG'}_KCN}_SK1)
+
+	
+		
+
+end role
+
+role mnmag2(MN,MNMAG1,MNMAG2,CNMAG,CN: agent,
+	KCN,KMN: public_key,
+	SK,SK1,SKMN,SKMN1: symmetric_key,
+	HASHE: hash_func,
+	SND,RCV,RCV1: channel(dy))
+	played_by MNMAG2 def= 
+
+local NCNMAG,NCN,MSG,MNMAG2ADDR,MNMAG1ADDR,MNADDR,PCOAMN,HOAMN,NMN,NMNMAG2,CONN1,CONN2,NMNMAG21,NMNMAG1:  text ,State: nat
+	init State :=2
+	transition
+
+	2.State =2 /\ RCV(MNADDR'.MNMAG2ADDR'.NMN'.{PCOAMN'.NMN'}_SK.HASHE(NMN'))=|>
+	State':=7/\MNMAG2ADDR':=new()/\MNMAG1ADDR':=new()/\PCOAMN':=new()/\HOAMN':=new()/\NMN':=new()/\NMNMAG2':=new()/\SND(MNMAG2ADDR'.MNMAG1ADDR'.{PCOAMN'.HOAMN'.NMN'}_SK.HASHE(NMNMAG2'.NMN'))/\NMNMAG21':=new()/\SND(MNMAG2ADDR.MNMAG1ADDR.{PCOAMN.NMNMAG21'}_SK.HASHE(NMNMAG21'.NMNMAG1))/\witness(MNMAG2,MN,mn_mnmag2_pcoamn,PCOAMN')
+	7.State = 7/\RCV(HASHE(NCNMAG'.NCN').{{MSG'}_KCN}_SK1)=|>State':=12/\SND(HASHE(NCNMAG'.NCN').{{MSG'}_KCN}_SK1)
+
+
+
+		
+
+end role
+
+role cnmag(MN,MNMAG1,MNMAG2,CNMAG,CN: agent,
+	KCN,KMN: public_key,
+	SK,SK1,SKMN,SKMN1: symmetric_key,
+	HASHE: hash_func,
+	SND,RCV: channel(dy))
+	played_by CNMAG def= 
+	local 
+	State: nat,
+NCNMAG,NCN,MSG,MNADDR,PCOAMN,HOAMN,NMN,NMNMAG2,CONN1,CONN2,MNMAG1ADDR,MNMAG2DADDR,NMNMAG21,NMNMAG1: text 
+	
+	init 
+	State := 3
+	transition
+
+	3.State =  3/\ RCV(HASHE(NCNMAG'.NCN').{{MSG'}_KCN}_SK1)=|> State':=9/\SND(HASHE(NCNMAG'.NCN').{{MSG'}_KCN}_SK1)
+	
+end role
+
+
+role cn(MN,MNMAG1,MNMAG2,CNMAG,CN: agent,
+	KCN,KMN: public_key,
+	SK,SK1,SKMN,SKMN1: symmetric_key,
+	HASHE: hash_func,
+	SND,RCV: channel(dy))
+	played_by CN def= 
+	local NCNMAG,NCN,MSG,MNADDR,PCOAMN,HOAMN,NMN,NMNMAG2,CONN1,CONN2,MNMAG1ADDR,MNMAG2DADDR,NMNMAG21,NMNMAG1:text,State: nat
+	init State := 4
+	transition
+
+ 	4.State = 4/\RCV(start)=|>
+	State':=8/\NCNMAG':=new()/\NCN':=new()/\MSG':=new()/\SND(HASHE(NCNMAG'.NCN').{{MSG'}_KCN}_SK1)/\secret(MSG',msg,{CN,CNMAG})
+end role
+role session( MN,MNMAG1,MNMAG2,CNMAG,CN: agent,KCN,KMN: public_key,SK,SK1,SKMN,SKMN1: symmetric_key,HASHE: hash_func)
+def= 
+	local SMN,RMN,RMN1,SMN1,SMNMAG1,RMNMAG1,SMNMAG2,RMNMAG2,RMNMAG21,SCNMAG,RCNMAG,SCN,RCN: channel(dy) 
+
+	composition 
+	mn( MN,MNMAG1,MNMAG2,CNMAG,CN,KCN,KMN,SK,SK1,SKMN,SKMN1,HASHE,SMN,RMN,RMN1,SMN1) 
+               /\ mnmag1(MN,MNMAG1,MNMAG2,CNMAG,CN,KCN,KMN,SK,SK1,SKMN,SKMN1,HASHE,SMNMAG1,RMNMAG1)
+	/\ mnmag2(MN,MNMAG1,MNMAG2,CNMAG,CN,KCN,KMN,SK,SK1,SKMN,SKMN1,HASHE,SMNMAG2,RMNMAG2,RMNMAG21)
+	 /\cnmag(MN,MNMAG1,CNMAG,MNMAG2,CN,KCN,KMN,SK,SK1,SKMN,SKMN1,HASHE,SCNMAG,RCNMAG)  
+               /\cn(MN,MNMAG1,MNMAG2,CNMAG,CN,KCN,KMN,SK,SK1,SKMN,SKMN1,HASHE,SCN,RCN) 
+	 
+end role 
+
+role environment() 
+def= 
+
+const  mn1,mnmag11,mnmag22,cnmag1,cn1: agent,
+	kcn,kmn: public_key,
+	sk,sk1,skmn,skmn1: symmetric_key,
+	hashe: hash_func,
+pcoamn,msg,mn_mnmag2_pcoamn,mn_mnmag2_nmn,mnmag1_mn_pcoamn,mn_mnmag2_pcoamn:protocol_id
+
+   composition 
+	session(mn1,mnmag11,mnmag22,cnmag1,cn1,kcn,kmn,sk,sk1,skmn,skmn1,hashe)
+end role 
+goal
+ 
+
+%%secrecy_of pcoamn
+secrecy_of msg
+
+authentication_on mn_mnmag2_pcoamn
+
+end goal
+
+
+environment()

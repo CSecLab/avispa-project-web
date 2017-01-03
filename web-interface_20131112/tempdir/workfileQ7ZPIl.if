@@ -1,0 +1,274 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileQ7ZPIl
+
+section signature:
+
+state_role_USIM: agent * agent * agent * agent * public_key * symmetric_key * public_key * agent * nat * text * text * text * text * text * text * text * nat -> fact
+state_role_MME: agent * agent * agent * public_key * nat * text * text * text * text * symmetric_key * text * public_key * text * text * nat -> fact
+state_role_HSS: agent * agent * agent * agent * agent * public_key * public_key * symmetric_key * public_key * nat * symmetric_key * symmetric_key * text * text * text * set(pair(symmetric_key,pair(symmetric_key,text))) * set(agent) * set(pair(public_key,pair(text,pair(text,text)))) * set(agent) * nat -> fact
+state_role_HIU: agent * agent * agent * public_key * public_key * public_key * nat * text * text * set(agent) * nat -> fact
+state_role_AAAWLAN: agent * agent * agent * agent * agent * public_key * public_key * nat * public_key * text * symmetric_key * symmetric_key * text * symmetric_key * nat -> fact
+state_role_AP: agent * agent * public_key * agent * nat * symmetric_key * nat -> fact
+
+
+section types:
+
+set_201, set_200, set_199, set_198, set_193: set
+MGoal, start: message
+Dummy_LK, Dummy_LID, Dummy_HK, dummy_sk, LK, LID, CK, ck, HK, Dummy_CK: symmetric_key
+Ki, KHSS, KWLAN, Dummy_Ki, dummy_pk, ki, khss, kwlan: public_key
+Set_88, Dummy_Set_88: set(pair(public_key,pair(text,pair(text,text))))
+Dummy_Set_104, Set_89, Set_86, ASGoal, Dummy_Set_89, Set_104, Dummy_Set_86: set(agent)
+Set_85, Dummy_Set_85: set(pair(symmetric_key,pair(symmetric_key,text)))
+AAAWLAN, HSS, HIU, A2Goal, A1Goal, usim, aaawlan, USIM, MME, hss, hiu, mme, ap, AP, i: agent
+auth_1, sec_n3, sec_n2, auth_2, sec_n1: protocol_id
+N1, Dummy_N1, Dummy_Nreauth, Dummy_N2, dummy_nonce, Nreauth, N2, RES, MAC, AUTH, RAND, akaidentity, akachallenge, akanotification, eapolrequestidentity, eapolresponse, eapmethod, eapsuccess, ksderivation, accessaccepteapsuccess, Dummy_RES, Dummy_MAC, Dummy_AUTH, Dummy_RAND: text
+State, 5, SID, 4, Dummy_State, 3, SID2, SID1, 7, 6, 2, 1, 0, 8: nat
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(usim).
+ iknows(mme).
+ iknows(hss).
+ iknows(hiu).
+ iknows(aaawlan).
+ iknows(ap).
+ iknows(khss).
+ iknows(kwlan).
+ iknows(i).
+ state_role_AP(ap,aaawlan,kwlan,usim,0,dummy_sk,3).
+ state_role_AAAWLAN(aaawlan,hiu,hss,usim,ap,kwlan,khss,0,dummy_pk,dummy_nonce,dummy_sk,dummy_sk,dummy_nonce,dummy_sk,4).
+ state_role_HIU(hiu,hss,aaawlan,kwlan,khss,ki,0,dummy_nonce,dummy_nonce,set_193,5).
+ state_role_HSS(hss,mme,usim,hiu,aaawlan,kwlan,khss,ck,ki,0,dummy_sk,dummy_sk,dummy_nonce,dummy_nonce,dummy_nonce,set_198,set_199,set_200,set_201,6).
+ state_role_MME(mme,usim,hss,khss,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,dummy_nonce,dummy_pk,dummy_nonce,dummy_nonce,7).
+ state_role_USIM(usim,mme,hss,aaawlan,khss,ck,ki,ap,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,8)
+
+
+section rules:
+
+step step_0 (AP,AAAWLAN,KWLAN,USIM,HK,SID) :=
+ state_role_AP(AP,AAAWLAN,KWLAN,USIM,0,HK,SID).
+ iknows(start)
+ =>
+ state_role_AP(AP,AAAWLAN,KWLAN,USIM,1,HK,SID).
+ iknows(apply(eapolrequestidentity,pair(AP,USIM)))
+
+step step_1 (AP,AAAWLAN,KWLAN,USIM,HK,SID) :=
+ state_role_AP(AP,AAAWLAN,KWLAN,USIM,1,HK,SID).
+ iknows(apply(eapolresponse,pair(USIM,AP)))
+ =>
+ state_role_AP(AP,AAAWLAN,KWLAN,USIM,2,HK,SID)
+
+step step_2 (AP,AAAWLAN,KWLAN,USIM,Dummy_HK,SID,HK) :=
+ state_role_AP(AP,AAAWLAN,KWLAN,USIM,2,Dummy_HK,SID).
+ iknows(apply(accessaccepteapsuccess,pair(AAAWLAN,pair(AP,HK))))
+ =>
+ state_role_AP(AP,AAAWLAN,KWLAN,USIM,3,HK,SID).
+ iknows(apply(eapsuccess,pair(AP,USIM)))
+
+step step_3 (AP,AAAWLAN,KWLAN,USIM,HK,SID) :=
+ state_role_AP(AP,AAAWLAN,KWLAN,USIM,3,HK,SID).
+ iknows(apply(ksderivation,pair(USIM,AP)))
+ =>
+ state_role_AP(AP,AAAWLAN,KWLAN,USIM,4,HK,SID).
+ iknows(apply(ksderivation,pair(AP,USIM)))
+
+step step_4 (AAAWLAN,HIU,HSS,USIM,AP,KWLAN,KHSS,Dummy_Ki,Dummy_N2,LID,LK,Nreauth,HK,SID,Ki,N2) :=
+ state_role_AAAWLAN(AAAWLAN,HIU,HSS,USIM,AP,KWLAN,KHSS,0,Dummy_Ki,Dummy_N2,LID,LK,Nreauth,HK,SID).
+ iknows(crypt(KWLAN,pair(Ki,N2)))
+ =>
+ state_role_AAAWLAN(AAAWLAN,HIU,HSS,USIM,AP,KWLAN,KHSS,1,Ki,N2,LID,LK,Nreauth,HK,SID)
+
+step step_5 (AAAWLAN,HIU,HSS,USIM,AP,KWLAN,KHSS,Ki,N2,Dummy_LID,Dummy_LK,Dummy_Nreauth,HK,SID,LID,LK,Nreauth) :=
+ state_role_AAAWLAN(AAAWLAN,HIU,HSS,USIM,AP,KWLAN,KHSS,1,Ki,N2,Dummy_LID,Dummy_LK,Dummy_Nreauth,HK,SID).
+ iknows(pair(HSS,crypt(KWLAN,pair(LK,pair(LID,Nreauth)))))
+ =>
+ state_role_AAAWLAN(AAAWLAN,HIU,HSS,USIM,AP,KWLAN,KHSS,2,Ki,N2,LID,LK,Nreauth,HK,SID)
+
+step step_6 (AAAWLAN,HIU,HSS,USIM,AP,KWLAN,KHSS,Ki,N2,LID,LK,Nreauth,Dummy_HK,SID,HK) :=
+ state_role_AAAWLAN(AAAWLAN,HIU,HSS,USIM,AP,KWLAN,KHSS,2,Ki,N2,LID,LK,Nreauth,Dummy_HK,SID).
+ iknows(apply(eapmethod,pair(USIM,AAAWLAN)))
+=[exists HK]=>
+ state_role_AAAWLAN(AAAWLAN,HIU,HSS,USIM,AP,KWLAN,KHSS,3,Ki,N2,LID,LK,Nreauth,HK,SID).
+ iknows(apply(eapmethod,pair(AAAWLAN,USIM))).
+ iknows(apply(accessaccepteapsuccess,pair(AAAWLAN,pair(AP,HK))))
+
+step step_7 (HIU,HSS,AAAWLAN,KWLAN,KHSS,Ki,Dummy_N1,Dummy_N2,Dummy_Set_104,SID,N1,N2) :=
+ state_role_HIU(HIU,HSS,AAAWLAN,KWLAN,KHSS,Ki,0,Dummy_N1,Dummy_N2,Dummy_Set_104,SID).
+ iknows(apply(akaidentity,N1))
+=[exists N2]=>
+ state_role_HIU(HIU,HSS,AAAWLAN,KWLAN,KHSS,Ki,1,N1,N2,Dummy_Set_104,SID).
+ witness(HIU,HSS,auth_1,N2).
+ iknows(crypt(KHSS,pair(Ki,pair(N1,N2)))).
+ iknows(crypt(KWLAN,pair(Ki,N2))).
+ secret(N2,sec_n1,Dummy_Set_104).
+ contains(HIU,Dummy_Set_104).
+ contains(HSS,Dummy_Set_104).
+ contains(AAAWLAN,Dummy_Set_104)
+
+step step_8 (HSS,MME,USIM,HIU,AAAWLAN,KWLAN,KHSS,CK,Ki,LID,LK,N2,Dummy_N1,Nreauth,Set_85,Set_86,Set_88,Set_89,SID,N1) :=
+ state_role_HSS(HSS,MME,USIM,HIU,AAAWLAN,KWLAN,KHSS,CK,Ki,0,LID,LK,N2,Dummy_N1,Nreauth,Set_85,Set_86,Set_88,Set_89,SID).
+ iknows(apply(akaidentity,pair(MME,HSS)))
+=[exists N1]=>
+ state_role_HSS(HSS,MME,USIM,HIU,AAAWLAN,KWLAN,KHSS,CK,Ki,1,LID,LK,N2,N1,Nreauth,Set_85,Set_86,Set_88,Set_89,SID).
+ iknows(apply(akaidentity,N1))
+
+step step_9 (HSS,MME,USIM,HIU,AAAWLAN,KWLAN,KHSS,CK,Ki,Dummy_LID,Dummy_LK,Dummy_N2,N1,Dummy_Nreauth,Dummy_Set_85,Dummy_Set_86,Dummy_Set_88,Dummy_Set_89,SID,LID,LK,N2,Nreauth) :=
+ state_role_HSS(HSS,MME,USIM,HIU,AAAWLAN,KWLAN,KHSS,CK,Ki,1,Dummy_LID,Dummy_LK,Dummy_N2,N1,Dummy_Nreauth,Dummy_Set_85,Dummy_Set_86,Dummy_Set_88,Dummy_Set_89,SID).
+ iknows(crypt(KHSS,pair(Ki,pair(N1,N2))))
+=[exists LK,LID,Nreauth]=>
+ state_role_HSS(HSS,MME,USIM,HIU,AAAWLAN,KWLAN,KHSS,CK,Ki,2,LID,LK,N2,N1,Nreauth,Dummy_Set_85,Dummy_Set_86,Dummy_Set_88,Dummy_Set_89,SID).
+ request(HSS,HIU,auth_1,N2,SID).
+ iknows(pair(HSS,crypt(KWLAN,pair(LK,pair(LID,Nreauth))))).
+ secret(Dummy_Set_85,sec_n2,Dummy_Set_86).
+ iknows(apply(akanotification,scrypt(CK,pair(Ki,pair(N1,pair(N2,Nreauth)))))).
+ secret(Dummy_Set_88,sec_n3,Dummy_Set_89).
+ contains(pair(LK,pair(LID,Nreauth)),Dummy_Set_85).
+ contains(HSS,Dummy_Set_86).
+ contains(AAAWLAN,Dummy_Set_86).
+ contains(pair(Ki,pair(N1,pair(N2,Nreauth))),Dummy_Set_88).
+ contains(HSS,Dummy_Set_89).
+ contains(MME,Dummy_Set_89).
+ contains(USIM,Dummy_Set_89)
+
+step step_10 (MME,USIM,HSS,KHSS,Dummy_RAND,Dummy_AUTH,Dummy_MAC,RES,CK,N2,Ki,N1,Nreauth,SID,RAND,AUTH,MAC) :=
+ state_role_MME(MME,USIM,HSS,KHSS,0,Dummy_RAND,Dummy_AUTH,Dummy_MAC,RES,CK,N2,Ki,N1,Nreauth,SID).
+ iknows(akaidentity)
+=[exists RAND,AUTH,MAC]=>
+ state_role_MME(MME,USIM,HSS,KHSS,1,RAND,AUTH,MAC,RES,CK,N2,Ki,N1,Nreauth,SID).
+ iknows(apply(akachallenge,pair(RAND,pair(AUTH,MAC))))
+
+step step_11 (MME,USIM,HSS,KHSS,RAND,AUTH,MAC,Dummy_RES,CK,N2,Ki,N1,Nreauth,SID,RES) :=
+ state_role_MME(MME,USIM,HSS,KHSS,1,RAND,AUTH,MAC,Dummy_RES,CK,N2,Ki,N1,Nreauth,SID).
+ iknows(apply(akachallenge,pair(RES,MAC)))
+ =>
+ state_role_MME(MME,USIM,HSS,KHSS,2,RAND,AUTH,MAC,RES,CK,N2,Ki,N1,Nreauth,SID).
+ iknows(apply(akaidentity,pair(MME,HSS)))
+
+step step_12 (MME,USIM,HSS,KHSS,RAND,AUTH,MAC,RES,Dummy_CK,Dummy_N2,Dummy_Ki,Dummy_N1,Dummy_Nreauth,SID,CK,N2,Ki,N1,Nreauth) :=
+ state_role_MME(MME,USIM,HSS,KHSS,2,RAND,AUTH,MAC,RES,Dummy_CK,Dummy_N2,Dummy_Ki,Dummy_N1,Dummy_Nreauth,SID).
+ iknows(apply(akanotification,scrypt(CK,pair(Ki,pair(N1,pair(N2,Nreauth))))))
+ =>
+ state_role_MME(MME,USIM,HSS,KHSS,3,RAND,AUTH,MAC,RES,CK,N2,Ki,N1,Nreauth,SID).
+ iknows(apply(akanotification,scrypt(CK,pair(Ki,pair(N1,pair(N2,Nreauth))))))
+
+step step_13 (USIM,MME,HSS,AAAWLAN,KHSS,CK,Ki,AP,RAND,AUTH,MAC,RES,N2,N1,Nreauth,SID) :=
+ state_role_USIM(USIM,MME,HSS,AAAWLAN,KHSS,CK,Ki,AP,0,RAND,AUTH,MAC,RES,N2,N1,Nreauth,SID).
+ iknows(start)
+ =>
+ state_role_USIM(USIM,MME,HSS,AAAWLAN,KHSS,CK,Ki,AP,1,RAND,AUTH,MAC,RES,N2,N1,Nreauth,SID).
+ iknows(akaidentity)
+
+step step_14 (USIM,MME,HSS,AAAWLAN,KHSS,CK,Ki,AP,Dummy_RAND,Dummy_AUTH,Dummy_MAC,Dummy_RES,N2,N1,Nreauth,SID,RAND,AUTH,MAC,RES) :=
+ state_role_USIM(USIM,MME,HSS,AAAWLAN,KHSS,CK,Ki,AP,1,Dummy_RAND,Dummy_AUTH,Dummy_MAC,Dummy_RES,N2,N1,Nreauth,SID).
+ iknows(apply(akachallenge,pair(RAND,pair(AUTH,MAC))))
+=[exists RES]=>
+ state_role_USIM(USIM,MME,HSS,AAAWLAN,KHSS,CK,Ki,AP,2,RAND,AUTH,MAC,RES,N2,N1,Nreauth,SID).
+ iknows(apply(akachallenge,pair(RES,MAC)))
+
+step step_15 (USIM,MME,HSS,AAAWLAN,KHSS,CK,Ki,AP,RAND,AUTH,MAC,RES,Dummy_N2,Dummy_N1,Dummy_Nreauth,SID,N2,N1,Nreauth) :=
+ state_role_USIM(USIM,MME,HSS,AAAWLAN,KHSS,CK,Ki,AP,2,RAND,AUTH,MAC,RES,Dummy_N2,Dummy_N1,Dummy_Nreauth,SID).
+ iknows(apply(akanotification,scrypt(CK,pair(Ki,pair(N1,pair(N2,Nreauth))))))
+ =>
+ state_role_USIM(USIM,MME,HSS,AAAWLAN,KHSS,CK,Ki,AP,3,RAND,AUTH,MAC,RES,N2,N1,Nreauth,SID)
+
+step step_16 (USIM,MME,HSS,AAAWLAN,KHSS,CK,Ki,AP,RAND,AUTH,MAC,RES,N2,N1,Nreauth,SID) :=
+ state_role_USIM(USIM,MME,HSS,AAAWLAN,KHSS,CK,Ki,AP,3,RAND,AUTH,MAC,RES,N2,N1,Nreauth,SID).
+ iknows(apply(eapolrequestidentity,pair(AP,USIM)))
+ =>
+ state_role_USIM(USIM,MME,HSS,AAAWLAN,KHSS,CK,Ki,AP,4,RAND,AUTH,MAC,RES,N2,N1,Nreauth,SID).
+ iknows(apply(eapolresponse,pair(USIM,AP))).
+ iknows(apply(eapmethod,pair(USIM,AAAWLAN)))
+
+step step_17 (USIM,MME,HSS,AAAWLAN,KHSS,CK,Ki,AP,RAND,AUTH,MAC,RES,N2,N1,Nreauth,SID) :=
+ state_role_USIM(USIM,MME,HSS,AAAWLAN,KHSS,CK,Ki,AP,4,RAND,AUTH,MAC,RES,N2,N1,Nreauth,SID).
+ iknows(apply(eapmethod,pair(AAAWLAN,USIM)))
+ =>
+ state_role_USIM(USIM,MME,HSS,AAAWLAN,KHSS,CK,Ki,AP,5,RAND,AUTH,MAC,RES,N2,N1,Nreauth,SID)
+
+step step_18 (USIM,MME,HSS,AAAWLAN,KHSS,CK,Ki,AP,RAND,AUTH,MAC,RES,N2,N1,Nreauth,SID) :=
+ state_role_USIM(USIM,MME,HSS,AAAWLAN,KHSS,CK,Ki,AP,5,RAND,AUTH,MAC,RES,N2,N1,Nreauth,SID).
+ iknows(apply(eapsuccess,pair(AP,USIM)))
+ =>
+ state_role_USIM(USIM,MME,HSS,AAAWLAN,KHSS,CK,Ki,AP,6,RAND,AUTH,MAC,RES,N2,N1,Nreauth,SID).
+ iknows(apply(ksderivation,pair(USIM,AP)))
+
+step step_19 (USIM,MME,HSS,AAAWLAN,KHSS,CK,Ki,AP,RAND,AUTH,MAC,RES,N2,N1,Nreauth,SID) :=
+ state_role_USIM(USIM,MME,HSS,AAAWLAN,KHSS,CK,Ki,AP,6,RAND,AUTH,MAC,RES,N2,N1,Nreauth,SID).
+ iknows(apply(ksderivation,pair(AP,USIM)))
+ =>
+ state_role_USIM(USIM,MME,HSS,AAAWLAN,KHSS,CK,Ki,AP,7,RAND,AUTH,MAC,RES,N2,N1,Nreauth,SID)
+
+
+section properties:
+
+property authentication_on_auth_1 (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,auth_1,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,auth_1,MGoal))
+     /\ ((request(A1Goal,A2Goal,auth_1,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,auth_1,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_auth_2 (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,auth_2,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,auth_2,MGoal))
+     /\ ((request(A1Goal,A2Goal,auth_2,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,auth_2,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property secrecy_of_sec_n1 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_n1,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_sec_n2 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_n2,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_sec_n3 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_n3,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state authentication_on_auth_1 (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,auth_1,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,auth_1,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_auth_1 (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,auth_1,MGoal,SID1).
+ request(A1Goal,A2Goal,auth_1,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_auth_2 (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,auth_2,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,auth_2,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_auth_2 (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,auth_2,MGoal,SID1).
+ request(A1Goal,A2Goal,auth_2,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state secrecy_of_sec_n1 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_n1,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_sec_n2 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_n2,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_sec_n3 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_n3,ASGoal) &
+ not(contains(i,ASGoal))
+

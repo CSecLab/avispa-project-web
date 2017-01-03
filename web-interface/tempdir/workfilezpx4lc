@@ -1,0 +1,92 @@
+role  responder(userA, userB  : agent,
+		H : hash_func,
+           	Snd, Rcv: channel(dy),
+	   	IPubKey, RPubKey : public_key)
+played_by userB
+def=
+         local State  : nat,
+         UIDA,TS,TK,KAB:  text
+         const alice_bob,  bob_alice, sub1 : protocol_id
+
+   init  State := 0
+
+
+  transition
+   1. State   = 0 /\ Rcv({TS'.TK'.UIDA}_inv(IPubKey)) =|>  
+      State' := 1 /\ KAB' := new()
+                  /\ Snd({KAB'.TS'}_inv(RPubKey))
+                  /\ witness (userB, userA, bob_alice, KAB')
+                  /\ request (userA, userB, alice_bob, TK')
+                    
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role initiator (userA,userB: agent,
+	   	H : hash_func,
+           	Snd, Rcv: channel(dy),
+	   	IPubKey, RPubKey : public_key)
+played_by userA
+def=
+         local State  : nat,
+         UIDA,R, TK, TS, KAB:  text
+         const alice_bob,  bob_alice, sub1 : protocol_id
+
+   init  State := 0
+
+  transition
+   1. State   = 0 /\ Rcv(start) =|>
+      State' := 1 /\ R':=new()
+      		  /\ UIDA' := new()
+                  /\ TK' := R'.h(UIDA)
+                  /\ TS' := new()
+                  /\ Snd({TS'.TK'.UIDA}_inv(IPubKey)) 
+                  /\ witness (userA, userB, alice_bob, TK')
+   2. State = 1   /\ Rcv({KAB'.TS'}_inv(RPubKey)) =|> 
+      State' := 2 /\ request (userB, userA, bob_alice, KAB')
+      		  /\ secret({KAB'},sub1,{userA,userB})
+                  
+ 
+                  
+ end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(userA,userB: agent,
+             H: hash_func
+	)
+def=
+
+  local  SA, SB, RA, RB : channel (dy),
+         IPubKey, RPubKey : public_key
+         const alice_bob, bob_alice, sub1 : protocol_id
+           
+  composition
+           initiator(userA,userB,H, SA, RA,IPubKey, RPubKey)
+       /\  responder(userA,userB,H, SB, RB,IPubKey, RPubKey)
+end role 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+def=
+
+  const a,b : agent,
+        h   : hash_func,
+        uaid :  text,
+        pub_keya,pub_keyb :public_key,
+        alice_bob,  bob_alice, sub1 : protocol_id
+
+  intruder_knowledge = {a, b,h,uaid,pub_keya,pub_keyb}
+
+  composition
+	session(a,b,h)  
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+  secrecy_of sub1
+  authentication_on alice_bob
+  authentication_on bob_alice
+end goal
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

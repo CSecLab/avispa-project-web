@@ -1,0 +1,91 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileVf9YDN
+
+section signature:
+
+state_tpa: agent * agent * agent * message * message * message * public_key * public_key * public_key * hash_func * nat * text * message * message * nat -> fact
+state_patient: agent * agent * agent * message * message * message * public_key * public_key * public_key * hash_func * nat * text * text * message * message * message * nat -> fact
+state_hsp: agent * agent * agent * message * message * message * public_key * public_key * public_key * hash_func * nat * text * text * message * message * message * set(agent) * set(agent) * nat -> fact
+
+
+section types:
+
+p2, p1: protocol_id
+h, H: hash_func
+ASGoal, Set_30, Set_27, Dummy_Set_30, Dummy_Set_27: set(agent)
+ka, kb, kc, Ka, Kb, Kc: public_key
+3, 2, State, 4, 1, 5, 0, SID, Dummy_State: nat
+MGoal, id_A, id_B, id_C, DS, X, ID_A, ID_B, ID_C, H2, start, H1, Dummy_X, Dummy_DS, Dummy_H2, Dummy_H1, dummy_msg: message
+PI, TD, Dummy_PI, Dummy_TD, dummy_nonce: text
+a, b, c, A, B, C, i: agent
+set_102, set_101: set
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(c).
+ iknows(id_A).
+ iknows(id_B).
+ iknows(id_C).
+ iknows(h).
+ iknows(i).
+ state_hsp(a,b,c,id_A,id_B,id_C,ka,kb,kc,h,0,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,set_101,set_102,3).
+ state_patient(b,a,c,id_A,id_B,id_C,ka,kb,kc,h,1,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,4).
+ state_tpa(c,a,b,id_A,id_B,id_C,ka,kb,kc,h,2,dummy_nonce,dummy_msg,dummy_msg,5)
+
+
+section rules:
+
+step step_0 (A,B,C,ID_A,ID_B,ID_C,Ka,Kb,Kc,H,Dummy_TD,Dummy_PI,Dummy_H1,Dummy_H2,Dummy_DS,Dummy_Set_27,Dummy_Set_30,SID,TD,PI) :=
+ state_hsp(A,B,C,ID_A,ID_B,ID_C,Ka,Kb,Kc,H,0,Dummy_TD,Dummy_PI,Dummy_H1,Dummy_H2,Dummy_DS,Dummy_Set_27,Dummy_Set_30,SID).
+ iknows(start)
+=[exists PI,TD]=>
+ state_hsp(A,B,C,ID_A,ID_B,ID_C,Ka,Kb,Kc,H,5,TD,PI,crypt(Kb,TD),crypt(Kc,PI),crypt(inv(Ka),apply(H,pair(crypt(Kb,TD),crypt(Kc,PI)))),Dummy_Set_27,Dummy_Set_30,SID).
+ iknows(pair(ID_A,pair(crypt(Kb,TD),pair(crypt(Kc,PI),pair(crypt(Kc,PI),crypt(inv(Ka),apply(H,pair(crypt(Kb,TD),crypt(Kc,PI))))))))).
+ secret(TD,p1,Dummy_Set_27).
+ secret(PI,p2,Dummy_Set_30).
+ contains(A,Dummy_Set_27).
+ contains(B,Dummy_Set_27).
+ contains(A,Dummy_Set_30).
+ contains(C,Dummy_Set_30)
+
+step step_1 (B,A,C,ID_A,ID_B,ID_C,Ka,Kb,Kc,H,Dummy_TD,Dummy_PI,Dummy_X,Dummy_DS,Dummy_H2,SID,TD,PI,DS,H2) :=
+ state_patient(B,A,C,ID_A,ID_B,ID_C,Ka,Kb,Kc,H,1,Dummy_TD,Dummy_PI,Dummy_X,Dummy_DS,Dummy_H2,SID).
+ iknows(pair(ID_A,pair(crypt(Kb,TD),pair(crypt(Kc,PI),pair(H2,DS)))))
+ =>
+ state_patient(B,A,C,ID_A,ID_B,ID_C,Ka,Kb,Kc,H,4,TD,PI,crypt(Kb,Dummy_TD),DS,H2,SID).
+ iknows(pair(ID_A,pair(ID_B,pair(crypt(Kc,PI),pair(crypt(Kb,Dummy_TD),Dummy_DS)))))
+
+step step_2 (C,A,B,ID_A,ID_B,ID_C,Ka,Kb,Kc,H,Dummy_PI,DS,Dummy_X,SID,PI,X) :=
+ state_tpa(C,A,B,ID_A,ID_B,ID_C,Ka,Kb,Kc,H,2,Dummy_PI,DS,Dummy_X,SID).
+ iknows(pair(ID_A,pair(ID_B,pair(crypt(Kc,PI),pair(X,DS)))))
+ =>
+ state_tpa(C,A,B,ID_A,ID_B,ID_C,Ka,Kb,Kc,H,3,PI,DS,X,SID)
+
+
+section properties:
+
+property secrecy_of_p1 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,p1,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_p2 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,p2,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_p1 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,p1,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_p2 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,p2,ASGoal) &
+ not(contains(i,ASGoal))
+

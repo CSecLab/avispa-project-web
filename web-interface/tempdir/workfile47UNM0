@@ -1,0 +1,88 @@
+%MyProtocol
+
+role alice (A, S, B : agent,
+            Kas : symmetric_key,
+			Snd, Rcv : channel(dy),
+			SndB, RcvB: channel(dy)) played_by A def=
+			
+local
+	State: nat,
+	Na : message, 
+	Nas : text,
+	Kab : text
+init
+	State:=0
+	
+transition
+1. State=0 / Rcv(start) =|>
+	State'=1
+	/ Na':= new()
+	/ Snd({Na'.B}_Kas)
+	/ secret(Na', na, {A,S})
+	
+2. State=1 / Rcv({Nas.Kab}_Kas)=|>
+   State'=2 /
+   SndB({Nas}_Kab)
+   
+3. State=2 / RcvB({Na}_Kas) =|> 
+	State'=3
+	
+end_role
+
+
+
+role bob (B, S, A: agent,
+		  Kbs : symmetric_key,
+		  Snd, Rcv: channel(dy),
+		  Snda, Rcva: channel(dy)) played_by B def=
+
+local
+	State: nat,
+	Nb : message,
+	Nas: text,
+	Kas: text
+	
+init
+	State:=0
+
+transition
+1.	State = 0 =|>
+	Nb'= new(),
+	State'=1,
+	Snd({Nb'.A}_Kbs)
+
+2.  State=1 / Rcv({Nas.Kab}_Kbs) / Rcva({Nb}_Kab) =|>
+	State'=2 /
+	Snda({Nas}_Kab)
+	
+	
+end_role
+
+role server (A, B, S: agent,
+			 Kas, Kbs: symmetric_key,
+			 Snda, Rcva: channel(dy),
+			 Sndb, Rcvb: channel(dy)) played_by S def=
+
+local
+	State :nat,
+    Nb : text,
+    Na : text,
+	Nas : message,
+	Kab : message
+
+init
+	State:=0
+	
+transition
+	1. State = 0 / Rcva({Na.B}_Kas) =|>
+	   State'=1 /
+	   Kab'= new() /
+	   Nas'= new() /
+	   Snda({Nas'.Kab}_Kas)
+	   
+	2. State = 1 / Rcvb({Nb.A}_Kbs) =|>
+	   State'=2 /
+	   Sndb({Na.Kab}_Kbs)
+	   
+end_role
+		   

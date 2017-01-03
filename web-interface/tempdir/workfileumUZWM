@@ -1,0 +1,186 @@
+role alice (UA, S, UB : agent,
+SKas : symmetric_key,
+SKbs : symmetric_key,
+% H is hash function
+H: hash_func, Snd, Rcv: channel(dy))
+played_by UA
+def=
+local State : nat,
+A,B, IDS, PWUA, PWUB, PWA, PWB, TA, TB, FA, 
+FB, REGA,SS, REGB, CA,CB,DA,DB, RA, RS, RB: text,
+PA,PB,AuthA, AuthB, GA, NA, NB, GS, LS, KSA, KSB,
+ZA, ZB, YA, LB, GB, AuthAS, AuthBS: message,
+Inc : hash_func
+const alice_server, server_bob, alice_bob, alice_server, 
+subs1, subs2, subs3: protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(start) =|>
+State' := 1  /\ FA'  := H(TA) 
+/\ PWA' := H(PWUA.FA')
+/\ Snd({A.PWA'.FA'}_SKas)
+/\ secret({PWUA,TA}, subs2, UA)
+2. State = 1 /\ Rcv({A.REGA'.CA'.DA'}_SKas) =|>
+State' := 2 /\ RA' := new() 
+/\ NA' := xor(PWA, DA')
+/\ PA' := xor(H(PWA.FA), CA)
+/\ GA' := xor(NA',RA')
+/\ AuthA' := H(A.RA'.PA')
+/\ Snd(A.AuthA'.GA) 
+
+/\ witness(UA, S, alice_server, RA') 
+/\secret({RA'},subs4,{UA,S})
+3. State = 2 /\ Rcv(B.LB'.AuthBS'.ZA') =|>
+State' := 3 /\ RB' := new()
+/\ request(UB, UA, bob_alice, RB')
+end role
+
+%******************************
+
+role server (S, UA, UB: agent,
+SKas : symmetric_key,
+SKbs : symmetric_key,
+% H is hash function
+H : hash_func,
+Snd, Rcv: channel(dy) )
+played_by S
+def=
+local State : nat,
+A,B, IDS, PWUA, PWUB, PWA, PWB, TA, TB, FA, FB, 
+REGA, SS, REGB, CA,CB,DA,DB, RA, RS, RB: text,
+AuthA, AuthB, GA, PA, PB, NA, NB, GS, LS, TrA, TrB, 
+TloginA, TloginB, KSA, KSB, ZA, ZB, YA, LB, GB, AuthAS, 
+AuthBS: message,
+Inc : hash_func
+const alice_server, server_bob, bob_alice, bob_server, subs1, 
+subs2, subs3,subs4,subs5,subs6: protocol_id
+init State :=0
+transition
+
+1. State = 0 /\ Rcv(A.PWA.FA.B.PWB.FB) =|>
+State' := 1 /\ TrA' := new()   
+/\ TloginA' := new()
+/\ SS' := new()
+/\ REGA' := H(A.PWA.H(TrA'.SS'))
+/\ CA' := xor (H(PWA.FA),H(TrA'.SS'))
+/\ DA' := xor (PWA, H(TloginA'.SS'))
+/\ Snd({A.REGA'.CA'.DA'}_SKas)
+/\ TrB' := new()
+/\ TloginB' := new()
+/\ REGB' := H(B.PWB.H(TrB'.SS))
+/\ CB' := xor (H(PWB.FB),H(TrB',SS))               
+/\ DB' := xor(PWB, H(TloginB'.SS))
+/\ secret({SS}, subs1, {S})
+/\ Snd({B.REGB.CB.DB}_SKbs)
+
+
+2. State = 1 /\ Rcv(A.RA'.AuthA'.B. RB'.AuthB) =|>
+State' := 2 /\ RS' := new()
+/\ TrA' := new()
+/\ TrB' := new()
+/\ TloginA' := new()
+/\ TloginB' := new()
+/\ KSA' := H(TloginA'.SS)
+/\ KSB' := H(TloginB'.SS)
+/\ AuthAS' := H(A.IDS.KSB'.RS')
+/\ GS'  := xor(H(TrB'.SS), RS')
+/\ ZA' := xor(H(TrA'.SS), H(KSA'.SS))
+/\ ZB' := xor(H(TrB'.SS), H(KSB'.SS))
+/\ LS' := xor(H(RA'), RB')
+/\ Snd(A.IDS.AuthAS',GS',LS',ZA',ZB')
+/\ witness(S, UB, server_bob, RS')
+/\ secret({RS'}, subs5, {UB,S})
+
+end role
+
+role bob (UB, S, UA : agent,
+SKbs : symmetric_key,
+SKas : symmetric_key,
+% H is hash function
+H: hash_func, Snd, Rcv: channel(dy))
+played_by UB
+def=
+local State : nat,
+A,B,IDS, PWUA, PWUB, PWA, PWB, TA, TB, 
+FA,  FB, SS, REGA, REGB, CA,CB,DA,DB, RA, 
+RS, RB: text,  
+AuthA, AuthB, GA, PA, PB, NA, NB, GS, LS, KSA, 
+KSB, ZA, ZB, YA, LB, GB, AuthAS, AuthBS: message,
+Inc : hash_func
+const alice_server, server_bob, alice_bob, alice_server, 
+subs1, subs2, subs3,subs4,subs5,subs6: protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(start) =|>
+State' := 1 /\ FB' := H(TB)   
+/\ PWB' := H(PWUB.FB')
+/\ Snd({B.PWB'.FB'}_SKbs)
+
+/\ secret({PWUB,TB}, subs3, UB)
+
+2. State = 1 /\ Rcv({A.REGB'.CB'.DB'}_SKbs) =|>
+% Receive smart card securely from the MRS
+% Start login phase
+State' := 2 /\  RB' := new() 
+/\ NB' := xor(PWB, DB')
+/\ PB' := xor(H(PWB.FB), CB')
+/\ GB' := xor(NB',RB')
+/\ AuthB' := H(B.RB'.PB')
+/\ Snd(B,AuthB'.GB) 
+
+/\ witness(UB, UA, bob_alice, RB') 
+/\secret({RB'},subs6,{UB})
+
+3. State = 2 /\ Rcv(A.IDS.AuthAS',GS',LS',ZA',ZB') =|>
+State' := 3 /\  RB' := new()
+/\ YA':= xor(RB', LS')
+/\ LB' := xor(YA', H(RB'))
+/\ AuthBS' := H(B.IDS.H(H(YA'.ZA')).H(RB'))
+/\ Snd(B.LB'.AuthBS'.ZA')
+%/\ request(, Ui, pserver_alice, Rk')
+end role
+
+
+role session(UA, S, UB: agent,
+SKas : symmetric_key,
+SKbs : symmetric_key,
+H: hash_func)
+def=
+local SI, SJ, RI, RJ, TI, TJ: channel (dy)
+composition
+alice(UA, S, UB, SKas, SKbs, H, SI, RI)
+/\ server(UA, S, UB, SKas, SKbs, H, SJ, RJ)
+/\ bob(UA, S, UB, SKas, SKbs, H, TI, TJ)
+end role
+
+
+role environment()
+def=
+const ua, s, ub: agent,
+skas : symmetric_key,
+skbs: symmetric_key,
+h: hash_func,
+a,b,ids, pwua, pwub, pwa, pwb, ta, tb, fa, fb, ss, 
+rega, regb, ca,cb,da,db, ra, rs, rb: text, 
+alice_server, server_bob, alice_bob, alice_server, 
+subs1, subs2, subs3,subs4,subs5,subs6: protocol_id
+
+
+intruder_knowledge = {ua, s, ub, h, fa, fb, pwa, pwb, ca,cb,da,db, rega, regb}
+composition
+session( ua, s, ub, skas, skbs, h)
+/\ session(s, ua, ub, skas, skbs, h)
+/\ session(ub, s, ua, skas, skbs, h)
+end role
+goal
+secrecy_of subs1
+secrecy_of subs2
+secrecy_of subs3
+secrecy_of subs4
+secrecy_of subs5
+secrecy_of subs6
+authentication_on alice_server_ra
+authentication_on server_bob_rs
+authentication_on bob_alice_rb
+end goal
+environment()

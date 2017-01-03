@@ -1,0 +1,211 @@
+
+PROTOCOL:
+  2pRSA: Two-Party RSA Signature Scheme
+PURPOSE:  
+ Secure signing protocol by including a trusted server as second party
+ in the signing process
+&nbsp;REFERENCE:  
+ 
+  http://www-cse.ucsd.edu/users/mihir/papers/splitkey.html
+ 
+&nbsp;MODELER:  
+ 
+  Peter Warkentin, Siemens CT IC 3, December 2004
+ 
+
+&nbsp;ALICE_BOB:  
+0. BC -&gt; S:  M.SM   with SM = {M}_inv(kc)
+                    where S checks if BC has signed, i.e. {SM}_Kbc = M
+1. S  -&gt; BC: SSM    with SSM = {SM}_inv(ks)
+2. BC -&gt; C:  M.SSM  where C checks if S has signed, i.e. {{SSM}_Ks}_Kbc = M
+
+&nbsp;LIMITATIONS:  
+
+Issues abstracted from:
+
+ General public/private keys instead of RSA exponentiation
+ Only MCS,HCS (client starts signing process)
+
+
+Currently, algebraic equations involving exponentiation exp and its 
+inverse,
+inv, cannot be handled. Therefore we use general public/private keys.
+
+&nbsp;PROBLEMS:  1
+
+ weak authentication on m
+
+&nbsp;ATTACKS:  None
+
+&nbsp;NOTES:  
+The protocol uses the RSA-based signature scheme for signing a message 
+by
+including a 3rd trusted party (Server) in the signing process.
+The RSA algorithm defines a modulus N and two exponents e,d such that
+m^(ed) = m modulo EulerFct(N). Here, e is the publicly known 
+encryption
+exponent and d the corresponding secret decryption exponent.
+The signature of a message m is obtained by computing m^d.
+The basic idea now is to split d into dc,ds with dc*ds = d modulo 
+EulerFct(N)
+and to give ds to the server and dc to the client.
+For computing a signature the client first signs with his part of d 
+yielding
+m^dc and thereafter the server signs the result with ds 
+yielding
+(m^dc)^ds = m^d. Of course, the signing may also be performed 
+the 
+ other way round: first server then client.
+Any agent who knows e can check the signature by computing signature^e
+ and
+by checking if the result is the original message.
+
+The original property is as follows: The (trusted) server S has taken 
+part in
+all complete signatures which the (possibly) bad client BC can produce.
+We model the bad client BC as a normal (good) client.
+Additionally, we define a consumer C to whom BC sends the original 
+message M
+together with the final signature SSM. 
+The intruder may intercept and modify this last message (and thus play 
+the 'bad'
+part of BC).
+The consumer checks if the signature really originated from the server 
+S.
+&nbsp;
+
+HLPSL:  
+
+role bClient (C,BC,S:   agent,
+              Kbc,Ks:   public_key,
+              H:        hash_func,
+              SND,RCV:  channel(dy))
+played_by BC def=
+
+  local State: nat,
+        M0:    text,
+        M: hash(text),
+        SSM: message
+
+  init State := 0
+
+  transition
+    1.      State = 0
+            /\ RCV(start)
+        =|&gt;
+            State' := 1
+            /\ M0' := new()
+            /\ M'  := H(M0')                    % using   hashed message
+            %/\ M' := M0'                       % using unhashed message
+            /\ SND(M'.{M'}_inv(Kbc))
+
+    2.      State = 1
+            /\ RCV(SSM')
+            /\ SSM' = {{M}_inv(Kbc)}_inv(Ks)
+        =|&gt;
+            State' := 2
+            /\ SND(M.SSM')
+
+end role
+
+
+
+role consumer(C,BC,S:   agent,
+              Kbc,Ks:   public_key,
+              H:        hash_func,
+              SND,RCV:  channel(dy))
+played_by C def=
+
+  local State: nat,
+        M: hash(text),
+        SSM: message
+
+  const m:     protocol_id
+
+  init State := 0
+
+  transition
+    1.      State = 0
+            /\ RCV(M'.SSM')
+            /\ SSM' = {{M'}_inv(Kbc)}_inv(Ks)
+        =|&gt;
+            State':= 1
+            /\ wrequest(C,S,m,M')
+
+end role
+
+
+
+role server (C,BC,S:  agent,
+             Kbc,Ks:  public_key,
+             H:       hash_func,
+             SND,RCV: channel(dy))
+played_by S def=
+
+  local State: nat,
+        M: hash(text),
+        SM: message
+
+  const m:     protocol_id
+
+  init State := 0
+
+  transition
+
+    1.     State = 0
+           /\ RCV(M'.SM')
+           /\ SM' = {M'}_inv(Kbc)
+       =|&gt;
+           State' := 1
+           /\ SND({SM'}_inv(Ks))
+           /\ witness(S,C,m,M')
+
+end role
+
+
+
+role session(C,BC,S: agent,
+             Kbc,Ks: public_key,
+             H:      hash_func)
+def=
+
+  local
+        CS, SC : channel (dy)
+  
+  composition
+           bClient( C, BC, S, Kbc,Ks, H, CS, SC)
+        /\ consumer(C, BC, S, Kbc,Ks, H, CS, SC)
+        /\ server(  C, BC, S, Kbc,Ks, H, SC, CS)
+end role
+
+
+
+
+role environment() def=
+
+  const c,bc,s    : agent,
+        kbc,ks,ki : public_key,
+        h         : hash_func
+
+  intruder_knowledge = {c,bc,s,h,kbc,ks,ki,inv(ki)}
+
+  composition
+     session(c,bc,s,kbc,ks,h)
+  /\ session(c,bc,s,kbc,ks,h)
+  /\ session(c,i, s,ki, ks,h)
+
+end role
+
+
+
+goal
+  %Consumer weakly authenticates Server on m
+  weak_authentication_on m
+end goal
+
+
+
+environment()
+
+
+

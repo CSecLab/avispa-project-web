@@ -1,0 +1,117 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileRfLkSC
+
+section signature:
+
+state_server: agent * agent * symmetric_key * hash_func * nat * text * text * message * nat -> fact
+state_smartcard: agent * agent * symmetric_key * hash_func * nat * text * text * message * nat -> fact
+
+
+section types:
+
+server_smartcard_nb, smartcard_server_na, k1: protocol_id
+Na, Nb, Dummy_Nb, Dummy_Na, dummy_nonce: text
+kscs, ksci, kis, K: symmetric_key
+5, 3, State, 4, 10, 2, 6, 1, SID, 0, Dummy_State, SID2, SID1: nat
+ASGoal: set(agent)
+K1, start, dummy_msg, MGoal: message
+Hash, h: hash_func
+s, SC, S, A2Goal, A1Goal, i, sc: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(sc).
+ iknows(s).
+ iknows(h).
+ iknows(ksci).
+ iknows(kis).
+ iknows(i).
+ state_smartcard(sc,s,kscs,h,0,dummy_nonce,dummy_nonce,dummy_msg,3).
+ state_server(s,sc,kscs,h,1,dummy_nonce,dummy_nonce,dummy_msg,4).
+ state_smartcard(sc,i,ksci,h,0,dummy_nonce,dummy_nonce,dummy_msg,6).
+ state_server(s,i,kis,h,1,dummy_nonce,dummy_nonce,dummy_msg,10)
+
+
+section rules:
+
+step step_0 (SC,S,K,Hash,Dummy_Na,Nb,K1,SID,Na) :=
+ state_smartcard(SC,S,K,Hash,0,Dummy_Na,Nb,K1,SID).
+ iknows(start)
+=[exists Na]=>
+ state_smartcard(SC,S,K,Hash,2,Na,Nb,K1,SID).
+ iknows(scrypt(K,Na))
+
+step step_1 (SC,S,K,Hash,Na,Dummy_Nb,K1,SID,Nb) :=
+ state_smartcard(SC,S,K,Hash,2,Na,Dummy_Nb,K1,SID).
+ iknows(scrypt(K,Nb))
+ =>
+ state_smartcard(SC,S,K,Hash,4,Na,Nb,K1,SID)
+
+step step_2 (S,SC,K,Hash,Dummy_Na,Dummy_Nb,K1,SID,Na,Nb) :=
+ state_server(S,SC,K,Hash,1,Dummy_Na,Dummy_Nb,K1,SID).
+ iknows(scrypt(K,Na))
+=[exists Nb]=>
+ state_server(S,SC,K,Hash,3,Na,Nb,K1,SID).
+ iknows(scrypt(K,Nb))
+
+step step_3 (S,SC,K,Hash,Na,Nb,K1,SID) :=
+ state_server(S,SC,K,Hash,3,Na,Nb,K1,SID).
+ iknows(scrypt(K1,Nb))
+ =>
+ state_server(S,SC,K,Hash,5,Na,Nb,K1,SID)
+
+
+section properties:
+
+property secrecy_of_k1 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,k1,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_server_smartcard_nb (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,server_smartcard_nb,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,server_smartcard_nb,MGoal))
+     /\ ((request(A1Goal,A2Goal,server_smartcard_nb,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,server_smartcard_nb,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_smartcard_server_na (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,smartcard_server_na,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,smartcard_server_na,MGoal))
+     /\ ((request(A1Goal,A2Goal,smartcard_server_na,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,smartcard_server_na,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_k1 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,k1,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_server_smartcard_nb (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,server_smartcard_nb,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,server_smartcard_nb,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_server_smartcard_nb (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,server_smartcard_nb,MGoal,SID1).
+ request(A1Goal,A2Goal,server_smartcard_nb,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_smartcard_server_na (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,smartcard_server_na,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,smartcard_server_na,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_smartcard_server_na (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,smartcard_server_na,MGoal,SID1).
+ request(A1Goal,A2Goal,smartcard_server_na,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

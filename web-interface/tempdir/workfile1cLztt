@@ -1,0 +1,166 @@
+% Bootstrapping PT
+% Beteiligte: PT, T, PM
+%
+% 1.    PT eingabe mail=IDpm
+%       PT generiert keypair KPs=secret KPp=public
+%       PT schickt msg: ([protocolID,protocolStep,version,identifier],KPp,IDpm)_PT
+%           protocolID = BootPT
+%           protocolStep = 1
+%           version = 1
+%           identifier = 0
+%           KPp = new()
+%           IDpm = new()
+%
+% 2.    T empfängt msg: ([protocolID,protocolStep,version,IDentifier],KPp,IDpm)_PT
+%       T generiert nonce Nt
+%       T schickt msg: ([protocolID,protocolStep,version,identifier],Nt)_T
+%           protocolID = BootPT
+%           protocolStep = 2
+%           version = 1
+%           identifier = IDt
+%           Nt = new()
+%
+% 3.    PM empfängt msg: ([protocolID,protocolStep,version,identifier],Nt)_T
+%       PM schickt msg: ([protocolID,protocolStep,version,identifier],Nt)_T
+%
+% 4.    PT empfängt msg: ([protocolID,protocolStep,version,identifier],Nt)_T
+%       PT setzt X = msg                                                              ???
+%       PT schickt msg: ([protocolID,protocolStep,version,identifier],X)_PT
+%           protocolID = BootPT
+%           protocolStep = 3
+%           version = 1
+%           identifier = 0
+%           X = ([protocolID,protocolStep,version,identifier],Nt)_T
+%
+% 5.    T empfängt msg: ([protocolID,protocolStep,version,identifier],X)_PT
+%       T extrahiert Nt' aus X und überprüft Nt = Nt'
+%       generiert neue Nonce Nt, hasht nonce als IDpt = H(Nt)
+%       schickt msg: ([protocolID,protocolStep,version,identifier],IDpt,K)_T         K???
+%           protocolID = BootPT
+%           protocolStep = 4
+%           version = 1
+%           identifier = IDt
+%           Nt = new()
+%           IDpt = H(Nt)                                                             H???
+%
+% 6.    PT empfängt msg ([protocolID,protocolStep,version,identifier],IDpt,K)_T
+%       PT hat nun IDpt - ENDE PT
+%
+%       Die Tickets werden vorerst außer acht gelassen
+
+role pt(    PT, T, PM : agent,
+            SND, RCV : channel(dy),
+            TLS, Air : symmetric_key)
+    played_by PT def=
+    local
+        Step : nat,
+        IDpm, IDpt, IDt, Nt, Protocol, Kppt : text,
+        X : message
+    init Step := 1
+    transition
+    1. Step = 1 /\ RCV(start)
+        =|>
+        % simulate new idpm
+        IDpm' := new()
+        /\ Kppt' := new()
+        /\ witness(PT,T,kppt_pt_t,Kppt')
+        /\ SND({{Protocol.Step.IDpt.Kppt'.IDpm'}_PT}_TLS)
+        /\ Step' := 3
+        % make sure that idpm is authentic
+        /\ witness(PT,T,idpm_step_one,IDpm')
+    3. Step = 3 /\ RCV({X'}_Air)
+        =|>
+        SND({{Protocol.Step.IDpt.X}_PT}_TLS)
+        /\ Step' := 5
+    5. Step = 5 /\ RCV({{Protocol.Step.IDt.IDpt'}_T}_TLS)
+        =|>
+        % make sure that received idpt was authentic
+        request(PT,T,idpt_t_pt,IDpt')
+        /\ Step' := 6
+end role
+
+role t(     PT, T, PM : agent,
+            SND, RCV : channel(dy),
+            TLS : symmetric_key)
+    played_by T def=
+    local
+        Step : nat,
+        IDpm, IDpt, IDt, Nt, Protocol, Tmp, Kppt : text,
+        X : message,
+        Hash : hash_func
+    init Step := 1
+    transition
+    1. Step = 1 /\ RCV({{Protocol.Step.IDpt.Kppt'.IDpm'}_PT}_TLS)
+        =|>
+        % build new nonce
+        Nt' := new()
+        /\ request(T,PT,kppt_pt_t,Kppt')
+        % make sure that received idpm was authentic
+        /\ request(T,PT,idpm_step_one,IDpm')
+        /\ Step' := 2
+        % put data into message X
+        /\ X' := {Protocol.Step.IDt.Nt'}_T
+        /\ SND(X')
+        % make sure that Nt is authentic
+        /\ witness(T,T,nt_t_t,Nt')
+        /\ Step' := 3
+    3. Step = 3 /\ RCV({{Protocol.Step.IDpt.X'}_PT}_TLS) /\ X' = X /\ X'(Nt) = Nt
+        =|>
+        % make sure that the received Nt was authentic
+        request(T,T,nt_t_t, X'(Nt))
+        % create a new nonce
+        /\ Nt' := new()
+        % hash this nonce as idpt
+        /\ IDpt' := Hash(Nt')
+        /\ SND({{Protocol.Step.IDt.IDpt'}_T}_TLS)
+        % make sure that the idpt is authentic
+        /\ witness(T,PT,idpt_t_pt,IDpt')
+        /\ Step' := 6
+end role
+
+role pm(    PT, T, PM : agent,
+            SND, RCV : channel(dy),
+            Air : symmetric_key)
+    played_by PM def=
+    local
+        Step : nat,
+        X : message
+    init Step := 2
+    transition
+    2. Step = 2 /\ RCV(X')
+        =|>
+        SND({X'}_Air) /\
+        Step' := 6
+end role
+
+role session(   PT, T, PM : agent,
+                TLS, Air : symmetric_key)
+    def=
+    local
+        SPT, RPT, ST, RT, SPM, RPM : channel(dy)
+    composition
+    pt(PT,T,PM,SPT,RPT,TLS, Air) /\ t(PT,T,PM,ST,RT,TLS) /\ pm(PT,T,PM,SPM,RPM, Air)
+end role
+
+role enviroment()
+    def=
+    const
+        idpm_step_one, nt_t_t, idpt_t_pt, kppt_pt_t : protocol_id,
+        tls, air : symmetric_key,
+        pt, t, pm : agent
+    intruder_knowledge = {pt, pm, t}
+    composition
+    session(pt,t,pm,tls,air)
+    /\ session(i,t,pm,tls,air)
+    /\ session(i,t,i,tls,air)
+    %/\ session(pt,t,i,tls,air)
+end role
+
+goal
+    authentication_on idpm_step_one
+    authentication_on nt_t_t
+    authentication_on idpt_t_pt
+    authentication_on kppt_pt_t
+end goal
+
+enviroment()

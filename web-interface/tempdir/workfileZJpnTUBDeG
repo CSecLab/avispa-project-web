@@ -1,0 +1,133 @@
+% Role of the initiator:
+role alice(MU, HA, FA, KGC1, KGC2 : agent,
+Kmuha : symmetric_key,
+Hash : hash_func,
+Hash3 : hash_func,
+SND_MH, RCV_MH, SND_MF, RCV_MF : channel(dy))
+played_by MU
+def=
+local State : nat,
+Pmu,B,Bmu : text,
+Kmufa : symmetric_key,
+Tmu,Tha,PWmu,NID,RPW,V,L,Xmu,Mmu,Ymu,Mha : message
+init State := 0
+transition
+1. State = 0 /\ RCV_MF(start) =|>
+State':= 2 /\ Pmu' := new()
+/\ B' := new()
+/\ PWmu' := Hash(MU.Pmu')
+/\ NID' := Hash(MU.B')
+/\ RPW' := Hash(PWmu'.B'.MU)
+/\ SND_MH({MU.NID'.RPW'}_Kmuha)
+2. State = 2 /\ RCV_MH({Ymu'}_Kmuha) =|>
+State':= 4 /\ Bmu' := new()
+/\ V' := Hash(xor(xor(MU,PWmu),B))
+/\ L' := xor(B,Hash3(Bmu'))
+/\ Xmu' := xor(Ymu',RPW)
+/\ Mmu' := Hash(Xmu'.Tmu.FA)
+/\ SND_MF(HA.NID.Mmu'.Tmu)
+3. State = 4 /\ RCV_MF(Mha'.Tha.{Kmufa'}_Xmu) =|>
+State':= 6 /\ request(MU,HA,ha_alice_kmufa,Kmufa')
+end role
+% Role of the server1:
+role server1(MU, HA, FA, KGC1, KGC2: agent,
+Kmuha : symmetric_key,
+Pfa,Rfa,Pha,Rha,Ppubkgc1,Ppubkgc2 : public_key,
+Hash,Hash1,Hash2,Add,Sub,Mul : hash_func,
+SND_HM, RCV_HM, SND_HF, RCV_HF: channel(dy))
+played_by HA
+def=
+local State : nat,
+IDsc,Lha,P,K,Sha,X,Xha : text,
+Kmufa : symmetric_key,
+Tmu,Tha,Xmu,SK,Ymu,Nha,Wfa,Khf1,Khf2,Khf3,Mha,NID,RPW,Mmu,Nfa : message
+init State := 1
+transition
+1. State = 1 /\ RCV_HM({MU.NID'.RPW'}_Kmuha) =|>
+State':= 3 /\ IDsc' := new()
+/\ Xmu' := Hash(xor(xor(X,IDsc'),NID'))
+/\ Ymu' := xor(Xmu',RPW')
+/\ SND_HM({Ymu'}_Kmuha)
+/\ secret(Xmu',xmu,{HA,MU})
+2. State = 3 /\ RCV_HF(FA.KGC2.Mmu'.Tmu.Pfa.Rfa.Nfa') =|>
+State':= 5 /\ Lha' := new()
+/\ Nha' := Mul(Lha'.P)
+/\ Wfa' := Add(Rfa,Mul(Hash1(FA.Rfa).Ppubkgc2))
+/\ Khf1' := Mul(Add(Add(Lha',Sha),Xha).Add(Add(Nfa',Wfa'),Pfa))
+/\ Khf2' := Mul(Add(Sub(Lha',Xha),Add(Sha,Sha)).Add(Sub(Nfa',Pfa),Add(Wfa',Wfa')))
+/\ Khf3' := Mul(Add(Sub(Lha',Sha),Add(Xha,Xha)).Add(Sub(Nfa',Wfa'),Add(Pfa,Pfa)))
+/\ SK' := Hash2(FA.HA.Nfa'.Nha'.Khf1'.Khf2'.Khf3')
+/\ Mha' := Hash(Hash(xor(xor(X,IDsc),NID)).Tmu.Tha.FA)
+/\ K' := new()
+/\ Kmufa' := Hash(K'.MU.FA)
+/\ SND_HF(HA.KGC1.{Mha'.Hash(Mha')}_SK'.{Kmufa'}_SK'.{Kmufa'}_Xmu.Tha.Pha.Rha.Nha')
+/\ witness(HA,FA,ha_fa_kmufa,Kmufa')
+/\ witness(HA,MU,ha_alice_kmufa,Kmufa')
+/\ secret(SK',sk,{HA,FA})
+/\ secret(Kmufa',kmufa,{HA,FA,MU})
+end role
+% Role of the server2:
+role server2 (MU, HA, FA, KGC1, KGC2: agent,
+Pfa,Rfa,Pha,Rha,Ppubkgc1,Ppubkgc2 : public_key,
+Hash,Hash1,Hash2,Add,Sub,Mul : hash_func,
+SND_FM, RCV_FM, SND_FH, RCV_FH: channel(dy))
+played_by FA
+def=
+local State : nat,
+Lfa,P,Sfa,Xfa : text,
+Kmufa : symmetric_key,
+Tmu,Tha,SK,NID,Mmu,Nfa,Mha,Nha,Wha,Kfh1,Kfh2,Kfh3 : message,
+Y : {symmetric_key}_symmetric_key
+init State := 7
+transition
+1. State = 7 /\ RCV_FM(HA.NID.Mmu'.Tmu) =|>
+State':= 9 /\ Lfa' := new()
+/\ Nfa' := Mul(Lfa',P)
+/\ SND_FH(FA.KGC2.Mmu'.Tmu.Pfa.Rfa.Nfa')
+2. State = 9 /\ RCV_FH(HA.KGC1.{Mha'.Hash(Mha')}_SK'.{Kmufa'}_SK'.Y'.Tha.Pha.Rha.Nha') =|>
+State':= 11 /\ Wha' := Add(Rha,Mul(Hash1(HA.Rha).Ppubkgc1))
+/\ Kfh1' := Mul(Add(Add(Lfa,Sfa),Xfa).Add(Add(Nha',Wha'),Pha))
+/\ Kfh2' := Mul(Add(Sub(Lfa,Xfa),Add(Sfa,Sfa)).Add(Sub(Nha',Pha),Add(Wha',Wha')))
+/\ Kfh3' := Mul(Add(Sub(Lfa,Sfa),Add(Xfa,Xfa)).Add(Sub(Nha',Wha'),Add(Pha,Pha)))
+/\ SK' := Hash2(FA.HA.Nfa.Nha'.Kfh1'.Kfh2'.Kfh3')
+/\ SND_FM(Mha'.Tha.Y')
+/\ request(FA,HA,ha_fa_kmufa,Kmufa')
+end role
+% Role of the session:
+role session(MU, HA, FA, KGC1, KGC2: agent,
+Kmuha : symmetric_key,
+Pfa,Rfa,Pha,Rha,Ppubkgc1,Ppubkgc2 : public_key,
+Hash,Hash1,Hash2,Hash3,Add,Sub,Mul : hash_func)
+def=
+local
+SMH, RMH, SMF ,RMF,
+SHM, RHM, SHF, RHF,
+SFM, RFM, SFH, RFH : channel (dy)
+composition
+alice (MU,HA,FA,KGC1,KGC2,Kmuha,Hash,Hash3,SMH,RMH,SMF,RMF)
+/\ server1 (MU,HA,FA,KGC1,KGC2,Kmuha,Pfa,Rfa,Pha,Rha,Ppubkgc1,Ppubkgc2,Hash,Hash1,Hash2,Add,Sub,Mul,SHM,RHM,SHF,RHF)
+/\ server2 (MU,HA,FA,KGC1,KGC2,Pfa,Rfa,Pha,Rha,Ppubkgc1,Ppubkgc2,Hash,Hash1,Hash2,Add,Sub,Mul,SFM,RFM,SFH,RFH)
+end role
+% The main role:
+role environment()
+def=
+const mu, ha, fa, i, kgc1, kgc2 : agent,
+kmuha,kiha : symmetric_key,
+pfa,rfa,pha,rha,ppubkgc1,ppubkgc2 : public_key,
+h,h1,h2,h3,add,sub,mul : hash_func,
+sk, xmu, kmufa, ha_fa_kmufa, ha_alice_kmufa : protocol_id
+intruder_knowledge = {mu,ha,fa,i,kgc1,kgc2,kiha,pfa,rfa,pha,rha,ppubkgc1,ppubkgc2,h,h1,h2,h3,add,sub,mul}
+composition
+session(mu,ha,fa,kgc1,kgc2,kmuha,pfa,rfa,pha,rha,ppubkgc1,ppubkgc2,h,h1,h2,h3,add,sub,mul)
+/\ session(i,ha,fa,kgc1,kgc2,kiha,pfa,rfa,pha,rha,ppubkgc1,ppubkgc2,h,h1,h2,h3,add,sub,mul)
+end role
+% Description of goal properties:
+goal
+secrecy_of sk
+secrecy_of xmu
+secrecy_of kmufa
+authentication_on ha_fa_kmufa
+authentication_on ha_alice_kmufa
+end goal
+% Call of the main role:
+environment()

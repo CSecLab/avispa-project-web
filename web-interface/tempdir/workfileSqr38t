@@ -1,0 +1,59 @@
+role client (C,S: agent,IDi :text,Xs : symmetric_key,H : hash_func,Snd, Rcv: channel(dy))
+played_by C def=    
+local State : nat,Nc,Ns : text
+const sec_xs : protocol_id
+init State := 0
+transition
+1. State = 0    /\ Rcv(start) =|>
+   State':= 1   /\ Nc' := new()
+                /\ Snd(xor(IDi.H(IDi.Xs),Nc'))
+                /\ witness(C,S,aut_client,Nc')
+				
+2. State = 1    /\ Rcv(H(xor(H(IDi.Xs),Nc)).Nc.xor(H(IDi.Xs),Ns')) =|>
+   State':= 2   /\ Snd(H(xor(H(IDi.Xs),Ns')).Ns')
+                /\ request(C,S,aut_server,Ns')
+				/\secret(Xs,sec_xs,{C,S})
+
+end role
+role serveur (S,C: agent,IDi:text,Xs : symmetric_key,H : hash_func,Snd, Rcv: channel(dy))
+played_by S def=    
+local State : nat, Nc,Ns : text
+const sec_xs1 : protocol_id
+init State := 0
+transition
+1. State = 0    /\ Rcv(xor(IDi.H(IDi.Xs),Nc')) =|>
+   State':= 1   /\ Ns' := new()
+                /\ Snd(H(xor(H(IDi.Xs),Nc')).Nc'.xor(H(IDi.Xs),Ns'))
+                /\ witness(S,C,aut_server,Ns')
+				
+2. State = 1    /\ Rcv(H(xor(H(IDi.Xs),Ns)).Ns)=|>
+   State':= 2   /\ request(S,C,aut_client,Nc)
+				/\secret(Xs,sec_xs1,{S,C})
+end role
+role session (S,C: agent,IDi:text,Xs : symmetric_key,H : hash_func) def=
+ local Ss,Rs,Sc,Rc : channel(dy)
+const aut_client,aut_server : protocol_id
+composition
+    serveur(S,C,IDi,Xs,H,Ss,Rs)
+/\ client(C,S,IDi,Xs,H,Sc,Rc)
+end role
+
+role environment() def=
+const s1, c : agent,
+      idi: text,
+      xs : symmetric_key,	  
+      aut_client,aut_server : protocol_id, 
+      h : hash_func
+intruder_knowledge = {s1,c,h}
+composition
+session(s1,c,idi,xs,h) /\ session(s1,c,idi,xs,h)
+end role
+
+goal
+secrecy_of sec_xs,sec_xs1
+authentication_on aut_client
+authentication_on aut_server
+end goal
+
+environment() 
+

@@ -1,0 +1,375 @@
+role peer(P, A, S, D                      : agent,
+          Kca, Kidp                       : public_key,
+          H : hash_func,
+          PRF : hash_func,
+          CHAP_PRF : hash_func,
+          Tranc : hash_func,
+          KeyGen : hash_func,
+          SND, RCV                        : channel (dy))
+played_by P def=
+
+  local
+    UserId       : text,          % should not reveal user
+    Version      : text,          % version of TLS protocol, presently v1.0
+    SeID         : text,          % session id
+    Np           : text,          % nonce from client
+    Ns           : text,          % nonce from server
+    CipherSuite  : text,          % TLS ciphersuites supplied by the peer
+    Cipher       : text,          % TLS ciphersuite selected by server
+
+    Ks           : public_key,    % from server
+
+    Shd          : text,          % server-hello-done 
+    Ccs          : text,          % change-cipher-spec 
+ 
+    PMS          : text,          % pre-master-secret
+    MS : hash(text.text.text),    % master-secret
+
+    Finished : hash(hash(text.text.text).agent.agent.text.text.text),
+    ClientK : hash(agent.text.text.hash(text.text.text)),  % client session key for encryption
+    ServerK : hash(agent.text.text.hash(text.text.text)),  % server session key for encryption
+
+    Txt          : text,          % string init. with "ttls challenge"
+
+    UName        : text,          % NAI of client e.g. andy@realm
+
+    ChapRs       : text,          % CHAP response
+
+    
+    Edutoken     : text,          % Edutoken
+    Msk          : hash(hash(text.text.text)),                      % hash(MS)
+    Emsk         : hash(hash(hash(text.text.text))),                % hash(MSK)
+    Emskname     : hash(hash(hash(hash(text.text.text)))),          % hash(EMSK)
+    Dsrk         : hash(hash(hash(hash(text.text.text))).agent),    % hash(EMSK.agent)  
+    
+    State        : nat
+
+  const
+    request_id   : text,
+    respond_id   : text,
+    start_ttls   : text,
+    success      : text,
+    sec_clientK,
+    sec_serverK,
+    sec_uname,
+    np, ns       : protocol_id
+
+  init State := 0
+
+  transition
+
+  0. State   = 0
+       /\ RCV(request_id)
+     =|>
+     State' := 1
+       /\ UserId':= new()
+       /\ SND(respond_id.UserId')
+        
+  1. State   = 1
+       /\ RCV(start_ttls)
+     =|>
+     State' := 2
+       /\ Np' := new()
+       /\ CipherSuite' := new()
+       /\ SeID' := new()
+       /\ Version' := new()
+       /\ SND(Version'.SeID'.Np'.CipherSuite') % client_hello
+       /\ witness(P,S,np,Np')
+
+
+  2. State   = 2
+       /\ RCV(Version.SeID'.Ns'.Cipher'.       % server_hello
+              {S.Ks'}_inv(Kca).                % server_certificate
+              Shd')                            % server_hello_done
+     =|>
+     State' := 3
+       /\ PMS' := new() 
+       /\ Ccs' := new()
+       /\ MS'  := PRF(PMS'.Np.Ns')             % master secret
+       /\ Finished' := H(MS'.P.S.Np.Cipher'.SeID)
+       /\ ClientK'  := KeyGen(P.Np.Ns'.MS')
+       /\ ServerK'  := KeyGen(S.Np.Ns'.MS')
+       /\ SND({PMS'}_Ks'.                      % client_key_exchange
+                 Ccs'.                         % client_change_cipher_spec
+                 {Finished'}_ClientK')         % finished
+       /\ secret(ClientK',sec_clientK,{P,S})
+       /\ secret(ServerK',sec_serverK,{P,S})
+
+  3. State   = 3
+       /\ RCV(Ccs.{Finished}_ServerK)
+     =|>
+     State' := 4
+       /\ Txt' := new()
+       /\ ChapRs' := new()
+       /\ UName' := new()
+       /\ SND({UName'.
+               Tranc(CHAP_PRF(MS.Txt'.Np.Ns).1.16).
+               Tranc(CHAP_PRF(MS.Txt'.Np.Ns).17.17).
+               ChapRs'
+              }_ClientK)
+       /\ secret(UName',sec_uname,{P,S})
+       /\ request(P,S,ns,Ns)
+
+  4. State   = 4
+       /\ RCV(success)
+     =|>
+     State' := 5
+       /\ Msk'      := KeyGen(MS)           % Derive the three keys, and Emskname
+       /\ Emsk'     := KeyGen(Msk')
+       /\ Emskname' := KeyGen(Emsk')
+       /\ Dsrk'     := KeyGen(Emsk'.A)
+
+  5. State   = 5
+       /\ RCV({{Edutoken'}_inv(Kidp)}_ServerK)
+     =|>
+     State' := 6
+
+end role
+
+role auth (P, A, S                          : agent,
+           Kas                              : symmetric_key,               % to protect Keying-Material
+           SND, RCV                         : channel(dy))
+played_by A def=
+
+  local
+    Emskname     : hash(hash(hash(hash(text.text.text)))),          % hash(EMSK)
+    Dsrk         : hash(hash(hash(hash(text.text.text))).agent),    % hash(EMSK.agent)  
+    UserId       : text,
+    State           : nat
+            
+  const
+    respond_id   : text,
+    dsrk_req     : text,
+    success      : text
+    
+    init State := 1
+    
+  transition
+    
+  1. State  = 1
+       /\ RCV(respond_id.UserId')
+     =|>
+     State' := 2
+       /\ SND(respond_id.dsrk_req.UserId')                % Visited RADIUS server requests DSRK
+
+  2. State  = 2
+       /\ RCV(Emskname'.success.{Dsrk'}_Kas)      % Visited RADIUS server receivs EMSKName and DSRK
+     =|>
+     State':= 3
+     /\ SND(success)     
+
+
+end role
+
+
+
+
+role server (P, A, S                         : agent,
+             Ks, Kca, Kidp                   : public_key,
+             Kas                             : symmetric_key,
+             H : hash_func,
+             PRF : hash_func,
+             CHAP_PRF : hash_func,
+             Tranc : hash_func,
+             KeyGen : hash_func,
+             SND, RCV                        : channel (dy)) 
+played_by S def=
+
+  local
+    UserId       : text,          % should not reveal user
+    Version      : text,          % version of TLS protocol, presently v1.0
+    SeID         : text,          % session id
+    Np           : text,          % nonce from client
+    Ns           : text,          % nonce from server
+    CipherSuite  : text,          % TLS ciphersuites supplied by the peer
+    Cipher       : text,          % TLS ciphersuite selected by server
+
+    Shd          : text,          % server-hello-done 
+    Ccs          : text,          % change-cipher-spec 
+ 
+    PMS          : text,          % pre-master-secret
+    MS : hash(text.text.text),    % master-secret
+
+    Finished : hash(hash(text.text.text).agent.agent.text.text.text),
+    ClientK : hash(agent.text.text.hash(text.text.text)),  % client session key for encryption
+    ServerK : hash(agent.text.text.hash(text.text.text)),  % server session key for encryption
+
+    Txt          : text,          % string init. with "ttls challenge"
+
+    UName        : text,          % NAI of client e.g. andy@realm
+
+    ChapRs       : text,          % CHAP response
+
+    Edutoken     : text,                                            % Edutoken
+    Msk          : hash(hash(text.text.text)),                      % hash(MS)
+    Emsk         : hash(hash(hash(text.text.text))),                % hash(MSK)
+    Emskname     : hash(hash(hash(hash(text.text.text)))),          % hash(EMSK)
+    Dsrk         : hash(hash(hash(hash(text.text.text))).agent),    % hash(EMSK.agent)  
+
+    State        : nat
+
+  const
+    request_id   : text,
+    respond_id   : text,
+    dsrk_req     : text,
+    start_ttls   : text,
+    success      : text,
+    np, ns              : protocol_id,
+    sec_emsk, sec_dsrk  : protocol_id
+
+  init State := 0
+
+  transition
+
+  0. State   = 0
+       /\ RCV(start)
+     =|>
+     State' := 1
+       /\ SND(request_id)
+
+  1. State   = 1
+       /\ RCV(respond_id.dsrk_req.UserId')
+     =|>
+     State' := 2
+       /\ SND(start_ttls)
+
+  2. State   = 2
+       /\ RCV(Version'.SeID'.Np'.CipherSuite')  % client_hello
+     =|>
+     State' := 3
+       /\ Ns' := new()
+       /\ Shd' := new()
+       /\ Cipher' := new()
+       /\ SND(Version'.SeID'.Ns'.Cipher'.       % server_hello
+              {S.Ks}_inv(Kca).                  % server_certificate
+              Shd')                             % server_hello_done
+       /\ witness(S,P,ns,Ns')
+        
+  3. State    = 3
+       /\ RCV({PMS'}_Ks.                        % client_key_exchange
+              Ccs'.                             % client_change_cipher_spec
+              {Finished'}_ClientK')             % finished
+       /\ MS' = PRF(PMS'.Np.Ns)                 % master secret
+       /\ Finished' = H(MS'.P.S.Np.Cipher'.SeID)
+       /\ ClientK'  = KeyGen(P.Np.Ns.MS')
+     =|>
+     State' := 4
+       /\ ServerK'  := KeyGen(S.Np.Ns.MS')
+       /\ SND(Ccs'.                             % server_change_cipher_spec
+              {Finished'}_ServerK')             % finished
+
+  4. State  = 4
+       /\ RCV({UName'.
+               Tranc(CHAP_PRF(MS.Txt'.Np.Ns).1.16).
+               Tranc(CHAP_PRF(MS.Txt'.Np.Ns).17.17).
+               ChapRs'
+              }_ClientK)
+     =|>
+     State':= 5
+       /\ SND({{authn_req.UName'}_inv(Ks)}_Kidp)
+       /\ request(S,P,np,Np)
+
+  5. State  = 5
+       /\ RCV({{Edutoken'}_inv(Kidp)}_Ks)
+     =|>
+     State':= 6
+       /\ Msk'      := KeyGen(MS)  
+       /\ Emsk'      := KeyGen(Msk')  
+       /\ Dsrk'      := KeyGen(Emsk'.A)  
+       /\ Emskname'  := H(Emsk')
+       /\ SND({{Edutoken'}_inv(Kidp)}_ServerK)                  % Edutoken (to the EU)
+       /\ SND(Emskname'.success.{Dsrk'}_Kas)      % Success + EMSKName + DSRK (to the visited RADIUS)
+       /\ secret(Emsk',sec_emsk,{P,S})
+       /\ secret(Dsrk',sec_dsrk,{P,S,A})
+
+end role
+
+role idp (P, A, S, D           : agent,
+             Ks, Kidp          : public_key,
+             SND, RCV          : channel (dy)) 
+played_by D def=
+
+  local
+    Edutoken        : text,          % Edutoken
+    UName           : text,          % User name
+    State           : nat
+
+  const
+    authn_req       : text,
+    sec_edutoken    : protocol_id    
+
+  init State := 1
+
+  transition
+
+  1. State   = 1
+       /\ RCV({{authn_req.UName'}_inv(Ks)}_Kidp)    % SAML AuthnRequest
+     =|>
+     State' := 2
+       /\ Edutoken' := new()
+       /\ SND({{Edutoken'}_inv(Kidp)}_Ks)           % Edutoken
+       /\ secret(Edutoken',sec_edutoken,{D,P})       
+
+end role
+
+
+role session(P, A, S, D                      : agent,
+             Ks, Kca, Kidp                   : public_key,
+             Kas                             : symmetric_key,
+             H : hash_func,
+             PRF : hash_func,
+             CHAP_PRF : hash_func,
+             Tranc : hash_func,
+             KeyGen : hash_func)
+def=
+
+  local
+    SNDP, RCVP, SNDA, RCVA, SNDS, RCVS, SNDI, RCVI  : channel (dy)
+
+  composition
+           peer(P,A,S,D,Kca,Kidp,H,PRF,CHAP_PRF,Tranc,KeyGen,SNDP,RCVP)
+        /\ auth(P,A,S,Kas,SNDA,RCVA)
+        /\ server(P,A,S,Ks,Kca,Kidp,Kas,H,PRF,CHAP_PRF,Tranc,KeyGen,SNDS,RCVS)
+        /\ idp(P,A,S,D,Ks,Kidp,SNDI,RCVI)
+end role
+
+
+
+role environment() def=
+
+   const p, a, s, idp           : agent,
+         ks, kca, kidp          : public_key,
+         kas, kis               : symmetric_key,               % KeyingMaterial Key         
+         h, prf, chapprf        : hash_func,
+         tranc, keygen          : hash_func
+
+   intruder_knowledge = {p, a, s, idp, ks, kca, kidp,
+                         h, prf, chapprf, tranc, keygen,
+                         kca, kis    
+                        }
+
+   composition
+        session(p,a,s,idp,ks,kca,kidp,kas,h,prf,chapprf,tranc,keygen)
+     /\ session(p,a,s,idp,ks,kca,kidp,kas,h,prf,chapprf,tranc,keygen)
+%    /\ session(i,a,s,idp,ks,kca,kidp,kas,h,prf,chapprf,tranc,keygen)
+%    /\ session(p,i,s,idp,ks,kca,kidp,kis,h,prf,chapprf,tranc,keygen)
+
+end role
+
+
+
+goal
+
+        %secrecy_of ClientK, ServerK, UName, DSRK, EMSK and Edutoken
+        secrecy_of sec_clientK, sec_serverK, sec_uname, sec_dsrk, sec_emsk, sec_edutoken
+
+        %Peer authenticates Server on ns
+        authentication_on ns
+        %Server authenticates Peer on np
+        authentication_on np
+
+end goal
+
+
+
+environment()

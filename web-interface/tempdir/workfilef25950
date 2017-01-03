@@ -1,0 +1,215 @@
+role mN(
+		M,CP,NP:	agent,
+		PanaAuthKey:	symmetric_key,
+		SesIden,KeyID : text,
+		DeriveAAAKeyInt : message.message.message -> symmetric_key,
+		DeriveNewAAAKey : message.message.message -> symmetric_key,
+		DeriveNewPanaAuth : message -> symmetric_key,
+		DeriveBit : message -> text,
+		SMNcP,RCV,
+		SMNnP,RMNnP:	channel(dy))
+
+	played_by M def=
+
+		local
+			State : nat,
+			NewMNID,NPaaID,NPaaNonce,Sbit,Pbit,NewKeyID,AlgID,Cbit,MNnonce : text,
+			PAR,PCI,PAN: message,
+			DeriveFunc : message -> text,
+			NewPanaAuthKey,NewAaaKey,IkAAA : symmetric_key
+
+		init
+			State := 0
+
+		transition
+		1. State = 0 /\ RCV(start) =|>
+		   State':= 1 	/\ NewMNID':= DeriveFunc(NPaaID)
+				/\ SMNcP({NewMNID'.NPaaID}_PCI')
+
+		2. State = 1 /\ RMNnP({SesIden'.Sbit'.NPaaNonce'}_PAR') =|>
+		   State':= 8 	/\ MNnonce':= new()
+				/\ SMNnP({{SesIden'.Sbit'.MNnonce'}_PAN'}_PanaAuthKey)
+
+		3. State = 8 /\ RMNnP({{Pbit'.NewKeyID'}_NewPanaAuthKey'.{AlgID}_NewAaaKey'}_PAR') =|>
+		   State':= 12 /\ NewPanaAuthKey':= DeriveNewPanaAuth(AlgID)				%--Same Question as below ?
+				/\ IkAAA':= DeriveAAAKeyInt(SesIden'.NewMNID'.KeyID)
+				/\ NewAaaKey':= DeriveNewAAAKey(IkAAA'.NPaaNonce'.MNnonce')
+				/\ Cbit':= DeriveBit(Cbit)
+				/\ SMNnP({{Cbit'.NewKeyID'}_PAN'}_NewPanaAuthKey')
+				/\ witness(M,NP,m_np_NewPanaAuthKey,NewPanaAuthKey)
+
+end role
+%——————————————————————————————————————————
+role cPAA(
+		CP,CA,NP,M : agent,
+		PKnPaa,SKnAaa,PKnAaa : symmetric_key,
+		KeyID,SesIden : text,
+		DeriveAAAKeyInt : message.message.message -> symmetric_key,
+		ScPcA,RcPcA,
+		ScPnP,RcPnP,
+		RMNcP : channel(dy))
+
+	played_by CP def=
+
+		local
+			State : nat,
+			NPaaID,NewMNID : text,
+			DTR,DTA,CTR,CTD,PAR : message,
+			PAN,PCI,Sbit,NPaaNonce : text.text,
+			IkAAA : symmetric_key
+
+		init
+			State := 1
+
+		transition
+		1. State = 1 /\ RMNcP({NewMNID'.NPaaID}_PCI') =|>
+		   State':= 2 /\ ScPcA({NPaaID}_DTR')
+				/\ request(CP,CA,nPaaID,NPaaID)
+
+		2. State = 3 /\ RcPcA({PKnAaa}_DTA') =|>
+		   State':= 4 /\ ScPnP(PCI')
+		
+		3. State = 4 /\ RcPnP({{SesIden'.Sbit'.NPaaNonce'}_PAR'.{NPaaID.PKnPaa}_SKnAaa}_CTR') =|>
+		   State':= 10 /\ IkAAA':= DeriveAAAKeyInt(SesIden'.NewMNID'.KeyID)
+				/\ ScPnP({{IkAAA'}_PKnPaa}_CTD')
+end role
+%--------------------------------------------
+role cAAA(
+		CP,CA : agent,
+		RcPcA,ScPcA : channel(dy))
+
+	played_by CA def=
+
+		local
+			State : nat,
+			NPaaID : text,
+			DTA,DTR : message
+
+		init
+			State := 2
+
+		transition
+		1. State = 2 /\ RcPcA({NPaaID}_DTR') =|>
+		   State':= 3 /\ ScPcA({PKnAaa}_DTA')
+				/\ witness(CP,CA,nPaaID,NPaaID)
+
+end role
+%——————————————————————————————————————————
+role nPAA(
+		NA,NP,M,CP : agent,
+		PKnPaa,PKcAaa,PanaAuthKey,SKnAaa: symmetric_key,
+		%%... : hash_func,
+		DeriveBit : message -> text,
+		DeriveNewPanaAuth : message -> symmetric_key,
+		DeriveNewAAAKey : message.message.message -> symmetric_key,
+		SesIden : text,
+		ScPnP,
+		SMNnP,RMNnP,
+		SnPnA,RnPnA : channel(dy))
+
+	played_by NP def=
+
+		local
+			State : nat,
+			CPaaID,NewMNID,
+			Sbit,NPaaNonce,MNnonce,NPaaID,AlgID,NewKeyID,Pbit : text,
+			PCI,DTR,DTA,PAR,CTR,CTD : message,
+			PAN: text.text,
+			NewPanaAuthKey,IkAAA,NewAaaKey : symmetric_key
+
+		init
+			State := 4
+
+		transition
+		1. State = 4 /\ RMNnP({NewMNID'.NPaaID}_PCI') =|>
+		   State':= 5 /\ SnPnA({CPaaID}_DTR')
+				/\ request(NP,NA,cPaaID,CPaaID)
+		2. State = 5 /\ RnPnA({PKcAaa}_DTA') =|>
+		   State':= 7 /\ Sbit':=Derive(Sbit) /\ PaaNonce':= new() /\ SesIden':= new()
+				/\ SMNnP({SesIden'.Sbit'.NPaaNonce'}_PAR')
+				/\ request(M,NP,m_np_NewPanaAuthKey,NewPanaAuthKey)
+		3. State = 7 /\ RMNnP({{SesIden'.Sbit'.MNnonce'}_PAN'}_PanaAuthKey) =|>			%-----PAN’? / {...}_PAN’?
+		   State':= 9 /\ScPnP({{SesIden'.Sbit'.NPaaNonce'}_PAR'.{NPaaID.PKnPaa}_SKnAaa}_CTR')
+		4. State = 9 /\ RcPnP({{IkAAA'}_PKnPaa}_CTD') =|>
+		   State':= 11 /\ NewAaaKey':= DeriveNewAAAKey(IkAAA'.NPaaNonce'.MNnonce')
+				/\ NewPanaAuthKey':= DeriveNewPanaAuth(AlgID)			%-----Need more info about Algorithm-ID ?
+				/\ NewKeyID':= new() /\ Pbit':= DeriveBit(Pbit)
+				/\ SMNnP({{Pbit'.NewKeyID'}_NewPanaAuthKey'.{AlgID}_NewAaaKey'}_PAR')
+				/\ secret(NewPanaAuthKey,newPanaAuthKey,{NP,M})
+end role
+%-----------------------------------------------------
+role nAAA(
+		NA,NP : agent,
+		RnPnA,SnPnA : channel(dy))
+
+	played_by NA def=
+
+		local
+			State : nat,
+			CPaaID : text,
+			DTA,DTR : message			
+
+		init
+			State := 5
+
+		transition
+		1. State = 5 /\ RnPnA({CPaaID}_DTR') =|>
+		   State':= 6 /\ SnPnA({PKcAaa}_DTA')
+				/\ witness(NP,NA,cPaaID,CPaaID)
+
+end role
+%——————————————————————————————————————————
+role session(
+		M,CP,CA,NA,NP : agent,
+           %%	... : hash_func,
+		PKnPaa,SKnAaa,PKnAaa,PKcAaa,PanaAuthKey : symmetric_key )
+	 
+
+
+	def=
+
+		local
+			ScPcA,RcPcA,SnPnA,RnPnA,
+			ScPnP,RcPnP,SMNnP,RMNnP,
+			SMNcP,RMNcP : channel(dy)
+
+		composition	
+                        mN (M,CP,NP,PanaAuthKey,SMNcP,RCV,SMNnP,RMNnP)
+		%%	/\ cVD (CP,CA,NP,PKnPaa,SKnAaa,PKnAaa,
+		%%	   ...,ScPcA,RcPcA,ScPnP,RcPnP,RMNcP)
+		%%	/\ nVD (NA,NP,CP,M,PKnPaa,PKcAaa,PanaAuthKey,
+		%%	   SKnAaa,...,ScPnP,SMNnP,RMNnP,SnPnA,RnPnA)
+end role
+%——————————————————————————————————————————
+role environment()
+	def=
+
+		const
+			sKnAaa,panaAuthKey : symmetric_key,
+                        %%... : hash_func,			
+                        m,cp,np,ca,np : agent
+					
+	        intruder_knowledge = {m,cp,np,ca,np
+                                      %% ,.
+                                      ,panaAuthKey}
+
+		composition
+			session(m,cp)
+			/\ session(m,np,panaAuthKey)
+			/\ session(np,cp,sKnAaa)
+			/\ session(m,cp)
+			/\ session(m,cp)
+			/\ session(np,i,sKnAaa)
+			/\ session(i,cp,sKnAaa)
+			/\ session(m,i,panaAuthKey)
+			/\ session(i,np,panaAuthKey)
+end role
+%——————————————————————————————————————————
+goal
+	secrecy_of newPanaAuthKey
+	authentication_on m_np_NewPanaAuthKey
+	authentication_on nPaaID
+	authentication_on cPaaID
+end goal
+%——————————————————————————————————————————
+environment()

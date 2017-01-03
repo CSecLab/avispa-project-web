@@ -1,0 +1,92 @@
+role  responder (Alice, Bob  : agent,
+		H : hash_func,
+           	Snd, Rcv: channel (dy),
+	   	InitiatorPubKey, ResponderPubKey : public_key)
+played_by Bob
+def=
+         local State  : nat,
+         UIDA, TS, TK, KAB:  text
+         const aliceToBob,  bobToAlice, sub1 : protocol_id
+
+	init State := 0
+
+
+  transition
+   1. State   = 0 /\ Rcv ({TS'.TK'.UIDA}_inv (InitiatorPubKey)) =|>  
+      State' := 1 /\ KAB' := new ()
+                  /\ Snd ({KAB'.TS'}_inv (ResponderPubKey))
+                  /\ request (Bob, Alice, bobToAlice, KAB')
+                  /\ witness (Alice, Bob, aliceToBob, TK')
+                    
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role initiator (Alice, Bob: agent,
+	   	H : hash_func,
+           	Snd, Rcv: channel (dy),
+	   	InitiatorPubKey, ResponderPubKey : public_key)
+played_by Alice
+def=
+         local State  : nat,
+         UIDA, R, TK, TS, KAB:  text
+         const aliceToBob,  bobToAlice, sub1 : protocol_id
+
+   init  State := 0
+
+  transition
+   1. State   = 0 /\ Rcv (start) =|>
+      State' := 1 /\ R' := new ()
+      		  /\ UIDA' := new ()
+                  /\ TK' := R'.h (UIDA)
+                  /\ TS' := new ()
+                  /\ Snd ({TS'.TK'.UIDA}_inv (InitiatorPubKey)) 
+                  /\ witness (Alice, Bob, aliceToBob, TK')
+   2. State = 1   /\ Rcv ({KAB'.TS'}_inv (ResponderPubKey)) =|> 
+      State' := 2 /\ request (Bob, Alice, bobToAlice, KAB')
+      		  /\ secret ({KAB'}, sub1, {Alice, Bob})
+                  
+ 
+                  
+ end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+role session (Alice, Bob: agent,
+             H: hash_func
+	)
+def=
+
+  local  SA, SB, RA, RB : channel (dy),
+         InitiatorPubKey, ResponderPubKey : public_key
+         const aliceToBob, bobToAlice, sub1 : protocol_id
+           
+  composition
+           initiator (Alice, Bob, H, SA, RA, InitiatorPubKey, ResponderPubKey)
+       /\  responder(Alice, Bob, H, SB, RB, InitiatorPubKey, ResponderPubKey)
+end role 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment ()
+def=
+
+  const a, b : agent,
+        h   : hash_func,
+        uaid :  text,
+        a_pub_key, b_pub_key : public_key,
+        aliceToBob, bobToAlice, sub1 : protocol_id
+
+  intruder_knowledge = {a, b, h, uaid, a_pub_key, b_pub_key}
+
+  composition
+	session (a, b, h)  
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+  secrecy_of sub1
+  authentication_on aliceToBob
+  authentication_on bobToAlice
+end goal
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment ()

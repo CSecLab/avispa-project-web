@@ -1,0 +1,84 @@
+
+role fa(FA,MN,HA: agent,  
+	MNPK,HAPK,FAPK,KMNHA: symmetric_key,
+	HASHE: hash_func,               
+               SND,RCV: channel(dy)) 
+
+	played_by FA def= 
+	
+local IDFA,MNCOA,NFA,NHA,NMN,IDHA, IDMN,Advertisement,TMN,TMNSTAR:text,
+
+State:nat
+init State :=0
+transition   
+0.State = 0 /\ RCV(start) =|> State ':= 4/\Advertisement':=new()/\IDFA':=new()/\MNCOA':=new()/\NFA':=new()/\ SND(Advertisement'.IDFA'.MNCOA'.NFA') 
+4.State=4/\RCV(IDHA'.IDMN'.MNCOA.NHA'.NMN'.({IDHA'.IDMN'.MNCOA.NHA'.NMN'}_KMNHA).TMN'.HASHE(IDMN' .IDFA' .TMN' .TMNSTAR')) =|> State ':= 6
+6.State=6/\IDFA':=new()/\TFA':=new()/\TFASTAR':=new()/\SND(IDHA.IDMN.MNCOA.NHA.NMN.({IDHA.IDMN.MNCOA.NHA.NMN}_KMNHA).TFA'.HASHE(IDHA .IDFA' .TFA' .TFASTAR'))
+
+
+
+end role
+
+role mn(FA,MN,HA: agent,  
+	MNPK,HAPK,FAPK,KMNHA: symmetric_key,
+	HASHE: hash_func,               
+               SND,RCV: channel(dy)) 
+
+	played_by MN def= 
+	
+local IDFA,MNCOA,NFA,NHA,NMN,IDHA, IDMN,Advertisement,TMN,TMNSTAR:text,
+
+State:nat
+init State :=1
+transition 
+1.State=1/\ RCV(Advertisement'.IDFA'.MNCOA'.NFA') =|> State ':= 3/\IDHA':=new()/\IDMN':=new()/\NHA':=new()/\NMN':=new()/\TMN' :=new()/\TMNSTAR':=new()/\SND(IDHA'.IDMN'.MNCOA.NHA'.NMN'.({IDHA'.IDMN'.MNCOA.NHA'.NMN'}_KMNHA).TMN'.HASHE(IDMN' .IDFA' .TMN' .TMNSTAR')) 
+end role
+
+
+role ha(FA,MN,HA: agent,  
+	MNPK,HAPK,FAPK,KMNHA: symmetric_key,
+	HASHE: hash_func,               
+               SND,RCV: channel(dy)) 
+
+	played_by MN def= 
+	
+local IDFA,MNCOA,NFA,NHA,NMN,IDHA, IDMN,Advertisement,TMN,TMNSTAR:text,
+
+State:nat
+init State :=2
+transition
+2.State=2/\RCV(IDHA.IDMN.MNCOA.NHA.NMN.({IDHA.IDMN.MNCOA.NHA.NMN}_KMNHA).TFA'.HASHE(IDHA .IDFA' .TFA' .TFASTAR'))
+end role
+
+
+role session(FA,MN,HA: agent, MNPK,HAPK,FAPK,KMNHA: symmetric_key,HASHE: hash_func) 
+def=
+
+  local SA, RA, SB, RB,SH,RH: channel (dy)
+
+  composition 
+
+	fa(FA,MN,HA,MNPK,HAPK,FAPK,KMNHA,HASHE,SA,RA)
+     /\ mn(FA,MN,HA,MNPK,HAPK,FAPK,KMNHA,HASHE,SB,RB)
+     /\ha(FA,MN,HA,MNPK,HAPK,FAPK,KMNHA,HASHE,SH,RH)
+
+
+
+end role
+
+
+
+role environment() 
+def= 
+
+const        mn1,fa1,ha1: agent,
+	mnpk,hapk,fapk,kmnha: symmetric_key,
+	ha: hash_func
+	
+	
+
+   composition 
+	session(fa1,mn1,ha1,mnpk,hapk,fapk,kmnha,ha) 
+
+end role
+environment() 

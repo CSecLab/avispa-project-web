@@ -1,0 +1,104 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilezWUCLz
+
+section signature:
+
+state_authorization: agent * agent * agent * agent * symmetric_key * nat * text * text * text * text * text * symmetric_key * nat -> fact
+state_server: agent * agent * agent * agent * symmetric_key * nat * text * text * text * text * text * symmetric_key * symmetric_key * nat -> fact
+state_owner: agent * agent * agent * agent * symmetric_key * nat * text * text * symmetric_key * nat -> fact
+state_client: agent * agent * agent * agent * symmetric_key * symmetric_key * symmetric_key * nat * text * text * text * text * text * symmetric_key * nat -> fact
+
+
+section types:
+
+kco, kcs, kca, kio, kia, kis, Kco, Kca, Kcs, K, dummy_sk: symmetric_key
+Nc, Ns, No, Nr, Na2, Na1, Na3, dummy_nonce: text
+MGoal: message
+5, State, 7, 6, 3, 4, 2, 1, 0, 11, 10, 9, SID, Dummy_State: nat
+c, o, a, s, C, A, O, S, A2Goal, i, A1Goal: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(c).
+ iknows(a).
+ iknows(s).
+ iknows(kio).
+ iknows(kia).
+ iknows(kis).
+ iknows(i).
+ state_client(c,o,a,s,kco,kcs,kca,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,3).
+ state_owner(a,c,o,s,kco,1,dummy_nonce,dummy_nonce,dummy_sk,4).
+ state_server(s,c,o,a,kca,1,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,dummy_sk,5).
+ state_authorization(o,c,a,s,kcs,1,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,6).
+ state_owner(a,i,o,s,kco,1,dummy_nonce,dummy_nonce,dummy_sk,9).
+ state_server(s,i,o,a,kis,1,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,dummy_sk,10).
+ state_authorization(o,i,a,s,kia,1,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,11)
+
+
+section rules:
+
+step step_0 (C,A,O,S,Kco,Kca,Kcs,Nc,No,Na1,Na2,Na3,K,SID) :=
+ state_client(C,A,O,S,Kco,Kca,Kcs,0,Nc,No,Na1,Na2,Na3,K,SID)
+ =>
+ state_client(C,A,O,S,Kco,Kca,Kcs,2,Nc,No,Na1,Na2,Na3,K,SID).
+ iknows(scrypt(Kco,Nc))
+
+step step_1 (C,A,O,S,Kco,Kca,Kcs,Nc,No,Na1,Na2,Na3,K,SID) :=
+ state_client(C,A,O,S,Kco,Kca,Kcs,2,Nc,No,Na1,Na2,Na3,K,SID).
+ iknows(scrypt(Kco,pair(Nc,No)))
+ =>
+ state_client(C,A,O,S,Kco,Kca,Kcs,4,Nc,No,Na1,Na2,Na3,K,SID).
+ iknows(scrypt(Kca,pair(scrypt(Kco,pair(Nc,No)),Na1)))
+
+step step_2 (C,A,O,S,Kco,Kca,Kcs,Nc,No,Na1,Na2,Na3,K,SID) :=
+ state_client(C,A,O,S,Kco,Kca,Kcs,4,Nc,No,Na1,Na2,Na3,K,SID).
+ iknows(scrypt(Kca,pair(scrypt(Kco,pair(Nc,No)),Na2)))
+ =>
+ state_client(C,A,O,S,Kco,Kca,Kcs,6,Nc,No,Na1,Na2,Na3,K,SID).
+ iknows(scrypt(Kca,pair(scrypt(Kco,pair(Nc,No)),Na3)))
+
+step step_3 (C,A,O,S,Kco,Kca,Kcs,Nc,No,Na1,Na2,Na3,K,SID) :=
+ state_client(C,A,O,S,Kco,Kca,Kcs,6,Nc,No,Na1,Na2,Na3,K,SID).
+ iknows(scrypt(Kca,pair(scrypt(Kco,pair(Nc,No)),Na2)))
+ =>
+ state_client(C,A,O,S,Kco,Kca,Kcs,7,Nc,No,Na1,Na2,Na3,K,SID).
+ iknows(scrypt(Kca,pair(scrypt(Kco,pair(Nc,No)),Na2)))
+
+step step_4 (O,C,A,S,Kco,Nc,No,K,SID) :=
+ state_owner(O,C,A,S,Kco,1,Nc,No,K,SID).
+ iknows(scrypt(Kco,Nc))
+ =>
+ state_owner(O,C,A,S,Kco,2,Nc,No,K,SID).
+ iknows(scrypt(Kco,pair(Nc,No)))
+
+step step_5 (S,C,A,O,Kcs,Nc,Ns,No,Nr,Na2,Kco,Kca,SID) :=
+ state_server(S,C,A,O,Kcs,5,Nc,Ns,No,Nr,Na2,Kco,Kca,SID).
+ iknows(scrypt(Kca,pair(scrypt(Kco,pair(Nc,No)),Na2)))
+ =>
+ state_server(S,C,A,O,Kcs,6,Nc,Ns,No,Nr,Na2,Kco,Kca,SID).
+ iknows(scrypt(Kcs,scrypt(Kca,pair(scrypt(Kco,pair(Nc,No)),Na2))))
+
+step step_6 (A,C,O,S,Kca,Nc,No,Na1,Na2,Na3,Kco,SID) :=
+ state_authorization(A,C,O,S,Kca,3,Nc,No,Na1,Na2,Na3,Kco,SID).
+ iknows(scrypt(Kca,pair(scrypt(Kco,pair(Nc,No)),Na1)))
+ =>
+ state_authorization(A,C,O,S,Kca,4,Nc,No,Na1,Na2,Na3,Kco,SID).
+ iknows(scrypt(Kca,pair(scrypt(Kco,pair(Nc,No)),Na2)))
+
+
+section properties:
+
+property weak_authentication_on_client_server_Nr (A1Goal,A2Goal,MGoal,SID) :=
+ [] ((wrequest(A1Goal,A2Goal,client_server_Nr,MGoal,SID)
+      /\ ~ equal(A2Goal,i))
+     => witness(A2Goal,A1Goal,client_server_Nr,MGoal))
+
+
+section attack_states:
+
+attack_state weak_authentication_on_client_server_Nr (A1Goal,A2Goal,MGoal,SID) :=
+ wrequest(A1Goal,A2Goal,client_server_Nr,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,client_server_Nr,MGoal)) &
+ not(equal(A2Goal,i))
+

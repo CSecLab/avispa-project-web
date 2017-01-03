@@ -1,0 +1,95 @@
+role alice(
+A,B:agent,
+SND,RCV : channel(dy),
+Mod,Expr,Times:function,
+Ka,Kb: public_key)
+played_by A
+def=
+local State : nat,
+K,Pa: symmetric_key,
+Na: text,
+G,P,Sa,Sb:message
+const key_id1:protocol_id
+init State:=0
+transition
+1.State=0 /\ RCV(start)=|>State':=2 
+/\ Sa':=Mod(Expr(G,Na),P) /\ SND(Sa)
+2.State=2/\RCV(Sb)=|>State':=4
+/\K':=Mod(Times(Expr(Kb,Na),Expr(Sb,Pa)),P)
+/\secret(K,key_id1,{a,b})
+/\witness(A,B,bob_alice_k,K)
+/\request(A,B,alice_bob_k,K)
+%/\request(A,B,na_v,Na)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role bob(
+B,A:agent,
+SND,RCV : channel(dy),
+Mod,Expr,Times:function,
+Ka,Kb: public_key)
+played_by B
+
+def=
+local State : nat,
+K,Pb: symmetric_key,
+Nb  : text,
+G,P,Sa,Sb:message
+const key_id2:protocol_id
+init State:=1
+
+transition
+1.State=1/\RCV(Sa')=|>State':=3
+%/\Nb':=new()
+/\Sb':=Mod(Expr(G,Nb'),P)/\K':=Mod(Times(Expr(Ka,Nb),Expr(Sa,Pb)),P)/\
+SND(Sb)
+/\secret(K,key_id2,{b,a})
+/\witness(B,A,alice_bob_k,K)
+/\request(B,A,bob_alice_k,K)
+%/\request(B,A,nb_v,Nb)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(
+A,B:agent,
+Mod,Expr,Times:function,
+Ka,Kb: public_key
+)
+def=
+local 
+SendA,ReceiveA:channel(dy),
+SendB,ReceiveB:channel(dy)
+
+composition
+
+alice(A,B,SendA,ReceiveA,Mod,Expr,Times,Ka,Kb)
+/\bob(B,A,SendB,ReceiveB,Mod,Expr,Times,Ka,Kb)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+const
+na_v:protocol_id,
+nb_v:protocol_id,
+alice_bob_k:protocol_id,
+bob_alice_k:protocol_id,
+ka,kb,ki : public_key,
+a,b,i : agent,
+g,p:message,
+mod,expr,times:function,
+intruder_knowledge={a,b,ka,kb,ki,times,mod,exp,g,p}
+
+composition
+
+session(a,b,mod,expr,times,ka,kb)
+%/\session(a,i,mod,expr,times,ka,ki)
+%/\session(i,b,mod,expr,times,ki,kb)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+secrecy_of  key_id1,key_id2
+authentication_on alice_bob_k
+authentication_on bob_alice_k
+authentication_on na_v
+authentication_on nb_v
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

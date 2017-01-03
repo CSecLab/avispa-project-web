@@ -1,0 +1,70 @@
+role role Aa(Aa:agent,Bb:agent,R2:text,H:function,Key:text,SND,RCV:channel(dy))
+played by Aa
+def=
+local
+State:nat,R1:text,Keynew:text
+init
+State:=0
+transition
+1. State=0 &#8743; RCV(R1’) =|> State’:=1 &#8743; SND(R1’.R2.H(Key.Aa).H(Key.Aa.R1’))
+6. State=1 &#8743; RCV(exp(H(Key.R2),Keynew’).H(Aa.Keynew’)) =|> State’:=2
+end role
+// Definition of the reader
+role
+role Bb(Bb:agent,Cc:agent,R1:text,H:function,K:symmetric key,KRC:symmetric key,SND,RCV:channel(dy))
+played by Bb
+def=
+local
+State:nat,MAC:text,Keynew:text,Aa:agent,R2:text,Key:text
+init
+State:=0
+transition
+1. State=0 &#8743; RCV(start) =|> State’:=1 &#8743; SND(R1)
+2. State=1 &#8743; RCV(R1.R2’.H(Key’.Aa’).H(Key’.Aa’.R1)) =|> State’:=2 &#8743;
+witness(Bb,Aa,auth 2,Key’) &#8743; MAC’:=new() &#8743; SND(Bb.R1.H(Key’.Aa’).{MAC’
+} KRC)
+4. State=2 &#8743; RCV(R1.{Key.Aa} K.{MAC} KRC) =|> State’:=3 &#8743; Keynew’:=new() &#8743;
+SND(R1.H(Keynew’.Aa).{Keynew’.Aa} K.{MAC} KRC) &#8743; SND(exp(H(Key.R2),Keynew’).H(Aa.Keynew’))
+end role
+// Definition of the cloud server
+role
+role Cc(Cc:agent,Bb:agent,KRC:symmetric key,K:symmetric key,H:function,SND,RCV:channel(dy))
+played by Cc
+def=
+local
+State:nat,Key:text,MAC:text,R1:text,Aa:agent,Keynew:text
+init
+State:=0
+transition
+3. State=0 &#8743; RCV(Bb.R1’.H(Key’.Aa’).{MAC’
+} KRC) =|> State’:=1 &#8743; SND(R1’.{Key’.Aa’
+} K.{MAC’
+} KRC)
+5. State=1 &#8743; RCV(R1.H(Keynew’.Aa).{Keynew’.Aa} K.{MAC} KRC) =|> State’:=2
+end role
+role
+session1(R1:text,Aa:agent,R2:text,Key:text,Cc:agent,Bb:agent,KRC:symmetric key,K:symmetric key,H:function)
+def=
+local
+SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+composition
+role Cc(Cc,Bb,KRC,K,H,SND3,RCV3) &#8743; role Bb(Bb,Cc,R1,H,K,KRC,SND2,RCV2) &#8743;
+role Aa(Aa,Bb,R2,H,Key,SND1,RCV1)
+end role
+role environment()
+def=
+const
+hash 0:function,k:symmetric key,reader:agent,key:text,tag:agent,r1:text,r2:text,cloudDatabase:agent,
+kRC:symmetric key,h:function,auth 1:protocol id,auth 2:protocol id
+// Attacker’s knowledge
+intruder knowledge = {h,r1,r2}
+composition
+session1(r1,tag,r2,key,cloudDatabase,reader,kRC,k,h)
+end role
+// Goals
+goal
+authentication on auth 1
+authentication on auth 2
+end goal
+environment()
+ 

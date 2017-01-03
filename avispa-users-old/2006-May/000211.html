@@ -1,0 +1,187 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Avispa-users] (no subject)
+   </TITLE>
+   <LINK REL="Index" HREF="index.html" >
+   <LINK REL="made" HREF="mailto:avispa-users%40avispa-project.org?Subject=%5BAvispa-users%5D%20%28no%20subject%29&In-Reply-To=">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000235.html">
+   <LINK REL="Next"  HREF="000212.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Avispa-users] (no subject)</H1>
+    <B>Jon Fredrik Pettersen</B> 
+    <A HREF="mailto:avispa-users%40avispa-project.org?Subject=%5BAvispa-users%5D%20%28no%20subject%29&In-Reply-To="
+       TITLE="[Avispa-users] (no subject)">jon.pettersen at hig.no
+       </A><BR>
+    <I>Thu May  4 10:58:22 CEST 2006</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000235.html">[Avispa-users] OFMC: exponentiation support question
+</A></li>
+        <LI>Next message: <A HREF="000212.html">[Avispa-users] (no subject)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#211">[ date ]</a>
+              <a href="thread.html#211">[ thread ]</a>
+              <a href="subject.html#211">[ subject ]</a>
+              <a href="author.html#211">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hello
+
+I'am having problems compiling my avispa project.
+
+The error message I'am getting:
+
+Syntax error: Line 15, Col 1 (offset 287-290, string &quot;init&quot;)
+%%   Syn.Err(3): missing variable identifier
+
+My Avispa code:
+
+%Basic Access Control autentication and key establishment(ICAO standard)
+
+role alice (A, B: agent,
+   Hash: function,
+   K_MAC: symmetric_key,
+   K_ENC: symmetric_key,
+   SND, RCV: channel (dy))
+
+played_by A def=
+
+local
+   State : nat,
+   Rnd_icc, K_icc, M_icc : text
+  init State := 0
+
+
+transition
+          0.    State = 0       /\ RCV(start) =|&gt;
+   State' := 1       /\ Rnd_icc' := new() %Generates a nonce Rnd_icc.
+                           /\ SND(Rnd_icc') %ICC generates and responds 
+with Rnd.icc
+                           /\ Witness(A,B,alice_bob_rnd_icc,Rnd_icc')
+                     
+2.    State = 2    /\ RCV ({Rnd_ifd.Rnd_icc.K_ifd}_K_ENC.M_ifd) =|&gt;
+       State' := 3    /\ K_icc := new() %Generate keying material.
+                           /\ M_icc := Hash (Rnd_icc.Rnd_ifd.K_icc') 
+%Compute checksum.
+                           /\ M_icc := {M_icc'}_K_MAC %Compute checksum.
+                           /\ SND({Rnd_icc.Rnd_ifd.K_icc}_K_ENC.M_icc')
+                           /\ Witness(A,B,alice_bob_k_icc,K_icc')
+                           /\ Request(A,B,alice_bob_k_ifd,K_ifd)
+                                  end role
+
+role bob (A, B: agent,
+       Hash: function,
+       K_MAC: symmetric_key,
+       K_ENC: symmetric_key,
+       SND, RCV: channel (dy))
+
+played_by B def=
+
+local
+State : nat,
+   Rnd_ifd, K_ifd, M_ifd : text
+  init State := 1
+ 
+transition
+
+           % IFD sends get challenge
+1.    State = 1    /\ RCV(Rnd_icc) =|&gt; %IFD recive Rnd.icc.
+      State' := 2    /\ Rnd_ifd := new() % IFD generate nonce Rnd_ifd.
+                            /\ K_ifd := new() % IFD generate keying 
+material K_ifd.
+                           /\ M_ifd := Hash (Rnd_ifd.Rnd_icc.K_ifd) 
+%Compute the checksum
+                           /\ M_ifd := {M_ifd'}_K_MAC %Compute the 
+checksum, with key K_MAC.
+                           /\ SND ({Rnd_ifd.Rnd_icc.K_ifd}_K_ENC.M_ifd)
+                           /\ Witness(B,A,alice_bob_k_ifd,K_ifd')
+                           /\ Request (B,A,alice_bob_rnd_icc,Rnd_icc)
+         
+
+3.    State = 3    /\ RCV({Rnd_icc.Rnd.ifd.K_icc}_K_ENC.M_icc) =|&gt;
+   State' := 4    Request(B,A,alice_bob_k_icc,K_icc)
+           %check the checksum M_icc of the cryptogram E_icc.
+           %Decrypt the cryptogram E_icc.
+           %Extract Rnd.ifd from the cryptogram, and check if ICC 
+returned the correct value.
+                 
+end role
+
+role session(
+   A,B : agent,
+   K_ENC, K_MAC : symmetric_key,
+   Hash : function)
+
+def=
+
+local SA, RA, SB, RB : channel(dy)
+
+composition
+
+   alice(A, B, K_ENC, K_MAC, Hash, SA, RA)
+     /\bob(B, A, K_ENC, K_MAC, Hash, SB, RB)
+
+end role
+
+role environment()
+def=
+
+const a, b : agent,
+   k_enc, k_mac : symmetric_key,
+   alice_bob_k_icc, alice_bob_k_ifd, alice_bob_rnd_icc : protocol_id,
+   hash : function
+
+intruder_knowledge = {a, b, hash}
+
+composition
+
+     session(a, b, k_enc, k_mac, hash)
+   /\session(a, i, k_enc, k_mac, hash)
+   /\session(i, b, k_enc, k_mac, hash)
+
+end role
+
+goal
+   authentication_on alice_bob_k_icc
+   authentication_on alice_bob_k_ifd
+   authentication_on alice_bob_rnd_icc
+end goal
+
+environment()
+
+
+
+Regards
+Jon Fredrik
+</PRE>
+
+
+
+
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000235.html">[Avispa-users] OFMC: exponentiation support question
+</A></li>
+	<LI>Next message: <A HREF="000212.html">[Avispa-users] (no subject)
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#211">[ date ]</a>
+              <a href="thread.html#211">[ thread ]</a>
+              <a href="subject.html#211">[ subject ]</a>
+              <a href="author.html#211">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="http://www.avispa-project.org/mailman/listinfo/avispa-users">More information about the Avispa-users
+mailing list</a><br>
+</body></html>

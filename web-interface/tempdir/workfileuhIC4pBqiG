@@ -1,0 +1,316 @@
+%%% Protocol: An efficient multi-gateway based three-factor user authentication
+%%% and key agreement scheme in hierarchical wireless sensor networks
+%%% (Case 2).
+
+% Role for the user Ui
+role user (Ui, SA, HGWN, FGWN, SNj : agent,
+% Ui = user, SA = system administrator
+% HGWN = home GWN, SNj = accessed sensor node
+% FGWN = foreign GWN
+% symmetric key between Ui and SA
+        SKuisa : symmetric_key,
+% H is hash function
+        H : hash_func,
+        SND, RCV: channel(dy))
+played_by Ui
+def=
+local State : nat,
+      IDi, PWi, K, DIDi, PWRi, Aih, Aif, T : text,
+      TIDi, IDGWNh, IDGWNf, TS1, TS6, TS7 : text,
+      Gen, Rep: hash_func,
+      MKGWNh, MKGWNf, IDSNj, MKSNj, Pj, Ki, Kj, Bi, Ci,
+      RNi, RNk, RNj, FFi, GGi, RRNi, RRNj, RNf, SKuisnj : text
+const user_hgwn_ts1, user_hgwn_rni, user_sensor_ts7,
+    user_sensor_rrni, fgwn_sensor_ts4, fgwn_sensor_rnf,
+    fgwn_user_ts6, sensor_fgwn_ts5, sensor_fgwn_rrnj,  
+    s1, s2, s3, s4 : protocol_id
+init State := 0
+ transition
+% User registration phase
+% Ui sends < DIDi, PWRi > to SA via a secure channel
+1. State = 0 /\ RCV(start) =|>
+State' := 1 /\ DIDi' := H(IDi.K)
+            /\ PWRi' := H(PWi.K)
+            /\ secret({IDi,PWi,K}, s1, {Ui})
+            /\ SND({DIDi'.PWRi'}_SKuisa)
+% Receive the smart card securely from the SA
+2. State = 1 /\ RCV({IDGWNh.xor(H(IDGWNh.MKGWNh),H(H(IDi.K).
+           H(PWi.K).TIDi')).IDGWNf.xor(H(IDGWNf.MKGWNf),
+           H(H(IDi.K).H(PWi.K).TIDi')).TIDi'.Gen.Rep.H.T}_SKuisa) =|>
+State' := 2 /\ secret({MKGWNh}, s2, {SA,HGWN})
+            /\ secret({IDGWNf}, s3, {Ui,SA,FGWN})
+            /\ secret({MKGWNf}, s4, {SA,FGWN})
+% Login phase
+% Send message M1 =  to HGWN via public channel 
+            /\ RNi' := new()
+            /\ TS1' := new()
+            /\ Ki' := H(IDGWNh.MKGWNh)
+            /\ Bi' := H(H(IDi.K).TIDi'.RNi')
+            /\ Ci' := {IDGWNh.IDSNj.Bi'.RNi'.TS1'}_Ki'
+            /\ SND(IDSNj.Ci')
+% Ui has freshly generated the value TS1 for HGWN
+            /\ witness(Ui, HGWN, user_hgwn_ts1, TS1')
+% Ui has freshly generated the value RNi for HGWN
+            /\ witness(Ui, HGWN, user_hgwn_rni, RNi') 
+% Authentication and key agreement phase
+% Receive M7 =  from FGWN via public channel
+3. State = 2 /\ RCV(IDSNj.{IDGWNf.IDSNj.H(xor(H(IDi.K),RNf')).
+                    RRNj'.TS6'}_H(IDGWNf.MKGWNf)) =|>
+State' := 3 /\ RRNi' := new()
+            /\ TS7' := new()
+% Send M8 =  to SNj via public channel
+            /\ FFi' := H(xor(xor(H(xor(H(IDi.K),RNf')),RRNj'),RRNi'))
+            /\ SKuisnj' := H(IDGWNh.IDGWNf.IDSNj.
+                           H(xor(H(IDi.K),RNf')).RRNi'.RRNj') 
+            /\ GGi' := H(SKuisnj'.TS7')
+            /\ SND(IDSNj.FFi'.GGi'.TS7')
+% Ui has freshly generated the value TS7 for SNj
+            /\ witness(Ui, SNj, user_sensor_ts7, TS7')
+% Ui has freshly generated the value RRNi for SNj
+            /\ witness(Ui, SNj, user_sensor_rrni, RRNi') 
+% Ui's acceptance of the value TS6 generated for Ui by FGWN
+            /\ request(SNj, Ui, fgwn_user_ts6, TS6')
+end role
+
+
+% Role for the SA
+role sa (Ui, SA, HGWN, FGWN, SNj : agent,
+% symmetric key between Ui and SA
+        SKuisa : symmetric_key,
+% H is hash function
+        H : hash_func,
+        SND, RCV: channel(dy))
+played_by SA
+def=
+local State : nat,
+      IDi, PWi, K, DIDi, PWRi, Aih, Aif, T : text,
+      TIDi, IDGWNh, IDGWNf, TS1, TS2, TS3 : text,
+      Gen, Rep: hash_func,
+      MKGWNh, MKGWNf, IDSNj, MKSNj, Pj, 
+      Ki, Kj, Bi, Ci : text
+const user_hgwn_ts1, user_hgwn_rni,
+      s1, s2, s3, s4 : protocol_id
+init State := 0
+ transition
+% User registration phase
+% Receive < DIDi, PWRi > from Ui via a secure channel
+1. State = 0 /\ RCV({H(IDi.K).H(PWi.K)}_SKuisa) =|>
+State' := 2 /\ secret({IDi,PWi,K}, s1, {Ui})
+            /\ TIDi' := new()
+            /\ Aih' := xor(H(IDGWNh.MKGWNh),H(H(IDi.K).H(PWi.K).TIDi'))
+            /\ Aif' := xor(H(IDGWNf.MKGWNf),H(H(IDi.K).H(PWi.K).TIDi'))
+% Send the smart card securely to user Ui
+            /\ SND({IDGWNh.Aih'.IDGWNf.Aif'.TIDi'.Gen.Rep.H.T}_SKuisa)
+            /\ secret({MKGWNh}, s2, {SA,HGWN})
+            /\ secret({IDGWNf}, s3, {Ui,SA,FGWN})
+            /\ secret({MKGWNf}, s4, {SA,FGWN})
+end role
+
+% Role for the HGWN
+role  hgwn(Ui, SA, HGWN, FGWN, SNj : agent,
+% H is hash function
+        H : hash_func,
+        SND, RCV: channel(dy))
+played_by HGWN
+def=
+local State : nat,
+      IDi, PWi, K, DIDi, PWRi, Aih, Aif, T : text,
+      TIDi, IDGWNh, IDGWNf, TS1, TS2, TS3 : text,
+      Gen, Rep: hash_func,
+      MKGWNh, MKGWNf, IDSNj, MKSNj, Pj, Ki, Kj, Bi,
+      Ci, Di, Fi, Gi, RNi, RNk, RNj : text
+const user_hgwn_ts1, user_hgwn_rni, user_sensor_ts7,
+    user_sensor_rrni, fgwn_sensor_ts4, fgwn_sensor_rnf,
+    fgwn_user_ts6, sensor_fgwn_ts5, sensor_fgwn_rrnj, 
+    s1, s2, s3, s4 : protocol_id
+init State := 0
+ transition
+% Login phase
+% Receive message M1 =  from Ui via public channel
+1. State = 0 /\ RCV(IDSNj.{IDGWNh.IDSNj.H(H(IDi.K).TIDi'.RNi').
+                RNi'.TS1'}_H(IDGWNh.MKGWNh)) =|>
+State' := 3 /\ secret({IDi,PWi,K}, s1, {Ui}) 
+            /\ secret({MKGWNh}, s2, {SA,HGWN})
+            /\ secret({IDGWNf}, s3, {Ui,SA,FGWN})
+            /\ secret({MKGWNf}, s4, {SA,FGWN})
+% Authentication and key agreement phase
+% Broadcast message M4 = to all FGWNs
+% via public channel
+            /\ SND(IDSNj.TIDi'.IDGWNh)
+% HGWN's acceptance of the value TS1 generated for HGWN by user Ui
+           /\ request(Ui, HGWN, user_hgwn_ts1, TS1')
+% HGWN's acceptance of the value RNi generated for HGWN by user Ui
+            /\ request(Ui, HGWN, user_hgwn_rni, RNi')         
+end role
+
+
+% Role for the FGWN
+role  fgwn(Ui, SA, HGWN, FGWN, SNj : agent,
+% H is hash function
+        H : hash_func,
+        SND, RCV: channel(dy))
+played_by HGWN
+def=
+local State : nat,
+      IDi, PWi, K, DIDi, PWRi, Aih, Aif, T : text,
+      TIDi, IDGWNh, IDGWNf, TS1, TS2, TS3 : text,
+      Gen, Rep: hash_func,
+      MKGWNh, MKGWNf, IDSNj, MKSNj, Pj, AAi, BBi,
+      CCi, DDi, FFi, GGi, RNNi, RNf, RRNj,
+      KKif, EEi : text
+const user_hgwn_ts1, user_hgwn_rni, user_sensor_ts7,
+    user_sensor_rrni, fgwn_sensor_ts4, fgwn_sensor_rnf,
+    fgwn_user_ts6, sensor_fgwn_ts5, sensor_fgwn_rrnj,  
+    s1, s2, s3, s4 : protocol_id
+init State := 0
+ transition
+% Authentication and key agreement phase
+% Receive message M4 = from HGWN via public channel
+1. State = 0 /\ RCV(IDSNj.TIDi'.IDGWNh) =|>
+State' := 5 /\ secret({IDi,PWi,K}, s1, {Ui}) 
+            /\ secret({MKGWNh}, s2, {SA,HGWN})
+            /\ secret({IDGWNf}, s3, {Ui,SA,FGWN})
+            /\ secret({MKGWNf}, s4, {SA,FGWN})
+% Send M5 =  to SNj via public channel
+            /\ RNf' := new()
+            /\ TS4' := new()
+            /\ Kif' := H(IDSNj.MKSNj)
+            /\ AAi' := H(H(xor(H(IDi.K),RNf')).RNf'.TS4')
+            /\ BBi' := {IDGWNh.IDGWNf.IDSNj.H(xor(H(IDi.K),RNf')).
+                        RNf'.AAi'.TS4'}_Kif'
+            /\ SND(IDSNj.BBi')
+% FGWN has freshly generated the value TS4 for SNj
+            /\ witness(FGWN, SNj, fgwn_sensor_ts4, TS4')
+% FGWN has freshly generated the value RNf for SNj
+            /\ witness(FGWN, SNj, fgwn_sensor_rnf, RNf') 
+% Receive M6 =  from SNj via public channel
+2. State := 5 /\ RCV(IDSNj.xor(H(xor(H(IDi.K),RNf')),RRNj').
+                 H(IDGWNf.IDSNj.H(xor(H(IDi.K),RNf')).RRNj'.TS5'))
+                 .TS5') =|>
+% Send M7 =  to user Ui via public channel
+State' := 7 /\ TS6' := new()
+            /\ KKif' := H(IDGWNf.MKGWNf)
+            /\ EEi' := {IDGWNf.IDSNj.H(xor(H(IDi.K),RNf')).
+                        RRNj'.TS6'}_KKif'
+            /\ SND(IDSNj.EEi')
+% FGWN has freshly generated the value TS6 for Ui
+            /\ witness(FGWN, Ui, fgwn_user_ts6, TS6')
+% FGWN's acceptance of the value TS5 generated for FGWN by SNj
+           /\ request(SNj, FGWN, sensor_fgwn_ts5, TS5')
+% FGWN's acceptance of the value RRNj generated for FGWN by SNj
+            /\ request(SNj, FGWN, sensor_fgwn_rrnj, RRNj')         
+end role
+
+
+
+% Role for the sensor node SNj
+role  sensor(Ui, SA, HGWN, FGWN SNj : agent,
+% H is hash function
+        H : hash_func,
+        SND, RCV: channel(dy))
+played_by SNj
+def=
+local State : nat,
+      FGWN : agent,
+      IDi, PWi, K, DIDi, PWRi, Aih, Aif, T : text,
+      TIDi, IDGWNh, IDGWNf, TS1, TS2, TS3, SKuisnj : text,
+      Gen, Rep: hash_func,
+      MKGWNh, MKGWNf, IDSNj, MKSNj, Pj, Ki, Kj, Bi,
+      Ci, Di, Fi, Gi, Hi, RNi, RNk, RNj : text
+const user_hgwn_ts1, user_hgwn_rni, user_sensor_ts7,
+    user_sensor_rrni, fgwn_sensor_ts4, fgwn_sensor_rnf,
+    fgwn_user_ts6, sensor_fgwn_ts5, sensor_fgwn_rrnj,  
+    s1, s2, s3, s4 : protocol_id
+init State := 0
+ transition
+% Authentication and key agreement phase
+% Receive message M5 = from FGWN via public channel
+1. State = 0 /\ RCV(IDSNj.{IDGWNh.IDGWNf.IDSNj.H(xor(H(IDi.K),RNf')).
+                RNf'.AAi'.TS4'}_H(IDSNj.MKSNj)) =|>
+State' := 9 /\ secret({IDi,PWi,K}, s1, {Ui}) 
+            /\ secret({IDGWNh}, s2, {Ui,SA,HGWN})
+            /\ secret({MKGWNh}, s3, {SA,HGWN})
+            /\ secret({IDGWNf}, s4, {Ui,SA,FGWN})
+            /\ secret({MKGWNf}, s5, {SA,FGWN})
+% Send M6 =  to FGWN via public channel
+            /\ RRNj' := new()
+            /\ TS5' := new()
+            /\ CCi' := xor(H(xor(H(IDi.K),RNf')),RRNj')
+            /\ DDi' := H(IDGWNf.IDSNj.H(xor(H(IDi.K),RNf')).
+                         RRNj'.TS5') 
+            /\ SND(IDSNj.CCi'.DDi'.TS5')
+% SNj has freshly generated the value TS5 for FGWN
+            /\ witness(SNj, FGWN, sensor_fgwn_ts5, TS5')
+% SNj has freshly generated the value RRNj for FGWN 
+            /\ witness(SNj, FGWN, sensor_fgwn_rrnj, RRNj')  
+% Receive M8 =  from Ui via public channel
+2. State = 9 /\ RCV(IDSNj.H(xor(xor(H(xor(H(IDi.K),RNf')),RRNj'),
+                RRNi').H(H(IDGWNh.IDGWNf.IDSNj.H(xor(H(IDi.K),
+                RNf')).RRNi'.RRNj').TS7').TS7') =|>
+% SNj's acceptance of the value TS4 generated for SNj by FGWN
+State' := 18 /\ request(FGWN, SNj, fgwn_sensor_ts4, TS4')
+% SNj's acceptance of the value RNf generated for SNj by FGWN
+            /\ request(FGWN, SNj, fgwn_sensor_rnf, RNf')  
+% SNj's acceptance of the value TS7 generated for SNj by Ui
+           /\ request(Ui, SNj, user_sensor_ts7, TS7')
+% SNj's acceptance of the value RRNi generated for SNj by Ui
+            /\ request(Ui, SNj, user_sensor_rrni, RRNi')  
+end role
+
+% Role for the session
+role session(Ui, SA, HGWN, FGWN, SNj : agent,
+% symmetric key between Ui and SA
+        SKuisa : symmetric_key,
+% H is hash function
+         H : hash_func)
+def=
+  local S1, S2, S3, S4, S5, R1, R2, R3, R4, R5 : channel (dy)
+composition
+   user(Ui, SA, HGWN, SNj, SKuisa, H, S1, R1)
+/\ sa(Ui, SA, HGWN, SNj, SKuisa, H, S2, R2)
+/\ hgwn(Ui, SA, HGWN, SNj, H, S3, R3)
+/\ sensor(Ui, SA, HGWN, SNj, H, S4, R4)
+end role
+
+
+
+% Role for the goal and environment
+role environment()
+def=
+  const ui, sa, hgwn, fgwn, snj: agent, 
+    skuisa : symmetric_key, 
+    h, gen, rep : hash_func,
+    ts1, ts2, ts4, ts5, ts6, ts7 : text,
+    user_hgwn_ts1, user_hgwn_rni, user_sensor_ts7,
+    user_sensor_rrni, fgwn_sensor_ts4, fgwn_sensor_rnf,
+    fgwn_user_ts6, sensor_fgwn_ts5, sensor_fgwn_rrnj, 
+    s1, s2, s3, s4 : protocol_id
+intruder_knowledge = {ui, sa, hgwn, fgwn, snj, h, 
+                      gen, rep, ts5, ts7}
+composition
+   session(ui, sa, hgwn, fgwn, snj, skuisa, h)
+/\ session(i, sa, hgwn, fgwn, snj, skuisa, h)
+/\ session(ui, i, hgwn, fgwn, snj, skuisa, h)
+/\ session(ui, sa, i, fgwn, snj, skuisa, h)
+/\ session(ui, sa, hgwn, i, snj, skuisa, h)
+/\ session(ui, sa, hgwn, fgwn, i, skuisa, h)
+end role
+goal
+  secrecy_of s1
+  secrecy_of s2
+  secrecy_of s3
+  secrecy_of s4
+
+
+  authentication_on user_hgwn_ts1
+  authentication_on user_hgwn_rni
+  authentication_on user_sensor_rrni
+  authentication_on fgwn_sensor_ts4
+  authentication_on fgwn_sensor_rnf
+  authentication_on sensor_fgwn_ts5
+  authentication_on sensor_fgwn_rrnj
+  authentication_on fgwn_user_ts6
+  authentication_on user_sensor_ts7
+end goal
+environment()
+

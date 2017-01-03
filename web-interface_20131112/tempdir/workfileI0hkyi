@@ -1,0 +1,47 @@
+role node (A:agent,Ka:public_key,KeyRing:(agent.public_key)
+set,SND,RCV:channel(dy)) played_by A def=
+local State :nat, Ni,Nj,Nj0,N0,Nb0:text,
+Pa,Pb,Mx,R,Dh,Mauth,Private,K:message,
+Kx:public_key, X:agent
+init State:=0
+transition
+a0. State=0 /\ RCV(start) =|> State':=1
+/\ Ni':=new() /\ N0':=new() /\ Pa':={Ni'.N0'.db}_inv(Ka) /\ R':=new()
+/\ Mx':=new() /\ SND(Pa'.R'.exp(g,Ni').Mx')
+ab1. State=1 /\ RCV(Pb'.Pa.exp(g,Nj').Mx') /\ Pb'={Ni.Nj'.db}_Ka =|> State':=2
+/\ K':=exp(exp(g,Nj'),Ni) /\ Mauth':=new() /\ N0':=new()
+/\ SND(Pa.Pb'.exp(g,N0').{Mauth'}_K') /\ witness(A,b,bob_alice_na,Mauth')
+ab2. State=2 /\ RCV(Pb.Pa.Dh'.{Private'}_K) =|> State':=3
+ac1. State=1 /\ RCV({R'}_inv(Kx').Pa.Dh'.Mx') =|> State':=2
+/\ Pb':={R'}_inv(Kx') /\ K':=exp(Dh',Ni) /\ Mauth':=new() /\ N0':=new()
+/\ SND(Pa.Pb'.exp(g,N0').{Mauth'}_K')
+ac2. State=2 /\ RCV(Pb.Pa.Dh'.{Private'}_K) =|> State':=3
+ba0. State=0 /\ RCV(Pa'.R'.exp(g,Ni').Mx') /\ Pa'= {Ni'.N0'.db}_inv(Kx')
+/\ in(X'.Kx',KeyRing) =|> State':=5
+/\ Dh':=exp(g,Ni') /\ Nj':=new() /\ Pb':={Ni'.Nj'.db}_Kx'
+/\ Mx':=new() /\ K':=exp(Dh',Nj') /\ SND(Pb'.Pa'.exp(g,Nj').Mx')
+ba1. State=5 /\ RCV(Pa.Pb.Dh'.{Mauth'}_K) =|> State':=6
+/\ N0':=new() /\ Private':=new() /\ SND(Pb.Pa.exp(g,N0').{Private'}_K)
+/\ request(X,A,bob_alice_na,Mauth') /\ secret(Private',sec,{A,X})
+bc0. State=0 /\ RCV({Ni'.N0'.db}_inv(Kx').R'.Dh'.Mx')
+/\ not(in(X'.Kx',KeyRing)) =|> State':=7 /\ Pa':={Ni'.N0'.db}_inv(Kx')
+/\ Nj':=new() /\ Nb0':=new() /\ Pb':={Nj'.Nb0'.db}_inv(Ka) /\ Mx':=new()
+/\ K':=exp(Dh',Nj') /\ SND(Pb'.Pa'.exp(g,Nj').Mx')
+bc1. State=7 /\ RCV(Pa.Pb.Dh'.{Mauth'}_K) =|> State':=8
+/\ N0':=new() /\ Private':=new() /\ SND(Pb.Pa.exp(g,N0').{Private'}_K)
+end role
+role environment() def=
+local KeyMapA,KeyMapB,KeyMapC,KeyMapD:(agent.public_key) set,
+SND,RCV:channel(dy)
+const a,b,c,d,i:agent, ka,kb,kc,kd,ki:public_key,
+g,db:text, sec,nb,alice_bob_nb,bob_alice_na:protocol_id
+init KeyMapA:={} /\ KeyMapB:={a.ka} /\ KeyMapC:={} /\ KeyMapD:={a.ka,b.kb}
+intruder_knowledge={a,b,c,d,g,ki,inv(ki)}
+composition
+node(a,ka,KeyMapA,SND,RCV) /\ node(b,kb,KeyMapB,SND,RCV)
+end role
+goal
+secrecy_of sec
+authentication_on bob_alice_na
+end goal
+environment()

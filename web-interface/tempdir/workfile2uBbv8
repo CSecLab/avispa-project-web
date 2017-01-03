@@ -1,0 +1,123 @@
+role alice( A, B, S: agent,
+            Ka, Kb, Ks: public_key,
+            SND, RCV: channel(dy))
+played_by A def=
+
+  local State : nat, 
+        Na, 	Nb: text
+
+  init State := 3
+
+  transition  
+   
+    3.  State  = 3 /\ RCV(start) =|> 
+        State':= 9 /\ Na' := new() /\ SND(A.B.{xor(A, Na')}_Ks)
+                   
+                   /\ SND({xor(Na', B)}_Ks.{xor(Na', c)}_Ks)
+                   /\ secret(c) 
+
+    9.  State  = 9  /\ RCV( xor(K,{Na}_Ks) )
+
+end role
+
+
+
+role bob(A, B, S: agent,
+         Ka, Kb, Ks: public_key,
+         SND, RCV: channel(dy))
+played_by B def=
+
+  local State : nat, 
+        Na, Nb: text
+
+  init State := 5
+
+  transition 
+
+    5.  State  = 5  /\ RCV(start) =|> 
+        State':= 25 /\ Nb' := new() /\ SND(B.A.{xor(B,Nb')}_Ks)
+                    /\ secret(c) 
+                    /\ SND({xor(Nb', A)}_Ks.{xor(Nb', c)}_Ks)
+
+    25.  State  = 25  /\ RCV(xor(K,{Nb}_Ks))
+    
+end role
+
+role server(A, B, S:agent,
+            Ka, Kb, Ks: public_key,
+            SND, RCV: channel(dy))
+played_by S def=
+    
+    local State : nat,
+            Na, Nb, Ns: text
+            
+    init State := 2
+    
+    transition
+    
+        2.  State  = 2 /\ RCV(A.B.{xor(A, Na)}_Ks) =|>
+            State':= 4
+        
+        4.  State  = 4 /\ RCV({xor(Na, B)}_Ks.{xor(Na, c)}_Ks) =|>
+            State':= 8 /\ secret(c)
+            
+        8.  State  = 8  /\ RCV(B.A.{xor(B,Nb)}_Ks) =|>
+            State':= 16
+        
+        16. State  = 16 /\ RCV({xor(Nb, A)}_Ks.{xor(Nb, c)}_Ks) =|>
+            State':= 32 /\ secret(c)
+                        /\ K' := new()
+                        /\ SND(xor(K',{Na}_Ks)
+                     
+        32. State  = 32 /\ SND(xor(K,{Nb}_Ks)
+
+
+
+role session(A, B, S: agent, 
+             Ka, Kb, Ks: public_key) 
+    def=
+
+  local SA, RA, SB, RB, SS, RS: channel (dy)
+
+  composition 
+
+        alice (A,B,S,Ka,Kb,Ks,SA,RA)
+     /\ alice (A,B,S,Ka,Kb,Ks,SA,RA)
+     /\ bob   (A,B,S,Ka,Kb,Ks,SB,RB)
+     /\ bob   (A,B,S,Ka,Kb,Ks,SB,RB)
+     /\ server(A,B,S,Ka,Kb,Ks,SS,RS)
+     /\ server(A,B,S,Ka,Kb,Ks,SS,RS)
+
+end role
+
+
+
+role environment() def=
+
+    const a, b, s         : agent,
+          ka, kb, ks, ki   : public_key,
+          na, nb,
+          alice_bob_nb,
+          bob_alice_na : protocol_id
+
+    intruder_knowledge = {a, b, s, ka, kb, ks, ki, inv(ki)}
+
+    composition
+
+        session(a,b,ka,kb)
+     /\ session(a,i,ka,ki)
+     /\ session(i,b,ki,kb)
+
+end role
+
+
+
+goal
+
+  secrecy_of c, k
+
+end goal
+
+
+
+environment()

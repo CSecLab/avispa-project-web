@@ -1,0 +1,171 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Avispa-users] about witness et request
+   </TITLE>
+   <LINK REL="Index" HREF="index.html" >
+   <LINK REL="made" HREF="mailto:avispa-users%40avispa-project.org?Subject=%5BAvispa-users%5D%20about%20witness%20et%20request&In-Reply-To=20060404092636.79475.qmail%40web26012.mail.ukl.yahoo.com">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000077.html">
+   <LINK REL="Next"  HREF="000079.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Avispa-users] about witness et request</H1>
+    <B>Paul Hankes Drielsma</B> 
+    <A HREF="mailto:avispa-users%40avispa-project.org?Subject=%5BAvispa-users%5D%20about%20witness%20et%20request&In-Reply-To=20060404092636.79475.qmail%40web26012.mail.ukl.yahoo.com"
+       TITLE="[Avispa-users] about witness et request">paul.drielsma at inf.ethz.ch
+       </A><BR>
+    <I>Tue Apr  4 12:06:23 CEST 2006</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000077.html">[Avispa-users] about witness et request
+</A></li>
+        <LI>Next message: <A HREF="000079.html">[Avispa-users] HLSPL protocol Animator and Graphical Interface for
+	AVISPA
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#80">[ date ]</a>
+              <a href="thread.html#80">[ thread ]</a>
+              <a href="subject.html#80">[ subject ]</a>
+              <a href="author.html#80">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi Omar,
+
+They verify authentication.  One pair of witness/request serves for  
+unilateral authentication, if you want mutual then you need to define  
+two pairs.  I wrote an email with an analogy of witness/request facts  
+answering a similar question a while back.  Maybe it will be of some  
+help.
+
+----------------------------------------
+witness and request events are kinda complicated, but they work and they
+are actually reasonably powerful.  Here's the deal: let's say you and me
+are sitting in our houses down the street from each other executing
+NSPK.  You're Alice and I'm Bob.  You create for me some random nonce
+called Na and send it to me in a letter.  When you do this, you raise a
+little red flag that indicates what the random value for Na was, let's
+say 17.  So at your house you fly a red flag that says &quot;Marie's value
+for Paul, which is called Na, is 17.&quot;  In AVISPA, we call these flags
+witness facts.  So in NSPK, the fact
+    witness(A,B,bob_alice_na,Na')
+that Alice emits in the example on the web means &quot;My name is A, and I
+created the value Na' for the guy named B.  I created it for the purpose
+called bob_alice_na.&quot;  The purpose is just a name and could be anything,
+but it ensures that the intruder can't do any funny stuff like take a
+value that you intended as your nonce Na, and inject it someplace else
+where I want you to send me, for example, your public key.
+
+Ok, so that's you.  Now over at my place I'm Bob.  I get a letter from
+you.  It's got what is supposedly your nonce in it and your name,
+encrypted for me.  Then at the end of the protocol, you have sent me
+back my Nb and that's supposed to prove to me that it's really you,
+right?  So what I do after I get that last message is I fly a little
+blue flag at my house that indicates what I believe your value for Na
+was.  So my flag says &quot;I'm Paul, and the value for Na that I believe I
+got from Marie, is 17.&quot;  This, in AVISPA, is done with a request flag.
+In NSPK, in the Bob role we have
+    request(B,A,bob_alice_na,Na)
+and this says &quot;I'm B, I believe I'm talking to A and she sent me the
+value Na for the purpose bob_alice_na.&quot;
+
+So far so good?  I hope so.
+
+So where's the intruder?  The intruder is the mailman.  He's carrying
+the letters between our two houses, and he can open 'em, read 'em, and
+replace them with his own letters if he wants.  The only thing he can't
+do is decrypt stuff when he doesn't have the key.  ALSO, he can't climb
+on top of our houses and replace the flags.  So when you fly your red
+flag and I fly my blue one, he can't screw around with those or take
+them down.
+
+Almost finished I promise.  So where's the AVISPA Tool?  The AVISPA Tool
+is a guy across the street with binoculars.  His job is to look our for
+flags and make sure they match in a particular way.  What way?  Well,
+for authentication what he looks for is this: if he EVER sees a blue
+flag go up (Bob's flag), then there MUST be a red flag someplace with
+the same people, the same purpose, and the same value.  So if my flag
+says I believe the value 17 came from you, your flag must say you
+created the value 17 for me for the same purpose.  And if you have
+replay protection (i.e. request and not wrequest), then those flags
+better be unique.  If I fly two blue flags that look the same, there
+better be two red flags on your house.  Otherwise it means the intruder,
+the mailman, photocopied your letters and is delivering them to me again
+(maybe even after you moved away!).
+
+That's how witness and request events work.  The AVISPA Tool looks for
+situations in which they see the first request flag above, and make sure
+that when it comes there is a matching witness that looks like the one
+above.  If not, it's an attack.
+
+Who decides the goals?  That's one of the challenges of modelling
+protocols.  Generally, we try to extract them from the description of
+the protocol that's in an RFC or something.  They are sometimes
+intuitively clear: if two people exchange a key for instance, it's
+reasonable to assume that good goals include that the key should be
+secret and they should agree upon its value, so it should be  
+authenticated.
+----------------------------------------
+
+Cheers,
+Paul.
+
+On Apr 4, 2006, at 11:26 AM, chikh omar wrote:
+
+&gt;<i> hello,
+</I>&gt;<i>
+</I>&gt;<i> i wish to understant the two primitives request and witness:
+</I>&gt;<i> * which property they verify ?
+</I>&gt;<i> *they only can verify mutual authentication ? if yes why in EAP-AKA  
+</I>&gt;<i> we use AT_MAC and AT_AUTH for authentication ???
+</I>&gt;<i>
+</I>&gt;<i> thanks for help
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i>
+</I>&gt;<i> Omar Cheikhrouhou
+</I>&gt;<i> Engineer &amp; Researcher @ ReDCAD
+</I>&gt;<i> Research in Development and Control of Distributed Applications
+</I>&gt;<i> University of Sfax, National School of Engineers
+</I>&gt;<i> BP W, Sfax, 3038, Tunisia
+</I>&gt;<i> Tel: +216 21 17 96 17
+</I>&gt;<i> Email : <A HREF="http://www.avispa-project.org/mailman/listinfo/avispa-users">enis01amor at yahoo.fr</A>
+</I>&gt;<i>
+</I>&gt;<i> Nouveau : t&#233;l&#233;phonez moins cher avec Yahoo! Messenger. Appelez le  
+</I>&gt;<i> monde entier &#224; partir de 0,012 &#8364;/minute ! T&#233;l&#233;chargez la version beta.
+</I>&gt;<i> _______________________________________________
+</I>&gt;<i> Avispa-users mailing list
+</I>&gt;<i> <A HREF="http://www.avispa-project.org/mailman/listinfo/avispa-users">Avispa-users at avispa-project.org</A>
+</I>&gt;<i> <A HREF="http://www.avispa-project.org/mailman/listinfo/avispa-users">http://www.avispa-project.org/mailman/listinfo/avispa-users</A>
+</I>
+</PRE>
+
+
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000077.html">[Avispa-users] about witness et request
+</A></li>
+	<LI>Next message: <A HREF="000079.html">[Avispa-users] HLSPL protocol Animator and Graphical Interface for
+	AVISPA
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#80">[ date ]</a>
+              <a href="thread.html#80">[ thread ]</a>
+              <a href="subject.html#80">[ subject ]</a>
+              <a href="author.html#80">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="http://www.avispa-project.org/mailman/listinfo/avispa-users">More information about the Avispa-users
+mailing list</a><br>
+</body></html>

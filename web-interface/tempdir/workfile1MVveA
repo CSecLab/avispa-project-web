@@ -1,0 +1,48 @@
+role role_T(T:agent,R:agent,K1:text,K2:text,PID:text,SND,RCV:channel(dy))
+played_by T
+def=
+	local
+		State:nat,N1:text,N2:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(xor(K1,N1').{xor(PID,N1')}_K2) =|> State':=1 /\ N2':=new() /\ SND({xor(K2,N2')}_PID.{xor(xor(K1,N1'),N2')}_K2.N1')
+end role
+
+role role_R(T:agent,R:agent,K1:text,K2:text,PID:text,SND,RCV:channel(dy))
+played_by R
+def=
+	local
+		State:nat,N1:text,N2:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ N1':=new() /\ SND(xor(K1,N1').{xor(PID,N1')}_K2)
+		2. State=1 /\ RCV({xor(K2,N2')}_PID.{xor(xor(K1,N1),N2')}_K2.N1) =|> State':=2 /\ witness(R,T,auth_2,N2')
+end role
+
+role session1(T:agent,R:agent,K1:text,K2:text,PID:text)
+def=
+	local
+		SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_R(T,R,K1,K2,PID,SND2,RCV2) /\ role_T(T,R,K1,K2,PID,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		k2:text,bob:agent,alice:agent,k1:text,pid:text,auth_1:protocol_id,auth_2:protocol_id
+	intruder_knowledge = {alice,bob,k1,k2,pid}
+	composition
+		session1(alice,bob,k1,k2,pid)
+end role
+
+goal
+	secrecy_of k2,k1,pid
+	#authentication_on auth_1
+	#authentication_on auth_2
+end goal
+
+environment()
+

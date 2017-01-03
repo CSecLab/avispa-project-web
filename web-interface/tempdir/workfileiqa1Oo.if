@@ -1,0 +1,88 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileiqa1Oo
+
+section signature:
+
+state_bob: agent * agent * nat * text * text * text * text * symmetric_key * public_key * text * nat -> fact
+state_alice: agent * agent * nat * text * text * symmetric_key * text * public_key * text * text * set(agent) * nat -> fact
+
+
+section types:
+
+sec_k1: protocol_id
+5, State, 6, 3, 4, 2, 1, 0, 7, SID, Dummy_State: nat
+Kb, dummy_pk: public_key
+Kab, Dummy_Kab, dummy_sk: symmetric_key
+Response, Time, UDID, PhNum, Pin, Dummy_Pin, dummy_nonce: text
+set_65, set_53: set
+Set_22, Dummy_Set_22, ASGoal: set(agent)
+start, MGoal: message
+b, A, B, i, a: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(i).
+ state_alice(a,b,0,dummy_nonce,dummy_nonce,dummy_sk,dummy_nonce,dummy_pk,dummy_nonce,dummy_nonce,set_53,3).
+ state_bob(b,a,1,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,dummy_pk,dummy_nonce,4).
+ state_alice(b,a,0,dummy_nonce,dummy_nonce,dummy_sk,dummy_nonce,dummy_pk,dummy_nonce,dummy_nonce,set_65,6).
+ state_bob(a,b,1,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,dummy_pk,dummy_nonce,7)
+
+
+section rules:
+
+step step_0 (A,B,PhNum,Pin,Dummy_Kab,UDID,Kb,Response,Time,Dummy_Set_22,SID,Kab) :=
+ state_alice(A,B,0,PhNum,Pin,Dummy_Kab,UDID,Kb,Response,Time,Dummy_Set_22,SID).
+ iknows(start)
+=[exists Kab]=>
+ state_alice(A,B,2,PhNum,Pin,Kab,UDID,Kb,Response,Time,Dummy_Set_22,SID).
+ iknows(pair(crypt(Kb,Kab),scrypt(Kab,pair(PhNum,pair(UDID,Time))))).
+ secret(Kab,sec_k1,Dummy_Set_22).
+ contains(A,Dummy_Set_22).
+ contains(B,Dummy_Set_22)
+
+step step_1 (A,B,PhNum,Dummy_Pin,Kab,UDID,Kb,Response,Time,Set_22,SID,Pin) :=
+ state_alice(A,B,2,PhNum,Dummy_Pin,Kab,UDID,Kb,Response,Time,Set_22,SID).
+ iknows(Pin)
+ =>
+ state_alice(A,B,4,PhNum,Pin,Kab,UDID,Kb,Response,Time,Set_22,SID).
+ iknows(scrypt(Kab,pair(PhNum,Dummy_Pin)))
+
+step step_2 (A,B,PhNum,Pin,Kab,UDID,Kb,Response,Time,Set_22,SID) :=
+ state_alice(A,B,4,PhNum,Pin,Kab,UDID,Kb,Response,Time,Set_22,SID).
+ iknows(scrypt(Kab,pair(PhNum,pair(UDID,Response))))
+ =>
+ state_alice(A,B,6,PhNum,Pin,Kab,UDID,Kb,Response,Time,Set_22,SID)
+
+step step_3 (B,A,Dummy_Pin,PhNum,UDID,Time,Dummy_Kab,Kb,Response,SID,Pin,Kab) :=
+ state_bob(B,A,1,Dummy_Pin,PhNum,UDID,Time,Dummy_Kab,Kb,Response,SID).
+ iknows(pair(crypt(Kb,Kab),scrypt(Kab,pair(PhNum,pair(UDID,Time)))))
+=[exists Pin]=>
+ state_bob(B,A,3,Pin,PhNum,UDID,Time,Kab,Kb,Response,SID).
+ iknows(Pin)
+
+step step_4 (B,A,Pin,PhNum,UDID,Time,Kab,Kb,Response,SID) :=
+ state_bob(B,A,3,Pin,PhNum,UDID,Time,Kab,Kb,Response,SID).
+ iknows(scrypt(Kab,pair(PhNum,Pin)))
+ =>
+ state_bob(B,A,5,Pin,PhNum,UDID,Time,Kab,Kb,Response,SID).
+ iknows(scrypt(Kab,pair(PhNum,pair(UDID,Response))))
+
+
+section properties:
+
+property secrecy_of_sec_k1 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_k1,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_sec_k1 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_k1,ASGoal) &
+ not(contains(i,ASGoal))
+

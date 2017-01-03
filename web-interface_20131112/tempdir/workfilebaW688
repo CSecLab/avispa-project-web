@@ -1,0 +1,28 @@
+role cpaa (  CPAA,MN,CAAA,NPAA:agent,
+                  PANA_Auth_Key,NAAA_SK,NPAA_PK,AAA_Key,
+                  NAAA_PK:symmetric_key,                
+                  NPAA_ID,Session_Identifier,Key_ID:text,
+                  F1,F2,F3:hash_func,
+                  SND_MN,RCV_MN:channel(dy))
+played_by CPAA def=
+
+
+local
+            New_MN_ID:text,
+            AAA_Key_Int:symmetric_key
+
+
+init State:=2
+
+transition
+1.State=2/\RCV_MN(New_MN_ID*'*.NPAA_ID)=|>
+   State':=3 /\ SND_CAAA(NPAA_ID)
+
+2.State=4/\RCV_CAAA(NAAA_PK)=|>
+   State':=5/\SND_NPAA(New_MN-ID*'*.NPAA_ID)
+
+3.State=5/\RCV_NPAA({NPAA_ID.NPAA_PK}_NAAA_SK)=|>  %plus the last PAR message
+   State':=14/\AAA-Key-Int'=F3(AAA_Key,New_MN_ID*'*,SessoinIdentifier,Key_ID)
+                  /\SND_NPAA({AAA_Key_Int'}_NPAA-PK)
+
+end role)

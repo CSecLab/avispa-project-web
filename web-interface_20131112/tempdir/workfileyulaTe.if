@@ -1,0 +1,81 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileyulaTe
+
+section signature:
+
+state_ra: agent * agent * text * message * message * message * message * public_key * public_key * hash_func * nat * message * message * message * text * text * text * nat -> fact
+state_patient: agent * agent * text * message * message * message * message * public_key * public_key * hash_func * nat * text * text * text * message * message * message * set(agent) * nat -> fact
+
+
+section types:
+
+set_82: set
+Dummy_Set_30, ASGoal, Set_30: set(agent)
+sec_ifd_dhvalue: protocol_id
+F1, f1: hash_func
+Ka, Kb, kb, ka: public_key
+X, Y, K, Dummy_Y, Dummy_K, ID_A, ID_B, Dummy_X, CA_A, CA_B, dummy_msg, MGoal, start, id_A, id_B, ca_A, ca_B: message
+4, State, SID, Dummy_State, 3, 2, 1, 0, 5: nat
+B, A, a, b, i: agent
+N_RA, Dummy_Ni, Dummy_N_RA, Dummy_N_P, Dummy_Nf, G, dummy_nonce, g, Nf, N_P, Ni: text
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(g).
+ iknows(f1).
+ iknows(i).
+ state_patient(a,b,g,id_A,id_B,ca_A,ca_B,kb,ka,f1,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_msg,dummy_msg,set_82,3).
+ state_ra(b,a,g,id_A,id_B,ca_A,ca_B,ka,kb,f1,1,dummy_msg,dummy_msg,dummy_msg,dummy_nonce,dummy_nonce,dummy_nonce,4)
+
+
+section rules:
+
+step step_0 (A,B,G,ID_A,ID_B,CA_A,CA_B,Ka,Kb,F1,Dummy_Nf,Dummy_N_P,N_RA,Dummy_X,K,Y,Set_30,SID,Nf,N_P) :=
+ state_patient(A,B,G,ID_A,ID_B,CA_A,CA_B,Ka,Kb,F1,0,Dummy_Nf,Dummy_N_P,N_RA,Dummy_X,K,Y,Set_30,SID).
+ iknows(start)
+=[exists N_P,Nf]=>
+ state_patient(A,B,G,ID_A,ID_B,CA_A,CA_B,Ka,Kb,F1,2,Nf,N_P,N_RA,exp(G,Nf),K,Y,Set_30,SID).
+ iknows(pair(ID_A,pair(exp(G,Nf),pair(CA_A,N_P))))
+
+step step_1 (A,B,G,ID_A,ID_B,CA_A,CA_B,Ka,Kb,F1,Nf,Dummy_N_P,Dummy_N_RA,X,Dummy_K,Dummy_Y,Dummy_Set_30,SID,N_P,N_RA,Y) :=
+ state_patient(A,B,G,ID_A,ID_B,CA_A,CA_B,Ka,Kb,F1,2,Nf,Dummy_N_P,Dummy_N_RA,X,Dummy_K,Dummy_Y,Dummy_Set_30,SID).
+ iknows(pair(crypt(Ka,pair(Y,N_RA)),pair(scrypt(K,apply(F1,pair(ID_A,pair(ID_B,pair(N_P,N_RA))))),CA_B)))
+ =>
+ state_patient(A,B,G,ID_A,ID_B,CA_A,CA_B,Ka,Kb,F1,4,Nf,N_P,N_RA,X,exp(Y,Nf),Y,Dummy_Set_30,SID).
+ iknows(scrypt(exp(Y,Nf),N_RA)).
+ secret(N_RA,sec_ifd_dhvalue,Dummy_Set_30).
+ contains(A,Dummy_Set_30).
+ contains(B,Dummy_Set_30)
+
+step step_2 (B,A,G,ID_A,ID_B,CA_A,CA_B,Kb,Ka,F1,Dummy_X,Dummy_Y,Dummy_K,Dummy_Ni,Dummy_N_P,Dummy_N_RA,SID,X,Ni,N_P,N_RA) :=
+ state_ra(B,A,G,ID_A,ID_B,CA_A,CA_B,Kb,Ka,F1,1,Dummy_X,Dummy_Y,Dummy_K,Dummy_Ni,Dummy_N_P,Dummy_N_RA,SID).
+ iknows(pair(ID_A,pair(X,pair(CA_A,N_P))))
+=[exists N_RA,Ni]=>
+ state_ra(B,A,G,ID_A,ID_B,CA_A,CA_B,Kb,Ka,F1,3,X,exp(G,Ni),exp(X,Ni),Ni,N_P,N_RA,SID).
+ iknows(pair(crypt(Ka,pair(exp(G,Ni),N_RA)),pair(scrypt(exp(X,Ni),apply(F1,pair(ID_A,pair(ID_B,pair(N_P,N_RA))))),CA_B)))
+
+step step_3 (B,A,G,ID_A,ID_B,CA_A,CA_B,Kb,Ka,F1,X,Y,Dummy_K,Ni,N_P,Dummy_N_RA,SID,K,N_RA) :=
+ state_ra(B,A,G,ID_A,ID_B,CA_A,CA_B,Kb,Ka,F1,3,X,Y,Dummy_K,Ni,N_P,Dummy_N_RA,SID).
+ iknows(scrypt(K,N_RA))
+ =>
+ state_ra(B,A,G,ID_A,ID_B,CA_A,CA_B,Kb,Ka,F1,5,X,Y,K,Ni,N_P,N_RA,SID)
+
+
+section properties:
+
+property secrecy_of_sec_ifd_dhvalue (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_ifd_dhvalue,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_sec_ifd_dhvalue (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_ifd_dhvalue,ASGoal) &
+ not(contains(i,ASGoal))
+

@@ -1,0 +1,146 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role src (SrcTEE, DesTEE, TEEAdmin, SP: agent,             
+          PKSrcTEE, PKDesTEE, PKTEEAdmin,  PKSP, PKSDsrc: public_key,
+ 	  	  SK : symmetric_key, 
+ 	  	  SDCred: text,     
+          SND, RCV: channel (ota)) 
+	
+	played_by SrcTEE def=
+	
+	local 
+		State : nat, 
+       	TimeStamp: text,
+		Ack: message,
+		KProxy: public_key
+
+ 	init State := 0
+
+ 	transition  
+   	
+	0.State  = 0 /\ RCV(start) =|> State':= 1 /\ SND(SrcTEE.TEEAdmin.PKSP. PKSDsrc. PKSrcTEE. PKDesTEE.{PKSP. PKSDsrc. PKSrcTEE. PKDesTEE}_inv(PKSrcTEE)) 
+	1.State= 1 /\ RCV(SrcTEE.TEEAdmin.SrcTEE.TEEAdmin.KProxy'.{PKSP.PKSrcTEE. PKDesTEE}_inv(PKSP).{KProxy'.{ PKSP.PKSrcTEE. PKDesTEE. TimeStamp}_inv(PKSP)}_inv(PKTEEAdmin)) =|> State':= 2
+	2.State'=2/\SND(SrcTEE.DesTEE.{{SDCred}_KProxy'.{SDCred}_KProxy.PKSP}_SK) =|> State':=3 /\ RCV({SrcTEE.DesTEE.Ack.TimeStamp}_SK)/\
+	secret(SDCred,transfer,{SrcTEE, DesTEE, SP, TEEAdmin})
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role teeAdmin (SrcTEE, DesTEE, TEEAdmin, SP: agent,             
+               PKSrcTEE, PKDesTEE, PKTEEAdmin, PKSP: public_key,      
+               SND, RCV: channel (ota)) 
+
+	played_by TEEAdmin def=
+
+	local 
+		State : nat, 
+       	SDCreate, Param, Ack: message,
+		TimeStamp: text,
+		PKSDsrc, KProxy: public_key
+	 
+	 init State := 0
+
+ 	 transition  
+   	
+	0.State  = 0 /\ RCV(TEEAdmin. SrcTEE. PKSP. PKSDsrc'. PKSrcTEE. PKDesTEE.{ PKSP. PKSDsrc. PKSrcTEE. PKDesTEE}_inv(PKSrcTEE))=|> State':= 1 
+	1.State'=1/\ SND(TEEAdmin.SP.PKSDsrc'. PKSrcTEE. PKDesTEE)=|> State':= 2
+	2.State'=2 /\ RCV(TEEAdmin.SP .SDCreate .PKDesTEE) =|> State':=3 /\ TimeStamp':=new()/\SND(TEEAdmin. DesTEE. SDCreate. {SDCreate.TimeStamp'}_inv(PKTEEAdmin))
+	3.State'=3  /\RCV(TEEAdmin. DesTEE.Ack'.Param'.{ Ack'.Param'.TimeStamp'}_inv(PKDesTEE)) =|>State':=4 
+	4.State'=4 /\ SND(TEEAdmin.SP.Param') =|> State':=5
+	5.State'=5 /\RCV(TEEAdmin.SP.KProxy'.{ PKSP.PKSrcTEE. PKDesTEE. TimeStamp'}_inv(PKSP))=|>State':=6 /\ SND(TEEAdmin. SrcTEE.KProxy'.{ PKSP.PKSrcTEE. PKDesTEE. TimeStamp'}_inv(PKSP).{ KProxy'.{PKSP.PKSrcTEE. PKDesTEE. TimeStamp'}_inv(PKSP)}_inv(PKTEEAdmin)) 
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role sp (TEEAdmin, SP: agent,             
+         PKTEEAdmin, PKSP: public_key,      
+         SND, RCV: channel (ota)) 
+
+	played_by SP def=
+
+	local 
+		State : nat, 
+       	SDCreate, Param: message,
+       	TimeStamp: text,
+		PKSrcTEE, PKDesTEE, PKSDsrc, PKSDdest, KProxy: public_key
+	 init State := 0
+
+ 	 transition  
+   	
+	0.State  = 0 /\ RCV(PKSDsrc'. PKSrcTEE'. PKDesTEE') =|>State':=1
+	1.State'= 1 /\ SND(SDCreate.PKDesTEE') =|>State':=2
+	2.State'=2 /\ RCV(Param') =|> State':=3 /\ TimeStamp':=new()/\PKSDdest':=new()/\KProxy':=new()
+	%%/\PKSDdest'=new()/\KProxy':=new(PKSDsrc', inv(PKSDdest'))
+	/\SND(KProxy'.{PKSP.PKSrcTEE'.PKDesTEE'. TimeStamp'}_inv(PKSP)) 
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role dest (SrcTEE, DesTEE, TEEAdmin: agent,             
+           PKDesTEE, PKTEEAdmin, PKSP: public_key, 
+ 	   	   SK : symmetric_key, 
+           SND, RCV: channel (ota)) 
+
+	played_by DesTEE def=
+
+	local 
+		State : nat, 
+       	TimeStamp, SDCred: text,
+		SDCreate, Ack, Param: message,
+		KProxy: public_key
+		
+ 	 init State := 0
+
+ 	 transition  
+
+	0.State=0 /\RCV(SDCreate.{SDCreate.TimeStamp'}_inv(PKTEEAdmin)) =|> State':=1/\TimeStamp':=new()
+	1.State'=1/\SND(Ack'.Param'.{Ack'.Param'.TimeStamp'}_inv(PKDesTEE)) =|> State':=2
+	2.State'=2/\RCV({{SDCred }_KProxy'.{SDCred }_KProxy'.PKSP}_SK) =|> State':=3/\TimeStamp':=new()/\SND({Ack'.TimeStamp'}_SK)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(SrcTEE, DesTEE, TEEAdmin, SP: agent, 
+	     PKSrcTEE, PKDesTEE, PKTEEAdmin, PKSP, PKSDsrc: public_key,      
+	     SK : symmetric_key,
+	     SDCred: text) 
+
+	def=
+	local S1, R1, S2, R2, S3, R3, S4, R4 : channel (ota)
+
+	composition 
+	
+	src (SrcTEE, DesTEE, TEEAdmin, SP, PKSrcTEE, PKDesTEE, PKTEEAdmin, PKSP, PKSDsrc, SK, SDCred, S1, R1) 
+	/\ teeAdmin (SrcTEE, DesTEE, TEEAdmin, SP, PKSrcTEE, PKDesTEE, PKTEEAdmin, PKSP,S2, R2)
+	/\ sp (TEEAdmin, SP, PKTEEAdmin, PKSP, S3, R3)
+	/\ dest (SrcTEE, DesTEE, TEEAdmin, PKDesTEE, PKTEEAdmin, PKSP, SK, S4, R4)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() 
+	def=
+
+    	const 
+    		srctee, destee, teeadmin, sp_agent: agent,
+			pksrctee, pkdestee, pkteeadmin, pksp, pksdsrc, ki: public_key,
+			sk: symmetric_key,
+			transfer : protocol_id,
+			sdcred: text
+
+	intruder_knowledge = { srctee, destee, teeadmin, sp_agent, pksrctee, pkdestee, pkteeadmin, pksp, ki, inv(ki)}
+
+   	composition
+
+	session(srctee, destee, teeadmin, sp_agent, pksrctee, pkdestee, pkteeadmin, pksp, pksdsrc, sk, sdcred) 
+	
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of transfer
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+

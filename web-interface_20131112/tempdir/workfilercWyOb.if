@@ -1,0 +1,139 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilercWyOb
+
+section signature:
+
+state_verifier: agent * agent * agent * hash_func * hash_func * nat * text * text * text * text * text * text * text * text * text * text * text * set(text) * set(text) * nat -> fact
+state_proxysigner: agent * agent * agent * hash_func * hash_func * nat * text * text * text * text * text * text * text * text * text * text * set(text) * set(text) * nat -> fact
+state_originalsigner: agent * agent * agent * hash_func * hash_func * nat * text * text * text * text * text * text * set(text) * nat -> fact
+
+
+section types:
+
+ASGoal: set(agent)
+MGoal, start: message
+alice_bob_na, bob_alice_nb, bob_verifier_nc, verifier_bob_nd, subs1, subs2: protocol_id
+h, f, F, H: hash_func
+set_99, set_124, set_123, set_122, set_121, set_119, set_114, set_113, set_107, set_106: set
+Set_73, Set_72, Set_51, Set_50, Set_29, Dummy_Set_73, Dummy_Set_72, Dummy_Set_51, Dummy_Set_50, Dummy_Set_29: set(text)
+dummy_nonce, R, P, XA, Q, YA, Mw, M, R1, XB, Y1, Y2, Dummy_R1, Dummy_R: text
+A2Goal, A1Goal, a, b, v, A, B, V, i: agent
+SID2, SID1, SID, State, 1, 0, 9, 7, 5, 4, Dummy_State, 3: nat
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(v).
+ iknows(h).
+ iknows(f).
+ iknows(i).
+ state_originalsigner(a,b,v,h,f,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_99,3).
+ state_proxysigner(b,a,v,h,f,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_106,set_107,4).
+ state_verifier(v,a,b,h,f,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_113,set_114,5).
+ state_originalsigner(a,i,v,h,f,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_119,7).
+ state_verifier(v,a,i,h,f,0,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,set_123,set_124,9)
+
+
+section rules:
+
+step step_0 (A,B,V,H,F,Dummy_R,P,XA,Q,YA,Mw,Dummy_Set_29,SID,R) :=
+ state_originalsigner(A,B,V,H,F,0,Dummy_R,P,XA,Q,YA,Mw,Dummy_Set_29,SID).
+ iknows(start)
+=[exists R]=>
+ state_originalsigner(A,B,V,H,F,1,R,P,XA,Q,YA,Mw,Dummy_Set_29,SID).
+ iknows(pair(Mw,pair(apply(F,pair(R,P)),pair(apply(F,pair(R,pair(XA,apply(H,pair(Mw,apply(F,pair(R,P))))))),Q)))).
+ witness(A,B,bob_alice_nb,R).
+ secret(Dummy_Set_29,subs1,A).
+ contains(XA,Dummy_Set_29).
+ contains(R,Dummy_Set_29)
+
+step step_1 (B,A,V,F,H,Dummy_R,P,XA,Q,YA,Mw,M,Dummy_R1,XB,Y1,Dummy_Set_50,Dummy_Set_51,SID,R,R1) :=
+ state_proxysigner(B,A,V,F,H,0,Dummy_R,P,XA,Q,YA,Mw,M,Dummy_R1,XB,Y1,Dummy_Set_50,Dummy_Set_51,SID).
+ iknows(pair(Mw,pair(apply(F,pair(R,P)),pair(apply(F,pair(R,pair(XA,apply(H,pair(Mw,apply(F,pair(R,P))))))),Q))))
+=[exists R1]=>
+ state_proxysigner(B,A,V,F,H,1,R,P,XA,Q,YA,Mw,M,R1,XB,Y1,Dummy_Set_50,Dummy_Set_51,SID).
+ iknows(pair(R,pair(R1,Q))).
+ secret(Dummy_Set_50,subs1,A).
+ secret(Dummy_Set_51,subs2,B).
+ witness(B,V,verifier_bob_nd,R1).
+ contains(XA,Dummy_Set_50).
+ contains(XB,Dummy_Set_51).
+ contains(R1,Dummy_Set_51)
+
+step step_2 (V,A,B,H,F,Dummy_R,P,XA,Q,YA,Mw,M,Dummy_R1,XB,Y1,Y2,Dummy_Set_72,Dummy_Set_73,SID,R,R1) :=
+ state_verifier(V,A,B,H,F,0,Dummy_R,P,XA,Q,YA,Mw,M,Dummy_R1,XB,Y1,Y2,Dummy_Set_72,Dummy_Set_73,SID).
+ iknows(pair(R,pair(R1,Q)))
+ =>
+ state_verifier(V,A,B,H,F,1,R,P,XA,Q,YA,Mw,M,R1,XB,Y1,Y2,Dummy_Set_72,Dummy_Set_73,SID).
+ secret(Dummy_Set_72,subs1,A).
+ secret(Dummy_Set_73,subs2,B).
+ contains(R,Dummy_Set_72).
+ contains(XA,Dummy_Set_72).
+ contains(XB,Dummy_Set_73).
+ contains(R1,Dummy_Set_73)
+
+
+section properties:
+
+property secrecy_of_subs1 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,subs1,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_subs2 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,subs2,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_bob_alice_nb (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,bob_alice_nb,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,bob_alice_nb,MGoal))
+     /\ ((request(A1Goal,A2Goal,bob_alice_nb,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,bob_alice_nb,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_verifier_bob_nd (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,verifier_bob_nd,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,verifier_bob_nd,MGoal))
+     /\ ((request(A1Goal,A2Goal,verifier_bob_nd,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,verifier_bob_nd,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_subs1 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,subs1,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_subs2 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,subs2,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_bob_alice_nb (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,bob_alice_nb,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,bob_alice_nb,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_bob_alice_nb (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,bob_alice_nb,MGoal,SID1).
+ request(A1Goal,A2Goal,bob_alice_nb,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_verifier_bob_nd (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,verifier_bob_nd,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,verifier_bob_nd,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_verifier_bob_nd (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,verifier_bob_nd,MGoal,SID1).
+ request(A1Goal,A2Goal,verifier_bob_nd,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

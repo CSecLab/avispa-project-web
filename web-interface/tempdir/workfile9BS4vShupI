@@ -1,0 +1,111 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+%%HLPSL:
+role client (
+                Ui,S  : agent,
+           	Ks    : symmetric_key,
+	   	H     : hash_func,
+           	Snd, Rcv: channel(dy))
+played_by Ui
+def=
+           
+  local State, R, X, S  : nat,
+        V, Regi, Randi, Ni, Pwi, Sn : text,
+        Ti, R1, Ts, Tr, Ki, SKi, Ri, AUi, AUs : message
+
+  init  State := 0 /\  Ni := H(Ui.Randi) /\  Regi := xor(H(Ui.H(Pwi)),H(xor(Ks,H(Ui.Randi))))
+
+  transition
+   1. State   = 0 /\ Rcv(start) =|>
+      State' := 2 /\ V' := new() /\ Ri' := new() /\ X' := new() /\ R' := new() 
+                  /\ R1' := xor( Regi,H(V') )
+                  /\ Ki' := xor( H(Ui.H(Pwi)),H(v) )
+                  /\ Ti' := H( {x}_R' ).{x}_R' 
+                  /\ Snd(Sn.X.Randi.Ni.R1'.{Ui.Ri.Ti'}_Ki')
+
+   2. State   = 1 /\ Rcv(Nb') =|> 
+      State' := 2 / Na' := new() / Snd(Na'.H(Kab.Na'.Nb'.A))
+	          / witness(A,B,na,Na') 
+		  / secret(Kab,sec_kab1,{A,B})
+
+   3. State   = 2 / Rcv(H(Kab.Na)) =|> 
+      State' := 3 / request(A,B,nb,Nb) 
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role chap_Resp (B,A : agent,
+                Kab : symmetric_key,
+		H: hash_func,
+                Snd, Rcv: channel(dy))
+played_by B
+def=
+           
+  local State  : nat,
+        Na, Nb : text
+
+  const sec_kab2 : protocol_id
+
+  init  State := 0
+
+  transition
+   1. State   = 0 / Rcv(A') =|>  
+      State' := 1 / Nb' := new() / Snd(Nb')
+	          / witness(B,A,nb,Nb')
+
+   2. State   = 1 / Rcv(Na'.H(Kab.Na'.Nb.A)) =|>
+      State' := 2 / Snd(H(Kab.Na'))
+	          / request(B,A,na,Na') 
+		  / secret(Kab,sec_kab2,{A,B})
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(A,B: agent,
+	     Kab: symmetric_key,
+	     H: hash_func)
+def=
+
+  local SA, SB, RA, RB: channel (dy)
+
+  composition
+           chap_Init(A, B, Kab, H, SA, RA)
+       /  chap_Resp(B, A, Kab, H, SB, RB)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+
+  const a, b          : agent,
+        kab, kai, kbi : symmetric_key,
+        h             : hash_func,
+        na, nb        : protocol_id
+
+  intruder_knowledge = {a, b, h, kai, kbi }
+
+  composition
+	session(a,b,kab,h) /
+	session(a,i,kai,h) /
+        session(b,i,kbi,h)
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+ %secrecy of the shared key
+ secrecy_of sec_kab1, sec_kab2	% Addresses G12
+                         
+ %CHAP_Init authenticates CHAP_Resp on nb
+ authentication_on nb  % Addresses G1, G2
+ %CHAP_Resp authenticates CHAP_Init on na
+ authentication_on na  % Addresses G1, G2
+  
+end goal
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+    

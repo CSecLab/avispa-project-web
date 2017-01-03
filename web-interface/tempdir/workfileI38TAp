@@ -1,0 +1,138 @@
+role client(A, B, Pi, T : agent,
+Kat, Kapi, Kpit: symmetric_key,
+Kb,Ks: public_key, %ks is the public key of a Trusted Third Party
+SND_BA, RCV_BA, SND_PiA, RCV_PiA, SND_TA, RCV_TA: channel (dy))
+played_by A
+def=
+local Na, Sid, Pa, PMS: text,
+Nb: text,
+State: nat,
+Finished:
+hash(hash(text.text.text).agent.agent.text.text.text),
+ClientK, ServerK:
+hash(agent.text.text.hash(text.text.text)),
+Kb: public_key,
+M: hash(text.text.text)
+const sec_clientk, sec_serverk :
+protocol_id
+init State := 0
+transition
+1. State = 0
+/\ RCV(start)
+=|>
+State' := 2
+/\ Na' := new()
+/\ Pa' := new()
+/\ Sid' := new()
+/\ SND(A.Na'.Sid'.Pa')
+
+2. State = 2
+/\ RCV(Nb'.Sid.Pa.{B.Kb'}_(inv(Ks)))
+=|>
+State' := 3
+/\ PMS' := new()
+/\ M' := PRF(PMS'.Na.Nb')
+/\ Finished' :=
+H(PRF(PMS'.Na.Nb').A.B.Na.Pa.Sid)
+/\ ClientK' :=
+KeyGen(A.Na.Nb'.PRF(PMS'.Na.Nb'))
+/\ ServerK' :=
+KeyGen(B.Na.Nb'.PRF(PMS'.Na.Nb'))
+/\ SND({PMS'}_Kb'.
+{A.Ka}_(inv(Ks)).
+{H(Nb'.B.PMS')}_(inv(Ka)).
+{H(PRF(PMS'.Na.Nb').
+A.B.Na.Pa.Sid)
+}_KeyGen(A.Na.Nb'.PRF(PMS'.Na.Nb')))
+/\ witness(A,B,na_nb2,Na.Nb')
+4. State = 3
+/\ RCV({Finished}_ServerK)
+=|>
+State' := 5
+/\ request(A,B,na_nb1,Na.Nb)
+/\ secret(ClientK,sec_clientk,{A,B})
+/\ secret(ServerK,sec_serverk,{A,B})
+end role
+role bob(A, B, Pi, T : agent,
+Kat, Kapi, Kpit: symmetric_key,
+Kb,Ks: public_key, %ks is the public key of a Trusted Third Party
+SND_BA, RCV_BA, SND_PiA, RCV_PiA, SND_TA, RCV_TA: channel (dy))
+played_by B
+def=
+local Na, Nb, Sid, Pa, PMS: text,
+State: nat,
+Ka: public_key
+init State := 1
+transition
+1. State = 1
+/\ RCV(A.Na'.Sid'.Pa')
+=|>
+State' := 3
+/\ Nb' := new()
+/\ SND(Nb'.Sid'.Pa'.{B.Kb}_(inv(Ks)))
+/\ witness(B,A,na_nb1,Na'.Nb')
+2. State = 3
+/\ RCV({PMS'}_Kb.{A.Ka'}_(inv(Ks)).
+{H(Nb.B.PMS')}_(inv(Ka')).
+{H(PRF(PMS'.Na.Nb).
+A.B.Na.Pa.Sid)
+}_KeyGen(A.Na.Nb.PRF(PMS'.Na.Nb)))
+=|>
+State' := 5
+/\ SND({H(PRF(PMS'.Na.Nb).
+A.B.Na.Pa.Sid)
+}_KeyGen(B.Na.Nb.PRF(PMS'.Na.Nb)))
+/\ request(B,A,na_nb2,Na.Nb)
+end role
+role proxy (A, B, Pi, T : agent,
+Hash,Soln:hash_func,
+Kat,Kapi,Kpit:symmetric_key,
+HI_T,HI_B : public_key,
+G:nat,
+SND_TPi, RCV_TPi, SND_APi, RCV_APi,SND_BPi, RCV_BPi: channel (dy))
+played_by Pi
+State = 8
+/\ RCV_TA({Pi}_Kat)
+=|>
+State' := 10
+/\ Xi' := new()
+/\ SND_PiA({Soln(Puzzle). {exp(G,Y).HI_B}_inv(HI_B). ai'}_Kapi)
+end role
+role session( )
+Def=
+local
+composition
+Alice()
+/\ trustparty()
+/\ proxy()
+/\ bob()
+end role
+role environment()
+def=
+const
+server_proxy,proxy_server: protocol_id ,
+hash_, mult_: hash_func,
+a,b,pi,t : agent,
+kt,kb,ks,ki : public_key,
+g,ni,nr : nat,
+kat,kapi,kpit,kipi,kai,kti:symmetric_key
+intruder_knowledge = { a, b, pi, t, g, ni, nr, hash_,mult_, kt,kb,ks,ki, kipi,kai,kti, inv(ki), {i.ki}_(inv(ks)}
+composition
+session(a,b,pi,t,hash_,mult_, kat,kapi,kpit,g, kt,kb,ks)
+/\ session(a,b,i,t,hash_,mult_ ,kat,kai,kti,g, kt,kb,ks)
+/\ session(a,i,pi,t,hash_,mult_,kat,kapi,kpit,g, kt,ki,ks)
+/\ session(i,b,pi,t,hash_,mult_, kti,kipi,kpit,g, kt,kb,ks)
+/\ Kpi' := new() % material key generation
+/\ secret (inv(Kpi'),k,{T,Pi})
+/\ witness(B,Pi,proxy_server,Ni') (at the role server)
+/\ request(Pi,B,proxy_server,Ni) (at the role proxy)
+/\ witness(Pi,B,server_proxy,Nr') (at the role proxy)
+/\ request(B,Pi,server_proxy,Nr) (at the role server)
+end role
+goal
+secrecy_of k,km
+authentication_on server_proxy
+authentication_on proxy_server
+end goal
+
+environment()

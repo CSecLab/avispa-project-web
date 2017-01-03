@@ -1,0 +1,165 @@
+%% PROTOCOL: MTI: Matsomoto Takashima Imai
+%% PURPOSE: Key Agreement
+%% ALICE_BOB:
+%% \begin
+%% A -> B : Expr(G,Na)     
+%% B -> A : Expr(G,Nb)   
+%% \end
+%% ATTACKS: 
+%% \begin{verbatim}
+%% i -> (a,3): start
+%% (a,3) -> i: {Ea(1)}_kab
+%% i -> (a,6): {Ea(1)}_kab
+%% (a,6) -> i: {{K(2)}_Ea(1)}_kab 
+%% i -> (a,3): {{K(2)}_Ea(1)}_kab
+%% (a,3) -> i: {Na(3)}_K(2) witness(a,b,na,Na(3))
+%% i -> (a,6): {Na(3)}_K(2)
+%% (a,6) -> i: {Na(3),Nb(4)}_K(2) witness(a,b,nb,Nb(4))
+%% i -> (a,3): {Na(3),Nb(4)}_K(2)
+%% (a,3) -> i: {Nb(4)}_K(2)  request(a,b,nb,Nb(4))
+%% \end{verbatim}
+%%
+%% Parallel session attack, man-in-the-middle
+%% between A as initiator and A as responder, attacker
+%% masquerades as B, but no secret nonces are exposed.
+%%
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%HLPSL:
+
+role alice (A,B: agent,
+	 SND,RCV : channel(dy),
+	 Mod,Expr,Times:function,
+	 Ka,Kb: public_key,
+	 Pa:symmetric_key,
+	 G,P: message)
+played_by A
+def=
+
+  local State   : nat,
+        Sa,Sb:message,
+        Na,K : text
+
+  const key_id1, alice_bob_k,na_v : protocol_id
+
+  init  State := 0
+
+  transition
+
+   1. State = 0
+      /\ RCV(start)
+      =|> 
+      State' := 2
+      /\ Na' := new()
+      /\ Sa':=Mod(Expr(G,Na),P)
+      /\ SND(Sa) 
+      %/\request(A,B,na_v,Na')
+
+   2. State = 2
+      /\ RCV(Sb)
+      =|> 
+      State' := 4
+      /\K':=Mod(Times(Expr(Kb,Na),Expr(Sb,Pa)),P)
+      /\ secret(K',key_id1,{A,B})
+      %/\witness(A,B,bob_alice_k,K')
+      %/\request(A,B,alice_bob_k,K')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob (B,A: agent,
+ 	 SND,RCV: channel(dy),
+	 Mod,Expr,Times:function,
+	 Ka,Kb: public_key,
+	 Pb:symmetric_key,
+	 G,P: message)
+played_by B
+def=
+
+  local State   : nat,
+              Nb,K : text,
+	Sa,Sb:message
+	
+
+  const key_id2, bob_alice_k, nb_v : protocol_id
+
+  init  State := 1
+
+  transition
+
+   1. State = 1 /\ RCV(Sa')
+      =|> 
+      State' := 3
+      /\ Nb':=new()
+      /\ Sb':=Mod(Expr(G,Nb'),P)
+      /\ K' :=Mod(Times(Expr(Ka,Nb'),Expr(Sa,Pb)),P)
+      /\ SND(Sb') 
+      /\ secret(K',key_id2,{A,B})
+      %/\request(B,A,nb_v,Nb')
+      %/\witness(B,A,alice_bob_k,K')
+      %/\request(B,A,bob_alice_k,K')      
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(A,B: agent,
+	     Mod,Expr,Times:function,
+	     Ka,Kb: public_key,
+	     Pa,Pb: symmetric_key,
+	     G,P: message)
+def=
+
+  local SendA, ReceiveA, SendB, ReceiveB: channel (dy)
+
+  composition
+
+     alice(A,B,SendA,ReceiveA,Mod,Expr,Times,Ka,Kb,Pa,G,P)
+   /\bob(B,A,SendB,ReceiveB,Mod,Expr,Times,Ka,Kb,Pb,G,P)
+   
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role environment()
+def=
+
+  const a, b   : agent,
+        pa, pb, pi    : symmetric_key,
+        ka,kb,ki : public_key,
+        a,b,i : agent,
+        g,p:message,
+        %na_v, nb_v, alice_bob_k, bob_alice_k : protocol_id,
+        mod,expr,times:function
+
+  intruder_knowledge={a,b,ka,kb,pi,ki,times,mod,expr,g,p}
+
+  composition
+      session(a,b,mod,expr,times,ka,kb,pa,pb,g,p)
+   %/\session(a,i,mod,expr,times,ka,ki,pa,pi,g,p)
+   %/\session(i,b,mod,expr,times,ki,kb,pi,pb,g,p)
+ 
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+ % Confidentiality (G12)
+ secrecy_of  key_id1,key_id2
+
+%Freshness
+%authentication_on alice_bob_k
+%authentication_on bob_alice_k
+
+ % Entity authentication (G2)
+ %authentication_on na_v
+ %authentication_on nb_v
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

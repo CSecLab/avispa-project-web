@@ -1,0 +1,119 @@
+role alice (UA, S, UB : agent,
+% H is hash function
+H, Mul: hash_func, Snd, Rcv: channel(dy))
+played_by UA
+def=
+local State : nat,
+DA, UA, IDA, IDB, Raa, Q, US: text,
+HA', RA, KA, CAS, SKA, K: message,
+Inc : hash_func
+const alice_server, server_bob, alice_bob, alice_server, 
+subs1, subs2, subs3: protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(start) =|>
+State' := 1  /\ DA' : =new()
+/\ UA :=Mul(DA'.Q) 
+/\ Raa' := new()
+/\ HA' := H(Raa'.DA')
+/\ RA' := Mul(HA'.Q)
+/\ KA' := Mul(DA.US)
+/\ CAS' := H(IDA.IDB.RA'.KA')
+/\ Snd(IDA.IDB.RA'.CAS')
+2. State = 1 /\ Rcv(RB.CSA') =|>
+State' := 2 /\ K' := Mul(HA.RB)
+/\ SKA' := H(IDA.IDB.RA.RB.K')
+end role
+
+%******************************
+
+role bob (UB, S, UA : agent,
+% H is hash function
+H, Mul: hash_func, Snd, Rcv: channel(dy))
+played_by UB
+def=
+local State : nat,
+DB, UB, IDA, IDB, Rbb, Q, US: text,
+HB', RB, KB, CBS, SKB, K: message,
+Inc : hash_func
+const alice_server, server_bob, alice_bob, alice_server, 
+subs1, subs2, subs3: protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(start) =|>
+State' := 1  /\ DB' : =new()
+/\ UB :=Mul(DB'.Q) 
+/\ Rbb' := new()
+/\ HB' := H(Rbb'.DB')
+/\ RB' := Mul(HB'.Q)
+/\ KB' := Mul(DB.US)
+/\ CBS' := H(IDB.IDA.RB'.KB')
+/\ Snd(IDB.IDA.RB'.CBS')
+2. State = 1 /\ Rcv(RA.CSB') =|>
+State' := 2 /\ K' := Mul(HB.RA)
+/\ SKA' := H(IDA.IDB.RA.RB.K')
+end role
+
+%*******************************************
+
+role server (S, UA, UB: agent,
+% H is hash function
+H, Mul: hash_func,
+Snd, Rcv: channel(dy) )
+played_by S
+def=
+local State : nat,
+DS, UB, UA, IDA, IDB, Rb, Q, US: text,
+HB', RB, KB, CBS, SKB, K: message,
+Inc : hash_func
+const alice_server, server_bob, alice_bob, alice_server, 
+subs1, subs2, subs3: protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(IDA.IDB.RA'.KA'.IDB.IDA.RB'.KB') =|>
+State' := 1 /\ US':= Mul(DS.P)
+/\ KAA' := Mul(DS.UA)
+/\ KBB' : =Mul(DS.UB)
+/\ CSA' := H(IDA.IDB.RA.RB.KAA')
+/\ CSB' := H(IDB.IDA.RB.RA.KBB')
+/\ Snd(RB.CSA')
+/\ Snd(RA.CSB')
+%/\ witness(S, UB, server_bob, RS')
+%/\ secret({RS'}, subs5, {UB,S})
+end role
+
+
+role session(UA, S, UB: agent,
+H, Mul: hash_func)
+def=
+local SI, SJ, RI, RJ, TI, TJ: channel (dy)
+composition
+alice(UA, S, UB, H, Mul, SI, RI)
+/\ server(UA, S, UB, H, Mul, SJ, RJ)
+/\ bob(UA, S, UB, H, Mul, TI, TJ)
+end role
+role environment()
+def=
+const ua, s, ub: agent,
+h,mul: hash_func,
+ida, idb, ua, ub, da, db, ra, rb, ds, us, cas, cbs, csa, csb, 
+kaa, kbb, ha, hb, ka, kb: text, 
+alice_server, server_bob, alice_bob, alice_server, 
+subs1, subs2, subs3,subs4,subs5,subs6: protocol_id
+intruder_knowledge = {ua, s, ub, h, mul, cas, cbs, csa, csb, ra, rb}
+composition
+session( ua, s, ub, h, mul)
+/\ session(s, ua, ub, h, mul)
+/\ session(ub, s, ua, h, mul)
+end role
+goal
+%secrecy_of subs1
+%secrecy_of subs2
+%secrecy_of subs3
+%secrecy_of subs4
+%secrecy_of subs5
+%secrecy_of subs6
+authentication_on alice_server_raa
+authentication_on bob_alice_rbb
+end goal
+environment()

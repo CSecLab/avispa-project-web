@@ -1,0 +1,108 @@
+%PROTOCOL: Identity-based Authentication and Access Control in Wireless Sensor Networks.%
+%PURPOSE: To establish user authentication.%
+%A -> B : %
+%B -> A : %
+%To simulate man-in-the-middle attack on this protocol.%
+
+role initiator (A,B : agent,
+		APubKey, BPubKey : public_key,
+		Hash: hash_func,
+		SND,RCV : channel(dy))
+
+% A = sender, B = receiver
+played_by A
+def=
+	local State : nat,
+	UIDA,SK,TK,TS,R,Kba:text
+	const a_b,  b_a ,sub2,kab : protocol_id
+
+init
+
+State := 0
+
+transition
+1.State=0 /\RCV(start)=|>
+   State':=1 /\R':=new()
+	/\TK':=(R.Hash(UIDA))
+	/\TS':=new()
+   	/\SND({TS.TK.UIDA}_APubKey)
+	/\ witness (A, B, a_b, TK')
+2.State=1 /\ RCV({Kba}_APubKey)=|>
+  	SK':=(kab.TS)
+	/\ request (B, A, b_a, Kba)
+	/\ secret({Kba}, kab, A)
+	/\ secret({SK'},sub2,{A,B})
+end role
+
+role responder (A,B : agent,
+		APubKey, BPubKey: public_key,
+		Hash: hash_func,
+		SND,RCV : channel(dy))
+
+   	
+played_by B
+def=
+	local State : nat,
+	UIDA,SK,TM,TK,TS,R,Kba:text
+	const a_b,  b_a , sub2,kab : protocol_id
+
+init
+
+State := 0
+
+transition
+
+1.State=0 /\RCV({TS.TK.UIDA}_APubKey)=|>
+   State':=1 /\R':=new()/\Kba':=(R.Hash(TK.UIDA))/\secret({Kba'}, sub2, B)
+		/\SND({Kba}_BPubKey)
+		/\ witness (B, A, b_a, Kba')
+                /\ request (A, B, a_b, TK')
+                  		
+
+2.State=1 /\ RCV({kab}_TK)=|>
+  SK':=(kab.TS)/\SND({SK}_TK)
+  /\ secret({SK'},sub2,{A,B})		
+end role
+   	
+role session(
+	     A,B : agent,
+		APubKey, BPubKey: public_key,
+	     Hash: hash_func
+	)
+def=
+
+local SA, SB, RA, RB: channel (dy)
+
+
+composition
+initiator(A, B,APubKey, BPubKey,Hash, SA, RA)
+/\ responder(A, B,APubKey, BPubKey,Hash, SB, RB)
+end role
+
+
+role environment()
+def=
+const  
+        a,b  : agent,
+	uaid : text,	
+	kab, sub2 : protocol_id,
+	aPubKey, bPubKey: public_key,
+	h: hash_func
+	
+	intruder_knowledge = {a, b,h,uaid}
+
+	%intruder_knowledge = {a, b, k, yb, g, q}
+
+composition
+session(a, b,aPubKey, bPubKey,h) /\
+session(a, b,aPubKey, bPubKey,h)
+end role
+
+
+goal
+secrecy_of sub2
+secrecy_of sub2
+secrecy_of kab
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

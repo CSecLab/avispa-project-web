@@ -1,0 +1,137 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileM3Cbaj
+
+section signature:
+
+state_serveur: agent * agent * public_key * public_key * hash_func * set(text) * nat * text * text * text * text * message * text * text * nat -> fact
+state_alice: agent * agent * public_key * public_key * text * text * hash_func * nat * text * text * message * text * text * set(agent) * nat -> fact
+
+
+section types:
+
+KeyComm: set(text)
+Dummy_Set_25, ASGoal, Set_25: set(agent)
+alice_serveur_nas, serveur_alice_nsa, secretInfo: protocol_id
+Dummy_K1, K1, dummy_msg, MGoal, start: message
+Hash, h: hash_func
+PKs, PKa, pka, pks, pki: public_key
+set_89, set_88, set_87, set_107, set_105: set
+S, A, A2Goal, A1Goal, a, s, i: agent
+Dummy_State, 3, SID, State, SID2, SID1, 4, 2, 1, 0, 10, 6: nat
+Dummy_Validation, Dummy_Ns, Validation, Refuse, Dummy_Na, Info, Login, Na, Ns, dummy_nonce, loginAS, loginAI, loginIS, infoAS, infoAI, infoIS, Dummy_Login, Dummy_Info, Dummy_Refuse: text
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(s).
+ iknows(h).
+ iknows(pka).
+ iknows(pks).
+ iknows(pki).
+ iknows(inv(pki)).
+ iknows(i).
+ state_alice(a,s,pka,pks,infoAS,loginAS,h,0,dummy_nonce,dummy_nonce,dummy_msg,dummy_nonce,dummy_nonce,set_89,3).
+ state_serveur(s,a,pks,pka,h,set_87,1,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_nonce,dummy_nonce,4).
+ state_alice(a,i,pka,pki,infoAI,loginAI,h,0,dummy_nonce,dummy_nonce,dummy_msg,dummy_nonce,dummy_nonce,set_105,6).
+ state_serveur(s,i,pks,pki,h,set_87,1,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_msg,dummy_nonce,dummy_nonce,10)
+
+
+section rules:
+
+step step_0 (A,S,PKa,PKs,Info,Login,Hash,Dummy_Na,Ns,Dummy_K1,Validation,Refuse,Dummy_Set_25,SID,Na) :=
+ state_alice(A,S,PKa,PKs,Info,Login,Hash,0,Dummy_Na,Ns,Dummy_K1,Validation,Refuse,Dummy_Set_25,SID).
+ iknows(start)
+=[exists Na]=>
+ state_alice(A,S,PKa,PKs,Info,Login,Hash,2,Na,Ns,apply(Hash,pair(A,pair(S,pair(Login,pair(Info,Na))))),Validation,Refuse,Dummy_Set_25,SID).
+ iknows(crypt(PKs,crypt(inv(PKa),pair(A,pair(S,pair(Login,pair(Info,pair(Na,apply(Hash,pair(A,pair(S,pair(Login,pair(Info,Na))))))))))))).
+ secret(pair(Info,Login),secretInfo,Dummy_Set_25).
+ contains(A,Dummy_Set_25).
+ contains(S,Dummy_Set_25)
+
+step step_1 (A,S,PKa,PKs,Info,Login,Hash,Na,Dummy_Ns,Dummy_K1,Dummy_Validation,Refuse,Set_25,SID,Ns,K1,Validation) :=
+ state_alice(A,S,PKa,PKs,Info,Login,Hash,2,Na,Dummy_Ns,Dummy_K1,Dummy_Validation,Refuse,Set_25,SID).
+ iknows(crypt(PKa,crypt(inv(PKs),pair(A,pair(S,pair(Validation,pair(Ns,K1)))))))
+ =>
+ state_alice(A,S,PKa,PKs,Info,Login,Hash,4,Na,Ns,K1,Validation,Refuse,Set_25,SID).
+ request(A,S,alice_serveur_nas,Validation,SID)
+
+step step_2 (A,S,PKa,PKs,Info,Login,Hash,Na,Dummy_Ns,Dummy_K1,Validation,Dummy_Refuse,Set_25,SID,Ns,K1,Refuse) :=
+ state_alice(A,S,PKa,PKs,Info,Login,Hash,2,Na,Dummy_Ns,Dummy_K1,Validation,Dummy_Refuse,Set_25,SID).
+ iknows(crypt(PKa,crypt(inv(PKs),pair(A,pair(S,pair(Refuse,pair(Ns,K1)))))))
+ =>
+ state_alice(A,S,PKa,PKs,Info,Login,Hash,4,Na,Ns,K1,Validation,Refuse,Set_25,SID).
+ request(A,S,alice_serveur_nas,Refuse,SID)
+
+step step_3 (S,A,PKs,PKa,Hash,KeyComm,Dummy_Na,Dummy_Ns,Dummy_Info,Dummy_Login,Dummy_K1,Dummy_Validation,Refuse,SID,Na,Ns,Info,Login,Validation) :=
+ state_serveur(S,A,PKs,PKa,Hash,KeyComm,1,Dummy_Na,Dummy_Ns,Dummy_Info,Dummy_Login,Dummy_K1,Dummy_Validation,Refuse,SID).
+ iknows(crypt(PKs,crypt(inv(PKa),pair(A,pair(S,pair(Login,pair(Info,pair(Na,K1)))))))) &
+ not(contains(Login,KeyComm))
+=[exists Validation,Ns]=>
+ state_serveur(S,A,PKs,PKa,Hash,KeyComm,3,Na,Ns,Info,Login,apply(Hash,pair(A,pair(S,pair(Validation,Ns)))),Validation,Refuse,SID).
+ iknows(crypt(PKa,crypt(inv(PKs),pair(A,pair(S,pair(Validation,pair(Ns,apply(Hash,pair(A,pair(S,pair(Validation,Ns))))))))))).
+ witness(S,A,alice_serveur_nas,Validation)
+
+step step_4 (S,A,PKs,PKa,Hash,KeyComm,Dummy_Na,Dummy_Ns,Dummy_Info,Dummy_Login,Dummy_K1,Validation,Dummy_Refuse,SID,Na,Ns,Info,Login,Refuse) :=
+ state_serveur(S,A,PKs,PKa,Hash,KeyComm,1,Dummy_Na,Dummy_Ns,Dummy_Info,Dummy_Login,Dummy_K1,Validation,Dummy_Refuse,SID).
+ iknows(crypt(PKs,crypt(inv(PKa),pair(A,pair(S,pair(Login,pair(Info,pair(Na,K1)))))))) &
+ not(contains(Login,KeyComm))
+=[exists Refuse,Ns]=>
+ state_serveur(S,A,PKs,PKa,Hash,KeyComm,3,Na,Ns,Info,Login,apply(Hash,pair(A,pair(S,pair(Refuse,Ns)))),Validation,Refuse,SID).
+ iknows(crypt(PKa,crypt(inv(PKs),pair(A,pair(S,pair(Refuse,pair(Ns,apply(Hash,pair(A,pair(S,pair(Refuse,Ns))))))))))).
+ witness(S,A,alice_serveur_nas,Refuse)
+
+
+section properties:
+
+property authentication_on_alice_serveur_nas (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,alice_serveur_nas,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,alice_serveur_nas,MGoal))
+     /\ ((request(A1Goal,A2Goal,alice_serveur_nas,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,alice_serveur_nas,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_serveur_alice_nsa (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,serveur_alice_nsa,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,serveur_alice_nsa,MGoal))
+     /\ ((request(A1Goal,A2Goal,serveur_alice_nsa,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,serveur_alice_nsa,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property secrecy_of_secretInfo (MGoal,ASGoal) :=
+ [] ((secret(MGoal,secretInfo,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state authentication_on_alice_serveur_nas (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,alice_serveur_nas,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,alice_serveur_nas,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_alice_serveur_nas (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,alice_serveur_nas,MGoal,SID1).
+ request(A1Goal,A2Goal,alice_serveur_nas,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_serveur_alice_nsa (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,serveur_alice_nsa,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,serveur_alice_nsa,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_serveur_alice_nsa (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,serveur_alice_nsa,MGoal,SID1).
+ request(A1Goal,A2Goal,serveur_alice_nsa,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state secrecy_of_secretInfo (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,secretInfo,ASGoal) &
+ not(contains(i,ASGoal))
+

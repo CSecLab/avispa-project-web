@@ -1,0 +1,101 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileT19319
+
+section signature:
+
+state_handy: agent * agent * agent * symmetric_key * symmetric_key * message * text * nat -> fact
+state_bank: agent * agent * agent * symmetric_key * nat * message * text * nat -> fact
+state_anwender: agent * agent * agent * symmetric_key * nat * message * message * text * nat -> fact
+
+
+section types:
+
+bank_anwender_T: protocol_id
+5, 3, State, 17, 16, 13, 11, 8, 7, SID, 4, 2, 0, Dummy_State, SID2, SID1, 1: nat
+Tan, Dummy_Tan, dummy_nonce: text
+Transaktionsdaten, start, Dummy_Egal, Dummy_Transaktionsdaten, Egal, dummy_msg, MGoal: message
+Khb, Kha, khb, kha: symmetric_key
+A, B, H, A2Goal, A1Goal, a, b, h, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(h).
+ iknows(i).
+ state_anwender(a,b,h,kha,0,dummy_msg,dummy_msg,dummy_nonce,3).
+ state_bank(b,a,h,khb,1,dummy_msg,dummy_nonce,4).
+ state_handy(h,a,b,khb,kha,dummy_msg,dummy_nonce,5).
+ state_anwender(a,b,i,kha,0,dummy_msg,dummy_msg,dummy_nonce,7).
+ state_bank(b,a,i,khb,1,dummy_msg,dummy_nonce,8).
+ state_anwender(a,i,h,kha,0,dummy_msg,dummy_msg,dummy_nonce,11).
+ state_handy(h,a,i,khb,kha,dummy_msg,dummy_nonce,13).
+ state_bank(b,i,h,khb,1,dummy_msg,dummy_nonce,16).
+ state_handy(h,i,b,khb,kha,dummy_msg,dummy_nonce,17)
+
+
+section rules:
+
+step step_0 (A,B,H,Kha,Dummy_Transaktionsdaten,Egal,Tan,SID,Transaktionsdaten) :=
+ state_anwender(A,B,H,Kha,0,Dummy_Transaktionsdaten,Egal,Tan,SID).
+ iknows(start)
+=[exists Transaktionsdaten]=>
+ state_anwender(A,B,H,Kha,2,Transaktionsdaten,Egal,Tan,SID).
+ iknows(Transaktionsdaten)
+
+step step_1 (A,B,H,Kha,Transaktionsdaten,Dummy_Egal,Dummy_Tan,SID,Egal,Tan) :=
+ state_anwender(A,B,H,Kha,2,Transaktionsdaten,Dummy_Egal,Dummy_Tan,SID).
+ iknows(scrypt(Kha,pair(Egal,Tan)))
+ =>
+ state_anwender(A,B,H,Kha,4,Transaktionsdaten,Egal,Tan,SID).
+ iknows(Tan).
+ witness(A,B,bank_anwender_T,Transaktionsdaten)
+
+step step_2 (B,A,H,Khb,Dummy_Transaktionsdaten,Dummy_Tan,SID,Transaktionsdaten,Tan) :=
+ state_bank(B,A,H,Khb,1,Dummy_Transaktionsdaten,Dummy_Tan,SID).
+ iknows(Transaktionsdaten)
+=[exists Tan]=>
+ state_bank(B,A,H,Khb,3,Transaktionsdaten,Tan,SID).
+ iknows(scrypt(Khb,pair(Transaktionsdaten,Tan)))
+
+step step_3 (B,A,H,Khb,Transaktionsdaten,Tan,SID) :=
+ state_bank(B,A,H,Khb,3,Transaktionsdaten,Tan,SID).
+ iknows(Tan)
+ =>
+ state_bank(B,A,H,Khb,5,Transaktionsdaten,Tan,SID).
+ request(A,B,bank_anwender_T,Transaktionsdaten,SID)
+
+step step_4 (H,A,B,Khb,Kha,Dummy_Transaktionsdaten,Dummy_Tan,SID,Transaktionsdaten,Tan) :=
+ state_handy(H,A,B,Khb,Kha,Dummy_Transaktionsdaten,Dummy_Tan,SID).
+ iknows(scrypt(Khb,pair(Transaktionsdaten,Tan)))
+ =>
+ state_handy(H,A,B,Khb,Kha,Transaktionsdaten,Tan,SID).
+ iknows(scrypt(Kha,pair(Transaktionsdaten,Tan)))
+
+
+section properties:
+
+property authentication_on_bank_anwender_T (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,bank_anwender_T,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,bank_anwender_T,MGoal))
+     /\ ((request(A1Goal,A2Goal,bank_anwender_T,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,bank_anwender_T,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state authentication_on_bank_anwender_T (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,bank_anwender_T,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,bank_anwender_T,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_bank_anwender_T (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,bank_anwender_T,MGoal,SID1).
+ request(A1Goal,A2Goal,bank_anwender_T,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

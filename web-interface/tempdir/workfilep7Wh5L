@@ -1,0 +1,73 @@
+role reader( 
+A,B:agent, 
+SND,RCV: channel(dy), 
+H,ROT: function, 
+IDS,K1,K2,K3:symetric_key
+) 
+played_by A 
+def= local State:nat, 
+Na,Nb:text (fresh), 
+D,M,N,Q,T,Z:message 
+const x1:protocol_id 
+init State:=0 
+transition 
+1.State=0/\ RCV(start)=|> State':=2 /\ Na':=new() /\ SND(Na') 
+2.State=2/\ RCV(D') =|>State':=4 
+/\ M'=P(K1,K2).xor(Na',K3)/\SND(M')/\N'=P(xor(K1,K2),xor(ROT(Na',Nb'),P(Na',K1)))/\SND(N')/\witness(A,B,m,M')/\witness(A,B,n,N')
+4.State=5/\RCV(Q') /\Q'=xor(P(xor(Na',K1),xor(Na',K3)),IDS')=|>State':=6 /\ 
+Nb':=new() /\T'=(P(K2,K3).xor(Nb',K3))SND(T')/\W'=P(K3,xor(ROT( Na',Nb'),P(Na',xor(K2,K3)))/\SND(W')/\witness(A,B,w,W') 
+6.State=6/\ RCV(Z')/\Z'=xor(P(xor(Na',Nb'),ROT(Na',Nb')),IDS)=|>witness(A,B,Z,Z')
+end role 
+role tag( 
+A,B:agent, 
+SND,RCV: channel(dy), 
+H,ROT:function, 
+IDS,K1,K2,K3:symetric_key
+) 
+played_by B 
+def= 
+local State:nat, 
+Nb,Na:text, 
+D,M,N,Q,T,Z:message 
+const x2:protocol_id 
+init State:=1 
+transition 
+1.State=1/\ RCV(Na')=|> State':=3/\SND(D')
+2.State=3/\ RCV(M')/\ RCV(M')/\N'=P(xor(K1,K2),xor(ROT(Na',Nb'),P(Na',K1)))
+=|>State':=5/\witness(B,A,n,N') /\Q'=xor(P(xor(Na',K1),xor(Na',K3)),IDS')/\SND(Q')/\witness(B,A,q,Q')/\secret(IDS,x1,{A,B})
+5.State=6/\ RCV(T')/\ RCV(W')/\N'=W'=P(K3,xor(ROT( Na',Nb'),P(Na',xor(K2,K3)))=|>witness(A,B,w,W')/\Z'=xor(P(xor(Na',Nb'),ROT(Na',Nb')),IDS)/\SND(Z')/\witness(A,B,Z,Z')
+end role 
+
+role session( 
+A,B:agent, 
+H,ROT:function, 
+IDS,K1,K2,K3:symetric_key ,
+D,M,N,Q,T,Z:message 
+) 
+def= 
+local SA,RA,SB,RB:channel(dy) 
+composition 
+reader(A,B,SA,RA,P,ROT,IDS,K1,K2,K3) 
+/\tag(A,B,SB,RB,P,ROT,IDS,K1,K2,K3) 
+end role 
+role environment() 
+def= 
+const 
+na,nb,D,M,N,Q,T,Z:protocol_id, 
+a,b:agent, 
+p,rot:function, 
+IDS,K1,K2,K3:symetric_key 
+intruder_knowledge={a,b,p,rot,na,nb} 
+composition 
+session(a,b,P,ROT,IDS,K1,K2,K3) 
+/\session(a,i,P,ROT,IDS,K1,K2,K3) 
+/\session(i,b,P,ROT,IDS,K1,K2,K3) 
+end role 
+goal 
+secrecy_of x1,x2 
+authentication_on n 
+authentication_on q 
+authentication_on w 
+authentication_on z 
+end goal 
+environment() 

@@ -1,0 +1,54 @@
+role role_A(A:agent,B:agent,Na:text,Ka:public_key,SND,RCV:channel(dy))
+played_by A
+def=
+	local
+		State:nat,Ka:public_key,Na:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ SND({A.Na}_Kb)
+		2. State=1 /\ RCV({A.B.Na.Nb'}_Ka') =|> State':=2 /\ witness(A,B,auth_2,Nb') /\ secret(Nb',sec_3,{A,B}) /\ SND({A.Nb'}_Kb)
+end role
+
+role role_B(A:agent,B:agent,Nb:text,Kb:public_key,SND,RCV:channel(dy))
+played_by B
+def=
+	local
+		State:nat,Nb:text,Kb:public_key
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV({A.Na'}_Kb') =|> State':=1 /\ secret(Nb',sec_3,{A,B}) /\ SND({A.B.Na'.Nb}_Ka)
+		3. State=1 /\ RCV({A.Nb}_Kb) =|> State':=2 /\ secret(Nb',sec_3,{A,B})
+end role
+
+role session1(Kb:public_key,Na:text,A:agent,B:agent,Nb:text,Ka:public_key)
+def=
+	local
+		SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_B(A,B,Nb,Ka,SND2,RCV2) /\ role_A(A,B,Na,Kb,SND1,RCV1)
+end role
+
+role environment()
+def=
+ const
+  bob,alice:agent,
+  nonce_a,nonce_b:text,
+  const Ka, Kb:public_key,
+  auth_1:protocol_id,
+  auth_2:protocol_id,
+  sec_3:protocol_id
+		
+intruder_knowledge = {}
+composition
+  session1(Kb,nonce_a,alice,bob,nonce_b,Ka)
+end role
+
+goal
+	authentication_on auth_1
+	authentication_on auth_2
+	secrecy_of sec_3
+end goal
+
+environment()

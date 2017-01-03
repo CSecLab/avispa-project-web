@@ -1,0 +1,141 @@
+%% PROTOCOL*: NSPK: Needham-Schroeder Public-Key Protocol
+%% VARIANT: with XOR
+%% PURPOSE: Two-party mutual autentication
+%% MODELER: Mathieu Turuani, INRIA, May 2005
+%% ALICE_BOB:
+%%egin{verbatim}
+%% A --> B: {Na,A}_Kb
+%% B --> A: {Nb,xor(Na,B)}_Ka
+%% A --> B: {Nb}_Kb
+%%end{verbatim}
+%% PROBLEMS: 3
+%%%
+%%%
+%%% GOAL
+%%% Secrecy attack on (n5(Nb))
+%%%
+%%% BACKEND
+%%%   CL-AtSe
+%%%
+%%% ATTACK TRACE
+%%% i -> (a,6):  start
+%%% (a,6) -> i:  {n9(Na).a}_ki
+%%%              & Secret(n9(Na),set_69);  Add a to set_69;  Add i to set_69;
+%%%
+%%% i -> (a,3):  start
+%%% (a,3) -> i:  {n1(Na).a}_kb
+%%%              & Secret(n1(Na),set_56);  Witness(a,b,bob_alice_na,n1(Na));
+%%%              & Add a to set_56;  Add b to set_56;
+%%%
+%%% i -> (b,4):  {xor(i,xor(b,n9(Na))).a}_kb
+%%% (b,4) -> i:  {n5(Nb).xor(b,xor(i,xor(b,n9(Na))))}_ka
+%%%              & Secret(n5(Nb),set_65);  Witness(b,a,alice_bob_nb,n5(Nb));
+%%%              & Add a to set_65;  Add b to set_65;
+%%%
+%%% i -> (a,6):  {n5(Nb).xor(i,n9(Na))}_ka
+%%% (a,6) -> i:  {n5(Nb)}_ki
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%HLPSL:
+
+role alice (A,B     : agent, 
+            Ka,Kb   : public_key,  
+            Snd,Rcv : channel (dy)
+
+ played_by A def=
+
+  local 
+     State  : nat, 
+     Na     : text, 
+     Nb     : text
+
+  init 
+     State:=0
+
+  transition 
+    1. State=0 / Rcv(start) =|>
+          State':=1
+       / Na':=new()
+       / Snd({Na'.A}_Kb)
+       / witness(A,B,bob_alice_na,Na')
+       / secret(Na',na,{A,B})
+
+
+    2. State=1 / Rcv({Nb'.xor(Na,B)}_Ka) =|>
+          State':=2
+       / Snd({Nb'}_Kb)
+       / wrequest (A,B,alice_bob_nb,Nb')
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ 
+role bob (B,A     : agent,  
+          Kb,Ka   : public_key,  
+          Snd,Rcv : channel (dy)) played_by B def=
+
+  local 
+     State : nat, 
+     Na    : message, 
+     Nb    : text
+
+  init 
+     State:=0
+ 
+  transition 
+    1. State=0 / Rcv({Na'.A}_Kb) =|> 
+          State':=1 
+       / Nb':=new()
+       / Snd({Nb'.xor(Na',B)}_Ka)
+       / witness(B,A,alice_bob_nb,Nb')
+       / secret(Nb',nb,{A,B})
+
+
+    2. State=1 / Rcv({Nb}_Kb) =|> 
+          State':=2 
+       / wrequest(B,A,bob_alice_na,Na)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session (A,B: agent,
+              Ka, Kb: public_key, 
+              SND, RCV: channel(dy) ) def=
+
+  composition
+    alice(A,B,Ka,Kb,SND,RCV) / 
+    bob(B,A,Kb,Ka,SND,RCV)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+  local
+     Snd, Rcv: channel(dy)
+  const
+     a, b, i: agent,
+     ka, kb, ki: public_key,
+     na, nb, alice_bob_nb, bob_alice_na: protocol_id
+
+  intruder_knowledge = {a,b,i,ka,kb,ki,inv(ki)}
+
+  composition
+    session(a,b,ka,kb,Snd,Rcv) /
+    session(a,i,ka,ki,Snd,Rcv)  
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal 
+     weak_authentication_on alice_bob_nb
+     weak_authentication_on bob_alice_na
+     secrecy_of na, nb
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+ 

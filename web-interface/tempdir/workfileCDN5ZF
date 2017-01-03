@@ -1,0 +1,30 @@
+role alice(A,B:agent, G:text, Snd,Rcv:channel(dy)) played_by A def=
+local State:nat, Na,Nsecret:text, X,K:message
+init State:=1
+transition
+1. State=1 /\ Rcv(start) =|>
+State’:=2 /\ Na’:=new() /\ Snd(exp(G,Na’))
+2. State=2 /\ Rcv(X’) =|>
+State’:=3 /\ K’:=exp(X’,Na) /\ Nsecret’:= new() /\ Snd({Nsecret’}_K’)
+end role
+role bob (B,A: agent, G:text, Snd,Rcv:channel(dy)) played_by B def=
+local State : nat, Nb,Nsecret: text, Y,K: message
+init State:=0
+transition
+1. State=0 /\ Rcv(Y’) =|>
+State’:=1 /\ Nb’:=new() /\ K’ := exp(Y’,Nb’) /\ Snd(exp(G,Nb’))
+2. State=1 /\ Rcv({Nsecret’}_K) =|>
+State’:=2
+end role
+role session (A,B: agent, G: text, SND, RCV: channel(dy)) def=
+composition
+alice(A,B,G,SND,RCV) /\ bob(B,A,G,SND,RCV)
+end role
+role environment() def=
+local Snd, Rcv: channel(dy)
+const a, b, i: agent, g, ni: text
+intruder_knowledge = {a,b,i,g,ni}
+composition
+session(a,b,g,Snd,Rcv)
+end role
+environment()

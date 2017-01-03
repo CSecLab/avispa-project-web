@@ -1,0 +1,173 @@
+
+role creator(
+
+	Cr,Tr,Kdc,Clod,Rdr : agent,
+	K : symmetric_key,
+	Hash : hash_func,
+	Pki,Ski,APki,ASki,Kcrcc,Kcrtr,Kcrkdc: public_key,
+	SND,RCV : channel(dy)
+
+)
+played_by Cr def=
+	local
+		State,Id,A : nat,
+		Nb,Kbase,T,Si,Y : text,
+		K1 : message
+	init
+		State := 0
+	transition
+		1. State = 0 /\ SND(start) =|> 
+			State':= 1 /\ SND(Id)
+		2. State = 1 /\ RCV(Id.Kbase.Hash(Kbase.inv(A))) =|>
+			State':= 2 /\ SND(Id.Kbase.Hash(Kbase.inv(A)))
+		3. State = 2 /\ RCV(H(Ai.Yi).H(H(H(G.G).Ai).Yi).H(Aa.Bb).H(H(Hi.Aa).H(Hj.Bb))) =|>
+			State':=3 /\ Pki' := H(Ai.Yi) /\
+					 Ski' := H(H(H(G.G).Ai).Yi) /\
+					 APki' := H(Aa.Bb) /\
+					 ASki' := H(H(Hi.Aa).H(Hj.Bb))/\
+					 SND(H({K1.K}_Ski'.T.{H(Pki'.APki'.K1.Y)}_ASki'.Y))
+end role
+
+
+
+role reader(
+
+	Cr,Tr,Kdc,Clod,Rdr : agent,
+	K : symmetric_key,
+	Hash : hash_func,
+	Pki,Ski,APki,ASki,Kcrcc,Kcrtr,Kcrkdc: public_key,
+	SND,RCV : channel(dy)
+
+)
+played_by Rdr def=
+	local
+		State,Id,A : nat,
+		Nb,Kbase,T,Si,Y : text,
+		K1,Claim : message
+	init
+		State := 0
+	transition
+		1. State = 0 /\ SND(start) =|> 
+			State':= 1 /\ SND(Id)
+		2. State = 1 /\ RCV(Id.Kbase.Hash(Kbase.inv(A))) =|>
+			State':= 2 /\ SND(Id.Kbase.Hash(Kbase.inv(A))) /\ Claim' := Id.Kbase.Hash(Kbase.inv(A))
+		3. State = 2 /\ RCV(H(Ai.Yi).H(H(H(G.G).Ai).Yi).H(Aa.Bb).H(H(Hi.Aa).H(Hj.Bb))) =|>
+			State':=3 /\ Pki' := H(Ai.Yi) /\
+					 Ski' := H(H(H(G.G).Ai).Yi) /\
+					 APki' := H(Aa.Bb) /\
+					 ASki' := H(H(Hi.Aa).H(Hj.Bb))/\ 
+					 SND(Claim.Pki'.APki') /\
+					 RCV({K1.K}_Ski')
+end role
+
+role trustee(
+
+	Cr,Tr,Kdc,Clod,Rdr : agent,
+	K : symmetric_key,
+	Hash : hash_func,
+	Pki,Ski,APki,ASki,Kcrcc,Kcrtr,Kcrkdc: public_key,
+	SND,RCV : channel(dy)
+
+)
+played_by Tr def= 
+
+	local
+		State: nat,
+		Nb,Kbase,T,Si,Y : text
+	init
+		State :=1
+	transition
+		1. State = 1 /\ RCV(Id) =|>
+			State' := 2 /\ SND(Id.Kbase.Hash(Kbase.inv(A))) 
+
+
+end role
+
+role kdc(
+
+	Cr,Tr,Kdc,Clod,Rdr : agent,
+	K : symmetric_key,
+	Hash : hash_func,
+	Pki,Ski,APki,ASki,Kcrcc,Kcrtr,Kcrkdc: public_key,
+	SND,RCV : channel(dy)
+
+)
+played_by Kdc def=
+
+	local
+		State, Aa, Bb, G : nat
+	init
+		State := 1
+	transition
+		1. State = 1 /\ RCV(Id.Kbase.Hash(Kbase.inv(A))) =|>
+			State' := 2 /\ SND(H(Ai.Yi).H(H(H(G.G).Ai).Yi).H(Aa.Bb).H(H(Hi.Aa).H(Hj.Bb)))
+
+end role
+
+role cloud(
+
+	Cr,Tr,Kdc,Clod,Rdr : agent,
+	K : symmetric_key,
+	Hash : hash_func,
+	Pki,Ski,APki,ASki,Kcrcc,Kcrtr,Kcrkdc: public_key,
+	SND,RCV : channel(dy)
+
+)
+played_by Clod def=
+	
+	local
+		State : nat,
+		Msg : text
+	init 
+		State := 1
+	transition
+		1. state = 1 /\ RCV(H({K1.K}_Ski'.T.{H(Pki'.APki'.K1.Y)}_ASki'.Y)) =|>
+			state' := 2 /\witness(Cr, Clod, creator_cloud_pid, H(Pki'.APki'.K1.Y) ) /\Msg' := ({K1.X}_Ski')
+		2. state = 2 /\ RCV(Claim.Pki'.APki') =|>
+			State':= 3 /\ SND({K1.K}_Ski') /\ wirtness(Rdr, Clod, reader_cloud_pid, Claim.Pki'.APki')
+
+end role
+
+role session(
+
+	Cr,Tr,Kdc,Clod,Rdr : agent,
+	K : symmetric_key,
+	Hash : hash_func,
+	Pki,Ski,APki,ASki,Kcrcc,Kcrtr,Kcrkdc: public_key,
+	SND,RCV : channel(dy)
+
+)
+def=
+	local 
+		SCr, SRdr, STr, SKdc, RCr, RRdr, RTr, RKdc, RClod : channel (dy)
+	composition
+		creator(Cr, Tr, Kdc, Clod, K, Hash, SCr, RCr, Pki, Ski, APki, ASki) /\
+		reader(Rdr, Tr, Kdc, Clod, K, Hash, SCr, RCr, Pki, Ski, APki, ASki) /\
+		trustee(Tr, Cr, Rdr, K, Hash, STr, RTr) /\
+		kdc(Kdc, Cr, Rdr, Hash, SKdc, RKdc, RCr, RRdr, Pki, Ski, APki, ASki)/\
+		cloud(Clod, Cr, Rdr, K, Hash, RClod, SRdr, RCr, Pki, APki)
+		
+end role
+
+
+role environment()
+	def=
+		const
+			creator_cloud_pid, reader_cloud_pid : protocol_id,
+			cr,tr,kdc,clod,rdr : agent,
+			k : symmetric_key,
+			hash : hash_func,
+			pki,ski,apki,aski: public_key,
+			intruder_knowledge = {cr,tr,kdc,clod,rdr,hash,pki,apki}
+		composition
+			session(cr,tr,kdc,clod,rdr,k, hash,pki,ski,apki,aski ) /\ session(cr,tr,kdc,clod,rdr,k, hash,pki,ski,apki,aski ) /\ session(cr,tr,kdc,clod,rdr,k, hash,pki,ski,apki,aski )
+end role
+
+goal
+	secrecy_of k1
+	authentication_on creator_cloud_pid
+	authentication_on  reader_cloud_pid
+
+end goal
+
+environment()

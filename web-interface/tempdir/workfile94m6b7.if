@@ -1,0 +1,157 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfile94m6b7
+
+section signature:
+
+state_sensor: agent * agent * agent * hash_func * hash_func * hash_func * hash_func * symmetric_key * symmetric_key * nat * text * text * text * text * text * text * text * symmetric_key * symmetric_key * symmetric_key * symmetric_key * nat -> fact
+state_basestation: agent * agent * agent * hash_func * public_key * public_key * symmetric_key * symmetric_key * nat * text * text * text * text * text * text * symmetric_key * symmetric_key * set(agent) * set(agent) * nat -> fact
+state_user: agent * agent * agent * hash_func * hash_func * text * public_key * public_key * nat * symmetric_key * symmetric_key * symmetric_key * symmetric_key * symmetric_key * symmetric_key * text * text * text * text * text * text * text * nat -> fact
+
+
+section types:
+
+u_s_ctr, s_u_Kenc_Kauth: protocol_id
+set_170, set_169, set_166, set_165, set_154, set_153: set
+start, MGoal: message
+Dummy_Set_30, Dummy_Set_27, ASGoal, Set_30, Set_27: set(agent)
+Tstart, Texpire, M, M1, Ctr, ID_A, A, Dummy_ID_A, Dummy_M, Dummy_Cred, Ctr1, Dummy_Ctr1, Dummy_M1, Dummy_A, Dummy_Ctr, Dummy_Texpire, Dummy_Tstart, dummy_nonce, Cred, cred: text
+9, 7, 5, State, 13, 11, 8, 6, 4, 2, SID, 0, Dummy_State, 3, SID2, SID1, 1: nat
+Kenc, Kenc1, Kauth, Kauth1, MSenc, MSauth, Dummy_Kauth1, Dummy_Kenc1, Dummy_Kauth, Dummy_Kenc, dummy_sk, kauth, msenc, msauth, msenci, kenc, msauthi: symmetric_key
+KU, KBS, ku, kbs, ki: public_key
+Succ, Kdf, MAC, H, succ, kdf, mac, h: hash_func
+U, BS, S, Dummy_S, A2Goal, A1Goal, u, bs, s, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(u).
+ iknows(bs).
+ iknows(s).
+ iknows(ki).
+ iknows(ku).
+ iknows(kbs).
+ iknows(msenci).
+ iknows(msauthi).
+ iknows(succ).
+ iknows(i).
+ state_user(u,bs,s,succ,mac,cred,ku,kbs,0,dummy_sk,dummy_sk,dummy_sk,dummy_sk,dummy_sk,dummy_sk,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,3).
+ state_basestation(s,bs,u,kdf,ku,kbs,msenc,msauth,1,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,dummy_sk,set_153,set_154,4).
+ state_sensor(u,s,bs,succ,kdf,mac,h,msenc,msauth,5,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,dummy_sk,dummy_sk,dummy_sk,5).
+ state_basestation(s,bs,i,kdf,ki,kbs,msenc,msauth,1,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,dummy_sk,set_165,set_166,8).
+ state_user(u,bs,i,succ,mac,cred,ku,kbs,0,dummy_sk,dummy_sk,dummy_sk,dummy_sk,dummy_sk,dummy_sk,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,11).
+ state_sensor(u,i,bs,succ,kdf,mac,h,msenci,msauthi,5,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_sk,dummy_sk,dummy_sk,dummy_sk,13)
+
+
+section rules:
+
+step step_0 (U,BS,S,Succ,MAC,Cred,KU,KBS,MSenc,MSauth,Kenc,Kauth,Kenc1,Kauth1,Tstart,Texpire,M,M1,Ctr,Ctr1,A,SID) :=
+ state_user(U,BS,S,Succ,MAC,Cred,KU,KBS,0,MSenc,MSauth,Kenc,Kauth,Kenc1,Kauth1,Tstart,Texpire,M,M1,Ctr,Ctr1,A,SID).
+ iknows(start)
+ =>
+ state_user(U,BS,S,Succ,MAC,Cred,KU,KBS,2,MSenc,MSauth,Kenc,Kauth,Kenc1,Kauth1,Tstart,Texpire,M,M1,Ctr,Ctr1,A,SID).
+ iknows(crypt(KBS,pair(U,pair(S,Cred))))
+
+step step_1 (U,BS,S,Succ,MAC,Cred,KU,KBS,MSenc,MSauth,Dummy_Kenc,Dummy_Kauth,Kenc1,Kauth1,Dummy_Tstart,Dummy_Texpire,M,M1,Dummy_Ctr,Ctr1,Dummy_A,SID,Kenc,Kauth,Tstart,Texpire,Ctr,A) :=
+ state_user(U,BS,S,Succ,MAC,Cred,KU,KBS,2,MSenc,MSauth,Dummy_Kenc,Dummy_Kauth,Kenc1,Kauth1,Dummy_Tstart,Dummy_Texpire,M,M1,Dummy_Ctr,Ctr1,Dummy_A,SID).
+ iknows(crypt(KU,pair(Kenc,pair(Kauth,pair(A,pair(Tstart,Texpire))))))
+=[exists Ctr]=>
+ state_user(U,BS,S,Succ,MAC,Cred,KU,KBS,4,MSenc,MSauth,Kenc,Kauth,Kenc1,Kauth1,Tstart,Texpire,M,M1,Ctr,Ctr1,A,SID).
+ iknows(pair(scrypt(Kenc,pair(M,Ctr)),pair(U,pair(A,pair(Tstart,pair(Texpire,pair(Ctr,apply(MAC,pair(Kauth,pair(pair(M,U),pair(A,pair(Texpire,Ctr)))))))))))).
+ witness(U,S,s_u_Kenc_Kauth,Kenc).
+ witness(U,S,s_u_Kenc_Kauth,Kauth)
+
+step step_2 (U,BS,S,Succ,MAC,Cred,KU,KBS,MSenc,MSauth,Kenc,Kauth,Dummy_Kenc1,Dummy_Kauth1,Tstart,Texpire,M,Dummy_M1,Ctr,Dummy_Ctr1,A,SID,Kenc1,M1,Ctr1) :=
+ state_user(U,BS,S,Succ,MAC,Cred,KU,KBS,4,MSenc,MSauth,Kenc,Kauth,Dummy_Kenc1,Dummy_Kauth1,Tstart,Texpire,M,Dummy_M1,Ctr,Dummy_Ctr1,A,SID).
+ iknows(scrypt(Kenc1,pair(M1,apply(Succ,Ctr1))))
+ =>
+ state_user(U,BS,S,Succ,MAC,Cred,KU,KBS,6,MSenc,MSauth,Kenc,Kauth,Kenc1,Dummy_Kauth1,Tstart,Texpire,M,M1,Ctr,Ctr1,A,SID).
+ request(U,S,u_s_ctr,Ctr1,SID).
+ request(U,S,u_s_ctr,Kenc1,SID).
+ request(U,S,u_s_ctr,Kauth1,SID)
+
+step step_3 (BS,U,Dummy_S,Kdf,KU,KBS,MSenc,MSauth,Dummy_Tstart,Dummy_Texpire,M,M1,Dummy_A,Dummy_Cred,Dummy_Kenc,Dummy_Kauth,Dummy_Set_27,Dummy_Set_30,SID,S,Tstart,Texpire,A,Cred) :=
+ state_basestation(BS,U,Dummy_S,Kdf,KU,KBS,MSenc,MSauth,1,Dummy_Tstart,Dummy_Texpire,M,M1,Dummy_A,Dummy_Cred,Dummy_Kenc,Dummy_Kauth,Dummy_Set_27,Dummy_Set_30,SID).
+ iknows(crypt(KBS,pair(U,pair(S,Cred))))
+=[exists Texpire,Tstart,A]=>
+ state_basestation(BS,U,S,Kdf,KU,KBS,MSenc,MSauth,3,Tstart,Texpire,M,M1,A,Cred,apply(Kdf,pair(MSenc,pair(A,pair(U,pair(Tstart,Texpire))))),apply(Kdf,pair(MSauth,pair(A,pair(U,pair(Tstart,Texpire))))),Dummy_Set_27,Dummy_Set_30,SID).
+ iknows(crypt(KU,pair(apply(Kdf,pair(MSenc,pair(A,pair(U,pair(Tstart,Texpire))))),pair(apply(Kdf,pair(MSauth,pair(A,pair(U,pair(Tstart,Texpire))))),pair(A,pair(Tstart,Texpire)))))).
+ secret(apply(Kdf,pair(MSenc,pair(A,pair(U,pair(Tstart,Texpire))))),kenc,Dummy_Set_27).
+ secret(apply(Kdf,pair(MSauth,pair(A,pair(U,pair(Tstart,Texpire))))),kauth,Dummy_Set_30).
+ contains(U,Dummy_Set_27).
+ contains(BS,Dummy_Set_27).
+ contains(U,Dummy_Set_30).
+ contains(BS,Dummy_Set_30)
+
+step step_4 (S,U,BS,Succ,Kdf,MAC,H,MSenc,MSauth,Dummy_Tstart,Dummy_Texpire,Dummy_M,Dummy_M1,Dummy_Ctr,Dummy_ID_A,Dummy_A,Dummy_Kenc,Dummy_Kenc1,Dummy_Kauth,Dummy_Kauth1,SID,Tstart,Texpire,M,M1,Ctr,ID_A,A,Kenc,Kauth) :=
+ state_sensor(S,U,BS,Succ,Kdf,MAC,H,MSenc,MSauth,7,Dummy_Tstart,Dummy_Texpire,Dummy_M,Dummy_M1,Dummy_Ctr,Dummy_ID_A,Dummy_A,Dummy_Kenc,Dummy_Kenc1,Dummy_Kauth,Dummy_Kauth1,SID).
+ iknows(pair(scrypt(Kenc,pair(M,Ctr)),pair(ID_A,pair(A,pair(Tstart,pair(Texpire,pair(Ctr,apply(MAC,pair(Kauth,pair(M,pair(ID_A,pair(A,pair(Texpire,Ctr)))))))))))))
+=[exists M1]=>
+ state_sensor(S,U,BS,Succ,Kdf,MAC,H,MSenc,MSauth,9,Tstart,Texpire,M,M1,Ctr,ID_A,A,Kenc,apply(H,Kenc),Kauth,apply(H,Kauth),SID).
+ iknows(pair(scrypt(apply(H,Kenc),pair(M1,apply(Succ,Ctr))),apply(MAC,pair(apply(H,Kauth),pair(Dummy_M1,apply(Succ,Ctr)))))).
+ witness(S,U,u_s_ctr,Ctr).
+ request(S,U,s_u_Kenc_Kauth,Kenc,SID).
+ request(S,U,s_u_Kenc_Kauth,Kauth,SID)
+
+
+section properties:
+
+property secrecy_of_kenc (MGoal,ASGoal) :=
+ [] ((secret(MGoal,kenc,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_kauth (MGoal,ASGoal) :=
+ [] ((secret(MGoal,kauth,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_u_s_ctr (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,u_s_ctr,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,u_s_ctr,MGoal))
+     /\ ((request(A1Goal,A2Goal,u_s_ctr,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,u_s_ctr,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_s_u_Kenc_Kauth (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,s_u_Kenc_Kauth,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,s_u_Kenc_Kauth,MGoal))
+     /\ ((request(A1Goal,A2Goal,s_u_Kenc_Kauth,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,s_u_Kenc_Kauth,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_kenc (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,kenc,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_kauth (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,kauth,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_u_s_ctr (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,u_s_ctr,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,u_s_ctr,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_u_s_ctr (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,u_s_ctr,MGoal,SID1).
+ request(A1Goal,A2Goal,u_s_ctr,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_s_u_Kenc_Kauth (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,s_u_Kenc_Kauth,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,s_u_Kenc_Kauth,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_s_u_Kenc_Kauth (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,s_u_Kenc_Kauth,MGoal,SID1).
+ request(A1Goal,A2Goal,s_u_Kenc_Kauth,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

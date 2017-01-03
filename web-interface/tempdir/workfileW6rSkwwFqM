@@ -1,0 +1,265 @@
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+%%HLPSL:
+
+role user(Ui,S:agent,
+
+	   H, F: hash_func,
+
+	   P: text,
+
+	   SND, RCV: channel (dy))
+
+
+played_by Ui
+def=
+
+
+  local State:nat,
+	IDi,K1,K2,K1p,K2p,K,V1,V2,V3,CIDi,CIDi*,CIDiNew,PWBi,PWi,Bi,Ai,T1: text,
+	SK, Kuis: symmetric_key
+
+
+const ui_s_k1, s_ui_k2, g0, g1, g2, g3, g4: protocol_id
+
+  
+
+init  State := 0
+
+
+
+transition
+
+  
+
+%Registration phase
+
+1. State = 0	/\ RCV(start) =|>
+
+		State':= 1
+		/\ Bi' := new()
+
+		/\ PWBi' := H(PWi.Bi)
+
+		/\ SND({IDi.PWBi'}_Kuis)
+
+		/\ secret({PWi, Bi}, g0, Ui)
+
+
+%Receiving the smart card from the server
+
+2. State = 1 /\ RCV({Ai.CIDi}_Kuis) =|>
+
+
+%Login and authentiation phase
+
+		State':= 2
+		/\ Ri' = xor(Ai, H(IDi.H(PWi.Bi)))
+		/\ K1' := new()
+
+        	/\ K1p' := F(K1'.P)
+
+      		/\ T1' := new()
+
+		/\ V1' := H(IDi.K1p'.Ri'.T1')
+	        
+		/\ SND(CIDi.K1p'.V1'.T1')
+
+  
+		/\ witness(Ui,S,ui_s_k1,K1')
+
+  
+		/\ secret(K1',g1,Ui)
+
+
+		/\ secret(IDi,g2,{Ui,S})  
+
+% Receive the challeng message
+
+2. State = 2	/\ RCV(K2p.V2.CIDi*) =|>
+
+		State':= 3 
+		/\ K' := F(K1.K2p)
+		/\ CIDiNew' := xor(CIDi*,H(K'))
+		/\ V3' := H(Ri.V2.K')
+		/\ SK' := H(IDi.K'.K1p.K2P)
+		/\ SND(V3')
+		/\ secret(K',g3,{Ui,S})                
+		/\ secret(SK',g4,{Ui,S})
+		/\ request(S,Ui,s_ui_k2,K2)
+
+               
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+
+role server(Ui,S:agent,
+
+	   H, F: hash_func,
+	P: text,
+	   SND, RCV: channel (dy))
+played_by S
+def=
+
+
+local	State :nat,
+	IDi,R1,R2,R1p,R2p,R1s,K,MV1,MV2,MV3,MC1,Qs: text,
+	SK, Kuis: symmetric_key
+
+const ui_s_k1,s_ui_k2,g5,g6: protocol_id
+
+  
+
+init  State := 0  
+
+transition
+
+  
+
+%Registration phase
+
+1. State = 0	/\ RCV({IDi.PWBi}_Kuis) =|>
+     
+		State':= 1 
+		/\ Ri' := H(IDi.SS)
+		/\ Ai' := xor(Ri', H(IDi.PWBi))
+		/\ R' := new()
+		/\ CIDi' := {IDi.R'}_SS
+		/\ SND({Ai'.CIDi'}_Kuis)
+		/\ secret({R', SS}, g5, S)
+
+
+%Login and authentication phase
+
+1. State = 1	/\ RCV(CIDi.K1p.V1.T1) =|>
+ 
+		State':= 2 		
+		/\ RNew' := new()
+		/\ K2' := new()
+		/\ CIDiNew' := {IDi.RNew'}_SS
+		/\ K2p' := F(K2.P)
+                
+		/\ K' := F(K2.K1p)  
+		/\ CIDi*' = xor(CIDiNew', H(K'))
+              	/\ V2' = H(K1p.H(IDi.SS).K2p'.CIDiNew'.K')
+		/\ SND(K2p'.V2'.CIDi*')
+                           
+		/\ witness(S,Ui,s_ui_k2,K2)
+
+  
+		/\ secret(K2',g6,S)
+
+2. State = 2	/\ RCV(V3) =|>
+     
+		State':= 3
+		/\ SK' := H(IDi.K.K1p.K2p)
+                 
+		/\ request(Ui,S,ui_s_k1,K1)
+
+  
+  
+  
+  
+  
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+
+role session(Ui,S: agent,
+            H, F: hash_func, 
+            P: text)
+
+def=
+
+  
+    local 
+	SND1,RCV1,SND2,RCV2: channel (dy)
+
+  
+
+    composition
+	   
+	
+	user(Ui, S, H, F, P, SND1, RCV1)
+	
+	/\ server(Ui, S, H, F, P, SND2, RCV2)
+
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+
+role environment()
+
+def=
+ 
+  
+    const 
+	ui,s,i       : agent,
+        
+	p          : text,
+        
+	h,f          : hash_func
+
+,
+	ui_s_k1,s_ui_k2,g1,g2,g3,g4,g5,g6: protocol_id
+
+	
+
+intruder_knowledge = {ui,s,h,f,p}
+
+  
+
+composition
+
+	
+	session(ui,s,h,f,p)
+     
+	/\ session(s,ui,h,f,p)
+
+	/\ session(ui,i,h,f,p)
+     
+	/\ session(i,s,h,f,p)
+
+
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+
+goal
+
+  
+
+secrecy_of g1
+
+secrecy_of g2
+
+secrecy_of g3
+
+secrecy_of g4
+
+secrecy_of g5
+
+secrecy_of g6
+ 
+authentication_on ui_s_k1
+
+authentication_on s_ui_k2
+
+end goal
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+
+environment()

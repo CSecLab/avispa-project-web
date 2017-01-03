@@ -1,0 +1,164 @@
+%% PROTOCOL: SRP: Secure remote passwords
+%% PURPOSE: A client and a server authenticate each other based on 
+%% a password such that the password remains secret, even if it is guessable.
+%% REFERENCE: 
+%% egin{itemize}
+%% item url{http://srp.stanford.edu/}
+%% item  RFC 2945~cite{RFC2945}
+%% end{itemize}
+%% MODELER: 
+%% egin{itemize}
+%% item Haykal Tej, Siemens CT IC 3, 2003
+%% item Sebastian M"odersheim, ETH Z"urich
+%% end{itemize}
+%% ALICE_BOB:
+%% We have a password $p$ initially shared between the participants
+%% and a random number $s$, the emph{salt} (which at least the server knows 
+%% initially). Original protocol, according to RFC:
+%% egin{verbatim}
+%% identifiers & macros:
+%% U =  
+%% p = 
+%% s =  (see notes section below)
+%% N = 
+%% x = SHA(s | SHA(U | ":" | p))
+%% v = g^x mod N, the "password verifier"
+%% a = 
+%% b =  
+%% A = g^a mod N
+%% B = v + g^b mod N
+%% u = H(A,B)
+%% S = (B - g^x) ^ (a + u * x) mod N 
+%%   = (A * v^u) ^ b mod N
+%% K = SHA_Interleave(S)
+%% M = H(H(N) XOR H(g),H(U),s,A,B,K)
+%% -----------------------------------------------------------------
+%% Client -> Host   : U,A
+%% Host   -> Client : s,B
+%% Client -> Host   : M
+%% Host   -> Client : H(A,M,K)
+%% -----------------------------------------------------------------
+%% end{verbatim}
+%% Simplified version:
+%% egin{verbatim}
+%% Macros:
+%% K = H(V.(G^Na)^Nb)
+%% M = H(H(G),H(A).Salt.G^Na.{G^Nb}V.K)
+%% -----------------------------------------------------------------
+%% A -> B : A, G^Na
+%% B -> A : Salt, {G^Nb}V
+%% A -> B : M
+%% B -> A : H(G^Na,M,K)
+%% end{verbatim}
+%% PROBLEMS: 3
+%% ATTACKS: None
+%% LIMITATIONS:
+%% Note that the protocol is slightly simplified as in the original version
+%% a full-scale algebraic theory is required. 
+%% NOTES: 
+%% A salt is a commonly-used mechanism to render dictionary
+%% (i.e. guessing) attacks more difficult.  Standard UNIX password
+%% files, for instance, store a hash of each password prepended with
+%% a two-character salt.  In this way, each possible password can map
+%% to 4096 different hash values, as there are 4096 possible
+%% values for the salt.  This therefore greatly increases the 
+%% computing power required for an intruder to mount a password
+%% guessing attack based on a precomputed dictionary of passwords
+%% and corresponding hash values.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+%%  HLPSL:
+role alice(A,B : agent,
+               K : symmetric_key,
+	       Hash : hash_func,
+	       SND,RCV :channel(dy))
+played_by A
+def=
+
+  local State : nat, 
+	Na, Nb   :text,
+	K1  : message
+	
+init State := 0
+  
+  transition
+
+  1. State = 0  / RCV(start) =|>
+     State':= 2 / Na' := new()
+                / SND({Na'}_K)  
+
+  2. State = 2 / RCV({Nb’}_K) =|>
+State’:= 4 / K1’ := Hash(Na.Nb’)
+/ SND({Nb’}_K1’)
+/ witness(A,B,bob_alice_nb,Nb’)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role bob(
+A,B : agent,
+K : symmetric_key,
+Hash : hash_func,
+SND,RCV : channel(dy))
+played_by B def=
+local
+State : nat,
+Nb,Na : text,
+K1 : message
+init
+State := 1
+transition
+1. State = 1 / RCV({Na’}_K) =|>
+State’:= 3 / Nb’ := new()
+/ SND({Nb’}_K)
+/ K1’:= Hash(Na’.Nb’)
+/ secret(K1’,k1,{A,B})
+2. State = 3 / RCV({Nb}_K1) =|>
+State’:= 5 / request(B,A,bob_alice_nb,Nb)
+end role
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role session(
+A,B : agent,
+K : symmetric_key,
+Hash : hash_func)
+def=
+local SA, SB, RA, RB : channel (dy)
+composition
+alice(A,B,K,Hash,SA,RA)
+/ bob (A,B,K,Hash,SB,RB)
+end role
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role environment()
+def=
+
+const
+bob_alice_nb,
+k1 : protocol_id,
+kab,kai,kib : symmetric_key,
+a,b : agent,
+h : hash_func
+intruder_knowledge = {a,b,h,kai,kib}
+composition
+session(a,b,kab,h)
+/ session(a,i,kai,h)
+/ session(i,b,kib,h)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+  goal
+secrecy_of k1
+authentication_on bob_alice_nb
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+    

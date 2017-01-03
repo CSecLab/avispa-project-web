@@ -1,0 +1,115 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Second Variant -- IKEv2 using MAC authentication
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role Alice(A,B: agent,
+	       G: text,
+	       F: function,
+               PSK: symmetric_key,
+	       SND_B, RCV_B: channel (dy)) played_by A def=
+
+  exists Ni, SA1, SA2, DHX: text (fresh), 
+	 Nr: text,
+	 KEr: message, %% more spefic: exp(text,text)
+	 SK: message,
+	 State: nat,
+         MA: text (fresh),
+         MB: text,
+	 AUTH_B: message
+
+  owns SND_B
+  init State = 0
+
+  knowledge(A)={A,G,F,PSK}
+
+  transition
+
+  %% The IKE_SA_INIT exchange:
+  1. State = 0 /\ RCV_B(start) =|>
+	SND_B( SA1'.exp(G,DHX').Ni' ) /\ State' = 2
+
+  %% Alice receives message 2 of IKE_SA_INIT, checks that Bob has
+  %% indeed sent the same nonce in SAr1, and then sends the first 
+  %% message of IKE_AUTH.
+  %% As authentication Data, she signs her first message and Bob's nonce.
+  2. State = 2 /\ RCV_B(SA1.KEr'.Nr') =|>
+ 	SK' = F(Ni.Nr'.SA1.exp(KEr',DHX)) /\
+	SND_B( {A.F(PSK.SA1.exp(G,DHX).Ni.Nr').SA2'}SK' ) /\
+	State' = 4
+	/\ witness(A,B,sk,F(Ni.Nr'.SA1.exp(KEr',DHX)))
+
+  3. State = 4 /\ 
+        RCV_B({B.F(PSK.SA1.KEr.Ni.Nr).SA2}SK)
+        =|>
+	State' = 6 
+	/\ AUTH_B' = F(PSK.SA1.KEr.Ni.Nr)
+	/\ secret(SK,B)
+	/\ request(A,B,sk,SK)
+
+end role
+
+role Bob(B,A:agent,
+	     G: text,
+	     F: function,
+	     PSK: symmetric_key,
+	     SND_A, RCV_A: channel (dy)) played_by B def=
+
+  exists Ni, SA1, SA2: text, 
+	 Nr, DHY: text (fresh),
+	 SK, KEi: message,
+	 State: nat,
+         MA: text,
+         MB: text (fresh),
+	 AUTH_A: message
+
+  owns SND_A
+  init State = 1
+  knowledge(B)={B,G,F,PSK}
+
+  transition
+
+  1. State = 1 /\ RCV_A( SA1'.KEi'.Ni' ) =|>
+	SND_A(SA1'.exp(G,DHY').Nr') /\ 
+	SK' = F(Ni'.Nr'.SA1'.exp(KEi',DHY')) /\ 
+	State' = 3
+
+  2. State = 3 /\ RCV_A( {A.F(PSK.SA1.KEi.Ni.Nr).SA2'}SK ) =|>
+	SND_A( {B.F(PSK.SA1.exp(G,DHY).Ni.Nr).SA2'}SK ) /\
+	State' = 5 /\
+	AUTH_A' = F(PSK.SA1.KEi.Ni.Nr)
+	/\ witness(B,A,sk,SK)
+	/\ secret(SK,A)
+	/\ request(B,A,sk,SK)
+
+end role
+
+role Session(A, B: agent,
+	     PSK: symmetric_key,
+	     G: text, F: function, 
+	     SA, RA, SB, RB: channel (dy)) def=
+
+  composition
+	   Alice(A,B,G,F,PSK,SA,RA)
+	/\ Bob(B,A,G,F,PSK,SB,RB)
+end role
+
+role Environment() def=
+ 
+  const sk : protocol_id
+  knowledge(i) = {g,f,a,b,i,kai,kbi}
+
+  composition
+
+	Session(a,b,kab,g,f,s1,r1,s2,r2)
+     /\ Session(a,i,kai,g,f,s3,r3,s4,r4)
+     /\	Session(i,b,kbi,g,f,s5,r5,s6,r6)
+
+end role
+
+goal  	
+	secrecy_of SK
+	Alice authenticates Bob on SK
+	Bob authenticates Alice on SK
+end goal
+
+Environment()
+

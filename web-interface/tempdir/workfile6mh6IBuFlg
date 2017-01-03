@@ -1,0 +1,250 @@
+%%  HLPSL:
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role lu_MU (MU, HA, FA : agent,
+			H     	   : hash_func,
+			K_MU£¬K_HA, K_FA : symmetric_key,
+            Snd, Rcv   : channel(dy))
+played_by MU
+def=
+	local    
+		State : nat,
+		IDm,IDh,IDf,PSWm    :text,
+		Rm,Nm,Nf,Rmi,PWm    :text,
+		X1,X2,NUMmi         :text,
+		Kuh,Kfh,,PIDm.SK    :text,
+		Ah,Bh,Ch,Dh         :text,
+		Ts1,Ts2,Ts3,Ts4,Ts5 :text,
+		Am,Bm,Cm,Dm         :text,
+		Af,Bf,Cf            :text
+		
+	const
+    	MU_HA_cm,MU_FA_dm,MU_HA_bh,HA_FA_bh,HA_MU_dh,FA_HA_bf,FA_MU_cf : protocol_id
+	
+	init   State := 0
+	
+	transition
+	
+	 1. State = 0
+      /\ Rcv(start)
+      =|> 
+      State'  := 1
+      /\ Rm'  := new()
+      /\ PWm' := H(Rm'.PSWm)
+      /\ Snd(IDm.PWm')
+      
+     2. State = 1
+      /\ Rcv(xor(Kuh',H(Rm'.PSWm)).H(H(IDm).H(Rm'.PSWm)).H(IDm.Rmi'.NUMmi'))
+      =|>
+      State'  := 2
+      /\ Nm'  := new()
+      /\ Ts1' := new()
+      /\ wrequest(MU,HA,MU_HA_bh,H(H(IDm).H(Rm.PSWm))) 
+      /\ Kuh' :=  xor(xor(Kuh',H(Rm'.PSWm)),PWm')
+      /\ Am'  :=  xor(Nm',H(Kuh'.IDm.IDh))
+      /\ Bm'  :=  {IDm.Ts1.H(IDm.Rmi'.NUMmi')}_Kuh'
+      /\ Cm'  :=  H(Nm'.IDm.Ts1'.Kuh')
+      /\ Snd(Am'.Bm'.Cm'.Ts1')
+      /\ witness(MU,HA,MU_HA_cm,Cm')
+      
+     3. State = 2
+      /\ Rcv(H(IDf.xor(xor(xor(H(Nm'),H(IDm)),H(xor(Kfh',H(IDf.Nf'.Ts3')).IDh,Nf')),H(xor(Kfh',H(IDf.Ts3'.Nf')).IDh.Nf')).H(Nf').Ts1'.Ts4'.H(Nm'.IDm.Ts1'.Kuh')).xor(H(Nf'),H(xor(Kuh',H(IDm.Nm'.Ts3')).IDh.Nm')).H(IDm.IDf.PIDm'.H(Nf').Ts3').Ts3'.Ts4')
+      =|>
+      State'  := 3
+      /\ Ts5'  := new()
+      /\ wrequest(MU,HA,HA_MU_dh,H(IDm.IDf.xor(xor(H(Nf'),H(xor(Kuh',H(IDm.Nm'.Ts3')).IDh.Nm')),H(xor(Kuh',H(IDm.Ts3'.Nm')).IDh.Nm')).Ts3'.PIDm'))
+      /\ wrequest(MU,FA,FA_MU_cf,H(IDf.xor(H(Nm'),H(IDm)).Ts1'.H(Nf').Ts4'.H(Nm'.IDm.Ts1'.Kuh')))
+      /\ SK'   := H(xor(H(Nm'),H(IDm)).H(Nf'))
+      /\ Dm'   := H(H(IDf.xor(xor(xor(H(Nm'),H(IDm)),H(xor(Kfh',H(IDf.Nf'.Ts3')).IDh,Nf')),H(xor(Kfh',H(IDf.Ts3'.Nf')).IDh.Nf')).H(Nf').Ts1'.Ts4'.H(Nm'.IDm.Ts1'.Kuh')).H(Nf').xor(H(Nm'),H(IDm)))
+      /\ Snd(Dm')
+      /\ witness(MU,FA,MU_FA_dm,Dm')
+      
+end role
+      
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role lu_HA (MU, HA, FA : agent,
+			H     	   : hash_func,
+			K_MU£¬K_HA, K_FA : symmetric_key,
+            Snd, Rcv   : channel(dy))
+played_by HA
+def=
+	local  
+		State : nat,
+		IDm,IDh,IDf,PSWm    :text,
+		Rm,Nm,Nf,Rmi,PWm    :text,
+		X1,X2,NUMmi         :text,
+		Kuh,Kfh,,PIDm.SK    :text,
+		Ah,Bh,Ch,Dh         :text,
+		Ts1,Ts2,Ts3,Ts4,Ts5 :text,
+		Am,Bm,Cm,Dm         :text,
+		Af,Bf,Cf            :text
+		
+	const
+    	MU_HA_cm,MU_FA_dm,MU_HA_bh,HA_FA_bh,HA_MU_dh,FA_HA_bf,FA_MU_cf : protocol_id
+		
+	init   State := 0
+	
+	transition
+	
+	 1. State = 0
+	  /\ Rcv(IDm.H(Rm'.PSWm))
+      =|> 
+      State'    := 1 
+      /\ Rmi'   := new()
+      /\ X1'    := new()
+      /\ X2'    := new()
+      /\ NUMmi' := new()
+      /\ Kuh'   := H(xor(H(IDm.H(X1)),H(X2))) 
+      /\ Ah'    := xor(Kuh',H(Rm'.PSWm))
+      /\ PIDm'  := H(IDm.Rmi'.NUMmi')
+      /\ Bh'    := H(H(IDm).H(Rm'.PSWm))
+      /\ Snd(Ah'.Bh'.PIDm')
+      /\ witness(HA,MU,MU_HA_bh,Bh')
+      
+     2. State = 1
+      /\ Rcv(xor(Nm',H(Kuh'.IDm.IDh)).{IDm.Ts1.H(IDm.Rmi'.NUMmi')}_Kuh'.H(Nm'.IDm.Ts1'.Kuh').Ts1'.xor(Nf',H(Kfh'.IDf.Ts2')).H(Nf'.Ts1'.IDh).Ts2')
+      =|>
+      State'   := 2
+      /\ Ts3'  := new()
+      /\ wrequest(HA,MU,MU_HA_cm,H(IDm.xor(xor(Nm',H(Kuh'.IDm.IDh)),H(Kuh'.IDm.IDh)).Ts1'.Kuh'))
+      /\ wrequest(HA,FA,FA_HA_bf,H(xor(xor(Nf',H(Kfh'.IDf.Ts2')),H(Kfh'.IDf.Ts1)).Ts2'.IDh))
+      /\ Ah'   :=  xor(xor(H(Nm'),H(IDm)),H(xor(Kfh',H(IDf.Nf'.Ts3')).IDh,Nf'))
+      /\ Bh'   :=  H(xor(Kfh',H(IDf.Nf'.Ts3')).Nf'.xor(H(Nm'),H(IDm)).Ts3')
+      /\ Ch'   :=  xor(H(Nf'),H(xor(Kuh',H(IDm.Nm'.Ts3')).IDh.Nm'))
+      /\ Dh'   :=  H(IDm.IDf.PIDm'.H(Nf').Ts3')
+      /\ PIDm' :=  H(IDm,NUMmi',Rmi')
+      /\ Snd(Ah'.Bh'.Ch'.Dh'.Ts3')
+      /\ witness(HA,FA,HA_FA_bh,Bh')
+      /\ witness(HA,MU,HA_MU_dh,Dh')
+       
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role lu_FA (MU, HA, FA : agent,
+			H     	   : hash_func,
+			K_MU£¬K_HA, K_FA : symmetric_key,
+            Snd, Rcv   : channel(dy))
+played_by FA
+def=
+	local 
+		State : nat,
+		IDm,IDh,IDf,PSWm    :text,
+		Rm,Nm,Nf,Rmi,PWm    :text,
+		X1,X2,NUMmi         :text,
+		Kuh,Kfh,,PIDm.SK    :text,
+		Ah,Bh,Ch,Dh         :text,
+		Ts1,Ts2,Ts3,Ts4,Ts5 :text,
+		Am,Bm,Cm,Dm         :text,
+		Af,Bf,Cf            :text
+		
+	const
+    	MU_HA_cm,MU_FA_dm,MU_HA_bh,HA_FA_bh,HA_MU_dh,FA_HA_bf,FA_MU_cf : protocol_id
+		
+	init   State := 0
+	
+	transition
+	
+	 1. State = 0
+      /\ Rcv(xor(Nm',H(Kuh'.IDm.IDh)).{IDm.Ts1.H(IDm.Rmi'.NUMmi')}_Kuh'.H(Nm'.IDm.Ts1'.Kuh').Ts1')
+      =|> 
+      State'   := 1 
+      /\ Nf'   := new()
+      /\ Ts2'  := new()
+      /\ Kfh'  := new()
+      /\ Af'   := xor(Nf',H(Kfh'.IDf.Ts2'))
+      /\ Bf'   := H(Nf'.Ts1'.IDh)
+      /\ Snd(xor(Nm',H(Kuh'.IDm.IDh)).{IDm.Ts1.H(IDm.Rmi'.NUMmi')}_Kuh'.H(Nm'.IDm.Ts1'.Kuh').Ts1'.Af'.Bf'.Ts2')
+      /\ witness(FA,HA,FA_HA_bf,Bf')
+      
+     2. State = 1
+      /\ Rcv(xor(xor(H(Nm'),H(IDm)),H(xor(Kfh',H(IDf.Nf'.Ts3')).IDh,Nf')).H(xor(Kfh',H(IDf.Nf'.Ts3')).Nf'.xor(H(Nm'),H(IDm)).Ts3').xor(H(Nf'),H(xor(Kuh',H(IDm.Nm'.Ts3')).IDh.Nm')).H(IDm.IDf.PIDm'.H(Nf').Ts3').Ts3')
+      =|>
+      State'   := 2
+      /\ Ts4'  := new()
+      /\ wrequest(FA,HA,HA_FA_bh,H(Nf'.xor(Kfh',H(IDf.Ts3'.Nf')).xor(H(Nm'),H(IDm)).Ts3'))
+      /\ Cf'   := H(IDf.xor(xor(xor(H(Nm'),H(IDm)),H(xor(Kfh',H(IDf.Nf'.Ts3')).IDh,Nf')),H(xor(Kfh',H(IDf.Ts3'.Nf')).IDh.Nf')).H(Nf').Ts1'.Ts4'.H(Nm'.IDm.Ts1'.Kuh'))
+      /\ SK'   := H(xor(xor(xor(H(Nm'),H(IDm)),H(xor(Kfh',H(IDf.Nf'.Ts3')).IDh,Nf')),H(xor(Kfh',H(IDf.Ts3'.Nf')).IDh.Nf')).H(Nf'))
+      /\ Snd(Cf'.xor(H(Nf'),H(xor(Kuh',H(IDm.Nm'.Ts3')).IDh.Nm')).H(IDm.IDf.PIDm'.H(Nf').Ts3').Ts3'.Ts4')
+      /\ witness(FA,MU,FA_MU_cf,Cf')
+      
+     3. State = 2
+      /\ Rcv(H(H(IDf.xor(xor(xor(H(Nm'),H(IDm)),H(xor(Kfh',H(IDf.Nf'.Ts3')).IDh,Nf')),H(xor(Kfh',H(IDf.Ts3'.Nf')).IDh.Nf')).H(Nf').Ts1'.Ts4'.H(Nm'.IDm.Ts1'.Kuh')).H(Nf').xor(H(Nm'),H(IDm))))
+      =|>
+      State'   := 3
+      /\ wrequest(FA,MU,MU_FA_dm,H(cf'.H(Nm').xor(xor(xor(H(Nm'),H(IDm)),H(xor(Kfh',H(IDf.Nf'.Ts3')).IDh,Nf')),H(xor(Kfh',H(IDf.Ts3'.Nf')).IDh.Nf'))))
+          
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(MU, HA, FA : agent,
+ 			 H          :hash_func,
+	         K_MU£¬K_HA, K_FA : symmetric_key) 
+def=
+
+   local     
+        IDm,IDh,IDf,PSWm    :text,
+		Rm,Nm,Nf,Rmi,PWm    :text,
+		X1,X2,NUMmi         :text,
+		Kuh,Kfh,,PIDm.SK    :text,
+		Ah,Bh,Ch,Dh         :text,
+		Ts1,Ts2,Ts3,Ts4,Ts5 :text,
+		Am,Bm,Cm,Dm         :text,
+		Af,Bf,Cf            :text
+	    Snd, Rcv : channel(dy)
+	     
+    const
+    	MU_HA_cm,MU_FA_dm,MU_HA_bh,HA_FA_bh,HA_MU_dh,FA_HA_bf,FA_MU_cf : protocol_id
+	
+   composition
+
+           lu_MU(MU, HA, FA, H, K_MU£¬K_HA, K_FA, Snd, Rcv)
+
+        /\ lu_HA(MU, HA, FA, H, K_MU£¬K_HA, K_FA Snd, Rcv)
+  
+        /\ lu_FA(MU, HA, FA, H, K_MU£¬K_HA, K_FA Snd, Rcv)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+  const 
+  		MU, HA, FA : agent,
+  		H          :hash_func,
+	    K_MU£¬K_HA, K_FA : symmetric_key,
+	    IDm,IDh,IDf,PSWm    :text,
+		Rm,Nm,Nf,Rmi,PWm    :text,
+		X1,X2,NUMmi         :text,
+		Kuh,Kfh,,PIDm.SK    :text,
+		Ah,Bh,Ch,Dh         :text,
+		Ts1,Ts2,Ts3,Ts4,Ts5 :text,
+		Am,Bm,Cm,Dm         :text,
+		Af,Bf,Cf            :text
+		MU_HA_cm,MU_FA_dm,MU_HA_bh,HA_FA_bh,HA_MU_dh,FA_HA_bf,FA_MU_cf : protocol_id
+
+  intruder_knowledge = {MU, HA, FA, H}
+
+  composition
+
+	session(MU, HA, FA, H, K_MU£¬K_HA, K_FA) 
+
+end role
+
+goal
+
+  weak_authentication_on MU_HA_cm 
+  weak_authentication_on MU_FA_dm 
+  weak_authentication_on MU_HA_bh 
+  weak_authentication_on HA_FA_bh 
+  weak_authentication_on HA_MU_dh 
+  weak_authentication_on FA_HA_bf 
+  weak_authentication_on FA_MU_cf 
+
+end goal
+
+environment()

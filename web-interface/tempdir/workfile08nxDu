@@ -1,0 +1,117 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role client(M,C,P: agent,SND,RCV: channel(dy) )
+played_by C
+def=
+local 	Checkout, Paypalconnect, PayerID, UpdateOrderStatus, SignedTrID, Success: text,
+	Token, State: nat
+
+init State :=0 
+
+transition
+
+1.State=0/\RCV(start)
+=|> State':= 1
+/\Checkout':= new()
+/\SND(Checkout')
+
+2.State=1/\RCV(Paypalconnect')
+=|> State':= 2
+/\SND(Paypalconnect')
+
+3.State=2/\RCV(Token'.PayerID')
+=|> State':=3
+/\UpdateOrderStatus':= new()
+/\SND(Token'.PayerID')
+/\SND(UpdateOrderStatus)
+
+
+4.State=3/\RCV(SignedTrID')
+=|> State':=4
+/\SND(SignedTrID')
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role merchant(M,C,P: agent,SND,RCV: channel(dy))
+played_by M 
+def=
+local 	Start, SignedTrID,PayerID,UpdateOrderStatus, Success,Checkout,Paypalconnect: text,
+	Token, State: nat
+const   token : protocol_id
+init State :=0
+ 
+transition
+
+1. State = 0/\RCV(Checkout') 
+=|> State':=1
+/\Paypalconnect':= new()
+/\SND(Paypalconnect')
+
+
+2.State=1/\RCV(UpdateOrderStatus')/\RCV(Token'.PayerID')
+=|> State':= 2
+/\SignedTrID':= new()
+/\SND(SignedTrID')
+/\request(M,P,token,Token')
+
+3.State=2/\RCV(SignedTrID)
+=|> State':= 3
+/\Success':=new()
+/\SND(Success')
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role paypal(M,C,P:agent,SND,RCV: channel(dy))
+played_by P
+def=
+local   Paypalconnect, Confirm, PayerID: text,
+	Token, State: nat
+
+const  token : protocol_id
+init State := 0
+
+transition 
+
+1.State=0/\RCV(Paypalconnect')
+=|> Token':=new()
+/\PayerID':=new()
+/\SND(Token'.PayerID')
+/\witness(P,M,token,tokenValue)
+/\ secret(PayerID', payer, {M,P})
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(M,C,P: agent)
+def=
+local  SC,SM,SP,
+       RC,RM,RP: channel(dy)
+
+composition
+client(M,C,P,SC,RC)
+/\merchant(M,C,P,SM,RM)
+/\paypal(M,C,P,SP,RP)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+
+const  token: protocol_id,
+      
+      p,c,m: agent
+      
+intruder_knowledge={p,c,m}
+
+composition
+
+session(m,i,p)
+/\session(m,i,p)
+/\session(m,i,p)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+
+authentication_on token
+%secrecy_of payer 
+ 
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

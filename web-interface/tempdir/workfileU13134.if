@@ -1,0 +1,80 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileU13134
+
+section signature:
+
+state_mobile: agent * agent * agent * symmetric_key * symmetric_key * nat * text * text * nat -> fact
+state_acustomer: agent * agent * agent * symmetric_key * nat * text * text * nat -> fact
+
+
+section types:
+
+bank_acustomer_T: protocol_id
+start, MGoal: message
+Data, TAN, Dummy_TAN, Dummy_Data, dummy_nonce: text
+17, 14, 11, State, 16, 13, 5, SID, 10, Dummy_State, 3, SID2, SID1, 15, 12: nat
+Kmb, Kma, kma, kmb, kmi: symmetric_key
+A, B, M, A2Goal, A1Goal, a, b, m, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(m).
+ iknows(kmi).
+ iknows(i).
+ state_acustomer(a,i,m,kma,10,dummy_nonce,dummy_nonce,3).
+ state_mobile(m,a,i,kmi,kma,12,dummy_nonce,dummy_nonce,5)
+
+
+section rules:
+
+step step_0 (A,B,M,Kma,Dummy_Data,TAN,SID,Data) :=
+ state_acustomer(A,B,M,Kma,10,Dummy_Data,TAN,SID).
+ iknows(start)
+=[exists Data]=>
+ state_acustomer(A,B,M,Kma,13,Data,TAN,SID).
+ iknows(Data).
+ witness(A,B,bank_acustomer_T,Data)
+
+step step_1 (A,B,M,Kma,Data,Dummy_TAN,SID,TAN) :=
+ state_acustomer(A,B,M,Kma,13,Data,Dummy_TAN,SID).
+ iknows(scrypt(Kma,pair(Data,TAN)))
+ =>
+ state_acustomer(A,B,M,Kma,16,Data,TAN,SID).
+ iknows(TAN)
+
+step step_2 (M,A,B,Kmb,Kma,Dummy_Data,Dummy_TAN,SID,Data,TAN) :=
+ state_mobile(M,A,B,Kmb,Kma,12,Dummy_Data,Dummy_TAN,SID).
+ iknows(scrypt(Kmb,pair(Data,TAN)))
+ =>
+ state_mobile(M,A,B,Kmb,Kma,15,Data,TAN,SID).
+ iknows(scrypt(Kma,pair(Data,TAN)))
+
+
+section properties:
+
+property authentication_on_bank_acustomer_T (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,bank_acustomer_T,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,bank_acustomer_T,MGoal))
+     /\ ((request(A1Goal,A2Goal,bank_acustomer_T,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,bank_acustomer_T,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state authentication_on_bank_acustomer_T (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,bank_acustomer_T,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,bank_acustomer_T,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_bank_acustomer_T (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,bank_acustomer_T,MGoal,SID1).
+ request(A1Goal,A2Goal,bank_acustomer_T,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

@@ -1,0 +1,55 @@
+role cn(CN,PKG:agent,
+	SND,RCV:channel(dy))
+
+	played_by CN def=
+	local State:nat, CNA,PKGA,Req,Rep,SIDCN,K1:text
+	init state:=0
+	transition
+	0. State=0/\RCV(start)
+	=|> State':=2/\CNA':=new()/\PKGA':=new()/\Req':=new()/\SND(CNA'.PKGA'.Req')
+
+	2.State=2/\RCV(PKGA'.CNA'.Rep'.SIDCN',K1')
+	=|>State':=4
+
+	end role
+
+
+role pkg(CN,PKG:agent,
+	SND,RCV:channel(dy))
+
+	played_by PKG def=
+	local State:nat, CNA,PKGA,Rep,Req,SIDCN,K1:text
+	init state:=1
+	transition
+	1. State=1/\RCV(CNA'.PKGA'.Req')
+	=|>State':=3/\Rep':=new()/\SIDCN':=new()/\K1':=new()/\SND(PKGA'.CNA'.Rep'.SIDCN',K1')/\secret(Rep',rep,{CN,PKG}) 
+	
+	end role
+
+role session(CN,PKG:agent)
+
+def=
+
+	local SCN,RCN,SPKG,RPKG:channel(dy)
+
+	composition
+	cn(CN,PKG,SCN,RCN)/\pkg(CN,PKG,SPKG,RPKG)
+	
+	end role
+
+role environment() 
+def= 
+
+const cn1,pkg1: agent,
+	rep:protocol_id
+
+composition
+	session(cn1,pkg1)
+end role
+
+goal
+	secrecy_of rep
+
+end goal
+
+environment() 

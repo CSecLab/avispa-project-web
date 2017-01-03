@@ -1,0 +1,278 @@
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Role of User
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role p_UD( UD, GWN, SN   : agent,
+              Snd, Rcv   : channel (dy),
+	      Hash	 : hash_func,
+	      K_UG       : symmetric_key)
+
+played_by UD
+def=
+	local State : nat,
+	PWi, PWn, PWni : text,
+	IDS : text,
+	Ni, H_pw    : text,
+	R_sam : text,
+	ALi, AL_t   : text,
+	BEi	    : text,	
+	Smart_Card  : {agent.agent.hash_func.text.text.text}_symmetric_key,
+	Xs	    : symmetric_key,
+	DIDi, Ei    : text,
+	T_1	    : text,
+
+	Nni, ALni, BEni  : text,
+
+	MSG	    : message
+
+	const k_pwd, k_pwdn     : protocol_id,
+	sec_a_pwd, sec_a_pwdn   : protocol_id,
+	k_ni, k_ali, k_bei      : protocol_id,
+	sec_k_ni, sec_k_ali, sec_k_bei  : protocol_id,
+	k_hash, sec_a_K_hash : protocol_id 
+
+	init  State := 0
+
+	transition
+	1. State = 0  /\ Rcv(start) =|> 
+      		State':= 1 /\ PWi' := new()
+              	/\ Snd(UD.Hash(PWi'))
+		/\ request(UD, k_pwd, PWi') 
+		/\ secret(PWi',sec_a_pwd,{UD})
+
+	2. State = 1 /\ Rcv({IDS'.UD.Hash.Ni'.ALi'.BEi'}_K_UG) =|>
+		State' := 2 /\ PWn' := PWi
+		/\ H_pw' := Hash(PWi)
+		/\ R_sam' := Rand() /\ := Hash(R_sam',H_pw')
+		
+
+		/\ witness(UD, GWN, SN, k_hash, Hash) 
+		/\ secret(Hash,sec_a_K_hash,{UD,GWN,SN})
+
+		/\ wrequest(UD, GWN, k_ids, IDS') 
+		/\ secret(IDS',sec_k_ids,{UD, GWN})
+		/\ wrequest(UD, GWN, k_ni, Ni') 
+		/\ secret(Ni',sec_k_ni,{UD, GWN})
+		/\ wrequest(UD, GWN,  k_ali, ALi') 
+		/\ secret(Ni',sec_k_ali,{UD, GWN})
+		/\ wrequest(UD, GWN, k_bei, BEi') 
+		/\ secret(BEi',sec_k_bei,{UD, GWN})
+
+	3. State = 2 /\ AL_t = ALi   =|>
+		State' := 3 /\ T_1' := new() /\ DIDi' := xor(Hash(UD.H_pw, Hash(Xs.T_1'))		
+		/\ Ei'  := Hash(Ni.T_1')
+		/\ Snd(DIDi'.Ei'.T_1')
+
+	4. State = 3 /\ Rcv(MSG')     =|>
+		State' := 4
+
+	5. State = 4   =|>
+ 		State' := 5 /\ H_pw' := Hash(PWi)  /\ Xs' := xor(BEi, Hash(IDS.H_pw'))
+
+ 
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Role of Gateway Node (GWN)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role p_GWN ( GWN, UD, SN    : agent,
+               Snd, Rcv     : channel (dy),
+	       Hash	    : hash_func,	     	
+	       K_UG         : symmetric_key)
+played_by GWN
+def=
+	local State : nat,
+	IDS : text,
+	H_pw	    : text,
+	Ni	    : text,
+	ALi	    : text,
+	BEi	    : text,	
+	K,Xs	    : symmetric_key,
+	
+	DIDi, Ei    : text,
+	T_1	    : text,
+
+	X_t,E_ti    : text, 
+	SIGi	    : text,
+	T_2, T_3    : text,
+
+	Wi, W_ti    : text,
+	MU_ti	    : text,
+	ACC	    : text
+
+	const k_xs, k_K : protocol_id,
+	sec_a_K_xs, sec_a_K : protocol_id,
+	k_ni, k_ali, k_bei  : protocol_id,
+	sec_k_ni, sec_k_ali, sec_k_bei  : protocol_id,
+	k_hash, sec_a_K_hash : protocol_id
+
+	init State := 0
+	
+	transition
+	1. State = 0 /\ Rcv(UD.H_pw') =|>
+		State' := 1 /\ IDS' := new() /\ K' := new() /\ Hash' := new()
+		/\ Ni'  := xor(Hash(UD.H_pw'.Xs),(Hash(K)))
+		/\ ALi' := Hash(xor(H_pw',Xs))
+		/\ BEi' := xor(Xs, Hash(IDS'.H_pw')) /\ Xs' := new()
+		/\ Snd({IDS'.UD.Hash.Ni'.ALi'.BEi'}_K_UG)
+
+		/\ witness(GWN, SN, k_xs, Xs') 
+		/\ secret(Xs',sec_a_K_xs,{GWN,SN})
+		/\ witness(GWN, SN, UD, k_hash, Hash') 
+		/\ secret(Hash',sec_a_K_hash,{GWN,SN,UD})
+		/\ witness(GWN, k_K, K') 
+		/\ secret(K',sec_a_K,{GWN})
+
+		/\ witness(GWN, UD, k_ids, IDS') 
+		/\ secret(IDS',sec_k_ids,{GWN,UD})
+		/\ witness(GWN, UD, k_ni, Ni') 
+		/\ secret(Ni',sec_k_ni,{GWN,UD})
+		/\ witness(GWN, UD, k_ali, ALi') 
+		/\ secret(Ni',sec_k_ali,{GWN,UD})
+		/\ witness(GWN, UD, k_bei, BEi') 
+		/\ secret(BEi',sec_k_bei,{GWN,UD})
+
+		
+
+	2. State = 1 /\ Rcv(DIDi'.Ei'.T_1') =|>
+		State' := 2 /\ X_t' := xor(DIDi', Hash(Xs.T_1')) 
+		/\ E_ti' := (Hash(xor(X_t',Hash(K))).Xs.T_1')
+
+	3. State = 2 /\ Ei = E_ti =|>
+		State' := 3 /\ T_2' := new() 
+		/\ SIGi' := Hash(DIDi.SN.Xs.T_2') 
+		/\ Snd(DIDi.SIGi'.T_2')
+		
+	4. State = 3 /\ Rcv(Wi'.T_3') =|>
+		State' := 4  /\ MU_ti' := xor(SIGi, Xs)
+		/\  W_ti' := Hash(MU_ti'.Xs.T_3')
+
+	5. State = 4 /\ Wi = W_ti =|>
+		State' := 5 /\ ACC' := new() /\ Snd(ACC')
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Role of Sensor Node (SN)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role p_SN ( SN, UD, GWN   : agent,
+               Snd, Rcv   : channel (dy),
+	       Hash	  : hash_func)
+played_by SN
+def=
+	local State : nat,
+	Xs	    : symmetric_key,
+
+	DIDi	    : text,
+	SIGi	    : text,
+	T_2, T_3    : text,
+	
+	SIG_ti	    : text,
+	
+	MUi	    : text,
+	Wi	    : text,
+
+	ACC         : text,
+	MSG	    : message
+
+	const k_xs : protocol_id,
+	sec_a_K_xs : protocol_id,
+	k_hash, sec_a_K_hash : protocol_id
+
+	init State := 0
+
+	transition
+	1. State = 0 /\ Rcv(DIDi'.SIGi'.T_2') =|>
+		State' := 1 /\ SIG_ti' := Hash(DIDi'.SN.Xs.T_2') 
+		/\ request(SN, GWN, k_xs, Xs)
+		/\ secret(Xs,sec_a_K_xs,{SN, GWN})
+		/\ witness(SN, GWN, UD, k_hash, Hash) 
+		/\ secret(Hash, sec_a_K_hash,{SN,GWN,UD})
+	
+	
+	2. State = 1 /\ SIGi = SIG_ti =|>
+		State' := 2 /\  MUi' := xor(SIG_ti, Xs) /\ T_3' := new()
+		/\ Wi' := Hash(MUi'.Xs.T_3')
+		/\ Snd(Wi'.T_3')
+
+	3. State = 2 /\ Rcv(ACC) =|>
+		State' := 3 /\ MSG' := new() /\ Snd(MSG')
+
+end role	
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Role of Session between UD, GWN, SN
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session( UD, GWN, SN	: agent,
+	      Hash		: hash_func,
+	      K_UG 		: symmetric_key
+	    )
+
+def=
+	local S_UD, R_UD, S_GWN, R_GWN, S_SN, R_SN : channel (dy)
+
+	composition
+		p_UD(UD, GWN, SN, S_UD, R_UD, Hash, K_UG)
+	   /\   p_GWN(GWN, UD, SN, S_GWN, R_GWN, Hash, K_UG)
+	   /\   p_SN(SN, UD, GWN, S_SN, R_SN, Hash)
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Environment Definition
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment() def=
+	
+	const ud, gwn, sn, i	   : agent,
+	      h, hi		   : hash_func,
+	      kug, kia		   : symmetric_key
+	      
+
+	intruder_knowledge = {ud, gwn, sn, kia
+                       	     }
+
+	composition 
+		session(ud, gwn, sn, h, kug)
+	  /\	session(i, gwn, sn, hi, kia)
+
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% GOALS regarding  
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+	%secrecy_of K_CG, K_CS 
+  	secrecy_of k_xs, k_hash, k_K, k_pwd, k_pwdn, k_ni, k_ali, k_bei, k_ids
+        % addresses G10
+	secrecy_of sec_a_K_hash, sec_a_K, sec_a_pwd, sec_a_pwdn, sec_k_ni, sec_k_ali, sec_k_bei, sec_k_ids
+	authentication_on sec_a_K, sec_a_pwd, sec_a_pwdn, sec_k_ni, sec_k_ali, sec_k_bei, sec_k_ids
+	%sec_a_K_xs 
+
+
+	weak_authentication_on k_hash
+	weak_authentication_on k_xs
+	weak_authentication_on k_K
+	weak_authentication_on k_pwd
+	weak_authentication_on k_pwdn
+	weak_authentication_on k_ni
+	weak_authentication_on k_ali
+	weak_authentication_on k_bei
+	weak_authentication_on k_ids
+
+end goal
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+

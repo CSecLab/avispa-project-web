@@ -1,0 +1,208 @@
+role source_node(
+				A,B,C,D,F : agent,
+				Ka, Kb, Kc, Kd, Kf : public_key,
+				Hash : hash_func,
+				KeySet : (public_key) set,
+				RCV_BA, SND_AB : channel(dy)
+				)
+	played_by A def=
+		local
+			State : nat,
+			Na: text
+			KHC	,HC   : message
+		init
+		State := 0
+		
+		
+		transition
+			step1.
+				State = 0  /\ RCV_AB(start) =|>
+				State’:= 2 /\ Na’ := new()
+						   /\ HC' := new()
+						   /\ KHC' :=Hash(Hash(Hash(Hash(Hash(HC')))))
+						   /\ SND_AB(Na’.{Na'}_inv(Ka').KHC'.Hash(HC'))
+				
+			step2.
+				State = 8 /\ RCV_BC(Nd'.{Nd'}_inv(Kd').KHC'.HC') /\ in(Kb, KeySet)/\ KHC' = Hash(HC')=|>
+				%%%State’:=9
+				
+end role
+
+%****************************************R1**************************************************
+
+role node_one(
+				A,B,C,D,F : agent,
+				Ka, Kb, Kc, Kd, Kf : public_key,
+				Hash : hash_func,
+				KeySet : (public_key) set,
+				RCV_AB, SND_BA, RCV_CB, SND_BC : channel(dy)
+				)
+	played_by B def=
+		local
+			State : nat,
+			Na ,Nd : text
+			KHC,HC	  : message
+		init
+		State := 1
+		
+		
+		transition
+			step1.
+				State = 1 /\ RCV_AB(Na'.{Na'}_inv(Ka').KHC'.HC') /\ in(Ka, KeySet)/\ KHC' = Hash(Hash(Hash(Hash(HC'))))=|>
+																			
+				State’:=2 /\ HC' := (Hash(HC'))
+						  /\ SND_BC(Na'.{Na'}_inv(Kb').KHC'.HC')
+				
+			step2.
+				State = 7 /\ RCV_BC(Nd'.{Nd'}_inv(Kd').KHC'.HC') /\ in(Kc, KeySet) /\ KHC' = Hash(Hash(HC'))=|>
+				State’:=8 /\ HC' := Hash(HC')
+					      /\ SND_FD(Nd’.{Nd'}_inv(Kb').KHC'.HC')
+				
+end role
+
+%******************************************R2************************************************
+
+role node_two(
+				A,B,C,D,F : agent,
+				Ka, Kb, Kc, Kd, Kf : public_key,
+				Hash : hash_func,
+				KeySet : (public_key) set,
+				RCV_BC, SND_CB, RCV_DC, SND_CD : channel(dy)
+				)
+	played_by C def=
+		local
+			State : nat,
+			Na ,Nd : text
+			KHC	,Hc  : message
+		init
+		State := 2
+		
+		
+		transition
+			step1.
+				State = 2 /\ RCV_BC(Na'.{Na'}_inv(Kb').KHC'.HC') /\ in(Kb, KeySet)/\ KHC' = Hash(Hash(Hash(HC')))=|>
+																			
+				State’:=3 /\ HC' := (Hash(HC'))
+						  /\ SND_BC(Na'.{Na'}_inv(Kc').KHC'.HC')
+				
+			step2.
+				State = 6 /\ RCV_BC(Nd'.{Nd'}_inv(Kd').KHC'.HC') /\ in(Kd, KeySet)/\ KHC' = Hash(Hash(Hash(HC')))=|>
+				State’:=7 /\ HC' := Hash(HC')
+					      /\ SND_FD(Nd’.{Nd'}_inv(Kc').KHC'.HC')
+				
+end role
+
+%***************************************R3***************************************************
+
+role node_three(
+				A,B,C,D,F : agent,
+				Ka, Kb, Kc, Kd, Kf : public_key,
+				Hash : hash_func,
+				KeySet : (public_key) set,
+				RCV_FC, SND_DF, RCV_CD, SND_DC : channel(dy)
+				)
+	played_by D def=
+		local
+			State : nat,
+			Na ,Nd : text
+			KHC	,Hc  : message
+		init
+		State := 3
+		
+		
+		transition
+			step1.
+				State = 3 /\ RCV_BC(Na'.{Na'}_inv(Kc').KHC'.HC') /\ in(Kc, KeySet) /\ KHC' = Hash(Hash(HC'))=|>
+																			
+				State’:=4 /\ HC' := (Hash(HC'))
+						  /\ SND_BC(Na'.{Na'}_inv(Kd').KHC'.HC')
+				
+			step2.
+				State = 5 /\ RCV_BC(Nd'.{Nd'}_inv(Kd').KHC'.HC') /\ in(Kf, KeySet) /\ KHC' = Hash(Hash(Hash(Hash(HC'))))=|>
+				State’:=6 /\ HC' := Hash(HC')
+					      /\ SND_FD(Nd’.{Nd'}_inv(Kd').KHC'.HC')
+			
+			
+			
+				
+end role
+
+%*****************************************DN*************************************************
+
+role Dest_node(
+				A,B,C,D,F : agent,
+				Ka, Kb, Kc, Kd, Kf : public_key,
+				Hash : hash_func,
+				KeySet : (public_key) set,
+				RCV_DF, SND_DF: channel(dy)
+				)
+	played_by F def=
+		local
+			State : nat,
+			Na ,Nd : text
+			KHC	,Hc  : message
+		init
+		State := 4
+		
+		
+		transition
+		step1.
+			State = 4 /\ RCV_BC(Na'.{Na'}_inv(Kd').KHC'.HC') /\ in(Kd, KeySet)  /\ KHC' = Hash(HC')=|>
+			State’:=5 /\ Nd’ := new()
+					  /\ HC' := new()
+					  /\ KHC' :=Hash(Hash(Hash(Hash(Hash(HC')))))
+					  /\ SND_FD(Nd’.{Nd'}_inv(Kf').KHC'.Hash(HC'))
+				
+		
+				
+end role
+
+%*******************************************Session***********************************************
+
+role session(
+			A,B,C,D,F : agent,
+			Ka, Kb, Kc, Kd, Kf : public_key
+			Hash : hash_func,
+			KeySet : (public_key) set,
+			
+			)
+	def=
+		local
+			RCV1,SND1,RCV2,SND2,RCV3,SND3,RCV4,SND4,RCV5,SND5,RCV11,SND11,RCV22,SND22,RCV33,SND33 : channel(dy)
+		composition
+			source_node(A,B,C,D,F,Ka,Kb,Kc,Kd,Kf,Hash,KeySet,RCV1,SND1)
+			/\ node_one(A,B,C,D,F,Ka,Kb,Kc,Kd,Kf,Hash,KeySet,RCV2,SND2,RCV22,SND22)
+			/\ node_two(A,B,C,D,F,Ka,Kb,Kc,Kd,Kf,Hash,KeySet,RCV3,SND3,RCV33,SND33)
+			/\ node_three(A,B,C,D,F,Ka,Kb,Kc,Kd,Kf,Hash,KeySet,RCV4,SND4,RCV44,SND44)
+			/\ Dest_node(A,B,C,D,F,Ka,Kb,Kc,Kd,Kf,Hash,KeySet,RCV5,SND5)
+end role
+
+%*************************************Environment*****************************************************
+
+role environment() def=
+	local
+		KeySet : (public_key) set,
+	const
+		A,B,C,D,F : agent,
+		Ka, Kb, Kc, Kd, Kf : public_key
+		%????? %: protocol_id
+		Hash : hash_func,
+	init
+		KeySet :={Ka, Kb, Kc, Kd, Kf }
+		% intruder_knowledge ={}
+						
+	composition
+		session(A,B,C,D,F,Ka,Kb,Kc,Kd,Kf,Hash,KeySet)
+						
+end role
+
+%*****************************************GOAL*************************************************
+
+goal
+		
+		
+end goal
+
+%*****************************************END*************************************************
+
+environment()

@@ -1,0 +1,157 @@
+role client (S, A : agent,
+% symmetric key between S and A
+         SKsa : symmetric_key,
+% H is hash function
+          H : hash_func,
+% Sending and Recieving channels
+          Snd, Rcv: channel(dy))
+played_by A
+def=
+ local State : nat,
+      IDa, PWa, Ra, PWRa, IDs, Ks, Na, Sa, G, 
+      N1, Xa, XAa, K1, K2,  C1, H1, Ys, YSs, 
+      K3, K4, H2, H3 : text,
+      F : hash_func
+const alice_bob_n1, bob_alice_n2,  
+      subs1, subs2, subs3, subs4, subs5 : protocol_id
+init State := 0
+ transition
+% Registration phase
+1. State = 0 /\ Rcv(start) =|>
+  State' := 1 /\ Ra' := new()
+           /\ PWRa' := H(PWa.Ra')
+           /\ secret({PWa, Ra'}, subs1, A)
+           /\ secret({IDa}, subs2, {A,S})
+% Send the registration message to S
+           /\ Snd({IDa.PWRa'}_SKsa)
+% Receive the smart card from S
+2. State = 1 /\ Rcv({xor(H(IDs.IDa.Ks.Na'),
+                H(H(PWa.Ra').IDs)).
+                H(xor(H(IDs.IDa.Ks.Na'),
+                H(H(PWa.Ra').IDs)).H(PWa.Ra').
+                IDa)}_SKsa) =|>		
+% Login phase
+State' := 2 /\ N1' := new()
+            /\ Xa' := new()
+            /\ K1' := F(Xa'.F(Ks.G))
+            /\ XAa' := F(Xa'.G) 
+            /\ C1' := {IDa.N1'}_K1'
+            /\ H1' := H(IDa.IDs.{IDa.N1'}_F(Xa'.F(Ks.G)).
+                 F(Xa'.G).F(Xa'.F(Ks.G)).Sa.N1')
+            /\ Snd(C1'.H1'.XAa')
+            /\ secret({Ks, Na'}, subs3, S)
+            /\ secret(Xa', subs4, A)
+% A has freshly generated the value N1' for S
+           /\ witness(A, S, alice_bob_n1, N1')
+% Authentication and key establishment phase
+3. State = 2 /\  Rcv(F(Ys'.G).H(IDs.IDa.F(Xa'.G).F(Ys'.G).
+                 F(Ks.F(Xa'.G)).F(Ys'.F(Xa'.G)).Sa.N1')) =|>
+State' := 3 /\ secret(Ys', subs5, S)
+            /\ K4' := F(Xa'.G).F(Ys'.G)
+            /\ H3' := H(IDa.IDs.F(Xa'.F(Ks.G)).F(Xa'.G).
+                     F(Ys'.G).Sa.N1'.H(IDs.IDa.F(Xa'.G).
+                     F(Ys'.G).F(Ks.F(Xa'.G)).F(Ys'.F(Xa'.G)).
+                     Sa.N1'))
+           /\ Snd(H3')
+% A's acceptance of the value Na' generated for A by S
+           /\ request(S, A, bob_alice_n2, Na)
+end role
+
+
+
+role server (S, A : agent,
+% symmetric key between S and A
+         SKsa : symmetric_key,
+% H is hash function
+          H : hash_func,
+% Sending and Receiving channels
+          Snd, Rcv: channel(dy))
+played_by S
+def=
+local State : nat,
+      IDa, PWa, Ra, PWRa, IDs, Ks, Na, Sa, G, N1,
+      Xa, XAa, K1, K2,  C1, H1, Ys, YSs, K3, K4,
+      H2, H3 : text,
+      F : hash_func
+const alice_bob_n1, bob_alice_n2,
+      subs1, subs2, subs3, subs4, subs5 : protocol_id
+init State := 0
+ transition
+% Registration phase
+1. State = 0 /\ Rcv({IDa.H(PWa.Ra')}_SKsa) =|>
+State' := 1  /\ Na' := new()
+             /\ Sa' := H(IDs.IDa.Ks.Na)
+             /\ secret({PWa, Ra'}, subs1, A)
+             /\ secret({Ks}, subs2, S)
+	     /\ secret({Ks, Na'}, subs3, S)
+             /\ Snd({xor(H(IDs.IDa.Ks.Na'),
+                H(H(PWa.Ra').IDs)).
+                H(xor(H(IDs.IDa.Ks.Na'),
+                H(H(PWa.Ra').IDs)).H(PWa.Ra').
+                IDa)}_SKsa)
+% Login phase
+ 2. State = 1 /\ Rcv({IDa.N1'}_F(Xa'.F(Ks.G)).H(IDa.IDs.
+                 {IDa.N1'}_F(Xa'.F(Ks.G)).F(Xa'.G).
+                  F(Xa'.F(Ks.G)).Sa.N1').F(Xa'.G)) =|>
+  State' := 2 /\ secret(Xa', subs4, A)
+% Authentication and key establishment phase
+           /\ Ys' := new()
+	   /\ K2' := F(Ks.F(Xa'.G))
+           /\ K3' := F(Ys'.F(Xa'.G))
+           /\ YSs' := F(Ys'.G)
+           /\ H2' := H(IDs.IDa.F(Xa'.G).F(Ys'.G).
+                       F(Ks.F(Xa'.G)).F(Ys'.F(Xa'.G)).
+                       Sa.N1')
+	   /\ Snd(YSs'.H2')
+           /\ secret(Ys', subs5, S)
+% S has freshly computed the value H2' for A
+           /\ witness(S, A, bob_alice_n2, Na')
+		  	  
+ 3. State =2 /\ Rcv(H(IDa.IDs.F(Xa'.F(Ks.G)).F(Xa'.G).
+                F(Ys'.G).Sa.N1'.H(IDs.IDa.F(Xa'.G).
+                F(Ys'.G).F(Ks.F(Xa'.G)).F(Ys'.
+                F(Xa'.G)).Sa.N1'))) =|>
+% S's acceptance of the value N1' generated for S by A
+State' := 3  /\ request(A, S, alice_bob_n1, N1')
+end role
+
+
+role session(S, A : agent, 
+             SKsa : symmetric_key, 
+             H : hash_func)
+def=
+  local S1, S2, R1, R2: channel (dy)
+composition
+   client(S, A, SKsa, H, S1, R1)
+/\ server(S, A, SKsa, H, S2, R2)
+end role
+
+
+role environment()
+def=
+  const s, a: agent, sksa : symmetric_key,
+        h : hash_func,
+        g : text,
+        f : hash_func,
+        alice_bob_n1, bob_alice_n2, alice_bob_pwra,
+        subs1, subs2, subs3, subs4, subs5 : protocol_id
+intruder_knowledge = {s, a, h, f, g}
+composition
+   session(s, a, sksa, h)
+/\ session(s, a, sksa, h)
+
+end role
+goal
+  secrecy_of subs1
+  secrecy_of subs2
+  secrecy_of subs3
+  secrecy_of subs4
+  secrecy_of subs5
+
+  authentication_on alice_bob_n1
+  authentication_on bob_alice_n2
+end goal
+environment()
+
+
+

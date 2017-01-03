@@ -1,0 +1,255 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilegOnNTvHndd
+
+section signature:
+
+state_server: agent * agent * public_key * public_key * nat * symmetric_key * agent * apply(hash_func,pair(text,symmetric_key)) * message * message * nat -> fact
+state_bob: agent * agent * agent * public_key * public_key * public_key * nat * text * symmetric_key * scrypt(symmetric_key,text) * apply(hash_func,pair(text,symmetric_key)) * message * message * message * nat -> fact
+state_alice: agent * agent * agent * public_key * public_key * public_key * nat * text * symmetric_key * scrypt(symmetric_key,text) * apply(hash_func,pair(text,symmetric_key)) * message * message * message * message * nat -> fact
+
+
+section types:
+
+despite_evidence_dishonest_alice_does_not_have_ConK, despite_evidence_dishonest_bob_does_not_have_ConK, bob_server_con, alice_server_con, bob_learns_M_only_after_alice_got_NRR, server_alice_sub, alice_bob_nrr, dishonest_bob_prematurely_learns_M, bob_alice_nro: protocol_id
+h: hash_func
+L, Dummy_L: apply(hash_func,pair(text,symmetric_key))
+C, Dummy_C: scrypt(symmetric_key,text)
+ka, kb, ks, ki, Ks, Ka, Kb: public_key
+MGoal, SubK, ConK, NRO, NRR, start, Dummy_ConK, Dummy_SubK, Dummy_NRR, Dummy_NRO, dummy_msg: message
+K, Dummy_K, dummy_sk: symmetric_key
+M, fCON, fREQ, fSUB, fNRR, fNRO, Dummy_M, dummy_nonce: text
+A2Goal, A1Goal, a, b, s, B, S, A, Dummy_B, dummy_agent, i: agent
+SID, State, 4, 3, 2, 17, 16, 13, 1, 11, 9, 0, 8, 7, 5, Dummy_State, SID2, SID1: nat
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(s).
+ iknows(ka).
+ iknows(kb).
+ iknows(ks).
+ iknows(ki).
+ iknows(inv(ki)).
+ iknows(fREQ).
+ iknows(fNRO).
+ iknows(fNRR).
+ iknows(fSUB).
+ iknows(fCON).
+ iknows(i).
+ state_alice(a,b,s,ka,kb,ks,0,dummy_nonce,dummy_sk,scrypt(dummy_sk,dummy_nonce),dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,3).
+ state_bob(b,a,s,kb,ka,ks,0,dummy_nonce,dummy_sk,scrypt(dummy_sk,dummy_nonce),dummy_msg,dummy_msg,dummy_msg,dummy_msg,4).
+ state_server(s,a,ks,ka,0,dummy_sk,dummy_agent,dummy_msg,dummy_msg,dummy_msg,5).
+ state_alice(a,b,s,ka,kb,ks,0,dummy_nonce,dummy_sk,scrypt(dummy_sk,dummy_nonce),dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,7).
+ state_bob(b,a,s,kb,ka,ks,0,dummy_nonce,dummy_sk,scrypt(dummy_sk,dummy_nonce),dummy_msg,dummy_msg,dummy_msg,dummy_msg,8).
+ state_server(s,a,ks,ka,0,dummy_sk,dummy_agent,dummy_msg,dummy_msg,dummy_msg,9).
+ state_alice(a,i,s,ka,ki,ks,0,dummy_nonce,dummy_sk,scrypt(dummy_sk,dummy_nonce),dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,11).
+ state_server(s,a,ks,ka,0,dummy_sk,dummy_agent,dummy_msg,dummy_msg,dummy_msg,13).
+ state_bob(b,i,s,kb,ki,ks,0,dummy_nonce,dummy_sk,scrypt(dummy_sk,dummy_nonce),dummy_msg,dummy_msg,dummy_msg,dummy_msg,16).
+ state_server(s,i,ks,ki,0,dummy_sk,dummy_agent,dummy_msg,dummy_msg,dummy_msg,17)
+
+
+section rules:
+
+step step_0 (A,B,S,Ka,Kb,Ks,Dummy_M,Dummy_K,Dummy_C,Dummy_L,Dummy_NRO,NRR,SubK,ConK,SID,M,K) :=
+ state_alice(A,B,S,Ka,Kb,Ks,0,Dummy_M,Dummy_K,Dummy_C,Dummy_L,Dummy_NRO,NRR,SubK,ConK,SID).
+ iknows(start)
+=[exists K,M]=>
+ state_alice(A,B,S,Ka,Kb,Ks,1,M,K,scrypt(K,M),apply(h,pair(M,K)),crypt(inv(Ka),pair(fNRO,pair(B,pair(apply(h,pair(M,K)),scrypt(K,M))))),NRR,SubK,ConK,SID).
+ iknows(pair(fNRO,pair(B,pair(apply(h,pair(M,K)),pair(scrypt(K,M),crypt(inv(Ka),pair(fNRO,pair(B,pair(apply(h,pair(M,K)),scrypt(K,M)))))))))).
+ witness(A,B,bob_alice_nro,crypt(inv(Ka),pair(fNRO,pair(B,pair(apply(h,pair(M,K)),scrypt(K,M))))))
+
+step step_1 (A,S,Ka,Kb,Ks,M,K,C,L,NRO,NRR,SubK,ConK,SID) :=
+ state_alice(A,i,S,Ka,Kb,Ks,1,M,K,C,L,NRO,NRR,SubK,ConK,SID).
+ iknows(M)
+ =>
+ state_alice(A,i,S,Ka,Kb,Ks,1,M,K,C,L,NRO,NRR,SubK,ConK,SID).
+ wrequest(A,A,dishonest_bob_prematurely_learns_M,M,SID)
+
+step step_2 (A,B,S,Ka,Kb,Ks,M,K,C,L,NRO,Dummy_NRR,Dummy_SubK,ConK,SID) :=
+ state_alice(A,B,S,Ka,Kb,Ks,1,M,K,C,L,NRO,Dummy_NRR,Dummy_SubK,ConK,SID).
+ iknows(pair(fNRR,pair(A,pair(L,crypt(inv(Kb),pair(fNRR,pair(A,pair(L,C))))))))
+ =>
+ state_alice(A,B,S,Ka,Kb,Ks,2,M,K,C,L,NRO,crypt(inv(Kb),pair(fNRR,pair(A,pair(L,C)))),crypt(inv(Ka),pair(fSUB,pair(B,pair(L,K)))),ConK,SID).
+ iknows(pair(fSUB,pair(B,pair(L,pair(K,crypt(inv(Ka),pair(fSUB,pair(B,pair(L,K))))))))).
+ request(A,B,alice_bob_nrr,crypt(inv(Kb),pair(fNRR,pair(A,pair(L,C)))),SID).
+ witness(A,S,server_alice_sub,crypt(inv(Ka),pair(fSUB,pair(B,pair(L,K))))).
+ witness(A,B,bob_learns_M_only_after_alice_got_NRR,K)
+
+step step_3 (A,B,S,Ka,Kb,Ks,M,K,C,L,NRO,NRR,SubK,ConK,SID) :=
+ state_alice(A,B,S,Ka,Kb,Ks,2,M,K,C,L,NRO,NRR,SubK,ConK,SID)
+ =>
+ state_alice(A,B,S,Ka,Kb,Ks,3,M,K,C,L,NRO,NRR,SubK,ConK,SID).
+ iknows(pair(fREQ,pair(A,pair(B,L))))
+
+step step_4 (A,B,S,Ka,Kb,Ks,M,K,C,L,NRO,NRR,SubK,Dummy_ConK,SID) :=
+ state_alice(A,B,S,Ka,Kb,Ks,3,M,K,C,L,NRO,NRR,SubK,Dummy_ConK,SID).
+ iknows(pair(fCON,pair(A,pair(B,pair(L,pair(K,crypt(inv(Ks),pair(fCON,pair(A,pair(B,pair(L,K)))))))))))
+ =>
+ state_alice(A,B,S,Ka,Kb,Ks,4,M,K,C,L,NRO,NRR,SubK,crypt(inv(Ks),pair(fCON,pair(A,pair(B,pair(L,K))))),SID).
+ request(A,S,alice_server_con,crypt(inv(Ks),pair(fCON,pair(A,pair(B,pair(L,K))))),SID)
+
+step step_5 (B,A,S,Kb,Ka,Ks,M,K,Dummy_C,Dummy_L,Dummy_NRO,Dummy_NRR,ConK,SID,C,L) :=
+ state_bob(B,A,S,Kb,Ka,Ks,0,M,K,Dummy_C,Dummy_L,Dummy_NRO,Dummy_NRR,ConK,SID).
+ iknows(pair(fNRO,pair(B,pair(L,pair(C,crypt(inv(Ka),pair(fNRO,pair(B,pair(L,C)))))))))
+ =>
+ state_bob(B,A,S,Kb,Ka,Ks,1,M,K,C,L,crypt(inv(Ka),pair(fNRO,pair(B,pair(L,C)))),crypt(inv(Kb),pair(fNRR,pair(A,pair(L,C)))),ConK,SID).
+ iknows(pair(fNRR,pair(A,pair(L,crypt(inv(Kb),pair(fNRR,pair(A,pair(L,C)))))))).
+ wrequest(B,A,bob_alice_nro,crypt(inv(Ka),pair(fNRO,pair(B,pair(L,C)))),SID).
+ witness(B,A,alice_bob_nrr,crypt(inv(Kb),pair(fNRR,pair(A,pair(L,C)))))
+
+step step_6 (B,A,S,Kb,Ka,Ks,M,K,C,L,NRO,NRR,ConK,SID) :=
+ state_bob(B,A,S,Kb,Ka,Ks,1,M,K,C,L,NRO,NRR,ConK,SID)
+ =>
+ state_bob(B,A,S,Kb,Ka,Ks,2,M,K,C,L,NRO,NRR,ConK,SID).
+ iknows(pair(fREQ,pair(A,pair(B,L))))
+
+step step_7 (B,A,S,Kb,Ka,Ks,Dummy_M,Dummy_K,L,NRO,NRR,Dummy_ConK,SID,M,K) :=
+ state_bob(B,A,S,Kb,Ka,Ks,2,Dummy_M,Dummy_K,scrypt(K,M),L,NRO,NRR,Dummy_ConK,SID).
+ iknows(pair(fCON,pair(A,pair(B,pair(L,pair(K,crypt(inv(Ks),pair(fCON,pair(A,pair(B,pair(L,K)))))))))))
+ =>
+ state_bob(B,A,S,Kb,Ka,Ks,3,M,K,scrypt(K,M),L,NRO,NRR,crypt(inv(Ks),pair(fCON,pair(A,pair(B,pair(L,K))))),SID).
+ request(B,S,bob_server_con,crypt(inv(Ks),pair(fCON,pair(A,pair(B,pair(L,K))))),SID).
+ wrequest(B,A,bob_learns_M_only_after_alice_got_NRR,K,SID)
+
+step step_8 (S,A,Ks,Ka,Dummy_K,Dummy_B,Dummy_L,Dummy_SubK,ConK,SID,K,B,L) :=
+ state_server(S,A,Ks,Ka,0,Dummy_K,Dummy_B,Dummy_L,Dummy_SubK,ConK,SID).
+ iknows(pair(fSUB,pair(B,pair(L,pair(K,crypt(inv(Ka),pair(fSUB,pair(B,pair(L,K)))))))))
+ =>
+ state_server(S,A,Ks,Ka,1,K,B,L,crypt(inv(Ka),pair(fSUB,pair(B,pair(L,K)))),ConK,SID).
+ wrequest(S,A,server_alice_sub,crypt(inv(Ka),pair(fSUB,pair(B,pair(L,K)))),SID)
+
+step step_9 (S,A,Ks,Ka,K,B,L,SubK,Dummy_ConK,SID) :=
+ state_server(S,A,Ks,Ka,1,K,B,L,SubK,Dummy_ConK,SID).
+ iknows(pair(fREQ,pair(A,pair(B,L))))
+ =>
+ state_server(S,A,Ks,Ka,1,K,B,L,SubK,crypt(inv(Ks),pair(fCON,pair(A,pair(B,pair(L,K))))),SID).
+ iknows(pair(fCON,pair(A,pair(B,pair(L,pair(K,crypt(inv(Ks),pair(fCON,pair(A,pair(B,pair(L,K))))))))))).
+ witness(S,A,alice_server_con,crypt(inv(Ks),pair(fCON,pair(A,pair(B,pair(L,K)))))).
+ witness(S,B,bob_server_con,crypt(inv(Ks),pair(fCON,pair(A,pair(B,pair(L,K))))))
+
+
+section properties:
+
+property weak_authentication_on_server_alice_sub (A1Goal,A2Goal,MGoal,SID) :=
+ [] ((wrequest(A1Goal,A2Goal,server_alice_sub,MGoal,SID)
+      /\ ~ equal(A2Goal,i))
+     => witness(A2Goal,A1Goal,server_alice_sub,MGoal))
+
+property weak_authentication_on_despite_evidence_dishonest_alice_does_not_have_ConK (A1Goal,A2Goal,MGoal,SID) :=
+ [] ((wrequest(A1Goal,A2Goal,despite_evidence_dishonest_alice_does_not_have_ConK,MGoal,SID)
+      /\ ~ equal(A2Goal,i))
+     => witness(A2Goal,A1Goal,despite_evidence_dishonest_alice_does_not_have_ConK,MGoal))
+
+property weak_authentication_on_despite_evidence_dishonest_bob_does_not_have_ConK (A1Goal,A2Goal,MGoal,SID) :=
+ [] ((wrequest(A1Goal,A2Goal,despite_evidence_dishonest_bob_does_not_have_ConK,MGoal,SID)
+      /\ ~ equal(A2Goal,i))
+     => witness(A2Goal,A1Goal,despite_evidence_dishonest_bob_does_not_have_ConK,MGoal))
+
+property authentication_on_alice_bob_nrr (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,alice_bob_nrr,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,alice_bob_nrr,MGoal))
+     /\ ((request(A1Goal,A2Goal,alice_bob_nrr,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,alice_bob_nrr,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property weak_authentication_on_bob_alice_nro (A1Goal,A2Goal,MGoal,SID) :=
+ [] ((wrequest(A1Goal,A2Goal,bob_alice_nro,MGoal,SID)
+      /\ ~ equal(A2Goal,i))
+     => witness(A2Goal,A1Goal,bob_alice_nro,MGoal))
+
+property authentication_on_alice_server_con (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,alice_server_con,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,alice_server_con,MGoal))
+     /\ ((request(A1Goal,A2Goal,alice_server_con,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,alice_server_con,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_bob_server_con (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,bob_server_con,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,bob_server_con,MGoal))
+     /\ ((request(A1Goal,A2Goal,bob_server_con,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,bob_server_con,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property weak_authentication_on_bob_learns_M_only_after_alice_got_NRR (A1Goal,A2Goal,MGoal,SID) :=
+ [] ((wrequest(A1Goal,A2Goal,bob_learns_M_only_after_alice_got_NRR,MGoal,SID)
+      /\ ~ equal(A2Goal,i))
+     => witness(A2Goal,A1Goal,bob_learns_M_only_after_alice_got_NRR,MGoal))
+
+property weak_authentication_on_dishonest_bob_prematurely_learns_M (A1Goal,A2Goal,MGoal,SID) :=
+ [] ((wrequest(A1Goal,A2Goal,dishonest_bob_prematurely_learns_M,MGoal,SID)
+      /\ ~ equal(A2Goal,i))
+     => witness(A2Goal,A1Goal,dishonest_bob_prematurely_learns_M,MGoal))
+
+
+section attack_states:
+
+attack_state weak_authentication_on_server_alice_sub (A1Goal,A2Goal,MGoal,SID) :=
+ wrequest(A1Goal,A2Goal,server_alice_sub,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,server_alice_sub,MGoal)) &
+ not(equal(A2Goal,i))
+
+attack_state weak_authentication_on_despite_evidence_dishonest_alice_does_not_have_ConK (A1Goal,A2Goal,MGoal,SID) :=
+ wrequest(A1Goal,A2Goal,despite_evidence_dishonest_alice_does_not_have_ConK,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,despite_evidence_dishonest_alice_does_not_have_ConK,MGoal)) &
+ not(equal(A2Goal,i))
+
+attack_state weak_authentication_on_despite_evidence_dishonest_bob_does_not_have_ConK (A1Goal,A2Goal,MGoal,SID) :=
+ wrequest(A1Goal,A2Goal,despite_evidence_dishonest_bob_does_not_have_ConK,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,despite_evidence_dishonest_bob_does_not_have_ConK,MGoal)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_alice_bob_nrr (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,alice_bob_nrr,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,alice_bob_nrr,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_alice_bob_nrr (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,alice_bob_nrr,MGoal,SID1).
+ request(A1Goal,A2Goal,alice_bob_nrr,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state weak_authentication_on_bob_alice_nro (A1Goal,A2Goal,MGoal,SID) :=
+ wrequest(A1Goal,A2Goal,bob_alice_nro,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,bob_alice_nro,MGoal)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_alice_server_con (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,alice_server_con,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,alice_server_con,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_alice_server_con (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,alice_server_con,MGoal,SID1).
+ request(A1Goal,A2Goal,alice_server_con,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_bob_server_con (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,bob_server_con,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,bob_server_con,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_bob_server_con (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,bob_server_con,MGoal,SID1).
+ request(A1Goal,A2Goal,bob_server_con,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state weak_authentication_on_bob_learns_M_only_after_alice_got_NRR (A1Goal,A2Goal,MGoal,SID) :=
+ wrequest(A1Goal,A2Goal,bob_learns_M_only_after_alice_got_NRR,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,bob_learns_M_only_after_alice_got_NRR,MGoal)) &
+ not(equal(A2Goal,i))
+
+attack_state weak_authentication_on_dishonest_bob_prematurely_learns_M (A1Goal,A2Goal,MGoal,SID) :=
+ wrequest(A1Goal,A2Goal,dishonest_bob_prematurely_learns_M,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,dishonest_bob_prematurely_learns_M,MGoal)) &
+ not(equal(A2Goal,i))
+

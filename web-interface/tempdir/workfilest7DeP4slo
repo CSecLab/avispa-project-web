@@ -1,0 +1,144 @@
+role client(C,B:agent,
+            SKc,Kc,Kcb,Kbc:symmetric_key,
+			Mul,Sub,H:hash_func,
+			Pubc,Mpk:public_key,
+			Snd,Rcv:channel(dy))
+played_by C
+def=
+local State:nat,
+    X,G,IDc,IDb,Msk,Nb,IMEIc,W,V,Dc,K1,N,Ts,Vc,Rvc,Rwc,Rc,E,R,M1,M2,M3,Z,CNO,C1,TDc,Amt,A,U,M,K2,K3  :text
+      
+	  const client_x,bank_msk,subs1,subs2:protocol_id
+init State := 0
+transition
+1.State =0 /\Rcv(start)=|>
+  State':=1/\IDc':=new()
+           /\X':=new()
+           /\Pubc':=exp(G,X)
+           /\Snd(IDc.Pubc)
+           /\secret({X},subs1,{C,B})
+
+2. State=1/\Rcv(IDb.Mpk.Nb)=|>
+   State':=2/\IMEIc':=new()
+            /\W':=H(IMEIc)
+            /\V':=H(X.IDc)
+            /\Dc':=xor(W,IMEIc)
+            /\K1':=H(IMEIc.Pubc.X)
+            /\Snd(IDc.IDb.Dc.K1.W.Nb)
+
+3. State=2/\Rcv({IDc.TDc}_Kc)=|>
+   State':=3/\SKc':=exp(Mpk,X)
+            /\Kc':=H(SKc'.Dc.K1)
+            /\N':=new()
+			/\U':=new()
+            /\Ts':=new()
+            /\Vc':=H(W.X.V)
+            /\E':=H(Vc.N)
+			/\A':=exp(G,U)
+			/\Rwc':=H(N.H(Amt).SKc)
+			/\Rvc':=xor(A,Rwc)
+			/\K2':=exp(G,Mul(E,X))
+			/\K3':=Sub(Mul(E,X),Mul(U,Rwc))
+			/\Z':=xor(H(K1.K3),H(U))
+			/\Kcb':=H(K2.Ts.Mpk)
+            /\Snd(Dc.{H(Amt).A.K3.Rvc.Ts}_Kc.{Amt.TDc.Z}_Kcb)
+
+4. State=3/\Rcv({IDb.M1.M3.H(CNO).CNO.TDc}_Kbc)=|>
+   State':=4/\C1':=xor(Z,M1)
+            /\M2':=Mul(exp(G,M3),exp(Pubc,M1))
+            
+
+
+end role 
+            
+role bank(C,B:agent,
+           SKc, Kc,Kcb,Kbc:symmetric_key,
+			Mul,Sub,H:hash_func,
+			Pubc,Mpk:public_key,
+			Snd,Rcv:channel(dy))
+played_by C
+def=
+local State:nat,
+   X,G,IDc,IDb,Msk,Nb,IMEIc,W,V,Dc,K1,N,Ts,Vc,Rvc,Rwc,Rc,E,R,M1,M2,M3,Z,CNO,C1,TDc,Amt,A,U,M,K2,K3        :text
+      
+	  const client_x,bank_msk,subs1,subs2:protocol_id
+init State := 0
+transition
+1.State =0 /\Rcv(IDc,Pubc)=|>
+  State':=1/\IDb':=new()
+           /\Msk':=new()
+           /\Nb':=new()
+           /\Mpk':=exp(G,Msk)
+           /\Snd(IDb.Mpk.Nb)
+           /\secret({Msk},subs2,{B,C})
+
+2. State=1 /\Rcv(IDc.IDb.Dc.K1.W.Nb)=|>
+   State':=2/\TDc':=xor(W,H(Msk))
+            /\SKc':=exp(Pubc,Msk)
+            /\Kc':=H(SKc.Dc.K1)
+            /\Snd({IDc.TDc}_Kc)
+
+3. State=2/\Rcv(Dc.{H(Amt).A.K3.Rvc.Ts}_Kc.{Amt.TDc.Z}_Kcb)=|>
+   State':=3/\Rwc':=xor(Rvc,A)
+           /\K2':=Mul(exp(G,K3),exp(A,Rwc'))
+		   /\Kbc':=H(K2'.Mpk.Ts)
+           /\R':=new()
+		   /\CNO':=new()
+		   /\M':=H(R)
+           /\M1':=xor(Z,H(R))
+           /\M2':=exp(G,Mul(R,H(CNO)))
+           /\M3':=Sub(Mul(R,H(CNO)),Mul(M1,Msk))
+           /\Snd({IDb.M1.M3.H(CNO).CNO.TDc}_Kbc)
+
+end role
+
+
+role session(C,B:agent,
+            SKc,Kc,Kcb,Kbc:symmetric_key,
+			Mul,Sub,H:hash_func,
+			Pubc,Mpk:public_key)
+			
+def=
+local SC,SB,RC,RB:channel(dy)	
+composition
+client(C,B,SKc,Kc,Kcb,Kbc,H,Mul,Sub,Pubc,Mpk,SC,RC)
+/\bank(C,B,SKc,Kc,Kcb,Kbc,H,Mul,Sub,Pubc,Mpk,SB,RB)
+
+end role
+
+		
+ role environment()
+def=
+const c,b,i:agent,
+      skc,kc,kcb,kbc:symmetric_key,
+	  mul,sub,h:hash_func,
+	  pubc,mpk:public_key,
+	  
+	  
+	  
+	  g,idc,idb,w,v,dc,k1,vc,rvc,rwc,rc,e,m1,m2,m3,z,c1,tdc,amt,u,a,m,k2,k3:text,
+          client_x,bank_msk,subs1,subs2:protocol_id
+
+
+intruder_knowledge={c,b,mul,sub,h,mpk,pubc}
+
+composition
+   session(c,b,skc,kc,kcb,kbc,h,mul,sub,mpk,pubc)
+ /\session(c,b,skc,kc,kcb,kbc,h,mul,sub,mpk,pubc) 
+
+ 
+ 
+ end role
+ 
+ goal
+ secrecy_of subs1
+ secrecy_of subs2
+ authentication_on client_x
+ 
+ authentication_on bank_msk
+ end goal
+ 
+ environment()
+ 
+ 
+

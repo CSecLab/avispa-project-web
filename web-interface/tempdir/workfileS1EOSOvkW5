@@ -1,0 +1,146 @@
+role user (Ui, RC, ASj : agent,
+SKey1 : symmetric_key,
+SKey2 : symmetric_key,
+H, MUL, SUB: hash_func,  
+Snd, Rcv: channel(dy))
+played_by Ui
+def=
+local State : nat,
+IDi, PWi, IDj, N, Ej, Yj: text,
+Di, Ei, Fi, Ai, Bi, Ci, Ri, M1, M2, M3, M4, M6, Rij, Rj, M5, SKi: message,
+Inc : hash_func
+const user_rserver, rserver_aserver, 
+aserver_user, sec1, sec2, sec3, sec4, sec5, sec6, sec7 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(start) =|>
+State' := 1 /\ Ai' := h(IDi.PWi)
+/\ Snd({IDi.Ai'}_SKey2)
+2. State = 1 /\ Rcv({Di'.Ei'.Fi'.N'}_SKey2) =|>    
+State' := 2 /\ Ci' := exp(IDi, Ai)
+/\ Bi' := xor(Di',Ci')
+/\ Ri' :=new()
+/\ M1' :=h(Bi'.Ri') 
+/\ M2' := xor(h(Bi'), Ri')
+/\ Snd(M1'.M2'.Fi.IDj)
+/\ secret({PWi}, sec1, {Ui})
+/\ secret({IDi,Ri}, sec2, {Ui,RC,ASj})
+%/\ witness(Ui, CSj, cserver_user, A') 
+3. State = 2 /\ Rcv(Ej'.M3') =|>
+State' := 3 /\ Yj' := xor(M3',IDi)
+/\ M4' := h(IDi. Ri, Yj'.IDj)
+/\ M5' :=exp((IDi.Ri.M4'), Ej)    %%line 32
+/\ Snd(M5') 
+/\ secret({Yj'}, sec3, {Ui,ASj,RC})
+%/\ witness(CSj, Ui, cserver_user, B')
+4. State = 3 /\ Rcv(M6',Rij') =|>
+State' := 4 /\  Rj' := xor(Rij,Ri)
+/\ SKi' := h(IDi.IDj.Ri.Rj')
+/\ secret({SKi}, sec4, {Ui,ASj})
+end role
+
+role rserver (RC, Ui, ASj : agent,
+SKey1 : symmetric_key,  
+SKey2 : symmetric_key,  
+H, MUL, SUB: hash_func,
+Snd, Rcv: channel(dy) )
+played_by RC
+def=
+local State : nat,
+IDj, IDi, Ej, P, Q, N, W, Dj, G, Yj: text,
+Ai, Bi, Ci, Di, Ei, Fi, X, M1, M2, M3: message,
+Inc : hash_func
+const user_rserver, rserver_aserver, 
+aserver_user, sec1, sec2, sec3, sec4, sec5, sec6, sec7 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv({IDj'}_SKey1) =|>
+State' := 1 /\ Ej' := new()
+/\ Dj' :=new()
+/\ P' :=new()
+/\ Q' :=new()
+/\N' :=  MUL(P',Q')
+/\W' := MUL(SUB(P',1), SUB(Q',1))  %line 63
+/\ Yj' := h(Ej'.Dj')
+/\ Snd({Ej'.Dj'}_SKey1)
+/\ secret({Dj'}, sec5, {ASj,RC})
+/\ secret({P',Q'}, sec6, {RC})
+2. State = 1 /\ Rcv({IDi.Ai'}_SKey2) =|> 
+State' := 2 /\ Bi' := exp(G,MUL(X,IDi))
+/\ Ci' := exp(IDi,Ai)
+/\ Di' := xor(Bi',Ci') 
+/\ Ei' :=h(Ai.Bi')
+/\ Fi' :={IDi}_X  
+/\ Snd({Di'.Ei'.Fi'.N'}_SKey2) 
+3. State = 2 /\ Rcv(M1'.M2'.Fi.IDj) =|>
+State' := 3 /\ M3' := xor(Yj,IDi)
+/\ Snd(Ej.M3')             
+end role
+role aserver (ASj, Ui, RC : agent, 
+SKey1 : symmetric_key,
+SKey2 : symmetric_key,
+% H is hash function
+H,MUL,SUB: hash_func,
+Snd, Rcv: channel(dy) )
+played_by ASj
+def=
+local State : nat,
+IDi, IDj, Ej, Dj, Yj: text,
+M5, M9, Ri, M4, Rj, Rij, SKj, M6: message,
+Inc : hash_func
+const user_rserver, rserver_aserver, 
+aserver_user, sec1, sec2, sec3, sec4, sec5, sec6, sec7 : protocol_id
+init State :=0
+transition
+1. State = 0 /\ Rcv(start) =|>
+State' := 1 /\ IDj' :=new()
+/\ Snd({IDj'}_SKey1)
+/\ Rcv({Ej'.Dj'}_SKey1)
+2. State = 1 /\ Rcv(M5') =|>
+State' := 2 /\ M9' := exp(M5',Dj)
+/\ M9' := (IDi.Ri.M4)
+/\ Yj' := h(Ej'.Dj)
+/\ Rj' := new()
+/\ Rij' := xor(Ri,Rj)
+/\ SKj' := h(IDi.IDj.Ri.Rj')
+/\ M6' := h(SKj'.Rj'.IDj')
+/\ Snd(M6'.Rij')
+/\ secret({Rj'}, sec7, {ASj,Ui})
+end role
+role session(Ui, RC, ASj: agent,
+SKey1 : symmetric_key,
+SKey2 : symmetric_key,
+H, MUL,SUB: hash_func)
+def=
+local SI, SJ, RI, RJ, PI, PJ: channel (dy)
+composition
+user(Ui, RC, ASj, SKey1, SKey2, H, MUL, SUB, SI, RI)
+/\ rserver(Ui, RC, ASj, SKey1, SKey2, H, MUL, SUB, SJ, RJ)
+/\ aserver(Ui, RC, ASj, SKey1, SKey2, H, MUL, SUB, PI, PJ)
+end role
+role environment()
+def=
+const ui, rc, asj: agent,
+skey1 : symmetric_key,
+skey2 : symmetric_key,
+h,mul, sub: hash_func,
+idi, pwi, idj, ai, bi, ci, di, ei, fi, m1, m2, m3, m4, m5, m6, ri, rj, rij, ski, skj, n : text, 
+user_aserver_Ri, aserver_user_Rj, sec1, sec2, sec3, sec4, sec5, sec6, sec7 : protocol_id
+intruder_knowledge = {ui, rc, asj, h, mul, m6, rij, m5, m3, di, ei, fi, n, m1, m2, idj}
+composition
+session(rc, ui, asj, skey1, skey2, h, mul, sub)
+/\ session(ui, rc, asj, skey1, skey2, h, mul, sub)
+/\ session(asj, ui, rc, skey1, skey2, h, mul, sub)
+end role
+goal
+secrecy_of sec1
+secrecy_of sec2
+secrecy_of sec3
+secrecy_of sec4
+secrecy_of sec5
+secrecy_of sec6
+secrecy_of sec7
+authentication_on user_aserver_Ri
+authentication_on aserver_user_Rj
+end goal
+environment()

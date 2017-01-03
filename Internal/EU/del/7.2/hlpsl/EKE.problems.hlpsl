@@ -1,0 +1,125 @@
+%%1-5-EKE
+
+%%A-B Notation:
+
+%% 1. A --> B : {Ea}_Kab        |    key exchange part
+%% 2. B --> A : {{K}_Ea}_Kab    |
+%% 3. A --> B : {Ca}_K           |
+%% 4. B --> A : {Ca,Cb}_K        |    challenge/response
+%% 5. A --> B : {Cb}_K           |    authentication part
+
+%% K_ab: password (shared key)
+
+%% --------------------------Nhlpsl-spec ---------------------
+
+role EKE_Init (A,B: agent,
+               Kab: symmetric_key,
+               Snd,Rcv: channel(dy)) played_by A def=
+
+  exists State: nat,
+	 Ea   : public_key (fresh),
+         Na   : text (fresh),
+         Nb,K : text
+
+  owns Snd
+  init  State = 0
+  knowledge(A)={A,B,Kab}
+
+  transition
+
+   1. State=0 /\ Rcv(start) =|> Snd({Ea'}Kab) /\ State'=1
+
+   2. State=1 /\ Rcv({{K'}Ea}Kab) =|> 
+	   Snd({Na'}K') 
+	/\ State'=2 
+	/\ witness(A,B,na,Na')
+
+   3. State=2 /\ Rcv({Na.Nb'}K) =|> 
+	   Snd({Nb'}K) 
+	/\ State'=3 
+	/\ request(A,B,nb,Nb')
+
+end role
+
+%%  (*------------------------------------------------------*)
+
+role EKE_Resp (B,A: agent,
+               Kab: symmetric_key,
+ 	       Snd,Rcv: channel(dy)) played_by B def=
+
+  exists State: nat,
+         Nb,K: text(fresh),
+         Na: text,
+	 Ea: public_key
+
+  owns Snd
+  init State = 0
+  knowledge(B) = {A,B,Kab}
+  transition
+
+   1. State=0 /\ Rcv({Ea'}Kab) =|> 
+	   Snd({{K'}Ea'}Kab) 
+	/\ State'=1
+	/\ secret(K',A) 
+	/\ secret(K',B)
+
+   2. State=1 /\ Rcv({Na'}K) =|> 
+	   Snd({Na'.Nb'}K)
+	/\ State'=2
+	/\ witness(B,A,nb,Nb')
+
+   3. State=2  /\ Rcv({Nb}K) =|> 
+	   State'=3
+	/\ request(B,A,na,Na)
+
+end role
+
+%%  (*------------------------------------------------------*)
+
+role Session(A,B: agent,
+	     Kab: symmetric_key,
+	     SA, RA, SB, RB: channel (dy)) def=
+
+  composition
+     EKE_Init(A,B,Kab,SA,RA)
+  /\ EKE_Resp(B,A,Kab,SB,RB)
+end role
+
+
+%%  (*------------------------------------------------------*)
+
+role Environment() def=
+
+  const na, nb: protocol_id
+	
+  knowledge(i)={a,b}
+
+%%  knowledge(i)={a,b,kai,kbi}
+
+  composition
+	Session(a,b,kab,sa1,ra1,sb1,rb1) /\
+	Session(b,a,kab,sa2,ra2,sb2,rb2)
+ 
+%%   composition
+%% 	Session(a,b,kab) /\
+%% 	Session(a,i,kai) /\
+%% 	Session(i,b,kbi)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+ EKE_Init authenticates EKE_Resp on Nb
+ EKE_Resp authenticates EKE_Init on Na
+ secrecy_of K
+
+end goal
+
+  
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+Environment()
+

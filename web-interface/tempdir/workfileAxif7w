@@ -1,0 +1,110 @@
+role  sensorNode(User, SNode  : agent,
+           	Snd, Rcv: channel(dy),
+	   	UserPubKey : public_key,
+	   	SNPubKey : public_key)
+played_by SNode
+def=
+         local State  : nat,
+         KS: symmetric_key,
+         KAB,TS,TK,UIDA,MSG,MSG2:  text
+         const alice_bob,  bob_alice, sub2,sub3 : protocol_id
+
+   init  State := 0
+
+
+  transition
+   1. State   = 0 /\ Rcv({TS'.TK'.UIDA}_inv(UserPubKey)) =|>  
+      State' := 1 /\ KAB' := new()
+      		  /\ KS' := KAB'.TS' 
+                  /\ Snd({KAB'.TS'}_inv(SNPubKey))
+                  /\ witness (SNode, User, bob_alice, KAB')
+                  /\ request (User, SNode, alice_bob, TK')
+   2. State = 1 /\ Rcv({MSG'}_KS') =|>
+   	State' := 2 /\ secret({KS'},sub3,{User,SNode})
+   		/\ MSG2' := new()
+   		/\ Snd({MSG2'}_KS')
+                    
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role user (User,SNode: agent,
+	   	H : hash_func,
+	   	UserPubKey : public_key,
+	   	SNPubKey : public_key,
+	   	UAID : text,
+           	Snd, Rcv: channel(dy))
+played_by User
+def=
+         local State  : nat,
+         KS: symmetric_key,
+         TK, R, TS,UIDA,KAB,MSG2,MSG:  text
+         const alice_bob,  bob_alice, sub1,sub3 : protocol_id
+
+   init  State := 0
+
+  transition
+   1. State   = 0 /\ Rcv(start) =|>
+      State' := 1 /\ R':=new()
+                  /\ secret({R'},sub1, User)
+                  /\ TK' := R'.h(UIDA)
+                  /\ TS' := new()
+                  /\ Snd({TS'.TK'.UIDA}_inv(UserPubKey)) 
+                  /\ witness (User, SNode, alice_bob, TK')
+   2. State = 1   /\ Rcv({KAB'.TS'}_inv(SNPubKey)) =|> 
+      State' := 2 /\ request (SNode, User, bob_alice, KAB')
+      		  /\ KS' := KAB'.TS'
+      		  /\ secret({KS'},sub3,{User,SNode})
+      		  /\ MSG' := new()
+     		  /\ Snd({MSG'}_KS')
+      		                   
+   3.State =2 /\ Rcv({MSG2'}_KS') =|>
+   State' := 3
+                  
+ end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(User,SNode: agent,
+             H: hash_func,
+             Userpubkey,Snpubkey : public_key
+	)
+def=
+
+  local  SA, SB, RA, RB: channel (dy),
+         UAID:  text,
+         UserPubKey, SNPubKey : public_key
+         const alice_bob,  bob_alice, sub1, sub2,sub3 : protocol_id
+           
+  composition
+           user(User,SNode,H,UserPubKey, SNPubKey,UAID, SA, RA)
+       /\  sensorNode(User,SNode, SB, RB,UserPubKey, SNPubKey)
+end role 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+def=
+
+  const user, sn: agent,
+        h   : hash_func,
+        uaid :  text,
+        userpubkey,snpubkey : public_key,
+        alice_bob,  bob_alice, sub1, sub2, sub3 : protocol_id
+
+  intruder_knowledge = {user, sn,h,uaid,userpubkey,snpubkey}
+
+  composition
+	session(user, sn,h,userpubkey,snpubkey) /\
+	session(user, sn,h,userpubkey,snpubkey)  
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+  secrecy_of sub1
+  secrecy_of sub2
+  secrecy_of sub3
+  authentication_on alice_bob
+  authentication_on bob_alice
+end goal
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

@@ -1,0 +1,111 @@
+role deviceA( IDa,IDb	:	agent,
+			CertA	:	public_key,
+			Hash	:	hash_func,
+			SND,RCV: channel(dy) )
+	played_by IDa def=
+		
+		local	State	:	nat,
+				Ssid,Ra,Rc,Rb	:	text, %Ssid to secret session ID 
+				K24,K56	:	symmetric_key,
+				CertB	:	public_key
+				
+		init 
+			State := 0
+			
+		%knowledge(IDa) = { inv(CertA) }
+		
+		transition
+			0. State = 0
+				/\ RCV(start)
+				=|>
+				State' := 1
+				/\ Ra' := new()
+				/\ SND(Ra'.IDa)
+				
+			2. State = 2
+				/\ RCV(Rb'.IDb.{Hash(Rb'.Ra.IDa)}_inv(CertB).CertB)
+				=|> State' := 3
+			
+			3. State = 3
+				/\ Rc'	:= new()
+				/\ K24' := new()
+				/\ K56' := new()
+				/\ SND(IDb.{K56'.Ra.Rb.Rc'.IDb{Hash(Ra.Rb.K56')}_inv(CertA)}_K24'.{K24'.IDb}_CertB.CertA)
+				
+			4. State = 4
+				/\ RCV({Rc.Ssid'.IDa}_K56
+end role
+
+role deviceB( IDa, IDb	:	agent,
+			CertB	:	public_key,
+			Hash	:	hash_func,
+			SND, RCV	:	channel(dy) )
+			
+	played_by IDb	def=
+	
+		local	State	:	nat,
+				Ra,Rc,Rb,Ssid	:	text,
+				K24,K56	:	symmetric_key,
+				CertA	:	public_key,
+				
+		init 
+			State := 1
+		
+		%knowledge(IDb) = { inv(CertB) }
+		
+		transition
+			1. State = 1
+				/\ RCV(Ra'.IDa)
+				=|>State := 2
+			
+			2. State = 2
+				/\ Rb' := new()
+				/\ SND(Rb'.IDb.{Hash(Rb'.Ra.IDa)}_inv(CertB).CertB)
+				
+			3. State = 3
+				/\ RCV(IDb.{K56'.Ra.Rb.Rc'.IDb{Hash(Ra.Rb.K56')}_inv(CertA)}_K24'.{K24'.IDb}_CertB.CertA)
+				=|> State' := 4
+				
+			4. State = 4
+				/\ Ssid' := new()
+				/\ SND({Rc.Ssid'.IDa}_K56)
+end role
+
+role session (IDa,IDb	:	agent,
+				CertA,CertB	: public_key,
+				Hash	:	hash_func )
+def=
+	local	SA,RA,SB,RB	:	channel(dy)
+	
+		composition
+			
+			deviceA(IDa,IDb,CertA,Hash,SA,RA)
+			/\deviceB(IDa,IDb,CertB,Hash,SB,RB)
+end role
+
+role environment() def=
+	
+	const	certa, certb	:	public_key,
+			a,b	:	agent,
+			Hash	:	hash_func
+			
+			intruder_knowledge = {certa,certb,a,b}
+			
+			composition
+				session(a,b,certa,certb,Hash)
+end role
+
+goal
+	deviceA strongly authenticates deviceB on Rb
+	deviceB strongly authenticates devicesA on Ra
+	deviceB strongly authenticates devicesA on Rc
+	secrecy_of Rc,K56,ssid
+end goal
+			
+envirnoment()
+			
+			
+			
+			
+			
+			

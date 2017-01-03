@@ -1,0 +1,71 @@
+role alice(
+A,B: agents,
+hash: hash_function,
+SND,RCV:channel(dy))
+played_by A def=
+local
+State: nat,
+Na,Nb:text
+init 
+State:=0
+transition
+
+1. State=0 /\ RCV(start)=|>
+State:=2 /\ SND{hash(Na.Nb)}_kb'  
+         /\ witness(A,B,bob-alice-na,Na)
+         /\ witness(A,B,bob-alice-nb,Nb)
+
+2. State=2 /\ RCV{hash(Na.A).Nb}_kb=|>
+State:=4/\SND{hash(A.B)}
+end role
+
+role bob(
+A,B: agents,
+hash: hash_function,
+SND,RCV:channel(dy))
+played_by B def=
+local
+State: nat,
+Na,Nb:text,
+kb: Symmetric_key
+
+init 
+State:=1
+transition
+
+1. State=1 /\ RCV{hash(Na.Nb)}_kb=|>
+State:=3 /\ SND{hash(Na.A).Nb}_kb
+
+2. State=3/\ RCV{hash(A.B)}
+State:=5/\Secret(kb',kb,{A,B})
+        /\request(A,B,bob-alice-na,Na)  
+        /\request(A,B,bob-alice-nb,Nb)
+end role
+
+role session(
+A,B:agents,
+kb:Symmetric_key,
+hash:hash_function)
+def=
+local
+SA,Ra,SB,RB:channel(dy)
+composition
+alice(A,B,hash,SA,RA)
+/\bob(A,B,hash,kb,SB,RB)
+end role
+
+role environment()
+const bob-alice-nb,bob-alice-na,hash(A.B):protocol-id
+a,b:agents,
+hash:hash_function,
+kb,ki:Symmetric_key,
+intruder knowledge(a,b,ki)
+composition
+session(a,b,h,kb)
+/\session(a,i,h,ki)
+end role
+goal
+secrecy_of kb
+authentication_on bob-alice-na,bob-alice-nb
+end goal
+environment()

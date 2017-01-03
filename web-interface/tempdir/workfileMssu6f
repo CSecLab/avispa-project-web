@@ -1,0 +1,45 @@
+role role_A(A:agent,B:agent,Idj:text,Rtsj:text,Prng:hash_func,SND,RCV:channel(dy))
+played_by A
+def=
+	local
+		State:nat,Rr:text,Beta:text,Tr:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ Rr':=new() /\ Beta':=new() /\ SND(Rr'.Beta'.Idj.Prng(Rtsj.Rr'))
+		2. State=1 /\ RCV(Rtsj.Prng(Idj.Tr').Tr'.Beta) =|> State':=2
+end role
+
+role role_B(A:agent,B:agent,Idj:text,Rtsj:text,Prng:hash_func,SND,RCV:channel(dy))
+played_by B
+def=
+	local
+		State:nat,Rr:text,Beta:text,Tr:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(Rr'.Beta'.Idj.Prng(Rtsj.Rr')) =|> State':=1 /\ Tr':=new() /\ SND(Rtsj.Prng(Idj.Tr').Tr'.Beta')
+end role
+
+role session1(A:agent,B:agent,Idj:text,Rtsj:text,Prng:hash_func)
+def=
+	local
+		SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_B(A,B,Idj,Rtsj,Prng,SND2,RCV2) /\ role_A(A,B,Idj,Rtsj,Prng,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		hash_0:hash_func,const_1:text,bob:agent,alice:agent,prng:hash_func,auth_1:protocol_id
+	intruder_knowledge = {}
+	composition
+		session1(alice,bob,const_1,const_1,prng)
+end role
+
+goal
+	authentication_on auth_1
+end goal
+
+environment()

@@ -1,0 +1,76 @@
+role Alice (A,B : agent,
+            Kmipa,Kmipb : public_key,
+            H,PRF,KeyGen : hashfunc,
+            SND,RCV : channel(dy),
+            N : nonce,
+            Sid : session id,
+            PreMS : pre-master secret)
+played_by A def =
+   local State : nat,
+   init State := 0
+
+transition
+ 1. State = 0 / RCV(start)
+    =|> 
+    State' := 2 
+    / Na':= new()
+    / SND(Na'.A,Sid,Pa)
+ 2. State = 2 / RCV(Na,Sid,Pa,Kmipb-(inv(Kmip)))
+    / SND((PreMS-Kmipb. A.Kmipa-(inv(Kmip)). H(Nb.B.PreMS)-(inv(Kmipa)).
+       H(PFR(PreMS.Na.Nb).A.B.Na.Pa.Sid) textendash KeyGen(A.Na.Nb.PRF(PreMS.Na.Nb))))
+ 3. State = 4 / RCV(Finished-Server)
+end role
+
+
+role Bob (A,B : agent,
+            Kmipa,Kmipb : public_key,
+            H,PRF,KeyGen : hashfunc,
+            SND,RCV : channel(dy),
+            N : nonce,
+            Sid : session id,
+            PreMS : pre-master secret)
+played_by B def =
+   local State : nat,
+   init State := 0
+
+transition
+ 1. State =1 / RCV(Na,Sid,Pa)
+    =|>
+    State' := 3 
+    / Nb' := new()
+    /SND(Nb',Sid,Pa,Kmipb-(inv(Kmip)))
+2. State = 3 / RCV(Nb, Sid, Pa, Kmipb-(inv(Kmip)))
+    / SND((PreMS-Kmipb. A.Kmipa-(inv(Kmip)). H(Nb.B.PreMS)-(inv(Kmipa)).
+       H(PRF(PreMS.Na.Nb).A.B.Na.Pa.Sid) texrendash KeyGen(A.Na.Nb.PRF(PreMS.Na.Nb))))
+3. State = 5 / SND(H(PRF(PreMS.Na.Nb). A.B.Na.Pa.Sid) -KeyGen(B.Na.Nb.PRF(PreMS.Na.Nb))) 
+end role
+
+
+role session(A,B : agent,
+             Kmipa,Kmipb : public_key)
+def=
+  local SA, RA, SB, RB: channel(dy)
+
+   composition 
+       alice(A,B,Kmipa,Kmipb,SA,RA)
+     /ob(A,B,Kmipa,Kmipb,SB,RB)
+end role
+
+
+role environment()
+def=
+const a, b, i   : agent,
+kmipa, kmipb,kmipi    : public_key,
+na, nb : protocol_id
+intruder_knowledge={a,b,i,kmipa,kmipb,ki,inv(kmipi)}
+composition
+session(a,b,kmipa,kmipb)
+/ session(a,i,kmipa,kmipi)
+end role        
+
+goal
+secrecy_of sec_k1, sec_k2
+authentication_on nb
+authentication_on na
+end goal
+  

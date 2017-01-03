@@ -1,0 +1,43 @@
+role alice(A,B: agent,
+           Kab : symmetric_key,
+           SND, RCV : channel (dy))
+played_by A def= 
+ local State: nat, Na : text
+ init  State := 0
+ transition
+step0.	State = 0 /\ RCV(Na') =|>
+        State’:= 2 /\ SND ({Na’}_Kab)
+end role
+
+role bob (A,B : agent,
+          Kab : symmetric _key,
+          SND, RCV : channel(dy))
+played_by B def=
+ local state :nat, Na :text
+ init state := 1
+
+ transition
+step1.	State = 1 /\ RCV (Na’) =|>
+        State’:= 3/\ SND ({Na’}_Kab)
+end role
+
+role session(A,B :agent, 
+             Kab: symmetric_key) def=
+local SA,RA,SB,RB: channel(dy)
+
+composition
+    alice (A, B, Kab, SA, RA)
+/\  bob (B, A, Kab, SB, RB)
+end role
+
+role environment ()
+def=
+ const a, b : agent,
+    kab : symmetric_key
+
+composition
+    session(a,b,kab)
+/\ session(b,a,kab)
+end role
+environment()
+

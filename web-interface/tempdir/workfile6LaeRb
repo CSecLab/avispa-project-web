@@ -1,0 +1,143 @@
+role server(S, R, T1, Ti: agent,
+S1, Si, SR: symmetric_key,
+SND,RCV: channel(dy))
+played_by S def=
+local State : nat,
+R1, R2, T, ID1, TS1, ID2, TS2: text
+init State := 0
+transition
+0.  State   = 0 /\ SND(T') =|>
+    State' := 1 /\ RCV({T'. R1. R2. {{ID1. R1. TS1}_S1 . {ID2. R2. TS2}_Si}_S1}_SR)
+
+                /\ witness(S, T1, tag1_server_ID1, ID1)
+				/\ witness(S, T1, tag1_server_TS1, TS1)
+				/\ witness(S, Ti, tagi_server_ID2, ID2)
+				/\ witness(S, Ti, tagi_server_TS2, TS2)
+                /\ secret (ID1, id3, {T1, S})
+				/\ secret (TS1, id4, {T1, S})
+				/\ secret (ID2, id5, {Ti, S})
+				/\ secret (TS2, id6, {Ti, S})
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%
+
+role reader(S, R, T1, Ti: agent,
+SR : symmetric_key,
+SND,RCV: channel(dy))
+played_by R def=
+local State : nat,
+R1, R2, T : text,
+M1 : {text. text. text}_symmetric_key,
+M2 : {text. text. text}_symmetric_key,
+MG1:{text. text. text. text}_symmetric_key,
+MG2: {text. text. text. text}_symmetric_key,
+P  : {text. text}_symmetric_key
+init State := 0
+transition
+0. State   = 0 /\ RCV(T') =|>
+   State' := 1 /\ SND(T')
+1. State   = 2 /\ RCV(R1'. M1'. MG1') =|>
+   State' := 3 /\ SND(R1'. M1'. MG1'. T')
+3. State   = 4 /\ RCV(R2'. M2'. MG2') =|>
+   State' := 5 /\ SND(R2'. M2'. MG2')
+5. State   = 6 /\ RCV(P') =|>
+   State' := 7 /\ SND({T'. R1'. R2'. P'}_SR)
+
+   end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role tag1(S, R, T1, Ti: agent,
+S1, SG: symmetric_key,
+SND,RCV: channel(dy))
+played_by T1 def=
+local State : nat,
+R1, R2, T, ID1, TS1, IDG, TSG: text,
+M2 : {text.text.text}_symmetric_key
+init State := 1
+transition
+0.  State = 1   /\ RCV(T')
+=|> State' := 2 /\ R1' := new()
+                /\ SND(R1'. {ID1. R1'. TS1'}_S1 . {IDG. R1'. TSG'. T'}_SG)
+				/\ request(T1, Ti, tag1_tagi_IDG, IDG)
+                /\ request(T1, Ti, tag1_tagi_TSG, TSG')
+1. State    = 3  /\ RCV(R2'. M2'. {IDG. R2'. TSG'. {ID1. R1'. TS1'}_S1}_SG)
+=|> State' := 4
+                /\ witness(T1, Ti, tagi_tag1_IDG, IDG)
+                /\ witness(T1, Ti, tagi_tag1_TSG, TSG')
+                /\ secret(TSG',id, {T1, Ti})
+                /\ secret (IDG, id2, {T1, Ti})
+2. State  = 5   /\ SND({{ID1. R1'. TS1'}_S1. M2'}_S1)
+                /\ request(T1, S, tag1_server_ID1, ID1)
+				/\ request(T1, S, tag1_server_TS1, TS1)
+=|> State' := 6
+                
+                /\ TS1':=new()
+                /\ TSG' := new()
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role tagi(S, R, T1, Ti: agent,
+Si, SG: symmetric_key,
+SND,RCV: channel(dy))
+played_by T1 def=
+local State : nat,
+R1, R2, T, ID2, TS2, IDG, TSG: text,
+M1 : {text.text.text}_symmetric_key
+init State := 1
+transition
+0. State    = 1 /\ RCV(R1'. M1'. {IDG. R1'. TSG'. T'}_SG. T') 
+                
+				
+=|>  State'   := 3  /\  R2' := new()
+                /\ SND(R2'. {ID2. R2'. TS2'}_Si . {IDG. R2'. TSG'. M1'}_SG)
+                /\ request(Ti, T1, tagi_tag1_IDG, IDG)
+                /\ request(Ti, T1, tagi_tag1_TSG, TSG')
+                /\ request(Ti, S, tagi_server_ID2, ID2)
+				/\ request(Ti, S, tagi_server_TS2, TS2)
+				/\ witness(Ti, T1, tag1_tagi_IDG, IDG)
+                /\ witness(Ti, T1, tag1_tagi_TSG, TSG')
+				/\ secret(TSG',id, {T1, Ti})
+                /\ secret (IDG, id2, {T1, Ti}) 
+                /\ TS2':=new()
+                /\ TSG' := new()
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(S, R, T1, Ti: agent,
+ S1, Si, SR, SG: symmetric_key)
+def=
+local SND, RCV: channel (dy)
+composition
+   server (S, R, T1, Ti, S1, Si, SR,  SND, RCV)
+/\ reader (S, R, T1, Ti, SR, SND, RCV)
+/\ tag1(S, R, T1, Ti, S1, SG, SND, RCV)
+/\ tagi(S, R, T1, Ti, Si, SG, SND, RCV)
+
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment( ) def=
+const
+id, id2,id3, id4, id5, id6, tag1_server_ID1, tag1_server_TS1, tagi_server_ID2, tagi_server_TS2, tag1_tagi_IDG, tag1_tagi_TSG, tagi_tag1_IDG, tagi_tag1_TSG: protocol_id,
+s1, si, sR, sG, sint: symmetric_key,
+s, r, t1, ti: agent
+intruder_Knowledge = {s,r,t1, ti, sint}
+composition
+   session(s, r, t1, ti, s1, si, sR, sG)
+/\ session(s, r, i, ti,  sint, si, sR, sG)
+/\ session(s, r, t1, i,  s1, sint, sR,  sG)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+secrecy_of id, id2, id3, id4, id5, id6
+authentication_on tag1_server_ID1
+authentication_on tag1_server_TS1
+authentication_on tagi_server_ID2
+authentication_on tagi_server_TS2
+authentication_on tag1_tagi_IDG
+authentication_on tag1_tagi_TSG
+authentication_on tagi_tag1_IDG
+authentication_on tagi_tag1_TSG
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

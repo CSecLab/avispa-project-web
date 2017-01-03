@@ -1,0 +1,160 @@
+role owner(
+               ON,CS,US:agent,
+               DEK:symmetric_key,
+               Kcs,Kdo,Kdu:public_key,
+                H:hash_func,
+               SND,RCV:channel(dy))
+         played_by ON def=
+             local
+		 G,Y,T1,T2,T3,S,P1,P2,P3,T11,T22,T33,Y1,UID,E,W,P,SK,C:text,
+                 State:nat,
+                 M,PK:message
+                           const subs,on_cs_id:protocol_id
+            init
+                 State:=0
+                 transition 
+                        1.State=0/\RCV(start)=|>
+                             
+                                 State':=1/\PK':=H(H(G.inv(Y)),H(G.T1),H(G.T2),H(G.T3))
+                          		/\MK':=H(Y1.T11.T22.T33)
+                                             /\SND({PK'}_Kcs)
+                            /\E':=H(I.M.H(H(G.inv(Y)).inv(S)).(H(G.T1).inv(S)).(H(G.T2).inv(S)).(H(G.T3).inv(S)))
+                                          /\SND({{{M}_DEK}_E'}_Kcs)
+	          2.State=1 /\RCV({UID}_inv(Kdu))=|>
+                          State':=2 /\W':=New()
+                                             /\SND({W'}_Kdo)
+                                             /\P':=New()
+                                             /\SK':=(H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3)))
+                                             /\C':=((M.P'.(H(G.inv(Y)).H(G.T1).H(G.T2).H(G.T3)).H(P.(H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3))).H(H(G.inv(Y)).H(G.T1).H(G.T2).H      
+                                                     (G.T3)).(P.(H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3)).P))
+/\SND({W'.H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3)).((P'.(H(G.inv(Y)).H(G.T1).H(G.T2).H(G.T3)).H(P.(H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3))).H(H
+(G.inv(Y)).H(G.T1).H(G.T2).H(G.T3)).(P.(H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3)).P)).H(W.{H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3))}.((P'.(H(G.inv
+(Y)).H(G.T1).H(G.T2).H(G.T3)).H(P.(H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3))).H(H(G.inv(Y)).H(G.T1).H(G.T2).H(G.T3)).(P.(H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv
+(P3)).inv(T3)).P)))}_Kdc)
+secret(PK',subs,{ON,CS})                           
+witness(ON,CS,on_cs_id,C')
+end role
+
+
+
+
+
+role cloudserver(
+	ON,CS,US:agent,
+	DEK:symmetric_key,
+	 Kcs,Kdo,Kdu:public_key,
+	H:hash_func,
+	SND,RCV:channel(dy))
+
+	played_by CS def=
+		local
+			State:nat,
+			M:message,
+			G,Y,T1,T2,T3,P1,P2,P3:text
+                      const subs,on_cs_id:protocol_id
+			init
+				State:=0
+				transition
+					1.State= 0 /\RCV({W'.H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3)).((P'.(H(G.inv(Y)).H(G.T1).H(G.T2).H(G.T3)).H(P.(H(H(G.inv(P1)).inv(T1)).H(H
+(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3))).H(H(G.inv(Y)).H(G.T1).H(G.T2).H(G.T3)).(P.(H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3)).P)).H(W.{H(H(G.inv(P1)).inv(T1)).H(H(G.inv
+(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3))}.((P'.(H(G.inv(Y)).H(G.T1).H(G.T2).H(G.T3)).H(P.(H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3))).H(H(G.inv(Y)).H(G.T1).H(G.T2).H(G.T3)).(P.(H(H
+(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3)).P)))}_Kdc)
+                                         
+                                     1.State= 1  /\RCV({{{M}_DEK}_H(I.M.H(H(G.inv(Y)).inv(S)).(H(G.T1).inv(S)).(H(G.T2).inv(S)).(H(G.T3).inv(S))}_Kcs)
+                                                 
+                                       State':=2 /\SND({((M.P'.(H(G.inv(Y)).H(G.T1).H(G.T2).H(G.T3)).H(P.(H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3))).H(H(G.inv(Y)).H(G.T1).H         
+                                          (G.T2).H(G.T3)).(P.(H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3)).P))}_Kdu) 
+                                                 /\request(CS,ON,on_cs_id,C')
+
+
+end role
+
+
+
+role user(
+	ON,CS,US:agent,
+	DEK:symmetric_key,
+	 Kcs,Kdo,Kdu:public_key,
+	H:hash_func,
+	SND,RCV:channel(dy))
+		played_by A def=
+
+			local
+
+
+				State:nat,
+G,Y,T1,T2,T3,S,P1,P2,P3,T11,T22,T33,Y1,UID:text,
+				M:message
+                            const subs,on_cs_id:protocol_id
+				init
+				State:=0
+					transition
+					1.State= 0
+                                                   /\UID':=new()
+						   /\SND({UID}_Kdu)
+                                        2.State=0  /\RCV({((M.P'.(H(G.inv(Y)).H(G.T1).H(G.T2).H(G.T3)).H(P.(H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3))).H(H(G.inv(Y)).H(G.T1).H       
+                                                     (G.T2).H(G.T3)).(P.(H(H(G.inv(P1)).inv(T1)).H(H(G.inv(P2)).inv(T2)).H(H(G.inv(P3)).inv(T3)).P))}_inv(Kdu))
+					State':= 1 /\UID':=new()
+						   /\SND({UID'}_Kdu)
+
+
+
+
+
+
+
+end role
+role session(
+
+	ON,CS,US:agent,
+
+                DEK:symmetric_key,
+
+        Kcs,Kdo,Kdu:public_key,
+                  H:hash_func)
+
+              def=
+
+                   local 
+			SON,RON,SCS,RCS,SUS,RUS:channel(dy)
+
+                   composition
+
+                         owner(ON,CS,US,DEK,H,Kcs,Kdo,Kdu,SON,RON)
+
+                       /\cloudserver(ON,CS,US,DEK,H,Kcs,Kdo,Kdu,SCS,RCS)
+
+                       /\user(ON,CS,US,DEK,H,Kcs,Kdo,Kdu,SUS,RUS)
+
+      end role
+
+
+role environment()
+ def=
+
+                      dek: symmetric_key,
+
+                  kcs,kdo,kdu:public_key,
+                      on,cs,us : agent,
+
+                      h: hash_func
+ 
+                      const subs,on_cs_id:protocol_id
+			intruder_knowledge = {on,cs,us,h,kcs,kdo,kdu}
+
+                   
+               composition
+
+                             session(on,cs,us,dek,h,kcs,kdo,kdu)
+
+                          /\ session(on,cs,us,dek,h,kcs,kdo,kdu)
+
+                          /\ session(on,cs,us,dek,h,kcs,kdo,kdu)
+
+
+ end role
+ goal
+		secrecy_of subs
+		authentication_on on_cs_id
+end goal
+environment()

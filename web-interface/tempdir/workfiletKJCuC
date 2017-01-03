@@ -1,0 +1,27 @@
+role supplicant( A,S : agent,
+Hash, Succ     : hash_func,
+SND,RCV        : channel(dy)
+)
+
+played_by S   def=
+
+local
+State                                     : nat,
+KEK                                     : message,
+Gtk,MIC,Pmk,Group,SN     : message,
+KeyID : message
+
+const   authenticator_supplicant_sn : protocol_id
+
+init
+   State := 1
+
+transition
+     1. State  = 1 / RCV({Group.SN.Gtk'.KeyID.MIC'}_KEK) =|>
+        State':= 3 
+                   / MIC':= Hash(Group.SN)
+                   / SND({Group.SN.MIC'}_KEK)
+                   / witness(S,A,authenticator_supplicant_sn, SN')                 
+                       
+end  role
+ 

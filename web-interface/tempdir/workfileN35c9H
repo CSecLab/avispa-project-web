@@ -1,0 +1,124 @@
+role server(S,M: agent,
+            Snd, Rec: channel(dy),
+            K_S: public_key,
+            K_M: symmetric_key,
+            IMSI,Seq : text,
+            F1,F2,F3,F4,F5,Frid: hash_func)
+played_by S
+def=
+
+  local State : nat,
+       RAND,RID  : text
+
+  const r1,r2,sseq1 : protocol_id,
+        add         : hash_func
+
+  init  State := 1 
+
+  transition
+
+    1.  State   = 2 /\ Rec({IMSI'}_K_S) =|> 
+        State' := 3 /\ RAND' := new()
+                    /\ Snd(RAND'.F2(K_M.RAND').F3(K_M.RAND').F4(K_M.RAND').{Seq}_F5(K_M.RAND').F1(K_M.Seq.RAND'))
+			    /\ RID' := Frid(K_M.RAND')
+                    /\ secret(Seq,sseq1,{S,M})
+                    /\ witness(S,M,r1,RAND')
+
+    2.  State   = 4 /\ Rec(F2(K_M.RAND))
+        =|> 
+        State' := 5 /\ Seq' := add(Seq,1) 
+                    /\ wrequest(S,M,r2,RAND)
+        
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role mobile(M,S:agent,
+            Snd, Rec: channel(dy),
+            K_S: public_key,
+            K_M: symmetric_key,
+            IMSI,Seq: text,
+            F1,F2,F5,Frid: hash_func)
+played_by M
+def=
+
+  local State :nat, 
+        R     :text
+
+  const
+        r1,r2,sseq2 : protocol_id
+
+  init  State := 1
+
+  transition
+
+    1.  State = 1 /\ Rec(start) =|> 
+        State':=2 /\ Snd({IMSI}_K_S)  
+
+    2.  State = 3 /\ Rec(R'.{Seq}_F5(K_M.R').F1(K_M.Seq.R')) =|>  
+        State':=4 /\ Snd({F2(K_M. R')}_Frid(K_M.R')) 
+                  /\ secret(Seq,sseq2,{M,S})
+                  /\ wrequest(M,S,r1,R') 
+                  /\ witness(M,S,r2,R')
+ 
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+role session(M,S: agent,
+             K_M: symmetric_key,
+             K_S: public_key,
+             IMSI,Seq: text,
+             F1,F2,F3,F4,F5,Frid: hash_func,
+             SA,RA,SB,RB: channel(dy)) def=
+
+   composition
+
+         mobile(M,S,SA,RA,K_S,K_M,IMSI,Seq,F1,F2,F5,Frid)
+      /\ server(S,M,SB,RB,K_S,K_M,IMSI,Seq,F1,F2,F3,F4,F5,Frid)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+ local Sa1,Ra1,Ss1,Rs1 : channel (dy)
+
+ const r1, r2                 : protocol_id,
+       a, i, s                : agent,
+       k_as, k_is, kai        : symmetric_key,
+       k_s: public_key,
+       f1, f2,f3,f4, f5,frid             : hash_func,
+       imsi,seq_as, seq_is, seq_ai : text
+
+ intruder_knowledge={a,s,i,f1,f2,f5}
+
+ composition
+ 
+        session(a,s,k_as,k_s,imsi,seq_as,f1,f2,f3,f4,f5,frid,Sa1,Ra1,Ss1,Rs1) 
+% /\    session(i,s,k_is,k_s,imsi,seq_is,f1,f2,f3,f4,f5,fird,si1,ri1,ss2,rs2) 
+% /\    session(a,i,k_ai,k_s,imsi,seq_ai,f1,f2,f3,f4,f5,frid,sa2,ra2,si2,ri2)
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+
+  % Confidentiality (G12)
+  secrecy_of sseq1,sseq2
+
+  % Message Authentication (G2)
+  % Mobile weakly authenticates Server on r1  % the nonce R
+  weak_authentication_on r1
+
+  % Message Authentication (G2)
+  % Server weakly authenticates Mobile on r2  % the nonce R
+  weak_authentication_on r2
+
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

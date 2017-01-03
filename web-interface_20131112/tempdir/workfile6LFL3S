@@ -1,0 +1,47 @@
+role role_A(A:agent,B:agent,Succ:function,Key_set_A_B:(symmetric_key) set,Key_set_B_A:(symmetric_key) set,SND,RCV:channel(dy))
+played_by A
+def=
+	local
+		State:nat,Na:text,Nb:text,Kab:symmetric_key,Kab2:symmetric_key,Nb2:text,Key_4:symmetric_key,Key_3:symmetric_key,Key_2:symmetric_key,Key_1:symmetric_key
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ Kab':=new() /\ Na':=new() /\ Key_1':=new() /\ Key_set_A_B':=cons(Key_1',Key_set_A_B) /\ SND({A.{Na'}_Kab'}_Key_1')
+		2. State=1 /\ in(Key_2',Key_set_B_A) /\ RCV({{Succ(Na).Nb'}_Kab}_Key_2') =|> State':=2 /\ Key_set_B_A':=delete(Key_2',Key_set_B_A) /\ Key_3':=new() /\ Key_set_A_B':=cons(Key_3',Key_set_A_B) /\ SND({{Succ(Nb')}_Kab}_Key_3')
+		4. State=2 /\ in(Key_4',Key_set_B_A) /\ RCV({{Kab2'.Nb2'}_Kab}_Key_4') =|> State':=3 /\ Key_set_B_A':=delete(Key_4',Key_set_B_A) /\ secret(Kab2',sec_1,{})
+end role
+
+role role_B(A:agent,B:agent,Succ:function,Key_set_A_B:(symmetric_key) set,Key_set_B_A:(symmetric_key) set,SND,RCV:channel(dy))
+played_by B
+def=
+	local
+		State:nat,Na:text,Nb:text,Kab:symmetric_key,Kab2:symmetric_key,Nb2:text,Key_4:symmetric_key,Key_3:symmetric_key,Key_2:symmetric_key,Key_1:symmetric_key
+	init
+		State := 0
+	transition
+		1. State=0 /\ in(Key_1',Key_set_A_B) /\ RCV({A.{Na'}_Kab'}_Key_1') =|> State':=1 /\ Key_set_A_B':=delete(Key_1',Key_set_A_B) /\ Nb':=new() /\ Key_2':=new() /\ Key_set_B_A':=cons(Key_2',Key_set_B_A) /\ SND({{Succ(Na').Nb'}_Kab'}_Key_2')
+		3. State=1 /\ in(Key_3',Key_set_A_B) /\ RCV({{Succ(Nb)}_Kab}_Key_3') =|> State':=2 /\ Key_set_A_B':=delete(Key_3',Key_set_A_B) /\ Nb2':=new() /\ Kab2':=new() /\ secret(Kab2',sec_1,{}) /\ Key_4':=new() /\ Key_set_B_A':=cons(Key_4',Key_set_B_A) /\ SND({{Kab2'.Nb2'}_Kab}_Key_4')
+end role
+
+role session1(A:agent,B:agent,Succ:function,Key_set_A_B:(symmetric_key) set,Key_set_B_A:(symmetric_key) set)
+def=
+	local
+		SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_B(A,B,Succ,Key_set_A_B,Key_set_B_A,SND2,RCV2) /\ role_A(A,B,Succ,Key_set_A_B,Key_set_B_A,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		hash_0:function,bob:agent,alice:agent,f:function,sec_1:protocol_id
+	intruder_knowledge = {}
+	composition
+		session1(alice,bob,f,{},{})
+end role
+
+goal
+	secrecy_of sec_1
+end goal
+
+environment()

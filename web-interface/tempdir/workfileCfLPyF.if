@@ -1,0 +1,119 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileCfLPyF
+
+section signature:
+
+state_server: agent * agent * public_key * public_key * text * set(pair(agent,symmetric_key)) * nat * agent * symmetric_key * scrypt(symmetric_key,pair(text,pair(agent,agent))) * nat -> fact
+state_router: agent * agent * agent * symmetric_key * public_key * public_key * text * nat * scrypt(symmetric_key,pair(text,pair(agent,agent))) * nat -> fact
+state_client: agent * agent * agent * symmetric_key * symmetric_key * nat * text * nat -> fact
+
+
+section types:
+
+KeyRing, set_83: set(pair(agent,symmetric_key))
+start, MGoal: message
+MessageCS, Dummy_MessageCS: scrypt(symmetric_key,pair(text,pair(agent,agent)))
+K_S, K_R, k_s, k_r, k_i: public_key
+router_server_clientid, server_client_service: protocol_id
+Service, Dummy_Service, dummy_nonce, service: text
+K_CS, Dummy_K_CS, dummy_sk, k_cr, K_CR, k_cs, k_is, k_ic, k_ir: symmetric_key
+C, Dummy_C, dummy_agent, R, S, A2Goal, A1Goal, c, r, s, i: agent
+9, 8, State, 5, SID, 4, Dummy_State, 3, 2, 1, 16, 15, 13, 11: nat
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(c).
+ iknows(r).
+ iknows(s).
+ iknows(service).
+ iknows(k_is).
+ iknows(k_ic).
+ iknows(k_ir).
+ iknows(k_s).
+ iknows(k_r).
+ iknows(k_i).
+ iknows(inv(k_i)).
+ iknows(i).
+ state_client(c,r,s,k_cr,k_cs,1,dummy_nonce,3).
+ state_router(r,c,s,k_cr,k_s,k_r,service,1,scrypt(dummy_sk,pair(dummy_nonce,pair(dummy_agent,dummy_agent))),4).
+ state_server(s,r,k_s,k_r,service,set_83,1,dummy_agent,dummy_sk,scrypt(dummy_sk,pair(dummy_nonce,pair(dummy_agent,dummy_agent))),5).
+ state_router(r,i,s,k_ir,k_s,k_r,service,1,scrypt(dummy_sk,pair(dummy_nonce,pair(dummy_agent,dummy_agent))),8).
+ state_server(s,r,k_s,k_r,service,set_83,1,dummy_agent,dummy_sk,scrypt(dummy_sk,pair(dummy_nonce,pair(dummy_agent,dummy_agent))),9).
+ state_client(c,i,s,k_ic,k_cs,1,dummy_nonce,11).
+ state_server(s,i,k_s,k_i,service,set_83,1,dummy_agent,dummy_sk,scrypt(dummy_sk,pair(dummy_nonce,pair(dummy_agent,dummy_agent))),13).
+ state_client(c,r,i,k_cr,k_ic,1,dummy_nonce,15).
+ state_router(r,c,i,k_cr,k_i,k_r,service,1,scrypt(dummy_sk,pair(dummy_nonce,pair(dummy_agent,dummy_agent))),16).
+ contains(pair(c,k_cs),set_83).
+ contains(pair(i,k_is),set_83)
+
+
+section rules:
+
+step step_0 (C,R,S,K_CR,K_CS,Dummy_Service,SID,Service) :=
+ state_client(C,R,S,K_CR,K_CS,1,Dummy_Service,SID).
+ iknows(scrypt(K_CR,pair(Service,pair(C,R))))
+ =>
+ state_client(C,R,S,K_CR,K_CS,2,Service,SID).
+ iknows(scrypt(K_CR,pair(scrypt(K_CS,pair(Service,pair(C,S))),pair(C,R)))).
+ witness(C,S,server_client_service,Service)
+
+step step_1 (R,C,S,K_CR,K_S,K_R,Service,MessageCS,SID) :=
+ state_router(R,C,S,K_CR,K_S,K_R,Service,1,MessageCS,SID).
+ iknows(start)
+ =>
+ state_router(R,C,S,K_CR,K_S,K_R,Service,2,MessageCS,SID).
+ iknows(scrypt(K_CR,pair(Service,pair(C,R))))
+
+step step_2 (R,C,S,K_CR,K_S,K_R,Service,Dummy_MessageCS,SID,MessageCS) :=
+ state_router(R,C,S,K_CR,K_S,K_R,Service,2,Dummy_MessageCS,SID).
+ iknows(scrypt(K_CR,pair(MessageCS,pair(C,R))))
+ =>
+ state_router(R,C,S,K_CR,K_S,K_R,Service,3,MessageCS,SID).
+ iknows(crypt(inv(K_R),pair(MessageCS,pair(C,pair(S,R)))))
+
+step step_3 (R,C,S,K_CR,K_S,K_R,Service,MessageCS,SID) :=
+ state_router(R,C,S,K_CR,K_S,K_R,Service,3,MessageCS,SID).
+ iknows(crypt(inv(K_S),pair(C,pair(S,R))))
+ =>
+ state_router(R,C,S,K_CR,K_S,K_R,Service,4,MessageCS,SID).
+ wrequest(R,S,router_server_clientid,C,SID)
+
+step step_4 (S,R,K_S,K_R,Service,KeyRing,Dummy_C,Dummy_K_CS,Dummy_MessageCS,SID,C,K_CS) :=
+ state_server(S,R,K_S,K_R,Service,KeyRing,1,Dummy_C,Dummy_K_CS,Dummy_MessageCS,SID).
+ iknows(crypt(inv(K_R),pair(scrypt(K_CS,pair(Service,pair(C,S))),pair(C,pair(S,R))))).
+ contains(pair(C,K_CS),KeyRing)
+ =>
+ state_server(S,R,K_S,K_R,Service,KeyRing,2,C,K_CS,scrypt(K_CS,pair(Service,pair(C,S))),SID).
+ iknows(crypt(inv(K_S),pair(C,pair(S,R)))).
+ witness(S,R,router_server_clientid,C).
+ wrequest(S,C,server_client_service,Service,SID).
+ contains(pair(C,K_CS),KeyRing)
+
+
+section properties:
+
+property weak_authentication_on_router_server_clientid (A1Goal,A2Goal,MGoal,SID) :=
+ [] ((wrequest(A1Goal,A2Goal,router_server_clientid,MGoal,SID)
+      /\ ~ equal(A2Goal,i))
+     => witness(A2Goal,A1Goal,router_server_clientid,MGoal))
+
+property weak_authentication_on_server_client_service (A1Goal,A2Goal,MGoal,SID) :=
+ [] ((wrequest(A1Goal,A2Goal,server_client_service,MGoal,SID)
+      /\ ~ equal(A2Goal,i))
+     => witness(A2Goal,A1Goal,server_client_service,MGoal))
+
+
+section attack_states:
+
+attack_state weak_authentication_on_router_server_clientid (A1Goal,A2Goal,MGoal,SID) :=
+ wrequest(A1Goal,A2Goal,router_server_clientid,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,router_server_clientid,MGoal)) &
+ not(equal(A2Goal,i))
+
+attack_state weak_authentication_on_server_client_service (A1Goal,A2Goal,MGoal,SID) :=
+ wrequest(A1Goal,A2Goal,server_client_service,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,server_client_service,MGoal)) &
+ not(equal(A2Goal,i))
+

@@ -1,0 +1,124 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileXwwGPR
+
+section signature:
+
+state_bob: agent * agent * text * hash_func * symmetric_key * nat * message * message * message * symmetric_key * symmetric_key * public_key * public_key * apply(hash_func,pair(symmetric_key,message)) * apply(hash_func,pair(symmetric_key,message)) * apply(hash_func,pair(symmetric_key,apply(hash_func,message))) * set(agent) * nat -> fact
+state_alice: agent * agent * text * hash_func * symmetric_key * nat * message * message * message * public_key * public_key * symmetric_key * symmetric_key * apply(hash_func,pair(symmetric_key,message)) * apply(hash_func,pair(symmetric_key,apply(hash_func,message))) * set(agent) * nat -> fact
+
+
+section types:
+
+Dummy_Set_56, Dummy_Set_32, ASGoal, Set_56, Set_32: set(agent)
+na, nb, sec_b, sec_a: protocol_id
+Dummy_Commit, Commit: apply(hash_func,pair(symmetric_key,apply(hash_func,message)))
+Dummy_Pha, Pha, Phb: apply(hash_func,pair(symmetric_key,message))
+Dummy_Pb, Dummy_Pa, dummy_pk, Pb, Pa: public_key
+Dummy_Eb, Dummy_Ea, Dummy_Gb, Dummy_Ga, dummy_msg, MGoal, Ga, Gb, Eb, start, Ea: message
+Dummy_SK, Dummy_Nauth, dummy_sk, kab, kai, kib, SK, Nauth, Ks: symmetric_key
+h, F: hash_func
+g, G: text
+a, b, B, A, i: agent
+4, SID, Dummy_State, 3, 7, 5, State, 10, 8, 6, 2, 1, 0: nat
+set_96, set_79, set_105, set_104, set_103, set_101: set
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(h).
+ iknows(g).
+ iknows(kai).
+ iknows(kib).
+ iknows(i).
+ state_alice(a,b,g,h,kab,0,dummy_msg,dummy_msg,dummy_msg,dummy_pk,dummy_pk,dummy_sk,dummy_sk,dummy_msg,dummy_msg,set_79,3).
+ state_bob(b,a,g,h,kab,1,dummy_msg,dummy_msg,dummy_msg,dummy_sk,dummy_sk,dummy_pk,dummy_pk,dummy_msg,dummy_msg,dummy_msg,set_96,4).
+ state_alice(a,i,g,h,kai,0,dummy_msg,dummy_msg,dummy_msg,dummy_pk,dummy_pk,dummy_sk,dummy_sk,dummy_msg,dummy_msg,set_101,6).
+ state_bob(b,i,g,h,kib,1,dummy_msg,dummy_msg,dummy_msg,dummy_sk,dummy_sk,dummy_pk,dummy_pk,dummy_msg,dummy_msg,dummy_msg,set_105,10)
+
+
+section rules:
+
+step step_0 (A,B,G,F,Ks,Ga,Gb,Ea,Dummy_Pa,Pb,SK,Dummy_Nauth,Dummy_Pha,Commit,Set_32,SID,Pa,Nauth) :=
+ state_alice(A,B,G,F,Ks,0,Ga,Gb,Ea,Dummy_Pa,Pb,SK,Dummy_Nauth,Dummy_Pha,Commit,Set_32,SID).
+ iknows(start)
+=[exists Pa,Nauth]=>
+ state_alice(A,B,G,F,Ks,2,Ga,Gb,Ea,Pa,Pb,SK,Nauth,apply(F,pair(Nauth,Dummy_Pa)),Commit,Set_32,SID).
+ iknows(scrypt(Ks,pair(apply(F,pair(Nauth,Dummy_Pa)),Nauth)))
+
+step step_1 (A,B,G,F,Ks,Ga,Gb,Ea,Pa,Pb,SK,Nauth,Pha,Commit,Set_32,SID) :=
+ state_alice(A,B,G,F,Ks,2,Ga,Gb,Ea,Pa,Pb,SK,Nauth,Pha,Commit,Set_32,SID).
+ iknows(Pa)
+ =>
+ state_alice(A,B,G,F,Ks,4,Ga,Gb,Ea,Pa,Pb,SK,Nauth,Pha,Commit,Set_32,SID)
+
+step step_2 (A,B,G,F,Ks,Dummy_Ga,Dummy_Gb,Dummy_Ea,Pa,Dummy_Pb,Dummy_SK,Nauth,Pha,Commit,Set_32,SID,Gb,Ea,Pb) :=
+ state_alice(A,B,G,F,Ks,4,Dummy_Ga,Dummy_Gb,Dummy_Ea,Pa,Dummy_Pb,Dummy_SK,Nauth,Pha,Commit,Set_32,SID).
+ iknows(crypt(Pa,pair(Gb,pair(Nauth,Pb))))
+=[exists Ea]=>
+ state_alice(A,B,G,F,Ks,6,exp(G,Ea),Gb,Ea,Pa,Pb,exp(Gb,Dummy_Ea),Nauth,Pha,Commit,Set_32,SID).
+ iknows(pair(crypt(Pb,exp(G,Ea)),apply(F,pair(exp(Gb,Dummy_Ea),apply(F,crypt(Pb,exp(G,Ea)))))))
+
+step step_3 (A,B,G,F,Ks,Ga,Gb,Ea,Pa,Pb,SK,Nauth,Pha,Dummy_Commit,Set_32,SID,Commit) :=
+ state_alice(A,B,G,F,Ks,6,Ga,Gb,Ea,Pa,Pb,SK,Nauth,Pha,Dummy_Commit,Set_32,SID).
+ iknows(Commit)
+ =>
+ state_alice(A,B,G,F,Ks,8,Ga,Gb,Ea,Pa,Pb,SK,Nauth,Pha,Commit,Set_32,SID)
+
+step step_4 (A,B,G,F,Ks,Ga,Gb,Ea,Pa,Pb,SK,Nauth,Pha,Dummy_Set_32,SID) :=
+ state_alice(A,B,G,F,Ks,8,Ga,Gb,Ea,Pa,Pb,SK,Nauth,Pha,apply(F,pair(SK,apply(F,crypt(Pa,Gb)))),Dummy_Set_32,SID)
+ =>
+ state_alice(A,B,G,F,Ks,10,Ga,Gb,Ea,Pa,Pb,SK,Nauth,Pha,apply(F,pair(SK,apply(F,crypt(Pa,Gb)))),Dummy_Set_32,SID).
+ secret(SK,sec_a,Dummy_Set_32).
+ contains(A,Dummy_Set_32).
+ contains(B,Dummy_Set_32)
+
+step step_5 (B,A,G,F,Ks,Ga,Gb,Eb,SK,Dummy_Nauth,Pb,Pa,Dummy_Pha,Phb,Commit,Set_56,SID,Nauth,Pha) :=
+ state_bob(B,A,G,F,Ks,1,Ga,Gb,Eb,SK,Dummy_Nauth,Pb,Pa,Dummy_Pha,Phb,Commit,Set_56,SID).
+ iknows(scrypt(Ks,pair(Pha,Nauth)))
+ =>
+ state_bob(B,A,G,F,Ks,3,Ga,Gb,Eb,SK,Nauth,Pb,Pa,Pha,Phb,Commit,Set_56,SID)
+
+step step_6 (B,A,G,F,Ks,Ga,Dummy_Gb,Dummy_Eb,SK,Nauth,Dummy_Pb,Dummy_Pa,Dummy_Pha,Phb,Commit,Set_56,SID,Eb,Pb,Pa) :=
+ state_bob(B,A,G,F,Ks,3,Ga,Dummy_Gb,Dummy_Eb,SK,Nauth,Dummy_Pb,Dummy_Pa,Dummy_Pha,Phb,Commit,Set_56,SID).
+ iknows(Pa)
+=[exists Eb,Pb]=>
+ state_bob(B,A,G,F,Ks,5,Ga,exp(G,Eb),Eb,SK,Nauth,Pb,Pa,apply(F,pair(Nauth,Pa)),Phb,Commit,Set_56,SID).
+ iknows(crypt(Pa,pair(exp(G,Eb),pair(Nauth,Pb))))
+
+step step_7 (B,A,G,F,Ks,Dummy_Ga,Gb,Eb,Dummy_SK,Nauth,Pb,Pa,Pha,Phb,Dummy_Commit,Dummy_Set_56,SID,Ga,Commit) :=
+ state_bob(B,A,G,F,Ks,5,Dummy_Ga,Gb,Eb,Dummy_SK,Nauth,Pb,Pa,Pha,Phb,Dummy_Commit,Dummy_Set_56,SID).
+ iknows(pair(crypt(Pb,Ga),Commit))
+ =>
+ state_bob(B,A,G,F,Ks,7,Ga,Gb,Eb,exp(Ga,Eb),Nauth,Pb,Pa,Pha,Phb,Commit,Dummy_Set_56,SID).
+ iknows(apply(F,pair(exp(Ga,Eb),apply(F,crypt(Pa,Gb))))).
+ secret(exp(Ga,Eb),sec_b,Dummy_Set_56).
+ contains(A,Dummy_Set_56).
+ contains(B,Dummy_Set_56)
+
+
+section properties:
+
+property secrecy_of_sec_a (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_a,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property secrecy_of_sec_b (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sec_b,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_sec_a (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_a,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state secrecy_of_sec_b (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sec_b,ASGoal) &
+ not(contains(i,ASGoal))
+

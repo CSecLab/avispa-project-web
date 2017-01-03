@@ -1,0 +1,214 @@
+%%%%%%% Role specification for the mobile user MU %%%%%%%%
+
+role mobileuser (MU, HA, FA : agent, 
+           SKmuha : symmetric_key,
+           SND, RCV: channel(dy))
+played_by MU
+def=     
+local State : nat,
+      H, F, ADD : hash_func,
+      IDu, Nu, NIDu, K, IDh, IDf, P, X: text,
+      Y, B, A, Aa, Rac, RIDu, Auth, V1, W1 : text
+const mu_fa_x, fa_ha_b, ha_fa_y, 
+      s1, s2, s3, s4 : protocol_id
+init  State := 0  
+transition
+1. State = 0 /\ RCV(start) =|>
+% Registration phase
+State' := 1 /\  Nu' := new()
+            /\ NIDu' := H(IDu.Nu')
+% MU sends the registration request Reg to HA securely
+            /\ SND({IDu.NIDu'}_SKmuha)
+            /\ secret(IDu, s1, {MU,HA})
+            /\ secret(Nu', s2, MU)
+% Receive the smart card from HA securely
+2. State = 1 /\ RCV({{H(IDu.Nu').IDu}_K.IDh.F(K.P).H}_SKmuha) =|>
+State' := 2 /\ secret(K, s3, HA)
+% Authentication and key establishment phase with help of FA
+   /\ X' := new()
+   /\ A' := H(X'.{H(IDu.Nu').IDu}_K)
+   /\ Aa' := F(A'.P)
+   /\ Rac' := F(A'.F(K.P))
+   /\ RIDu' := {H(IDu.Nu')}_Rac'
+   /\ V1' := H({H(IDu.Nu').IDu}_K.Rac'.IDh.Aa'.IDu)
+% Send message M1 to FA via a public channel
+   /\ SND(Aa'.RIDu'.V1'.IDh)
+% MU has freshly generated the value x for FA
+   /\ witness (MU, FA, mu_fa_x, X')     
+% Receive message M4 from FA via a public channel
+3. State = 2 /\ RCV(ADD(F(H(Y'.{H(IDu.Nu').IDu}_K).
+       F(B'.F(K.P))).F(K.F(H(X'.{H(IDu.Nu').IDu}_K).P))).
+       H(H(F(B'.F(H(Y'.{H(IDu.Nu').IDu}_K).
+       F(H(X'.{H(IDu.Nu').IDu}_K)).W1').
+       ADD(F(H(Y'.{H(IDu.Nu').IDu}_K).F(B'.F(K.P))).
+       F(K.F(H(X'.{H(IDu.Nu').IDu}_K).P))))))) =|>
+% Send message M5 to FA via a public channel
+State' := 3 /\ Auth' := H(W1'.F(A.F(H(Y'.{H(IDu.Nu').
+                        IDu}_K).F(B'.F(K.P)))))
+            /\ SND(Auth') 
+end role
+
+
+%%%%%%% Role specification for the home agent HA %%%%%%%%
+
+role homeagent (MU, HA, FA : agent, 
+                SKmuha : symmetric_key,
+                SND, RCV: channel(dy))
+played_by HA
+def=     
+local State : nat,
+      H, F, ADD : hash_func,
+      IDu, Nu, NIDu, K, IDh, IDf, P, X: text,
+      A, B, Aa, Rac, RIDu, V1, W1, Q, Y, CertF: text,
+      D, Dac, Dbc, Gu, W3, V3, CertH, Sf, Sh, SKf : text
+const mu_fa_x, fa_ha_b, ha_fa_y,
+      s1, s2, s3, s4, s5 : protocol_id
+init  State := 0  
+transition
+% Registration phase
+% Receive registration request Reg from MU securely
+1. State = 0 /\ RCV({IDu.H(IDu.Nu')}_SKmuha)  =|>
+State' := 3 /\ secret(IDu, s1, {MU,HA})
+            /\ secret(Nu', s2, MU)
+% Send the smart card to MU securely
+            /\ Q' := {H(IDu.Nu').IDu}_K
+            /\ SND({Q'.IDh.F(K.P).H}_SKmuha)
+            /\ secret(K, s3, HA)
+% Authentication and key establishment phase with help of FA
+% Receive message M2 from FA via a public channel
+2. State = 3 /\ RCV(F(B'.P).{F(H(X'.{H(IDu.Nu').IDu}_K).P).
+           F(B'.P).CertF.{H(IDu.Nu')}_F(H(X'.{H(IDu.Nu').IDu}_K).P).
+           H({H(IDu.Nu').IDu}_K.
+           F(H(X'.{H(IDu.Nu').IDu}_K).P).IDh.
+           F(H(X'.{H(IDu.Nu').IDu}_K).P).IDu)}_F(B'.F(K.P))
+           .{H(F(H(X'.{H(IDu.Nu').IDu}_K).P).
+           F(B'.P). CertF. {H(IDu.Nu')}_F(H(X'.{H(IDu.Nu').IDu}_K).
+           F(K.P)).H({H(IDu.Nu').IDu}_K.F(H(X'.{H(IDu.Nu').IDu}_K).
+           F(K.P)).IDh.F(H(X'.{H(IDu.Nu').IDu}_K).P).IDu))}_Sf) =|>
+State' := 5 /\ secret(Sf, s4, FA)
+% Send message M3 to FA via a public channel
+  /\ Y' := new()
+  /\ D' := H(Y'.{H(IDu.Nu').IDu}_K)
+  /\ Dac' := F(D'.F(B'.F(K.P)))
+  /\ Dbc' := F(D'.F(H(X'.{H(IDu.Nu').IDu}_K).F(K.P)))
+  /\ Gu' := ADD(Dac'.F(K.F(H(X'.{H(IDu.Nu').IDu}_K).P)))
+  /\ W3' := {IDf.CertH.Gu'.Dbc'.F(H(X'.{H(IDu.Nu').IDu}_K).P).
+            F(B'.P).W1}_F(B'.F(K.P))
+  /\ V3' := {H(IDf.CertH.Gu'.Dbc'.F(H(X'.{H(IDu.Nu').IDu}_K).P).
+             F(B'.P).W1)}_Sh
+  /\ SND(W3'.V3')
+  /\ secret(Sh, s5, HA)
+% HA has freshly generated the value y for FA
+   /\ witness (HA, FA, ha_fa_y, Y')
+% HA's acceptance of the value b generated for HA by FA
+   /\ request(FA, HA, fa_ha_b, B')
+end role
+
+
+
+%%%%%%% Role specification for the foreign agent FA %%%%%%%%
+
+role foreignagent (MU, HA, FA : agent, 
+                   SND, RCV: channel(dy))
+played_by FA
+def=     
+local State : nat,
+      H, F, ADD : hash_func,
+      IDu, Nu, NIDu, K, IDh, IDf, P, X, Y: text,
+      A, Aa, Rac, RIDu, V1, W1, Q, B, Bb: text,
+      Rbc, W2, W4, V2, CertH, CertF, Sf, Sh, SKf : text
+const mu_fa_x, fa_ha_b, ha_fa_y,
+      s1, s2, s3, s4, s5 : protocol_id
+init  State := 0  
+transition
+% Authentication and key establishment phase with help of FA
+% Receive message M1 from MU via a public channel
+1. State = 0 /\ RCV(F(H(X'.{H(IDu.Nu').IDu}_K).P). 
+                    {H(IDu.Nu')}_F(H(X'.{H(IDu.Nu').IDu}_K).F(K.P)).
+                    H({H(IDu.Nu').IDu}_K.F(H(X'.{H(IDu.Nu').IDu}_K).F(K.P)).
+                    IDh.F(H(X'.{H(IDu.Nu').IDu}_K).P).IDu).IDh) =|>
+State' := 2 /\ secret(IDu, s1, {MU,HA})
+            /\ secret(Nu', s2, MU)
+            /\ secret(K, s3, HA)
+% Send message M2 to HA via a public channel
+  /\ B' := new()
+  /\ Bb' := F(B'.P)
+  /\ Rbc' := F(B'.F(K.P))
+  /\ W2'  := {F(H(X'.{H(IDu.Nu').IDu}_K).P).
+              Bb'.CertF.{H(IDu.Nu')}_F(H(X'.{H(IDu.Nu').IDu}_K).P).
+              H({H(IDu.Nu').IDu}_K).
+              F(H(X'.{H(IDu.Nu').IDu}_K).P).IDh.
+              F(H(X'.{H(IDu.Nu').IDu}_K).P).IDu}_Rbc'
+  /\ V2' := {H(F(H(X'.{H(IDu.Nu').IDu}_K).P).
+            Bb'. CertF. {H(IDu.Nu')}_F(H(X'.{H(IDu.Nu').IDu}_K).
+            F(K.P)).H({H(IDu.Nu').IDu}_K.F(H(X'.{H(IDu.Nu').IDu}_K).
+            F(K.P)).IDh.F(H(X'.{H(IDu.Nu').IDu}_K).P).IDu))}_Sf
+  /\ SND(Bb'.W2'.V2')
+  /\ secret(Sf, s4, FA)
+% FA has freshly generated the value b for HA
+   /\ witness (MU, FA, fa_ha_b, B')   
+% Receive message M3 from HA via a public channel  
+2. State = 2 /\ RCV({IDf.CertH.ADD(F(H(Y'.{H(IDu.Nu').IDu}_K).
+                F(B'.F(K.P))).F(K.F(H(X'.{H(IDu.Nu').IDu}_K).P))).
+                F(H(Y'.{H(IDu.Nu').IDu}_K).F(H(X'.{H(IDu.Nu').IDu}_K).
+                F(K.P))).F(H(X'.{H(IDu.Nu').IDu}_K).P).
+                F(B'.P).W1'}_F(B'.F(K.P)).
+                {H(IDf.CertH.ADD(F(H(Y'.{H(IDu.Nu').IDu}_K).
+                F(B'.F(K.P))).F(K.F(H(X'.{H(IDu.Nu').IDu}_K).P))).
+                F(H(Y'.{H(IDu.Nu').IDu}_K).F(H(X'.{H(IDu.Nu').IDu}_K).
+                F(K.P))).F(H(X'.{H(IDu.Nu').IDu}_K).P).
+                F(B'.P).W1')}_Sh) =|>
+State' := 4 /\ secret(Sh, s5, HA)
+% Send message M4 to MU via a public channel
+ /\ SKf' := H(F(B'.F(H(Y'.{H(IDu.Nu').IDu}_K).F(H(X'.{H(IDu.Nu').IDu}_K)))).W1') 
+ /\ W4' := H(SKf'.ADD(F(H(Y'.{H(IDu.Nu').IDu}_K).F(B'.F(K.P))).
+           F(K.F(H(X'.{H(IDu.Nu').IDu}_K).P))))
+ /\ SND(ADD(F(H(Y'.{H(IDu.Nu').IDu}_K).F(B'.F(K.P))).
+        F(K.F(H(X'.{H(IDu.Nu').IDu}_K).P))).W4')
+% Receive message M5 from MU via a public channel
+3. State = 4 /\ RCV(H(W1'.F(A'.F(H(Y'.{H(IDu.Nu').
+                    IDu}_K).F(B'.F(K.P)))))) =|> 
+% FA's acceptance of the value x generated for FA by MU
+State' := 6 /\ request(MU, FA, mu_fa_x, X)
+% FA's acceptance of the value y generated for FA by HA
+            /\ request(HA, FA, ha_fa_y, Y')
+end role
+
+
+
+%%%%%%% Role specification for the session %%%%%%%%
+role session (MU, HA, FA : agent, 
+	     SKmuha : symmetric_key)
+def=
+  local S1, R1, S2, R2, S3, R3 : channel (dy)
+  composition
+           mobileuser(MU, HA, FA, SKmuha, S1, R1)
+        /\ homeagent(MU, HA, FA, SKmuha, S2, R2)
+        /\ foreignagent(MU, HA, FA, S3, R3)
+end role
+
+%%%%%%% Role specification for the goal and environment %%%%%%%%
+role environment()
+def=
+  const mu, ha, fa  : agent,
+        skmuha : symmetric_key,
+        h : hash_func, 
+        f, add : hash_func,
+        idh, idu, idf, p: text,
+        mu_fa_x, fa_ha_b, ha_fa_y,
+        s1, s2, s3, s4, s5 : protocol_id
+intruder_knowledge = {h, f, add, idh, p}
+composition
+	session(mu, ha, fa, skmuha) 
+     /\ session(i, ha, fa, skmuha) 
+     /\ session(mu, i, fa, skmuha) 
+     /\ session(mu, ha, i, skmuha) 
+end role
+
+goal
+secrecy_of s1, s2, s3, s4, s5
+authentication_on mu_fa_x, fa_ha_b, ha_fa_y
+end goal
+environment()
+
+

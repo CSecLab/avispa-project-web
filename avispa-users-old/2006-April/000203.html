@@ -1,0 +1,231 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+ <HEAD>
+   <TITLE> [Avispa-users] May Avispa find an attack after a second one?
+   </TITLE>
+   <LINK REL="Index" HREF="index.html" >
+   <LINK REL="made" HREF="mailto:avispa-users%40avispa-project.org?Subject=%5BAvispa-users%5D%20May%20Avispa%20find%20an%20attack%20after%20a%20second%20one%3F&In-Reply-To=">
+   <META NAME="robots" CONTENT="index,nofollow">
+   <META http-equiv="Content-Type" content="text/html; charset=us-ascii">
+   <LINK REL="Previous"  HREF="000201.html">
+   <LINK REL="Next"  HREF="000204.html">
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <H1>[Avispa-users] May Avispa find an attack after a second one?</H1>
+    <B>Juan Carlos L&#243;pez Pimentel</B> 
+    <A HREF="mailto:avispa-users%40avispa-project.org?Subject=%5BAvispa-users%5D%20May%20Avispa%20find%20an%20attack%20after%20a%20second%20one%3F&In-Reply-To="
+       TITLE="[Avispa-users] May Avispa find an attack after a second one?">A00472021 at itesm.mx
+       </A><BR>
+    <I>Thu Apr 27 22:01:02 CEST 2006</I>
+    <P><UL>
+        <LI>Previous message: <A HREF="000201.html">[Avispa-users] A-&gt;B : K
+</A></li>
+        <LI>Next message: <A HREF="000204.html">[Avispa-users] May Avispa find an attack after a second one?
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#203">[ date ]</a>
+              <a href="thread.html#203">[ thread ]</a>
+              <a href="subject.html#203">[ subject ]</a>
+              <a href="author.html#203">[ author ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+<PRE>Hi List,
+
+I'm verifying CCITTX509(1) protocol whose specification is one step as 
+follows:
+
+1 A --&gt; B: A, {B, Nxa, {Nya}_Kb}_inv(Ka)
+
+I know that the protocol is faulty, the attack should be (following the 
+option -p of OFMC):
+
+Attack 1:
+i -&gt; (a,3): start
+(a,3) -&gt; i: a.{b.Nxa(1).{Nya(1)}_kb}_inv(ka)
+i -&gt; (b,10): i.{b.x38.{Nya(1)}_kb}_inv(ki)
+
+However, I still don't know how to find this attack, I have played in 
+different way the environment role and I have only found the following 
+attack:
+
+Attack 2:
+i -&gt; (a,3): start
+(a,3) -&gt; i: a.{b.Nxa(1).{a.Nya(1)}_kb}_inv(ka)
+i -&gt; (b,3): a.{b.Nxa(1).{a.Nya(1)}_kb}_inv(ka)
+i -&gt; (b,6): a.{b.Nxa(1).{a.Nya(1)}_kb}_inv(ka)
+ 
+I have the following assumption:
+&quot;I know that the first attack is within the branch-searched tree, maybe, 
+when any backend searches for an attack, the first attack found is 
+Attack 2 and maybe Attack 1 is situated after the first one&quot;. Therefore, 
+I have two questions:
+
+1. If my assumption is correct, how may I find the first attack (Attack 1)?
+2. Otherwise, Will I be doing something erroneous in the hlpsl 
+specification?
+
+Attached to this message the hlpsl specification of CCITTX509(1) protocol...
+
+I hope someone may help me ...
+
+Thanks a lot for your trouble .....
+
+Juan Carlos L&#243;pez Pimentel
+PhD student, ITESM-CEM, M&#233;xico
+
+
+-------------- next part --------------
+%% CCITTX5091 protocol
+
+%1 A --&gt; B : A, {B, Nxa, {Nya}K+B}K-A
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+role alice(A,B:agent,
+	   KA, KB: public_key,
+	   Snd, Rcv: channel (dy))
+played_by A
+def=
+
+  local State: nat,
+	Nxa, Nya: text
+
+  const nxa,secret_Nya, nya: protocol_id
+
+  init  State := 0
+
+  transition
+
+%% Start of the protocol
+%1 A --&gt; B : A, {B, Nxa, {Nya}K+B}K-A
+  step1. 	State = 0  /\ Rcv(start)  =|&gt;	
+		State':= 1 /\ Nxa':= new() /\ Nya':= new() 
+			/\ Snd(A.{B.Nxa'.{Nya'}_KB}_inv(KA))
+			/\ witness(A,B,nxa,Nxa')
+			/\ witness(A,B,nya,Nya')
+	                /\ secret(Nya',secret_Nya,{A,B})
+%			/\ request(A,B,ba_nya,Nya')
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+%1 A --&gt; B : A, {B, Nxa, {Nya}K+B}K-A
+role   bob(A,B:agent,
+	   KA,KB: public_key,
+	   Rec: channel (dy))
+played_by B
+def=
+
+  local State: nat,
+	NonceUsed: text set,
+	Nxa, Nya: text
+
+  const nya: protocol_id
+
+  init  State := 0 
+
+  transition
+
+%1 A --&gt; B : A, {B, Nxa, {Nya}K+B}K-A
+  step1. 	State = 0  /\ Rec(A.{B.Nxa'.{Nya'}_KB}_inv(KA)) 
+			=|&gt;
+			State':= 1	
+			/\ request(B,A,nxa,Nxa')
+			/\ request(B,A,nya,Nya')
+			
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%	%%%%%%%% 	
+
+
+%% The role representing a partial session between alice and bob
+role  ccittx5091(A,B: agent,		
+		KA, KB: public_key)
+		
+		
+def=
+
+  local S_AB, R_S,R_AB: channel (dy)
+
+  composition
+	    alice (A,B,KA,KB,S_AB,R_S) 
+	/\  bob   (A,B,KA,KB,R_AB)
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+%% The main role
+role environment()
+def=
+
+  const a, b, i : agent,
+        ka, kb, ki : public_key
+
+  intruder_knowledge = {ki, inv(ki), ka, kb, a, b, i}
+
+  composition
+     	   ccittx5091(a,b,ka,kb)
+     	/\ ccittx5091(a,b,ka,kb)
+%     	/\ ccittx5091(b,a,kb,ka)
+%     	/\ ccittx5091(i,b,ki,kb)
+%     	/\ ccittx5091(a,i,ka,ki)
+     	/\ ccittx5091(i,b,ki,kb)
+
+
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+%% Properties to verify
+goal
+
+  	secrecy_of secret_Nya
+%% 	authentication_on nxa
+  	authentication_on nya
+%%	authentication_on nxa
+%%  	authentication_on ta
+%%	authentication_on na
+%%  	weak_authentication_on bob_alice_na
+  
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 	
+
+%% Call of the main role
+environment()
+
+
+
+</PRE>
+
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	<LI>Previous message: <A HREF="000201.html">[Avispa-users] A-&gt;B : K
+</A></li>
+	<LI>Next message: <A HREF="000204.html">[Avispa-users] May Avispa find an attack after a second one?
+</A></li>
+         <LI> <B>Messages sorted by:</B> 
+              <a href="date.html#203">[ date ]</a>
+              <a href="thread.html#203">[ thread ]</a>
+              <a href="subject.html#203">[ subject ]</a>
+              <a href="author.html#203">[ author ]</a>
+         </LI>
+       </UL>
+
+<hr>
+<a href="http://www.avispa-project.org/mailman/listinfo/avispa-users">More information about the Avispa-users
+mailing list</a><br>
+</body></html>

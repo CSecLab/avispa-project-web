@@ -1,0 +1,126 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileaS6tC6fx6j
+
+section signature:
+
+state_bob: agent * agent * symmetric_key * hash_func * nat * text * text * set(agent) * nat -> fact
+state_alice: agent * agent * symmetric_key * hash_func * nat * text * text * nat -> fact
+
+
+section types:
+
+k, bob_alice_nb, bob_alice_na: protocol_id
+set_73, set_72, set_67: set
+Na, Nb, Dummy_Nb, Dummy_Na, dummy_nonce: text
+Set_34, Dummy_Set_34, ASGoal: set(agent)
+start, MGoal: message
+5, 3, State, 10, 4, 6, SID, 2, 1, 0, Dummy_State, SID2, SID1: nat
+Hash, h: hash_func
+a, b, A, B, A2Goal, A1Goal, i: agent
+Kb, kab, kai, kib: symmetric_key
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(a).
+ iknows(b).
+ iknows(kab).
+ iknows(kai).
+ iknows(kib).
+ iknows(i).
+ state_alice(a,b,kab,h,0,dummy_nonce,dummy_nonce,3).
+ state_bob(b,a,kab,h,1,dummy_nonce,dummy_nonce,set_67,4).
+ state_alice(a,i,kai,h,0,dummy_nonce,dummy_nonce,6).
+ state_bob(b,i,kib,h,1,dummy_nonce,dummy_nonce,set_73,10)
+
+
+section rules:
+
+step step_0 (A,B,Kb,Hash,Dummy_Na,Dummy_Nb,SID,Na,Nb) :=
+ state_alice(A,B,Kb,Hash,0,Dummy_Na,Dummy_Nb,SID).
+ iknows(start)
+=[exists Nb,Na]=>
+ state_alice(A,B,Kb,Hash,2,Na,Nb,SID).
+ iknows(scrypt(Kb,apply(Hash,pair(Na,Nb)))).
+ witness(A,B,bob_alice_na,Na).
+ witness(A,B,bob_alice_nb,Nb)
+
+step step_1 (A,B,Kb,Hash,Na,Nb,SID) :=
+ state_alice(A,B,Kb,Hash,2,Na,Nb,SID).
+ iknows(scrypt(Kb,pair(apply(Hash,pair(Na,A)),Nb)))
+ =>
+ state_alice(A,B,Kb,Hash,4,Na,Nb,SID).
+ iknows(apply(Hash,pair(A,B)))
+
+step step_2 (B,A,Kb,Hash,Dummy_Na,Dummy_Nb,Dummy_Set_34,SID,Na,Nb) :=
+ state_bob(B,A,Kb,Hash,1,Dummy_Na,Dummy_Nb,Dummy_Set_34,SID).
+ iknows(scrypt(Kb,apply(Hash,pair(Na,Nb))))
+ =>
+ state_bob(B,A,Kb,Hash,3,Na,Nb,Dummy_Set_34,SID).
+ iknows(scrypt(Kb,pair(apply(Hash,pair(Dummy_Na,A)),Dummy_Nb))).
+ secret(Kb,k,Dummy_Set_34).
+ contains(A,Dummy_Set_34).
+ contains(B,Dummy_Set_34)
+
+step step_3 (B,A,Kb,Hash,Na,Nb,Set_34,SID) :=
+ state_bob(B,A,Kb,Hash,3,Na,Nb,Set_34,SID).
+ iknows(apply(Hash,pair(A,B)))
+ =>
+ state_bob(B,A,Kb,Hash,5,Na,Nb,Set_34,SID).
+ request(B,A,bob_alice_na,Na,SID).
+ request(B,A,bob_alice_nb,Nb,SID)
+
+
+section properties:
+
+property authentication_on_bob_alice_na (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,bob_alice_na,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,bob_alice_na,MGoal))
+     /\ ((request(A1Goal,A2Goal,bob_alice_na,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,bob_alice_na,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property authentication_on_bob_alice_nb (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,bob_alice_nb,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,bob_alice_nb,MGoal))
+     /\ ((request(A1Goal,A2Goal,bob_alice_nb,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,bob_alice_nb,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+property secrecy_of_k (MGoal,ASGoal) :=
+ [] ((secret(MGoal,k,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state authentication_on_bob_alice_na (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,bob_alice_na,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,bob_alice_na,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_bob_alice_na (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,bob_alice_na,MGoal,SID1).
+ request(A1Goal,A2Goal,bob_alice_na,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state authentication_on_bob_alice_nb (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,bob_alice_nb,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,bob_alice_nb,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_bob_alice_nb (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,bob_alice_nb,MGoal,SID1).
+ request(A1Goal,A2Goal,bob_alice_nb,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+
+attack_state secrecy_of_k (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,k,ASGoal) &
+ not(contains(i,ASGoal))
+

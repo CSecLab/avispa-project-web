@@ -1,0 +1,130 @@
+%% DISCUSSION & ISSUES:
+%% -----------
+%% LucaC: 
+%%
+%% - I have corrected the protocol wrt HLPSL_GUIDELINES.
+%%
+%%1-3-ISO-Publ-Key-without-T3P
+
+%%   ========================================================
+
+%% 1-3-1  ISO1 1- ISO-Publ-Key-without-T3P: ISO1
+%%%%% [ETHZ] Also known as 
+%%%%% "ISO (Public Key) One-Pass Unilateral Authentication Protocol" 
+%%%%% ClarkJacob 6.6.1
+%%%%% Flaw: the message can be replayed. (only weak auth/secr)
+
+%% A-B Notation:
+
+%% A --> B : {PKa,A}SKc, Na, B, Text,{Na,B,Text}_SKa
+
+%% SKc is the private key of the server C.
+%% {PKa,A}SKc is the certificate of agent A
+
+%%--------------------------Nhlpsl-spec ---------------------
+
+role ISO1_Init ( A,B : agent,
+                 Pka, Pks : public_key,
+                 Snd, Rcv : channel(dy)) played_by A def=
+
+ exists  State: nat,
+         Na   : text(fresh)
+
+ owns  Snd,Rcv
+
+
+
+ init  State = 0
+
+ knowledge(A) = {A,B,Pka,Pks,ctext,inv(Pka)}
+
+  transition
+
+   1. State=0 /\ Rcv(start) =|> 
+         Snd(Pka.A.{Pka.A}inv(Pks).Na'.B.ctext.{Na'.B.ctext}inv(Pka))
+      /\ State'=1
+      /\ witness(A,B,na,Na')
+
+end role
+
+%%  (*------------------------------------------------------*)
+
+role ISO1_Resp (A, B: agent,
+                Pks : public_key,
+                Rec : channel(dy)) played_by B def=
+
+  exists State     : nat, 
+         Pka       : public_key,
+         Na, Text  : text
+
+  owns Rec
+  
+  init  State=0
+  knowledge(B)={A,B,Pks}
+
+  transition
+
+   1.    State=0 
+      /\ Rec(Pka'.A.{Pka'.A}inv(Pks).Na'.B.Text'.{Na'.B.Text'}inv(Pka')) =|>  
+         State'= 1
+      /\ request(B,A,na,Na')
+
+
+end role
+
+
+%% (*-------------------------------------*)
+
+
+%% LC: if you would like to use the same server public key for each
+%%     session, you should avoid permutation on Pks.
+
+role Session (A, B : agent,
+	      Pka  : public_key,
+              Pks  : public_key,
+	      SA, RA, RB: channel (dy)) def=
+
+  const na : protocol_id
+
+  composition
+
+          ISO1_Init(A,B,Pka,Pks,SA,RA)
+       /\ ISO1_Resp(A,B,Pks,RB)
+
+end role
+
+
+%% (*-------------------------------------*)
+
+
+role Environment() def=
+
+  const ctext  : text
+
+  knowledge(i)={a,b,pks,pka}
+
+  composition
+
+	Session(a,b,pka,pks,sa1,ra1,rb1)
+     /\	Session(a,b,pka,pks,sa2,ra2,rb2)
+
+end role
+
+%% (*-------------------------------------*)
+
+
+goal
+
+%% Resp. authenticates Init. on Na
+
+   ISO1_Resp authenticates ISO1_Init on Na
+
+end goal
+
+
+%% (*-------------------------------------*)
+
+
+ Environment()
+ 
+

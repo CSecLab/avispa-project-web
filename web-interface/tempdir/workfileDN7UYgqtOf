@@ -1,0 +1,29 @@
+
+role node (N,BS: agent,
+		   Km: symmetric_key,
+		   MAC,F: function,
+		   RCV,SND: channel(dy))
+played_by N
+def=
+
+local State: nat,
+	  C: nat,
+	  Nonce,Msg1,Msg2: text
+init State:=0 /\ C:=0
+transition
+		1. State=0
+		/\ RCV(BS.N.Nonce’.Msg1’.
+				{MAC(BS.N.Nonce’.Msg1’)}_F(Km,1))
+		=|>
+		State’:=1
+			/\ Msg2’:=new()
+			/\ SND(xor({C}_F(Km,0),Msg2’).
+				{MAC(xor({C}_F(Km,0),Msg2’).
+				Nonce’.N.BS)}_F(Km,1))
+			/\ C’:=1
+			/\ request(N,BS, auth_msg1, Msg1’)
+			/\ request(N,BS, auth_nonce, Nonce’)
+			/\ witness(N,BS, auth_msg2, Msg2’)
+			/\ secret(Msg2’, secret_msg2, {N,BS})
+
+end role

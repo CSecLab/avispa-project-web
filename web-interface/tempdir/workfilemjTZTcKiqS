@@ -1,0 +1,70 @@
+role gateway (GW, KDC : agent,
+Pgw, Pkdc : public_key,
+H1, H2 : hash_func,
+IDgw, P, Kgw, Gr, E : text,
+N : message,
+SND, RCV : channel(dy))
+played_by GW
+def=
+local State : nat,
+EC, SK, GK : text,
+M : message
+init State := 0
+transition
+0. State = 0 /\ RCV(start) =|>
+State':= 1 /\ Kgw':= new()
+/\ E':= (Kgw'.P)
+/\ N':= ({E'}_IDgw)
+/\ SND({N'}_Pkdc)
+/\ secret(P,EC,{GW,KDC})
+/\ secret(Kgw',SK,{GW})
+2. State = 2 /\ RCV(M')=|>
+State':= 3 /\ secret(M',GK,{GW,KDC})
+end role
+
+role key_server (KDC, GW : agent,
+Pkdc : public_key,
+H1, H2 : hash_func,
+P, IDgw : text,
+N : message,
+SND, RCV : channel(dy))
+played_by KDC
+def=
+local State : nat,
+Kgw : text,
+EC, SK, GK : text,
+Pgw : public_key,
+M, M1 : message
+init State := 1
+transition
+1. State = 1 /\ RCV(N') =|>
+State':= 2 /\ M1' := H1(Kgw'.P, IDgw)
+/\ M' :=({M1'}_inv(Pkdc))
+/\ SND({M'})
+/\ secret (M',GK,{GW, KDC})
+end role
+role session(GW, KDC : agent,
+Pgw, Pkdc : public_key)
+def=
+local SGK, RGK, SKG, RKG : channel (dy)
+composition
+gateway(GW, KDC, Pgw, Pkdc, SGK, RGK)
+/\ key_server (GW, KDC, Pgw, Pkdc, SKG, RKG)
+end role
+role environment()
+def=
+const gw, kdc :agent,
+kgk, kkg : symmetric_key,
+pgw, pkdc : public_key,
+h1, h2 : hash_func,
+p, idgw : text,
+n, m, m1 : message
+intruder_knowledge = {gw, kdc, pgw, pkdc, idgw}
+composition
+session(gw,kdc,kgk,p)
+/\ session(kdc,gw,kkg,h1)
+end role
+goal
+secrecy_of m
+end goal
+environment()

@@ -1,0 +1,33 @@
+role alice(A,B,S : agent,
+                 Kas : symmetric_key,
+                 SND, RCV : channel (dy))
+played_by A def=
+	local State: nat, Kab: symmetric_key
+	init    State := 0
+	transition
+	step1. State   =  0 /\  RCV({Kab }_Kas) =|>
+	           State‘ :=  2 /\  SND({Kab }_Kbs) 
+end role
+
+Role session(A,B,S      : agent,
+                      Kas, Kbs : symmetric_key) def=
+local SA, RA, SB, RB, SS, RS: channel (dy)
+
+Composition
+	alice	(A, B, S, Kas, SA, RA)
+/\	bob		(B, A, S, Kbs, SB, RB)
+/\	server	(S, A, B, Kas, Kbs, SS, RS)
+
+end role
+
+Role environment() 
+def=
+	const a, b, s			: agent,
+		  kas, kbs, kis	: symmetric_key
+	intruder_knowledge = {a, b, s, kis}
+	composition
+		session(a,b,s,kas,kbs)
+	    /\ session(a,i,s,kas,kis)
+	    /\ session(i,b,s,kis,kbs)
+end role
+environment()

@@ -1,0 +1,154 @@
+%Definicion de roles
+role cliente(
+	C, B, T		: agent, 	%%Agentes
+	Pkc, Pkb	: public_key,	%Llaves públicas
+	Hash		: hash_func,	%Función hash
+	SND, RCV	: channel(dy))	%Canal y modelo de ataque
+
+	played_by C def=
+		local
+			State	 : nat,
+			Enrolreq, Downloadreq, Finish, Package, Tn, Na, Nb, Rn, OTP : text,
+			H, Hsession, Hsession2, Operation, Response  : message
+		const 	link, id_account, pn, psw : message
+		init
+			State := 0
+		transition
+			%%Service enrolment
+			1. State   = 0 /\ RCV(start) =|>
+			   State' := 1 /\ Enrolreq' := new() /\ SND(Enrolreq')
+
+			2. State   = 2 /\ RCV(link) =|>
+			   State' := 3 /\ SND(Downloadreq)
+			               /\ secret(Downloadreq, downreq, {C,T})
+
+			%%Authentiation
+			3. State   = 4 /\ RCV(Package') =|>
+			   State' := 5 /\ H' := Hash(id_account.pn.Tn) /\ SND({id_account.pn.Tn.H'}_Pkb)
+
+			4. State   = 6 /\ RCV({Na'.Tn'.H'}_Pkc) =|> 
+		           State' := 7 /\ Nb' := Hash(Na'.psw) 
+				       /\ Rn' := new() 
+                                       /\ H' := Hash(Nb'.Tn'.Rn') 				       
+                                       /\ SND({Nb'.Tn'.Rn'.H'}_Pkb)
+				       /\ secret(Nb', nb, {B,C})
+				       /\ witness(C,B,cliente_banco_nb,Nb')
+
+			%Authorization
+			5. State   = 8 /\ RCV({Tn'.Hsession'}_Pkc) =|>
+			   State' := 9 /\ Operation' := new()
+				       /\ OTP' := new() 
+				       /\ H' := Hash(Operation'.OTP'.Tn')
+	     			       /\ Hsession2' := Hash(psw.Rn)
+				       /\ SND({Operation'.OTP'.Tn'.H'}_Hsession2')
+				       /\ secret(Hsession2', hsession2, {B, C})
+
+			6. State  = 10 /\ RCV({Response.Tn'.H'}_Pkc) =|>
+			   State' := 11 /\ secret(Response, response, {B, C})
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role banco(
+	C,B,T		: agent,
+	Pkc, Pkb	: public_key,
+	Hash		: hash_func,
+	SND, RCV	: channel(dy))
+
+	played_by B def=
+		local
+			State	 			 		: nat,
+			Enrolreq, Finish, Na, Nb, Tn, Rn, OTP		: text,
+			H, Hsession, Hsession2, Operation, Response	: message,
+			Session_Key					: symmetric_key
+
+		const 	link, psw	: message
+		init
+			State := 1
+		transition
+			%%Service enrolment
+			1. State   = 1 /\ RCV(Enrolreq') =|>
+			   State' := 2 /\ SND(link)
+			
+			%%Authentication
+			2. State   = 5 /\ RCV({id_account.pn.Tn'.H'}_Pkb) =|>
+			   State' := 6 /\ Na' := new() 
+				       /\ H' := Hash(Na'.Tn') 
+				       /\ SND({Na'.Tn'.H'}_Pkc) 
+				       /\ secret(Na', na, {C,B}) 
+
+			3. State   = 7 /\ RCV({Nb'.Tn'.Rn'.H'}_Pkb) =|>
+			   State' := 8 /\ Session_Key' := Hash(Rn'.psw) 
+				       /\ Hsession' := Hash(Session_Key')
+				       /\ SND({Tn'.Hsession'}_Pkc)
+				       /\ secret(Hsession', hsession, {C,B}) 
+
+			%Authorization
+			4. State   = 9  /\ RCV({Operation'.OTP'.Tn'.H'}_Hsession2') =|>
+			   State' := 10 /\ H' := Hash(Response.Tn')
+				        /\ SND({Response.Tn'.H'}_Pkc)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role tienda(
+	C,B,T		: agent,
+	Pkc, Pkb	: public_key,
+	Hash		: hash_func,
+	SND, RCV	: channel(dy))
+
+	played_by T def=
+		local
+			State	: nat,
+			Downloadreq, Package, Finish : text
+			
+		init
+			State := 3
+		transition
+			%Service enrolment
+			1. State   = 3 /\ RCV(Downloadreq') =|>
+			   State' := 4 /\ SND(Package)		
+			
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+role session (C, B, T : agent,
+	      Hash: hash_func,
+	      Pkc, Pkb  : public_key) 
+	def=
+		local RC, SC, RB, SB, RT, ST : channel (dy)
+
+  composition
+
+	  cliente(C,B,T,Pkc,Pkb,Hash,SC,RC)
+       /\ banco(C,B,T, Pkc,Pkb,Hash,SB,RB)
+       /\ tienda(C,B,T,Pkc,Pkb,Hash,ST,RT)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment() def=
+
+  const downreq,na,nb,hsession, 
+	response, cliente_banco_nb : protocol_id,
+	c,b,t 		: agent,  
+	pkc,pkb,pki 	: public_key,
+	h 		: hash_func
+	
+  intruder_knowledge={c,b,t,pkc,pkb,pki, inv(pki),h}
+
+  composition
+
+	session(c,b,t,h,pkc,pkb)
+     /\	session(c,i,t,h,pkc,pki)
+     /\	session(i,b,t,h,pki,pkb)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+goal
+   secrecy_of downreq, na, nb, hsession
+   weak_authentication_on cliente_banco_nb
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+environment()

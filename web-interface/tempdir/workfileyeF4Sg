@@ -1,0 +1,76 @@
+role client(
+C,S : agent,
+KCS : symmetric_key,
+KC  :  symmetric_key,
+h   : hash_func,
+M1, : text,
+SND,RCV : channel(dy))
+played_by C def=
+local
+State : nat,
+Timestamp : text
+const
+timestamp : protocol_id
+init
+State := 0
+transition
+1. State = 0 /\ RCV(start) =|>
+State’ := 1 /\ Timestamp':=new()
+/\ SND({M1}_KC.{h(M1)}_KCS.{Timestamp'}_KC)
+/\ witness(C,S,timestamp,Timestamp’)
+end role
+
+role server(S : agent,
+C,S : agent,
+KCS : symmetric_key,
+KC  :  symmetric_key,
+h   : hash_func,
+M1  : text,
+SND,RCV : channel(dy))
+played_by S def=
+local
+State : nat,
+Timestamp : text
+const
+timestamp : protocol_id
+init State := 10
+transition
+1. State = 10 /\ RCV({M1}_KC.{h(M1)}_KCS.{Timestamp'}_KC) =|>
+/\ request(S,C,timestamp,Timestamp’)
+end role
+
+
+role session(C,S : agent,
+KCS : symmetric_key,
+KC  :symmetric_key,
+h   : hash_func,
+M1  : text))
+def=
+local S1, S2: channel (dy),
+R1, R2: channel (dy)
+composition
+client(C,S,KCS,KC,h,M1,S1,R1)
+/\ server(C,S,KCS,KC,h,M1,S2,R2)
+end role
+
+
+role environment()
+def=
+const c, s : agent,
+h : hash_func,
+kcs,kc :symmetric_key,
+m1 : text
+intruder_knowledge = {c,s,i,h}
+composition
+session(c,s,h)
+/\ session(i,s,h)
+/\ session(c,i,h)
+end role
+
+
+goal
+%Server authenticates Client on auth
+authentication_on timestamp % Addresses G1, G2, G3
+end goal
+
+environment()

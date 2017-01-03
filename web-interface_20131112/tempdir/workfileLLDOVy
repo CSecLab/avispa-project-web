@@ -1,0 +1,104 @@
+role role_MRinAR1(MRinAR1:agent,Map1:agent,Map2:agent,AR2:agent,Mrinar2ar3:agent,SND,RCV:channel(dy))
+played_by MRinAR1
+def=
+	local
+		State:nat
+               const
+                          irtsolpr:text,iprrtadv:text,flback:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1  /\ SND(irtsolpr)
+		2. State=1 /\ RCV(iprrtadv) =|> State':=2
+		6. State=2 /\ RCV(flback) =|> State':=3
+end role
+
+role role_AR2(AR2:agent,MRinAR1:agent,Map1:agent,Map2:agent,MRinAR2AR3:agent,SND,RCV:channel(dy))
+played_by AR2
+def=
+	local
+		State:nat
+             const
+                            
+                           hi:text,fna:text,paquet:text,hack,paquet:text
+	init
+		State := 0
+	transition
+		3. State=0 /\ RCV(hi) =|> State':=1 /\ SND(hack) 
+                            5. State=1 /\  RCV(paquet)  =|> State':=2 
+                           10. State=2 /\ RCV(fna) =|> State':=3 /\ SND(paquet)
+                          
+end role
+
+role role_Map1(Map1:agent,MRinAR1:agent,Map2:agent,AR2:agent,MRinAR2AR3:agent,SND,RCV:channel(dy))
+played_by Map1
+def=
+	local
+		State:nat
+             const
+
+                            irtsolpr:text,iprrtadv:text,paquet,hi:text,flback:text,flbu,hack,idh,nmr:text
+	init
+		State := 0
+	transition
+		 1. State=0 /\ RCV( irtsolpr) =|> State':=1  /\ SND(iprrtadv) /\ SND(hi)
+                             4. State=1 /\ RCV(hack) =|> State':=2 /\ SND(paquet) /\SND(flback)  /\ SND(flbu.(idh.nmrG))
+                           
+end role
+
+role role_Map2(Skmap2:public_key,Nmap2:text,Map2:agent,MRinAR1:agent,Map1:agent,AR2:agent,MRinAR2AR3:agent,SND,RCV:channel(dy))
+played_by Map2
+def=
+	local
+		State:nat
+             const
+  
+                           flbu:text,lbu:text,flback,idmap2,nmrG, nmap2G, idh,alias:text,
+                           auth_1 : protocol_id
+	init
+		State := 0
+	transition
+	                7. State=0 /\ RCV(flbu.(idh.nmrG)) =|> State':=1 /\ SND(flback.(idmap2.{Nmap2}_inv(Skmap2).nmap2G)) /\  witness(Map2,MRinAR2AR3,auth_1,{Nmap2}_inv(Skmap2)) 
+                              9. State=1 /\ RCV(alias.{Nmap2}_inv(Skmap2)) =|> State':=2
+		12. State=2 /\ RCV(lbu) =|> State':=3 /\ SND(flback)
+end role
+
+role role_MRinAR2AR3(Skmap2:public_key,Nmap2:text,MRinAR2AR3:agent,MRinAR1:agent,Map1:agent,Map2:agent,Ar2:agent,SND,RCV:channel(dy))
+played_by MRinAR2AR3
+def=
+	local
+		State:nat
+              const
+
+                            fna:text,paquet:text,lbu:text,flback,alias:text,
+                            auth_1 : protocol_id
+	init
+		State := 0
+	transition
+		8. State=0 /\ RCV(flback.(idmap2.{Nmap2}_inv(Skmap2).nmap2G)) =|> State':=1 /\ SND(alias.{Nmap2}_inv(Skmap2)) /\ request(MRinAR2AR3,Map2,auth_1,{Nmap2}_inv(Skmap2))  /\ SND(fna)   
+	            11. State=1  /\ RCV(paquet) =|> State':=2  /\ SND(lbu)
+                          13. State=2 /\ RCV(flback) =|> State':=3   
+end role
+
+role session1(Skmap2:public_key,Nmap2:text,AR2:agent,Map2:agent,MRinAR2AR3:agent,MRinAR1:agent,Map1:agent)
+def=
+	local
+		SND6,RCV6,SND5,RCV5,SND4,RCV4,SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_MRinAR1(MRinAR1,Map1,Map2,AR2,MRinAR2AR3,SND6,RCV6) /\ role_MRinAR2AR3(Skmap2,Nmap2,MRinAR2AR3,MRinAR1,Map1,Map2,AR2,SND5,RCV5) /\ role_AR2(AR2,MRinAR1,Map1,Map2,MRinAR2AR3,SND3,RCV3) /\ role_Map2(Skmap2,Nmap2,Map2,MRinAR1,Map1,AR2,MRinAR2AR3,SND2,RCV2) /\ role_Map1(Map1,MRinAR1,Map2,AR2,MRinAR2AR3,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		hash_0:function,skmap2:public_key,nmap2:text,mrar1:agent,map2:agent,ar2:agent,mrar2ar3:agent,map1:agent,auth_1:protocol_id
+	intruder_knowledge = {skmap2,nmap2,mrar1,ar2,map1,map2,mrar2ar3}
+	composition
+		session1(skmap2,nmap2,ar2,map2,mrar2ar3,mrar1,map1)
+end role
+
+goal
+	authentication_on auth_1
+end goal
+
+environment()

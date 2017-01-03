@@ -1,0 +1,96 @@
+role role_MR(MR:agent,H:hash_func,MAG1:agent,LAAA:agent,K0:symmetric_key,IDMR:text,
+MAG2:agent,SND,RCV:channel(dy))
+played_by MR
+def=
+	local
+		State:nat,N1:text,N2:text,NID:text,KmrMAG1:message,K1:message,KmrMAG2:message
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ N1':=new() /\ K1':=H(K0.N1'.IDMR.NID)/\ KmrMAG1':=H(K0.N1'.NID)
+		/\ SND(MR.MAG1.H(N1'.K0.IDMR).{N1'.IDMR}_K0)
+		/\ witness (MR, LAAA, auth_1, N1')
+		4. State=1  /\ RCV(NID'.MAG1.MR.H(KmrMAG1'.NID')) /\ request (MR, MAG1, auth_2, KmrMAG1')
+		=|> State':=2 /\ N2':=new() 
+		/\ KmrMAG2':=H(K1.N2'.NID)/\ SND(MR.MAG1.H(N2'.K1.IDMR).{N2'.IDMR}_K1) /\ witness (MR, LAAA, auth_3, N2')
+		10. State=2 /\  RCV(NID.MAG2.MR.H(KmrMAG2'.NID)) /\ request (MR, MAG2, auth_4, KmrMAG2')=|> State':=3 
+end role
+
+role role_MAG1(MAG1:agent,H:hash_func,LAAA:agent,MR:agent,KaaaMAG1:symmetric_key,NID:text,MAG2:agent,SND,RCV:channel(dy))
+played_by MAG1
+def=
+	local
+		State:nat,K0:symmetric_key,N1:text,IDMR:text,N2:text,K1:message,KmrMAG1:message
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(MR.MAG1.H(N1'.K0'.IDMR').{N1'.IDMR'}_K0') 
+		=|> State':=1 /\ SND(MAG1.LAAA.H(N1'.K0'.IDMR').{N1'.IDMR'}_K0')
+		3. State=1 /\ RCV(LAAA.MAG1.{KmrMAG1'}_KaaaMAG1) 
+		=|> State':=2 /\ SND(NID.MAG1.MR.H(KmrMAG1'.NID))/\ witness ( MAG1, MR,auth_2, KmrMAG1')
+		5. State=2 /\ RCV(MR.MAG1.H(N2'.K1'.IDMR).{N2'.IDMR}_K1') 
+		=|> State':=3 /\ SND(MAG1.MAG2.H(N2'.K1'.IDMR).{N1.IDMR}_K1')
+		9. State=3 /\ RCV(MAG2.MAG1) =|> State':=4
+end role
+
+role role_MAG2(MAG2:agent,H:hash_func,MAG1:agent,LAAA:agent,MR:agent,KaaaMAG2:symmetric_key,NID:text,SND,RCV:channel(dy))
+played_by MAG2
+def=
+	local
+		State:nat,K1:message,N1:text,IDMR:text,N2:text,KmrMAG2:message
+	init
+		State := 0
+	transition
+		6. State=0 /\ RCV(MAG1.MAG2.H(N2'.K1'.IDMR').{N1'.IDMR'}_K1') 
+		=|> State':=1 /\ SND(MAG2.LAAA.H(N2'.K1'.IDMR').{N1'.IDMR'}_K1')
+		8. State=1 /\ RCV(LAAA.MAG1.{KmrMAG2'}_KaaaMAG2) 
+		=|> State':=2 /\ SND(MAG2.MAG1) /\ SND(NID.MAG2.MR.H(KmrMAG2'.NID))/\ witness ( MAG2, MR,auth_4, KmrMAG2')
+end role
+
+role role_LAAA(LAAA:agent,H:hash_func,K0:symmetric_key,MAG1:agent,MAG2:agent,MR:agent,
+KaaaMAG1:symmetric_key,
+KaaaMAG2:symmetric_key,SND,RCV:channel(dy))
+played_by LAAA
+def=
+	local
+		State:nat,N1:text,IDMR:text,N2:text,K1:message,NID:text,KmrMAG1:message,KmrMAG2:message
+	init
+		State := 0                                                   
+	transition
+		2. State=0 /\ RCV(MAG1.LAAA.H(N1'.K0.IDMR').{N1'.IDMR'}_K0) /\ request ( LAAA,MR, auth_1, N1')=|> State':=1 
+		/\ K1':=H(K0.N1'.IDMR'.NID) /\ KmrMAG1':=H(K0.N1'.NID)/\ SND(LAAA.MAG1.{KmrMAG1'}_KaaaMAG1)
+		7. State=1 /\ RCV(MAG2.LAAA.H(N2'.K1'.IDMR).{N1.IDMR}_K1) /\ request ( LAAA,MR, auth_3, N2')
+		=|> State':=2 /\ KmrMAG2':=H(K1'.N2'.NID)/\ SND(LAAA.MAG1.{KmrMAG2'}_KaaaMAG2)
+end role
+
+role session1(NID:text,IDMR:text,LAAA:agent,H:hash_func,K0:symmetric_key,MAG1:agent,MAG2:agent,
+MR:agent,KaaaMAG1:symmetric_key,KaaaMAG2:symmetric_key)
+def=
+	local
+		SND4,RCV4,SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_LAAA(LAAA,H,K0,MAG1,MAG2,MR,KaaaMAG1,KaaaMAG2,SND4,RCV4) 
+		/\ role_MAG2(MAG2,H,MAG1,LAAA,MR,KaaaMAG2,NID,SND3,RCV3) 
+		/\ role_MAG1(MAG1,H,LAAA,MR,KaaaMAG1,NID,MAG2,SND2,RCV2) 
+		/\ role_MR(MR,H,MAG1,LAAA,K0,IDMR,MAG2,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		hash_0:hash_func,mr:agent,mag1:agent,const_1:hash_func,laaa:agent,nid:text,idMR:text,k0:symmetric_key,
+		mag2:agent,kaaamag1:symmetric_key,kaaaMAG2:symmetric_key,auth_1:protocol_id,auth_2:protocol_id,auth_4:protocol_id,auth_3:protocol_id
+	intruder_knowledge = {mag1,mr,laaa}
+	composition
+		session1(nid,idMR,laaa,const_1,k0,mag1,mag2,mr,kaaamag1,kaaaMAG2)
+		
+end role
+
+goal
+	authentication_on auth_1
+	authentication_on auth_2
+	authentication_on auth_3
+	authentication_on auth_4
+end goal
+
+environment()

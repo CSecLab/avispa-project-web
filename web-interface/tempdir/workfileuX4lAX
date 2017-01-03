@@ -1,0 +1,169 @@
+role alice (Ui, BS, SNj : agent,
+SKubs : symmetric_key,
+Snd, Rcv: channel(dy))
+played_by Ui
+def=
+local State : nat,
+IDi,IDg, SIDi, Ni, PWi, TS1, TS2, TS3, TS4, TS5, TS6 : text,
+D, B, M, SKij, SID1, Ki, Kj : text,
+RPWi, Aj, PKSj, Yi, X1, Hi,H1, H2, Cj : text,
+Jgwns : symmetric_key,
+H : hash_func, Gen, Rep : hash_func
+const alice_server_ts1, alice_server_ki,
+server_bob_ts3, bob_alice_kj,
+bob_alice_ts5, subs1, subs2,
+subs3, subs4, subs5 : protocol_id
+init State := 0
+transition
+1. State = 0 /\ Rcv(start) =|>
+% Registration phase
+State' := 1 /\ Ni' := new()
+/\ RPWi' := H(IDi.Ni.PWi)
+% Ui sends the registration request to the BS via a secure channel
+/\ Snd({IDi.RPWi'}_SKubs)
+/\ secret({PWi,Ni'},subs1,Ui)
+/\ secret(D, subs2, BS)
+/\ secret(Jgwns, subs3, {BS,SNj})
+/\ secret(SKubs, subs4, {Ui,BS})
+/\ secret(IDi, subs5, {Ui,BS,SNj})
+% Ui receives the smart card from the BS
+2. State = 1 /\ Rcv({xor(H(IDi.D),H(IDi.Ni.PWi)).H(H(H(IDi.Ni.PWi).H(IDi.D).IDi))}_SKubs) =|>
+% Login phase
+State' := 2 /\ Ki' := new()
+/\ TS1' := new()
+/\ X1' := H(IDi.D)
+/\ Hi' := H(TS1.Ki.IDi)
+/\ M' := {IDi.Ki'.TS1'.Hi'}_X1'
+% Ui sends the login message to the BS
+/\ Snd(M')
+% Ui has freshly generated the values T1 and RNui for BS
+/\ witness (Ui,BS,alice_server_ts1, TS1')
+/\ witness (Ui,BS,alice_server_ki, Ki')
+% Authentication phase
+% Ui receives the message from SNj
+3. State = 2 /\ Rcv(xor(SIDi,H(Ki.Kj)).H(SIDi.IDi.Kj.TS5).xor(Kj,H(Ki.TS1')).TS5') =|>
+% Ui’s acceptance of the values RNsnj and TS5 generated for Ui by SNj
+State' := 3 /\ request(SNj, Ui, bob_alice_kj, Kj')
+/\ request(SNj, Ui, bob_alice_ts5, TS5')
+end role
+
+role server (Ui, BS, SNj : agent,
+SKubs : symmetric_key,
+Snd, Rcv: channel(dy))
+played_by BS
+def=
+local State : nat,
+IDi, IDg, SIDi, Ni, PWi, TS1, TS2, TS3, TS4, TS5, TS6 : text,
+D, B, M, SKij, SID1, Ki, Kj : text,
+RPWi, Aj,PKSj, Yi, X1, Hi,H1, H2, Cj : text,
+Jgwns : symmetric_key,
+H : hash_func, Gen, Rep : hash_func
+const alice_server_ts1, alice_server_ki,
+server_bob_ts3, bob_alice_kj,
+bob_alice_ts5, subs1, subs2,
+subs3, subs4, subs5 : protocol_id
+init State := 0
+transition
+% Registration phase
+% BS receives the registration requestfrom Ui via a secure channel
+1. State = 0 /\ Rcv({IDi.H(IDi.Ni.PWi)}_SKubs)=|>
+% BS issues a smart card to Ui
+State' := 1 /\ secret(D, subs2, BS)
+/\ secret(Jgwns, subs3, {BS,SNj})
+/\ secret(SKubs, subs4, {Ui,BS})
+/\ secret(IDi, subs5, {Ui,BS,SNj})
+/\ Snd({H(IDi.D)}_SKubs)
+% Login phase
+2. State = 1 /\ Rcv({IDi.Ki'.TS1'.H(TS1.Ki.IDi)}_X1')=|>
+% Authentication phase
+State' := 2 /\ TS3' := new()
+/\ secret(D, subs2, BS)
+/\ secret(Jgwns, subs3, {BS,SNj})
+/\ secret(SKubs, subs4, {Ui,BS})
+/\ Aj' := {IDi.IDg.Ki.TS1.H2'}_Jgwns'
+/\ Snd(TS3'.Aj')
+% BS has freshly generated the value T3 for SNj
+/\ witness (BS,SNj,server_bob_ts3, TS3')
+% BS’s acceptance of the values T1
+/\ request(Ui, BS, alice_server_ts1, TS1')
+/\ request(Ui, BS, alice_server_ki, Ki')
+end role
+
+role bob (Ui, BS, SNj : agent,
+SKubs : symmetric_key,
+Snd, Rcv: channel(dy))
+played_by SNj
+def=
+local State : nat,
+IDi, IDg, SIDi, Ni, PWi, TS1, TS2, TS3, TS4, TS5, TS6 : text,
+D, B, M, SKij, SID1, Ki, Kj : text,
+RPWi, Aj, PKSj, Yi, X1, Hi,H1, H2, Cj : text,
+Jgwns : symmetric_key,
+H : hash_func, Gen, Rep : hash_func
+const alice_server_ts1, alice_server_ki,
+server_bob_ts3, bob_alice_kj,
+bob_alice_ts5, subs1, subs2,
+subs3, subs4, subs5 : protocol_id
+init State := 0
+transition
+% Authentication phase
+% SNj receives the authentication request from BS
+1. State = 0 /\ Rcv({IDi.SIDi.Ki.TS1.H(Ki.SIDi.IDi.TS3.TS1)}_Jgwns)=|>
+State' := 1 /\ TS5' := new()
+/\ Kj' := new()
+/\ secret(D, subs2, BS)
+/\ secret(Jgwns, subs3, {BS,SNj})
+/\ secret(SKubs, subs4, {Ui,BS})
+/\ secret(IDi, subs5, {Ui,BS,SNj})
+% SNj sends an acknowledgement to Ui
+/\ SKij' := H(Ki.Kj.IDi.SIDi.TS1)
+/\ SID1' := xor(SIDi,H(Ki.Kj)).H(SIDi.IDi.Kj.TS5)
+/\ PKSj' := xor(Kj,H(Ki.TS1))
+/\ Cj' := H(SIDi.IDi.Kj.TS5)
+/\ Snd(Cj'.PKSj'.SID1'.TS5')
+% SNj has freshly generated the values TS5 and RNsnj for Ui
+/\ witness (SNj,Ui,bob_alice_ts5, TS5')
+/\ witness (SNj,Ui,bob_alice_kj, Kj')
+% SNj’s acceptance of the value T3 generated for SNj by BS
+/\ request(BS, SNj, server_bob_ts3, TS3')
+end role
+
+role session(Ui,BS,SNj: agent,
+SKubs : symmetric_key)
+def=
+local US, UR, SS, SR, VS, VR: channel (dy)
+composition
+alice(Ui, BS, SNj, SKubs, US, UR)
+/\ server(Ui, BS, SNj, SKubs, SS, SR)
+/\ bob(Ui, BS, SNj, SKubs, VS, VR)
+end role
+
+role environment()
+def=
+const ui, bs, snj : agent,
+SKubs : symmetric_key,
+h : hash_func,
+sidi, ti: text,
+alice_server_ts1, alice_server_ki,
+server_bob_ts3, bob_alice_kj,
+bob_alice_ts5, subs1, subs2,
+subs3, subs4, subs5 : protocol_id
+intruder_knowledge = {bs, snj, h, ti, sidi}
+composition
+session(ui, bs, snj, SKubs)
+/\ session(ui, bs, snj, SKubs)
+/\ session(ui, bs, snj, SKubs)
+end role
+goal
+secrecy_of subs1
+secrecy_of subs2
+secrecy_of subs3
+secrecy_of subs4
+secrecy_of subs5
+authentication_on alice_server_ki
+authentication_on alice_server_ts1
+authentication_on server_bob_ts3
+authentication_on bob_alice_kj
+authentication_on bob_alice_ts5
+end goal
+environment()

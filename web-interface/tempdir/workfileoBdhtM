@@ -1,0 +1,34 @@
+role alice(A,B:agent, G:text, Snd,Rcv:channel(dy)) played_by A def=
+local State:nat, Na,Nsecret:text, X,K:message
+init State:=1
+transition
+1. State=1 /\ Rcv(start) =|>
+State':=2 /\ Na':=new() /\ Snd(exp(G,Na'))
+2. State=2 /\ Rcv(X') =|>
+State':=3 /\ K':=exp(X',Na) /\ Nsecret':= new() /\ Snd({Nsecret'}_K')
+end role
+
+role bob(B,A:agent, G:text, Snd,Rcv:channel(dy)) played_by B def=
+local State:nat, Y,K:message, Nb,Nsecret:text
+init State:=1
+transition
+1. State=1 /\ Rcv(Y') =|>
+State':=2 /\ Nb':=new() /\ K':=exp(Y',Nb') /\ Snd(exp(G,Nb'))
+2. State=2 /\ Rcv({Nsecret'}_K) =|>
+State':=3
+end role
+
+role session (A,B:agent, G:text) 
+def=
+local SND_A,RCV_A,SND_B,RCV_B:channel(dy) 
+composition
+alice(A,B,G,SND_A,RCV_A) /\ bob(B,A,G,SND_B,RCV_B)
+end role
+
+role environment() 
+def=
+const a,b:agent, 
+g: text
+composition
+session(a,b,g,Snd,Rcv)
+end role

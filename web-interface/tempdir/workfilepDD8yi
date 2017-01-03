@@ -1,0 +1,107 @@
+%% TOOL: Automated Verification of Internet Security Protocols and Applications (AVISPA)
+%% AVISPA provides a platform for building and analysing the security of a protocol.
+%% All the protocol models in AVISPA are written in a High Level Protocol Specification Language (HLPSL).
+
+%% PROTOCOL*: SIMPLE PROTOCOL (SP)
+%% PROTOCOL DESCRIPTION: Transport layer (Layer 4 of the OSI model) protocol of a local network or internal network
+%% VARIANT: two-way handshake authentication
+%% PROGRAM: 1.1
+%% PURPOSE: Authentication of a client to server. In this protocol, the server wants to verify the identity of
+%% the client and starts the session.
+%% The client sends a start request packet and other contents to the server.
+%% The server responds by sending his digital signature and a symmetric key in a secured manner back to the client.
+%% The symmetric key will now be used by the client and server (in PROGRAM 1.2) for the exchange of data in a secured manner
+%% throughout their communication session.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% HLPSL:
+
+role alice (A,B : agent,
+	    Ka,Kb : public_key,
+	    Snd,Rcv : channel (dy)) played_by A def=
+
+local
+	State : nat,
+	Na,Nb : text,
+	Ta,Tb : text,
+	STREQ,STREP : message,
+	SN,MN,AMN,KS : text
+
+init State := 0
+	
+	
+transition
+
+1. State = 0  /\ Rcv(start) =|>
+   State':= 1 /\ Na' := new() /\ Snd({STREQ.SN.Ta.MN.A.Na'}_Kb)
+	     
+	      
+
+2. State = 1  /\ Rcv({STREP.Na'.SN.Tb.AMN.B.Nb'.KS}_Ka) =|>
+   State':= 2 /\ Snd({Na'}_Kb)
+              
+end role
+
+
+role bob (B,A : agent,
+	  Kb,Ka : public_key,
+	  Snd,Rcv : channel (dy)) played_by B def=
+
+local
+	State : nat,
+	Na,Nb : text,
+	Ta,Tb : text,
+	STREP : message,
+	SN,AMN,KS   : text
+
+init State := 0
+
+transition
+
+1. State = 0  /\ Rcv({Na.A}_Kb) =|>
+   State':= 1 /\ Snd({STREP.Na.SN.Tb.AMN.B.Nb.KS}_Ka)
+	      
+	      
+
+2. State = 1 /\ Rcv({Na}_Kb) =|>
+   State':= 2 /\ Snd({Nb}_Kb)
+
+end role
+
+
+role session (A,B: agent,
+	      Ka, Kb : public_key)
+def=
+local SA, RA, SB, RB: channel (dy)
+composition
+   alice(A,B,Ka,Kb,SA,RA)
+/\ bob(B,A,Kb,Ka,SB,RB)
+
+end role
+
+
+
+role environment() def=
+
+const	ta,tb,sn,mn,amn,ks : text,
+	a, b, i      : agent,
+	na, nb : protocol_id,
+	ka, kb, ki   : public_key
+	
+
+intruder_knowledge = {a,b,i,ka,kb,ki,inv(ki),ta,tb,mn,amn,sn}
+composition
+	session(a,b,ka,kb)
+	/\ session(a,i,ka,ki)
+end role
+
+
+goal
+authentication_on mn
+secrecy_of na
+
+end goal
+
+
+environment()
+  

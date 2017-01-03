@@ -1,0 +1,57 @@
+role role_A(A:agent,B:agent,S:agent,Kas:symmetric_key,SND,RCV:channel(dy))
+played_by A
+def=
+	local
+		State:nat,Na:text,Kab:symmetric_key,Nb:text,Kbs:symmetric_key
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ Na':=new() /\ SND(A.Na')
+		3. State=1 /\ RCV(Nb'.{B.Kab'.Na}_Kas.{A.Kab'.Nb'}_Kbs') =|> State':=2 /\ secret(Kab',sec_1,{}) /\ SND({A.Kab'.Nb'}_Kbs'.{Nb'}_Kab')
+end role
+
+role role_B(B:agent,S:agent,Kbs:symmetric_key,SND,RCV:channel(dy))
+played_by B
+def=
+	local
+		State:nat,Na:text,Kab:symmetric_key,Nb:text,A:agent
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(A'.Na') =|> State':=1 /\ Nb':=new() /\ SND(B.Nb'.{A'.Na'}_Kbs)
+		4. State=1 /\ RCV({A.Kab'.Nb}_Kbs.{Nb}_Kab') =|> State':=2 /\ secret(Kab',sec_1,{})
+end role
+
+role role_S(S:agent,A:agent,B:agent,Kas:symmetric_key,Kbs:symmetric_key,SND,RCV:channel(dy))
+played_by S
+def=
+	local
+		State:nat,Kab:symmetric_key,Nb:text,Na:text
+	init
+		State := 0
+	transition
+		2. State=0 /\ RCV(B.Nb'.{A.Na'}_Kbs) =|> State':=1 /\ Kab':=new() /\ secret(Kab',sec_1,{}) /\ SND(Nb'.{B.Kab'.Na'}_Kas.{A.Kab'.Nb'}_Kbs)
+end role
+
+role session1(S:agent,A:agent,B:agent,Kas:symmetric_key,Kbs:symmetric_key)
+def=
+	local
+		SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_S(S,A,B,Kas,Kbs,SND3,RCV3) /\ role_B(B,S,Kbs,SND2,RCV2) /\ role_A(A,B,S,Kas,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		hash_0:function,key1:symmetric_key,alice:agent,server:agent,bob:agent,key2:symmetric_key,sec_1:protocol_id
+	intruder_knowledge = {}
+	composition
+		session1(server,alice,bob,key1,key2)
+end role
+
+goal
+	secrecy_of sec_1
+end goal
+
+environment()

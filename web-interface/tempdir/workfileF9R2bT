@@ -1,0 +1,69 @@
+role tag (B,A : agent, 
+Keygen : hash_func, 
+Tagid,Opreq,Tmp : text, 
+Snd,Rcv : channel (dy)) 
+played_by B def= 
+ 
+ 
+local 
+State : nat, 
+L,L1,L2,L3,L4,L5,L6,L7 : message, 
+Instate: text, 
+Opwr : text, 
+Kold : text, 
+Knew : text 
+ 
+init 
+State:=0 
+ 
+transition 
+ 
+1. State=0 
+^Rcv(xor(Tagid,L')) =|> 
+State':=1 
+^Instate' :=new() 
+^L1':= Keygen(L',Instate') 
+^Snd(L1') 
+ 
+2. State=1 
+^Rcv(xor((Knew'.Tmp),L2')) =|> 
+^State':=2 
+^Instate' :=new() 
+^L3':= Keygen(Knew,Instate') 
+^Snd(L3')  
+3. State=2 
+^Rcv(xor((Opreq.Tmp),L4')) =|> 
+State' :=3 
+^Instate' :=new() 
+^L5':= Keygen(L4',Instate') 
+^Snd(L5') 
+ 
+4. State=3 
+^Rcv(xor((Opwr'.Tmp),L6')) =|> 
+State' :=4 
+^Instate' :=new() 
+^L7':= Keygen(L6',Instate') 
+^Snd(L7') 
+ 
+Environment role 
+role environment() def= local 
+Snd, Rcv: channel(dy) 
+const 
+sec_kn: protocol_id, 
+a, b: agent, 
+keygen: hash_func, 
+tagid,opreq,tmp : text, 
+l,l1,l2,l3,l4,l5,l6,l7: message 
+ 
+intruder_knowledge = {a,b,tagid, 
+opreq,tmp,keygen,l,l1,l2,l3,l4, 
+l5,l6,l7} 
+ 
+composition 
+session(a,b,keygen,tagid,opreq,tmp) 
+ 
+goal 
+secrecy_of sec_kn, sec_opwr 
+end goal 
+
+environment()

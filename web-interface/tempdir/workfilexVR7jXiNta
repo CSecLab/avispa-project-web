@@ -1,0 +1,152 @@
+%%%%% Role of the user Ui %%%%%%%%%%%%%%%%%%%%%
+role user (Ui, Sj: agent,
+           SKuisj: symmetric_key,
+           H : hash_func,
+           SND, RCV: channel(dy))
+played_by Ui 
+def=
+  local State: nat,
+  IDi, RIDi, PWi, RPWi, Bi, K : text,
+  TS1, Ri, P, Xs, IDs, Rran, T : text,
+  F, Gen, Rep : hash_func,
+  C1, W, C2, C3, Rj, TS2, Rran1 : text
+  
+const user_server_ts1, user_server_ri, 
+  sec1: protocol_id
+
+init State := 0
+transition
+% Registration phase
+1. State = 0 /\ RCV(start) =|>
+ State' := 1 /\ K' := new()
+             /\ RIDi' := H(K'.IDi)
+             /\ RPWi' := H(K'.PWi)
+% Send registration request  to server securely
+             /\ SND({RIDi'.RPWi'}_SKuisj)
+             /\ secret({IDi.PWi.K'}, sec1, {Ui})
+% Receive the smart card SCi from server Sj securely
+2. State = 1 /\ RCV({H(H(K'.IDi).Xs.IDs).{H(K'.IDi).Rran'}_Xs.
+                    H.Gen.Rep.T}_SKuisj) =|>
+% Login phase
+ State' := 2 /\ TS1' := new()
+             /\ Ri' := new()
+             /\ C1' := F(Ri'.P)
+             /\ W' := H(H(K'.IDi).Xs.IDs)
+             /\ C2' := xor(Ri', H(H(K'.IDi).W'))
+             /\ C3' := H(H(K'.IDi).Ri'.W'.TS1')
+% Send login message  to Sj via public channel
+             /\ SND(C2'.C3'.{H(K'.IDi).Rran'}_Xs.TS1')
+% Ui has freshly generated the values TS1 and r_i for Sj
+            /\ witness (Ui, Sj, user_server_ts1, TS1')
+            /\ witness (Ui, Sj, user_server_ri, Ri')
+% Authentication and key agreement phase
+% Receive authentication message  
+% from server Sj via a public channel
+3. State = 2 /\ RCV(H(H(K'.IDi).H(F(Rj'.P)).H(H(K'.IDi).
+                    Ri'.Rj'.H(H(K'.IDi).Xs.IDs).TS1'.TS2')
+                    .TS2').xor(Ri',Rj').F(F(Rj'.P).F(Ri'.P)).
+                    {H(K'.IDi).Rran1'}_Xs.TS2') =|> 
+% Ui's acceptance of the value TS2 generated for Ui by Sj 
+State' := 3 /\ request(Sj, Ui, server_user_ts2, TS2')
+% Ui's acceptance of the value rj generated for Ui by Sj 
+            /\ request(Sj, Ui, server_user_rj, Rj')
+end role
+
+
+%%%%% Role of the server Sj %%%%%%%%%%%%%%%%%%%%%
+role server (Ui, Sj: agent,
+           SKuisj: symmetric_key,
+           H : hash_func,
+           SND, RCV: channel(dy))
+played_by Sj 
+def=
+  local State: nat,
+  IDi, IDs, K, T, Xs, Rran, P, PWi : text,
+  F, Gen, Rep : hash_func,
+  Ei, CIDi, CIDi1, TS1, TS2, Ri, Rj, C1: text,
+  D1, E1, SK, G1, Li, Rran1 : text
+   
+const server_user_ts2, server_user_ri,
+      sec1, sec2 : protocol_id
+
+init State := 0
+transition
+% Registration phase
+% Receive registration request  to user securely
+1. State = 0 /\ RCV({H(K'.IDi).H(K'.PWi)}_SKuisj)  =|>
+ State' := 2 /\ secret({IDi.PWi.K'}, sec1, {Ui})
+             /\ Rran' := new()
+             /\ CIDi' := {H(K'.IDi).Rran'}_Xs
+             /\ secret({Xs, Rran', IDs}, sec2, {Sj})
+             /\ Ei' := H(H(K'.IDi).Xs.IDs)
+% Send the smart card SCi to user Ui securely
+            /\ SND({Ei'.CIDi'.H.Gen.Rep.T}_SKuisj)  
+% Login and authentication and key agreement phases
+% Receive login message  from Ui via public channel
+2. State = 2 /\ RCV(xor(Ri', H(H(K'.IDi).H(H(K'.IDi).Xs.IDs))).
+                H(H(K'.IDi).Ri'.H(H(K'.IDi).Xs.IDs).TS1').
+                {H(K'.IDi).Rran'}_Xs.TS1') =|>
+ State' := 4 /\ TS2' := new() 
+             /\ Rj' := new()
+             /\ Rran1' := new()
+             /\ C1' := F(Ri'.P)
+             /\ D1' := F(Rj'.P)
+             /\ E1' := xor(Ri',Rj')
+             /\ SK' := H(H(K'.IDi).Ri'.Rj'.H(H(K'.IDi).Xs.IDs).
+                         TS1'.TS2')
+             /\ G1' := F(F(Rj'.P).F(Ri'.P))
+             /\ Li' := H(H(K'.IDi).H(D1').SK'.TS2')
+             /\ CIDi1' := {H(K'.IDi).Rran1'}_Xs
+% Send authentication message  
+% user Ui via a public channel
+             /\ SND(Li'.E1'.G1'.CIDi1'.TS2') 
+% Sj has freshly generated the value TS2 for Ui
+              /\ witness (Sj, Ui, server_user_ts2, TS2')
+% Sj has freshly generated the value rj for Ui
+              /\ witness (Sj, Ui, server_user_rj, Rj')  
+% Sj's acceptance of the value TS1 generated for Sj by Ui
+             /\ request(Ui, Sj, user_server_ts1, TS1')
+% Sj's acceptance of the value r_i generated for Sj by Ui
+             /\ request(Ui, Sj, user_server_ri, Ri')         
+end role
+
+
+%%%%%%% Role specification for the session %%%%%%%%
+role session(Ui, Sj: agent,
+	     SKuisj : symmetric_key,
+             H : hash_func)
+def=
+  local  US, UR, SS, SR : channel (dy)
+  composition
+           user(Ui, Sj, SKuisj, H, US, UR)
+        /\ server(Ui, Sj, SKuisj, H, SS, SR)
+end role
+
+
+%%%%%%% Role specification for the goal and environment %%%%%%%%
+role environment()
+def=
+  const ui, sj  : agent,
+        skuisj : symmetric_key,
+        h : hash_func, 
+        gen, rep : hash_func,
+        ts1, ts2 : text,
+        user_server_ts1, server_user_ts2, 
+        user_server_ri, server_user_rj, 
+        sec1, sec2 : protocol_id
+intruder_knowledge = {h, gen, rep, ts1, ts2}
+composition
+	session(ui, sj, skuisj, h) 
+     /\ session(i, sj, skuisj, h) 
+     /\ session(ui, i, skuisj, h) 
+end role
+
+goal
+secrecy_of sec1
+secrecy_of sec2
+authentication_on user_server_ts1
+authentication_on user_server_ri
+authentication_on server_user_ts2
+authentication_on server_user_rj
+end goal
+environment()

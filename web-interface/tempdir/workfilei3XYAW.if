@@ -1,0 +1,85 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfilei3XYAW
+
+section signature:
+
+state_sensor: agent * agent * hash_func * public_key * public_key * nat * symmetric_key * text * set(agent) * nat -> fact
+
+
+section types:
+
+sk1, sig: protocol_id
+Msg, dummy_nonce: text
+MsgK, Dummy_MsgK, dummy_sk: symmetric_key
+set_60: set
+h, H: hash_func
+State, 3, 1, 0, Dummy_State, SID, SID2, SID1: nat
+Set_22, Dummy_Set_22, ASGoal: set(agent)
+start, MGoal: message
+s, sp, SP, S, A2Goal, A1Goal, i: agent
+PuS, PuSP, pus, pusp, ki: public_key
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(s).
+ iknows(sp).
+ iknows(pus).
+ iknows(pusp).
+ iknows(i).
+ state_sensor(s,sp,h,pus,pusp,0,dummy_sk,dummy_nonce,set_60,3)
+
+
+section rules:
+
+step step_0 (S,SP,H,PuS,PuSP,Dummy_MsgK,Msg,Set_22,SID,MsgK) :=
+ state_sensor(S,SP,H,PuS,PuSP,0,Dummy_MsgK,Msg,Set_22,SID).
+ iknows(start)
+=[exists MsgK]=>
+ state_sensor(S,SP,H,PuS,PuSP,1,MsgK,Msg,Set_22,SID).
+ iknows(crypt(PuSP,pair(MsgK,crypt(inv(PuS),apply(H,scrypt(MsgK,Msg)))))).
+ witness(S,SP,sig,crypt(inv(PuS),apply(H,scrypt(MsgK,Msg))))
+
+step step_1 (S,SP,H,PuS,PuSP,Dummy_MsgK,Msg,Dummy_Set_22,SID,MsgK) :=
+ state_sensor(S,SP,H,PuS,PuSP,1,Dummy_MsgK,Msg,Dummy_Set_22,SID).
+ iknows(scrypt(MsgK,Msg))
+ =>
+ state_sensor(S,SP,H,PuS,PuSP,3,MsgK,Msg,Dummy_Set_22,SID).
+ contains(SP,Dummy_Set_22).
+ contains(S,Dummy_Set_22)
+
+
+section properties:
+
+property secrecy_of_sk1 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,sk1,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_sig (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,sig,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,sig,MGoal))
+     /\ ((request(A1Goal,A2Goal,sig,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,sig,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_sk1 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,sk1,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_sig (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,sig,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,sig,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_sig (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,sig,MGoal,SID1).
+ request(A1Goal,A2Goal,sig,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

@@ -1,0 +1,429 @@
+role alice (Ui, S : agent,
+SKuis : symmetric_key,
+% H is hash function
+H, Add, Mul : hash_func, Snd, Rcv : channel(dy))
+played_by Ui def=
+local State : nat,
+Username, Charge, Newcharge, Newercharge, Tracingcode, T1i, T2i, T3i, T4i, Ts1, Ts2, Ts3, Ts4, PWi, SKi, N, P, Ks, Q, FCHi, CHi, X, R, Q1i, Q2i, Q3i, Q4i, Q5i, Q6i, O1i, O2i, J1i, J2i, J3i, J4i, L1i, L2i, Cdi, Cd1i, Ci, C1i, G1i, Gi, Ai, A1i, U1i, U2i, Di, D1i, Wi, Si, Ki, Xi, Fi, Yi, Ei, Zi, Zix : text,
+Inc : hash_func
+const alice_bob_si, bob_alice_x, alice_bob_t1i, alice_bob_t2i, alice_bob_t3i, 
+alice_bob_t4i,  bob_alice_ts1, bob_alice_ts2, bob_alice_ts3, bob_alice_ts4,
+subs1, subs2, subs3, subs4, subs5, subs6, subs7: protocol_id
+init State := 0
+transition
+% Registration phase
+% The user chooses Username & Charge 
+1. State = 0 /\ Rcv(start) =|>
+State' := 1 /\ Snd({Username.Charge}_SKuis)
+2. State = 1 /\ Rcv({Fi'.Xi'}_SKuis) =|>
+% Checks Validity of Fi' =  H(Username.Xi'.Charge)
+% Chooses password PWi
+State' := 2 /\ Yi' := xor(Xi', H(Username.PWi))
+% Stores Yi' in the memory of mobile device
+/\ secret({PWi}, subs1, {Ui})
+/\ secret({Xi}, subs2, {Ui,S})
+/\ secret({Username}, subs7, {Ui,S})
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Watching phase
+% The user inputs Username and password PWi
+/\ Xi' := xor(Yi, H(Username.PWi))
+/\ Si' := new()
+/\ Ki' := Mul(Si'.P)
+/\ Zi' := Mul(Si'.Q) 
+/\ T1i' := new()
+/\ C1i' := Username.CHi.T1i'.N.H(Username.CHi.Xi'.N.T1i')
+/\ Ci' := {Username.CHi.T1i'.N.H(Username.CHi.Xi'.N.T1i')}_Zix
+/\ Snd(Ci'.Ki'.T1i')
+/\ secret({Username}, subs7, {Ui,S})
+/\ secret({Xi}, subs2, {Ui,S})
+/\ witness(Ui, S, alice_bob_si, Si')
+/\ witness(Ui, S, alice_bob_t1i, T1i')
+                                        %///////////////////////////////////////////////////////%
+3. State = 2 /\ Rcv(Ai'.R'.Ts1') =|>
+State' := 3 /\ Si' := new()
+/\ SKi' := Mul(Si'.Mul(CHi.R'))
+% DELETE "charge is insufficient" = 2
+% In service provider A1i' := 2.H(Xi.Ts1')
+/\ A1i' := {Ai'}_SKi'
+%Checks H(Xi.Ts1') = H(xor(Yi, H(Username.PWi).Ts1'))
+% Online Payment is done and recieves Tracingcode from the bank
+/\ T2i' := new()
+/\ Cd1i' := Tracingcode.Newcharge.H(Xi.T2i')
+/\ Cdi' := {Tracingcode.Newcharge.H(Xi.T2i')}_SKi'
+/\ Snd(Cdi'.T2i')
+/\ secret({Xi}, subs2, {Ui,S})
+/\ secret({Si}, subs3, {Ui})
+/\ secret({SKi}, subs4, {Ui,S})
+/\ secret({Username}, subs7, {Ui,S})
+/\ witness(Ui, S, alice_bob_t2i, T2i')
+/\ witness(Ui, S, alice_bob_si, Si')
+/\ request(S, Ui, bob_alice_ts1, Ts1')
+
+3. State = 2 /\ Rcv(Di'.Ts1'.R') =|>
+State' := 3 /\ Si' := new()
+/\ SKi' := Mul(Si'.Mul(CHi.R'))
+% DELETE "needed Keys" = 3
+% In service provider D1i' := 3.H(Xi.Ts1')
+/\ D1i' := {Di'}_SKi'
+% Checks H(Xi.Ts1') = H(xor(Yi, H(Username.PWi).Ts1'))
+% use needed keys
+/\ secret({Xi}, subs2, {Ui,S})
+/\ secret({Si}, subs3, {Ui})
+/\ secret({SKi}, subs4, {Ui,S})
+/\ secret({Username}, subs7, {Ui,S})
+/\ witness(Ui, S, alice_bob_si, Si')
+/\ request(S, Ui, bob_alice_ts1, Ts1')
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Renewal phase
+4. State = 3 /\ Rcv(Gi'.Ts2') =|>
+% Delete "Continue/Stop" = 4
+% In service provider G1i' := 4.H(Xi.Ts2')
+State' := 4 /\ G1i' := {Gi'}_SKi
+% Checks H(xor(Yi, H(Username.PWi).Ts2')) = H(Xi.Ts2')
+% Case 1: If the equation holds and the user wants to continue
+/\ T3i' := new()
+% Delete "YES"=5
+/\ U1i' := 5.N.H(Xi.T3i')
+/\ U2i' := {5.N.H(Xi.T3i')}_SKi
+/\ Snd(U2i'.T3i')
+/\ secret({SKi}, subs4, {Ui,S})
+/\ secret({Xi}, subs2, {Ui,S})
+/\ secret({Username}, subs7, {Ui,S})
+/\ witness(Ui, S, alice_bob_t3i, T3i')
+/\ request(S, Ui, bob_alice_ts2, Ts2')
+% Case 3: If the equation does not hold the user rejects the request
+
+4. State = 3 /\ Rcv(Gi'.Ts2') =|>
+% Delete "Continue/Stop" = 4
+% In service provider G1i' := 4.H(Xi.Ts2')
+State' := 4 /\ G1i' := {Gi'}_SKi
+% Checks H(xor(Yi, H(Username.PWi).Ts2')) = H(Xi.Ts2')
+% Case 2: If the equation holds and the user does not want to continue
+/\ T3i' := new()
+% Delete "No" = 6
+/\ L1i' := 6.H(Xi.T3i')
+/\ L2i' := {6.H(Xi.T3i')}_SKi
+/\ Snd(L2i'.T3i')
+/\ secret({SKi}, subs4, {Ui,S})
+/\ secret({Xi}, subs2, {Ui,S})
+/\ secret({Username}, subs7, {Ui,S})
+/\ witness(Ui, S, alice_bob_t3i, T3i')
+/\ request(S, Ui, bob_alice_ts2, Ts2')
+% Case 3: If the equation does not hold the user rejects the request 
+                                 %/////////////////////////////////////////////////////////%
+5. State = 4 /\ Rcv(J2i'.Ts3') =|>
+% Delete "new needed keys" = 7
+% In service provider J1i' := 7.H(Xi.Ts3')
+State ' := 5 /\ J1i' := {J2i'}_SKi
+% Checks H(xor(Yi, H(Username.PWi).Ts3')) = H(Xi.Ts3')
+% After that the user can use new needed keys
+/\ secret({SKi}, subs4, {Ui,S})
+/\ secret({Xi}, subs2, {Ui,S})
+/\ secret({Username}, subs7, {Ui,S})
+/\ request(S, Ui, bob_alice_ts3, Ts3')
+
+5. State = 4 /\ Rcv(J4i'.Ts3') =|>
+% Delete "Not sufficient charge" = 8
+% In service provider J3i' := 8.H(Xi.Ts3')
+State ' := 5 /\ J3i' := {J4i'}_SKi
+% Checks H(xor(Yi, H(Username.PWi).Ts3')) = H(Xi.Ts3')
+% Case 1.2.1: If the user wants to do payment, Online payment is done and recieves the tracing code from the bank
+/\ T4i' := new()
+/\ Q4i' := Tracingcode.Newcharge.H(Xi.T4i')
+/\ Q1i' := {Tracingcode.Newcharge.H(Xi.T4i')}_SKi
+/\ Snd(Q1i'.T4i')
+/\ secret({SKi}, subs4, {Ui,S})
+/\ secret({Xi}, subs2, {Ui,S})
+/\ secret({Username}, subs7, {Ui,S})
+/\ witness(Ui, S, alice_bob_t4i, T4i')
+/\ request(S, Ui, bob_alice_ts3, Ts3')
+
+5. State = 4 /\ Rcv(J4i'.Ts3') =|>
+% Delete "Not sufficient charge" = 8
+% In service provider J3i' := 8.H(Xi.Ts3')
+State ' := 5 /\ J3i' := {J4i'}_SKi
+% Checks H(xor(Yi, H(Username.PWi).Ts3')) = H(Xi.Ts3')
+% Case 1.2.2: If the user does not want to do payment
+/\ T4i':= new()
+% Delete "Does not increase" = 9
+/\ Q5i' := 9.H(Xi.T4i') 
+/\ Q2i' := {9.H(Xi.T4i')}_SKi
+/\ Snd(Q2i'.T4i')
+/\ secret({SKi}, subs4, {Ui,S})
+/\ secret({Xi}, subs2, {Ui,S})
+/\ secret({Username}, subs7, {Ui,S})
+/\ witness(Ui, S, alice_bob_t4i, T4i')
+/\ request(S, Ui, bob_alice_ts3, Ts3')
+
+5. State = 4 /\ Rcv(O2i'.Ts3') =|>
+% Delete "Accept" = 10
+% In service provider O1i' := 10.H(Xi.Ts3')
+State' := 5 /\ O1i' := {O2i'}_SKi
+% Checks H(xor(Yi, H(Username.PWi).Ts3')) = H(Xi.Ts3')
+% If the equation holds, the user knows that the legal service provider recieves his/her message
+/\ secret({SKi}, subs4, {Ui,S})
+/\ secret({Xi}, subs2, {Ui,S})
+/\ secret({Username}, subs7, {Ui,S})
+/\ request(S, Ui, bob_alice_ts3, Ts3')
+                            %////////////////////////////////////////////////////////////%
+6. State = 5 /\ Rcv(Q3i'.Ts4') =|>
+% Delete "Acceptation of does not increase" = 11
+% In service  provider Q6i' := 11.H(Xi.Ts4')
+State' := 6 /\ Q6i' := {Q3i'}_SKi
+% Checks H(xor(Yi, H(Username.PWi).Ts4')) = H(Xi.Ts4')
+% If the equation holds, the user knows that the service provider has recieved his/her message
+/\ secret({SKi}, subs4, {Ui,S})
+/\ secret({Xi}, subs2, {Ui,S})
+/\ secret({Username}, subs7, {Ui,S})
+/\ request(S, Ui, bob_alice_ts4, Ts4')
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role bob (Ui, S : agent,
+SKuis : symmetric_key,
+% H is hash function
+H, Add, Mul : hash_func, Snd, Rcv : channel(dy))
+played_by S def=
+local State : nat,
+Username, Charge, Newcharge, Newercharge, Tracingcode, T1i, T2i, T3i, T4i, Ts1, Ts2, Ts3, Ts4, PWi, SKi, N, P, Ks, Q, FCHi, CHi, X, R, Q1i, Q2i, Q3i, Q4i, Q5i, Q6i, O1i, O2i, J1i, J2i, J3i, J4i, L1i, L2i, Cdi, Cd1i, Ci, C1i, G1i, Gi, Ai, A1i, U1i, U2i, Di, D1i, Wi, Si, Ki, Xi, Fi, Yi, Ei, Zi, Zix : text,
+Inc : hash_func
+const alice_bob_si, bob_alice_x, alice_bob_t1i, alice_bob_t2i, alice_bob_t3i, 
+alice_bob_t4i, bob_alice_ts1, bob_alice_ts2, bob_alice_ts3, bob_alice_ts4,
+subs1, subs2, subs3, subs4, subs5, subs6, subs7: protocol_id
+init State := 0
+transition
+% Registration phase
+% The service provider recieves the registration request message from Ui
+1. State = 0 /\ Rcv({Username.Charge}_SKuis) =|>
+% Checks the Username
+State' := 1 /\ Xi' := H(Ks.Username)
+/\ Fi' := H(Username.Xi'.Charge)
+/\ Wi' := {Charge}_Ks
+% Stores Username and Wi' in DB
+/\ Snd({Fi'.Xi'}_SKuis)
+/\ secret({Ks}, subs6, {S})
+/\ secret({Xi}, subs2, {Ui,S})
+/\ secret({Username}, subs7, {Ui,S})
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Watching phase
+2. State = 1 /\ Rcv(Ci'.Ki'.T1i') =|>
+State' :=  2 /\ Zi' := Mul(Ks.Ki')
+/\ C1i':= {Ci'}_Zix
+/\ Xi' := H(Ks.Username)
+% Checks validity of H(Username.CHi.Xi'.N.T1i')
+% Checks Charge
+% Case 1: If the user's charge is insufficient
+/\ X' := new()
+/\ R' := Mul(X'.P)
+/\ SKi' := Mul(X'.Mul(CHi.Ki'))
+/\ Ts1' := new()
+% Delete "charge is insufficient" = 2
+/\ A1i' := 2.H(Xi'.Ts1')
+/\ Ai' := {A1i'}_SKi'
+/\ Snd(Ai'.R'.Ts1')
+/\ secret({X}, subs5, {S})
+/\ secret({SKi}, subs4, {Ui, S})
+/\ secret({Username}, subs7, {Ui,S})
+/\ witness(S, Ui, bob_alice_x, X')
+/\ witness(S, Ui, bob_alice_ts1, Ts1')
+/\ request(Ui, S, alice_bob_t1i, T1i') 
+
+2. State = 1 /\ Rcv(Ci'.Ki'.T1i') =|>
+State' :=  2 /\ Zi' := Mul(Ks.Ki')
+/\ C1i':= {Ci'}_Zix
+/\ Xi' := H(Ks.Username)
+% Checks validity of H(Username.CHi.Xi'.N.T1i')
+% Checks Charge
+% Case 2: If the user's charge is sufficient
+% Checks flag FCHi
+% if FCHi = 1, terminate the session
+% if FCHi = 0, the service provider sets FCHi = 1 and deducts the fee from the user's account
+/\ FCHi' := 1
+/\ X' := new()
+/\ R' := Mul(X'.P)
+/\ SKi' := Mul(X'.Mul(CHi.Ki'))
+% Generate needed keys according to the tree
+/\ Ts1' := new()
+% Delete "needed Keys" = 3
+/\ D1i' := 3.H(Xi'.Ts1')
+/\ Di' := {D1i'}_SKi'
+/\ Snd(Di'.R'.Ts1')
+/\ secret({X}, subs5, {S})
+/\ secret({SKi}, subs4, {Ui, S})
+/\ secret({Username}, subs7, {Ui,S})
+/\ witness(S, Ui, bob_alice_x, X')
+/\ witness(S, Ui, bob_alice_ts1, Ts1')
+/\ request(Ui, S, alice_bob_t1i, T1i')  
+                                        %//////////////////////////////////////%
+3. State = 2 /\ Rcv(Cdi'.T2i') =|>
+% In user Cd1i ' := Tracingcode.Newcharge.H(Xi.T2i')
+State' := 3 /\ Cd1i' := {Cdi'}_SKi
+% Checks H(Xi.T2i') = H(H(Ks.Username).T2i'))
+% Checks tracing code with the recieved message from the bank
+/\ Charge' := {Wi}_Ks
+/\ Newercharge' := Add(Charge', Newcharge)
+/\ Wi' := {Newercharge'}_Ks
+% Stores Username and Wi' in DB
+/\ secret({Xi}, subs2, {Ui,S})
+/\ secret({SKi}, subs4, {Ui, S})
+/\ secret({Username}, subs7, {Ui,S})
+/\ request(Ui, S, alice_bob_t2i, T2i')
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Renewal phase
+% At the end of the last asked time slot
+/\ Ts2' := new()
+% Delete "Continue/Stop" = 4
+/\ G1i' := 4.H(Xi.Ts2')
+/\ Gi' := {G1i'}_SKi
+/\ Snd(Gi'.Ts2')
+/\ secret({SKi}, subs4, {Ui,S})
+/\ secret({Xi}, subs2, {Ui,S})
+/\ witness(S, Ui, bob_alice_ts2, Ts2')
+                                        %////////////////////////////////////////////////%
+4. State = 3 /\ Rcv(U2i'.T3i') =|>
+% Delete "YES" = 5
+% In user U1i' := 5.N.H(Xi.T3i')
+State' := 4 /\ U1i' := {U2i'}_SKi
+% Checks H(H(Ks.Username).T3i') = H(Xi.T3i')
+% Checks user's account
+% Case 1.1: If the user's charge is sufficient 
+% The service provider determines new needed keys according to the tree
+/\ Ts3' := new()
+% Delete "new needed keys" = 7
+/\ J1i' := 7.H(Xi.Ts3')
+/\ J2i' := {J1i'}_SKi
+/\ Snd(J2i'.Ts3')
+/\ secret({Xi}, subs2, {Ui,S})
+/\ secret({SKi}, subs4, {Ui, S})
+/\ secret({Username}, subs7, {Ui,S})
+/\ request(Ui, S, alice_bob_t3i, T3i')
+/\ witness(S, Ui, bob_alice_ts3, Ts3')
+
+4. State = 3 /\ Rcv(U2i'.T3i') =|>
+% Delete "YES" = 5
+% In user U1i' := 5.N.H(Xi.T3i')
+State' := 4 /\ U1i' := {U2i'}_SKi
+% Checks H(H(Ks.Username).T3i') = H(Xi.T3i')
+% Checks user's account
+% Case 1.2: If the user's charge is insufficient
+/\ Ts3' := new()
+% Delete "Not sufficient charge" = 8
+/\ J3i' := 8.H(Xi.Ts3')
+/\ J4i' := {J3i'}_SKi
+/\ Snd(J4i'.Ts3')
+/\ secret({Xi}, subs2, {Ui,S})
+/\ secret({SKi}, subs4, {Ui, S})
+/\ secret({Username}, subs7, {Ui,S})
+/\ request(Ui, S, alice_bob_t3i, T3i')
+/\ witness(S, Ui, bob_alice_ts3, Ts3') 
+                                           
+4. State = 3 /\ Rcv(L2i'.T3i') =|>
+% Delete "NO" = 6
+% In user L1i' := 6.H(Xi.T3i')
+State' := 4 /\ L1i' := {L2i'}_SKi
+% Checks H(H(Ks.Username).T3i') = H(Xi.T3i')
+/\ Ts3' := new()
+% DELETE "Accept" = 10
+/\ O1i' := 10.H(Xi.Ts3')		
+/\ O2i' := {O1i'}_SKi
+/\ Snd(O2i'.Ts3')
+% After ending the current time slot sets the flag FCHi = 0
+/\ FCHi' := 0
+/\ secret({Xi}, subs2, {Ui,S})
+/\ secret({SKi}, subs4, {Ui, S})
+/\ secret({Username}, subs7, {Ui,S})
+/\ request(Ui, S, alice_bob_t3i, T3i')
+/\ witness(S, Ui, bob_alice_ts3, Ts3')     
+                                       %//////////////////////////////////////////////%
+5. State = 4 /\ Rcv(Q1i'.T4i') =|>
+% In user Q4i' := Tracingcode.Newcharge.H(Xi.T4i')
+State' := 5 /\ Q4i' := {Q1i'}_SKi
+% Checks H(H(Ks.Username).T4i') = H(Xi.T4i')
+% Checks tracing code with the recieved message from the bank
+/\ Charge' := {Wi}_Ks
+/\ Newercharge' := Add(Charge', Newcharge)
+/\ Wi' := {Newercharge'}_Ks
+% stores Username and Wi' in DB
+/\ secret({SKi}, subs4, {Ui,S})
+/\ secret({Xi}, subs2, {Ui,S})
+/\ secret({Username}, subs7, {Ui,S})
+/\ request(Ui, S, alice_bob_t4i, T4i')
+
+5. State = 4 /\ Rcv(Q2i'.T4i') =|>
+% Delete "Does not increase" = 9
+% In user Q5i' := 9.H(Xi.T4i')
+State' := 5 /\ Q5i' := {Q2i'}_SKi
+% Checks H(H(Ks.Username).T4i') = H(Xi.T4i')
+/\ Ts4' := new()
+% Delete "Acceptation of does not increase" = 11
+/\ Q6i' := 11.H(Xi.Ts4')
+/\ Q3i' := {Q6i'}_SKi
+/\ Snd(Q3i'.Ts4')
+% After ending the current time slot sets the flag FCHi = 0
+/\ FCHi' := 0
+/\ secret({SKi}, subs4, {Ui,S})
+/\ secret({Xi}, subs2, {Ui,S})
+/\ secret({Username}, subs7, {Ui,S})
+/\ witness(S, Ui, bob_alice_ts4, Ts4')
+/\ request(Ui, S, alice_bob_t4i, T4i')
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session (Ui, S :agent,
+SKuis : symmetric_key,
+% H is hash function
+H, Add, Mul : hash_func)
+def=
+local SI, SJ, RI, RJ : channel(dy)            
+composition
+alice(Ui, S, SKuis, H, Add, Mul, SI, RI)
+/\ bob(Ui, S, SKuis, H, Add, Mul, SJ, RJ)
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment()
+def=
+const ui, s: agent,
+skuis : symmetric_key,
+h, add, mul : hash_func,
+username, t1i, t2i, t3i, t4i, pwi, ski, ts1, ts2, ts3, ts4 , ks, si, chi, n, x, p, q, ci, ki, di, r, ai, cdi, gi, u2i, l2i, j2i, j4i, o2i, q1i, q2i, q3i: text,
+alice_bob_si, bob_alice_x, alice_bob_t1i, alice_bob_t2i, alice_bob_t3i, 
+alice_bob_t4i, bob_alice_ts1, bob_alice_ts2, bob_alice_ts3, bob_alice_ts4,
+subs1, subs2, subs3, subs4, subs5, subs6, subs7: protocol_id
+intruder_Knowledge = {q, ci,ki, t1i, di, ts1, r, ai, cdi, t2i, gi, ts2, u2i, t3i, l2i, j2i. j4i, o2i, ts3, q1i, q2i, t4i, q3i, ts4, h, add, mul}
+composition
+session(ui, s, skuis, h, add, mul)
+/\
+session(ui, s, skuis, h, add, mul)
+end role
+goal
+secrecy_of subs1
+secrecy_of subs2
+secrecy_of subs3
+secrecy_of subs4
+secrecy_of subs5
+secrecy_of subs6
+secrecy_of subs7
+authentication_on alice_bob_si
+authentication_on bob_alice_x
+authentication_on alice_bob_t1i
+authentication_on alice_bob_t2i
+authentication_on alice_bob_t3i
+authentication_on alice_bob_t4i
+authentication_on bob_alice_ts1
+authentication_on bob_alice_ts2
+authentication_on bob_alice_ts3
+authentication_on bob_alice_ts4
+end goal
+environment()

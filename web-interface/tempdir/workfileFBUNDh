@@ -1,0 +1,69 @@
+role role_R(R:agent,E:agent,N:agent,M:agent,Krn:symmetric_key,Krm:symmetric_key,Kre:symmetric_key,SND,RCV:channel(dy))
+played_by R
+def=
+	local
+		State:nat,Ts:text,S:text,Te:text,T:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV({R.S'.Ts'.Te'}_Kre) =|> State':=1
+		6. State=1 /\ RCV({M.T'}_Krm) =|> State':=2
+end role
+
+role role_E(R:agent,E:agent,N:agent,M:agent,Kre:symmetric_key,SND,RCV:channel(dy))
+played_by E
+def=
+	local
+		State:nat,Te:text,S:text,Ts:text,Krm:symmetric_key,T:text
+	init
+		State := 0
+	transition
+		1. State=0 /\ RCV(start) =|> State':=1 /\ Te':=new() /\ Ts':=new() /\ S':=new() /\ SND({R.S'.Ts'.Te'}_Kre) /\ SND(R.S'.Ts'.Te')
+		5. State=1 /\ RCV({M.T'}_Krm') =|> State':=2 /\ SND({M.T'}_Krm')
+end role
+
+role role_N(R:agent,E:agent,N:agent,M:agent,Krm:symmetric_key,SND,RCV:channel(dy))
+played_by N
+def=
+	local
+		State:nat,Te:text,S:text,Ts:text,T:text
+	init
+		State := 0
+	transition
+		2. State=0 /\ RCV(R.S'.Ts'.Te') =|> State':=1 /\ SND(R.S'.Ts'.Te')
+		4. State=1 /\ RCV({M.T'}_Krm) =|> State':=2 /\ SND({M.T'}_Krm)
+end role
+
+role role_M(R:agent,E:agent,N:agent,M:agent,Krn:symmetric_key,SND,RCV:channel(dy))
+played_by M
+def=
+	local
+		State:nat,Te:text,S:text,Ts:text,Krm:symmetric_key,T:text
+	init
+		State := 0
+	transition
+		3. State=0 /\ RCV(R.S'.Ts'.Te') =|> State':=1 /\ Krm':=new() /\ T':=new() /\ SND({M.T'}_Krm')
+end role
+
+role session1(Krm:symmetric_key,Kre:symmetric_key,R:agent,E:agent,N:agent,M:agent,Krn:symmetric_key)
+def=
+	local
+		SND4,RCV4,SND3,RCV3,SND2,RCV2,SND1,RCV1:channel(dy)
+	composition
+		role_M(R,E,N,M,Krn,SND4,RCV4) /\ role_N(R,E,N,M,Krm,SND3,RCV3) /\ role_E(R,E,N,M,Kre,SND2,RCV2) /\ role_R(R,E,N,M,Krn,Krm,Kre,SND1,RCV1)
+end role
+
+role environment()
+def=
+	const
+		hash_0:function,n:agent,r:agent,const_1:symmetric_key,e:agent,m:agent,const_1:symmetric_key,auth_1:protocol_id
+	intruder_knowledge = {}
+	composition
+		session1(const_1,const_1,r,e,n,m,const_1)
+end role
+
+goal
+	authentication_on auth_1
+end goal
+
+environment()

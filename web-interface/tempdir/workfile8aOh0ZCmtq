@@ -1,0 +1,208 @@
+%%%%enddevice%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role host(E,L,B,S,K:agent,
+               Prefix,
+			   IDe,IDr,IDbr,IDs:text,
+			   Kpube,Kpubr,Kpubbr,Kpubs: public_key,
+			   H: hash_func,
+			   G,Ne,Se: message,
+			   Ksymesk:symmetric_key,
+			   SND,RCV: channel(dy))
+played_by E def=
+
+	local State: nat,
+	      Tick_se: {text.{text.text}_hash_func.public_key.text.text}_inv(public_key),
+		  IPV6:{text.text}_hash_func,
+		  Te,Ts,Tend,Sno:text,
+	      Gs,Kes :message 
+		  
+		  
+    init State := 0
+	transition
+	1. State = 0 /\ RCV(E.K.{IDe}_Ksymesk.Gs') =|>
+	   State':=1 /\ Te':= new()
+	             /\ Sno':= new()
+				 /\ Kes':= H(exp(Gs',Se).Ne)
+	             /\ SND(E.L.{IDe.IDr.Te'.{Sno'}_Kes'}_inv(Kpube))
+				 /\ IPV6':= H(Prefix.IDe)
+				 /\ secret(Ne,sne,{E,S})
+				 /\ secret(Se,sse,{E,S})
+				 /\ secret(Kes',kes,{E,S})
+	2. State = 1 /\ RCV(L.E.{IDe.IPV6.Kpube.Ts'.Tend'}_inv(Kpubs).H({IDe.IPV6.Kpube.Ts'.Tend'}_inv(Kpubs).Sno)) =|>
+	   State':=2 /\ Tick_se':={IDe.IPV6.Kpube.Ts'.Tend'}_inv(Kpubs)
+end role
+
+%%%%router%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role router(E,L,B,S:agent,
+             Prefix,
+			 IDr,IDbr,IDs:text,
+             Kpube,Kpubr,Kpubbr,Kpubs: public_key,
+			 H: hash_func,
+			 SND,RCV: channel(dy))
+played_by L def=
+
+	local State: nat,
+	      Te,Ts,Tend, Sno,            %nonce
+		  IDe: text,  %ID
+		  IPV6:{text.text}_hash_func,
+		  Edmessage: {text}_message,
+		  %Maced: {text.text.public_key.public_key.text.message.message.text}_hash_func,
+		  Macsr: {{text.{text.text}_hash_func.public_key.text.text}_inv(public_key).text}_hash_func
+
+    init State := 0
+	transition
+	1. State = 0 /\ RCV(E.L.{IDe'.IDr.Te'.Edmessage'}_inv(Kpube)) =|>
+	   State':=1 /\ SND(L.B.{IDe'.IDr.Te'.Edmessage'}_inv(Kpube))
+                 /\ IPV6':= H(Prefix.IDe')   
+	2. State = 1 /\ RCV(B.L.{IDe.IPV6.Kpube.Ts'.Tend'}_inv(Kpubs).Macsr') =|>
+	   State':=2 /\ SND(L.E.{IDe.IPV6.Kpube.Ts'.Tend'}_inv(Kpubs).Macsr')
+  
+end role
+
+%%%%edge router%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role edgerouter(E,L,B,S:agent,
+             Prefix,
+			 IDr,IDbr,IDs:text,
+             Kpube,Kpubr,Kpubbr,Kpubs: public_key,
+			 H: hash_func,
+			 SND,RCV: channel(dy))
+played_by B def=
+
+	local State: nat,
+	      Te,Tb,Ts,Tend,Sno,             %nonce
+          IDe: text,
+		  IPV6:{text.text}_hash_func,
+		  Esmessage: {text}_message,
+		  %Maces: {text.text.public_key.public_key.text.message.message.text}_hash_func,
+		  Macse: {{text.{text.text}_hash_func.public_key.text.text}_inv(public_key).text}_hash_func
+    init State := 0
+
+	transition
+	1. State = 0 /\ RCV(L.B.{IDe'.IDr.Te'.Esmessage'}_inv(Kpube)) =|>
+	   State':=3 /\ Tb':= new()
+	             /\ SND(B.S.{IDe'.IDr.Te'.Esmessage'}_inv(Kpube).{Tb'.H(IDe'.IDr.IDbr.Kpube.Kpubr.Kpubbr.Tb')}_inv(Kpubbr))
+				 /\ IPV6':= H(Prefix.IDe')
+	2. State = 3 /\ RCV(S.B.{IDe.IPV6.Kpube.Ts'.Tend'}_inv(Kpubs).Macse') =|>
+	   State':=4 /\ SND(B.L.{IDe.IPV6.Kpube.Ts'.Tend'}_inv(Kpubs).Macse')
+		                  
+end role
+
+%%%%server%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role server(E,L,B,S,K:agent,
+            Prefix,
+			IDr,IDbr,IDs:text,
+            Kpube,Kpubr,Kpubbr,Kpubs: public_key,
+			H: hash_func,
+			G,Ne,Ss: message,
+			IdList: (text.public_key) set,
+			Ksymesk:symmetric_key,
+			SND,RCV: channel(dy))
+played_by S def=
+
+	local State: nat,
+	      Ge,Kes:message,
+	      Te,Tb,Ts,Tend,Sno,
+		  IDe:text,
+	      IPV6:{text.text}_hash_func
+		  
+		  
+    init  State := 0
+		  
+	transition
+	1. State = 0 /\ RCV(S.K.{IDs}_Ksymesk.Ge')=|>
+	   State':=1 /\ Kes':= H(exp(Ge',Ss).Ne)
+	             /\ SND(K.S.{Kes'}_Ksymesk)
+				 
+    2. State = 1 /\ RCV(B.S.{IDe'.IDr.Te'.{Sno'}_Kes}_inv(Kpube).{Tb'.H(IDe'.IDr.IDbr.Kpube.Kpubr.Kpubbr.Tb')}_inv(Kpubbr))
+	             %/\in(IDbr.Kpubbr,IdList)
+	             /\in(IDe'.Kpube,IdList)
+	             /\in(IDr.Kpubr,IdList)
+	             =|>
+	   State':=2 /\ Ts':= new()  
+	             /\ Tend':= new() 
+				 /\ IPV6':= H(Prefix.IDe')
+	             /\ SND(S.B.{IDe'.IPV6'.Kpube.Ts'.Tend'}_inv(Kpubs).H({IDe'.IPV6'.Kpube.Ts'.Tend'}_inv(Kpubs).Sno'))
+				 /\ secret(Ss,sss,{E,S})
+                 				 
+end role
+
+%%%%KGC%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role kgc(E,L,B,S,K:agent,
+         IDe,IDs:text,
+		 G,Ss,Se: message,
+		 Ksymesk:symmetric_key,
+		 SND,RCV: channel(dy))
+played_by K def=
+	local State: nat,
+          Kes:message	
+	init  State := 0
+	
+	transition
+	1. State = 0 /\ RCV(start)	=|>
+	   State':=1 /\ SND(S.K.{IDs}_Ksymesk.exp(G,Se))
+	2. State = 1 /\ RCV(K.S.{Kes'}_Ksymesk) =|>
+	   State':=2 /\ SND(E.K.{IDe}_Ksymesk.exp(G,Ss))
+	
+end role
+
+%%%%session%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(E,L,B,S,K:agent,
+             Prefix,
+			 IDe,IDr,IDbr,IDs:text,
+			 Kpube,Kpubr,Kpubbr,Kpubs: public_key,
+			 H: hash_func,
+			 G,Ne,Ss,Se: message,
+			 IdList: (text.public_key) set,
+			 Ksymesk:symmetric_key,
+			 SND,RCV: channel(dy))
+def=
+	
+	composition
+	   host(E,L,B,S,K,Prefix,IDe,IDr,IDbr,IDs,Kpube,Kpubr,Kpubbr,Kpubs,H,G,Ne,Se,Ksymesk,SND,RCV)
+	/\ router(E,L,B,S,Prefix,IDr,IDbr,IDs,Kpube,Kpubr,Kpubbr,Kpubs,H,SND,RCV)
+	/\ edgerouter(E,L,B,S,Prefix,IDr,IDbr,IDs,Kpube,Kpubr,Kpubbr,Kpubs,H,SND,RCV)
+	/\ server(E,L,B,S,K,Prefix,IDr,IDbr,IDs,Kpube,Kpubr,Kpubbr,Kpubs,H,G,Ne,Ss,IdList,Ksymesk,SND,RCV)
+	
+end role
+
+
+
+%%%%environment%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+    
+    local IdpubList: (text.public_key) set
+	      %Gs,Ge,Gi:message
+    const 
+	    sne,sss,sse,kes:protocol_id,
+	    e,l,b,s,k,i:agent,
+		prefix,
+		ide,idr,idbr,ids,idi:text,
+		kpube,kpubr,kpubbr,kpubs,kpubi: public_key,
+		h:hash_func,
+		g,ne,se,ss,si:message,
+		ksymesk:symmetric_key,
+        snd,rcv:channel(dy)
+    
+    init IdpubList:= {ide.kpube,idr.kpubr,idbr.kpubbr,ids.kpubs}
+
+	intruder_knowledge={e,l,b,s,i,prefix,ide,idr,idbr,ids,idi,kpube,kpubr,kpubbr,kpubs,kpubi,inv(kpubi),h,g,si}
+	
+	composition		
+		    kgc(e,l,b,s,k,ide,ids,g,ss,se,ksymesk,snd,rcv)
+		 /\ session(e,l,b,s,k,prefix,ide,idr,idbr,ids,kpube,kpubr,kpubbr,kpubs,h,g,ne,ss,se,IdpubList,ksymesk,snd,rcv)
+		/\ session(i,l,b,s,k,prefix,idi,idr,idbr,ids,kpubi,kpubr,kpubbr,kpubs,h,g,ne,ss,si,IdpubList,ksymesk,snd,rcv)	
+		/\ session(e,i,b,s,k,prefix,ide,idi,idbr,ids,kpube,kpubi,kpubbr,kpubs,h,g,ne,ss,se,IdpubList,ksymesk,snd,rcv)	
+		/\ session(e,l,i,s,k,prefix,ide,idr,idi,ids,kpube,kpubr,kpubi,kpubs,h,g,ne,ss,se,IdpubList,ksymesk,snd,rcv)
+        %/\ session(e,l,b,i,k,prefix,ide,idr,idbr,idi,kpube,kpubr,kpubbr,kpubi,h,g,ne,si,se,IdpubList,ksymesk,snd,rcv)
+end role
+		
+%%%%goal%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%				 
+goal
+  secrecy_of sne
+  secrecy_of sse
+  secrecy_of sss
+  secrecy_of kes
+end goal
+
+%%%%initial%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()

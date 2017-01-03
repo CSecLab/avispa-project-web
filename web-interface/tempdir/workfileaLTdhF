@@ -1,0 +1,90 @@
+role alice (Alice,Issuer: agent,             
+            Ki: public_key,
+            Kai : symmetric_key,  
+            SND, RCV: channel (dy)) 
+played_by Alice def=
+
+  local State : nat, 
+        Q,A: text
+  const sec_k1 : protocol_id ,
+       sec_k2 : protocol_id 
+  init State := 0
+
+  transition  
+   
+    0.  State  = 0 /\ RCV(start) =|> 
+	State':= 2 /\ Q' := new() /\ SND({Q'.Kai}_Ki)
+		   /\ secret(Q',sec_k1,{Alice,Issuer}) 
+		   /\ secret(Kai,sec_k2,{Alice,Issuer})
+		   
+	1.  State  = 2 /\ RCV({A'}_Kai) =|> 
+	State':= 3 /\ secret(A',sec_k1,{Alice,Issuer}) 
+
+
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role issuer (Alice, Issuer: agent,             
+            Ki: public_key, 
+            Kai : symmetric_key, 			
+            SND, RCV: channel (dy)) 
+played_by Issuer def=
+
+  local State : nat, 
+        Q,X,A: text
+  const sec_k3 : protocol_id
+  init State := 1
+
+  transition 
+	 
+    1.  State  = 1 /\ RCV({Q'.Kai}_Ki) =|> 
+	State':= 3 /\ A' := new() /\ SND({A'}_Kai)
+		   /\ secret(A',sec_k3,{Alice,Issuer}) 
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role session(Alice, Issuer: agent, Ki: public_key, Kai : symmetric_key) def=
+
+  local SA, RA, SI ,RI: channel (dy)
+
+  composition 
+
+	alice(Alice,Issuer,Ki,Kai,SA,RA)
+	 /\ issuer  (Alice, Issuer,Ki,Kai,SI,RI)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+role environment() def=
+
+    const alice, receiver, issuer, i     : agent,
+	  ki   : public_key,
+	  kai  : symmetric_key
+
+    intruder_knowledge = {alice, issuer, ki}
+
+    composition
+
+	session(alice, issuer,ki,kai)
+     /\ session(alice, i,ki,kai)
+	 /\ session(i, issuer,ki,kai)
+
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+
+  secrecy_of sec_k1, sec_k2, sec_k3
+
+
+end goal
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+environment()

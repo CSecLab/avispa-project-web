@@ -1,0 +1,95 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfile08nxDu
+
+section signature:
+
+state_paypal: agent * agent * agent * text * text * text * nat * nat * set(agent) * nat -> fact
+state_merchant: agent * agent * agent * text * text * text * text * text * text * text * nat * nat * nat -> fact
+
+
+section types:
+
+token: protocol_id
+set_97, set_94, set_89: set
+MGoal, start: message
+Paypalconnect, Confirm, PayerID, Dummy_Success, Start, Dummy_UpdateOrderStatus, SignedTrID, Dummy_PayerID, Dummy_SignedTrID, UpdateOrderStatus, Success, Dummy_Paypalconnect, Checkout, Dummy_Checkout, dummy_nonce: text
+Dummy_Set_55, Set_55: set(agent)
+M, C, P, A2Goal, A1Goal, p, c, m, i: agent
+13, 12, 9, 8, 5, SID, Token, State, Dummy_Token, Dummy_State, 4, dummy_nat, SID2, SID1, 3, 2, 1, 0: nat
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(p).
+ iknows(c).
+ iknows(m).
+ iknows(i).
+ state_merchant(m,i,p,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nat,0,4).
+ state_paypal(p,m,i,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nat,0,set_89,5).
+ state_merchant(m,i,p,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nat,0,8).
+ state_paypal(p,m,i,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nat,0,set_94,9).
+ state_merchant(m,i,p,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nat,0,12).
+ state_paypal(p,m,i,dummy_nonce,dummy_nonce,dummy_nonce,dummy_nat,0,set_97,13)
+
+
+section rules:
+
+step step_0 (M,C,P,Start,SignedTrID,PayerID,UpdateOrderStatus,Success,Dummy_Checkout,Dummy_Paypalconnect,Token,SID,Checkout,Paypalconnect) :=
+ state_merchant(M,C,P,Start,SignedTrID,PayerID,UpdateOrderStatus,Success,Dummy_Checkout,Dummy_Paypalconnect,Token,0,SID).
+ iknows(Checkout)
+=[exists Paypalconnect]=>
+ state_merchant(M,C,P,Start,SignedTrID,PayerID,UpdateOrderStatus,Success,Checkout,Paypalconnect,Token,1,SID).
+ iknows(Paypalconnect)
+
+step step_1 (M,C,P,Start,Dummy_SignedTrID,Dummy_PayerID,Dummy_UpdateOrderStatus,Success,Checkout,Paypalconnect,Dummy_Token,SID,SignedTrID,PayerID,UpdateOrderStatus,Token) :=
+ state_merchant(M,C,P,Start,Dummy_SignedTrID,Dummy_PayerID,Dummy_UpdateOrderStatus,Success,Checkout,Paypalconnect,Dummy_Token,1,SID).
+ iknows(UpdateOrderStatus).
+ iknows(pair(Token,PayerID))
+=[exists SignedTrID]=>
+ state_merchant(M,C,P,Start,SignedTrID,PayerID,UpdateOrderStatus,Success,Checkout,Paypalconnect,Token,2,SID).
+ iknows(SignedTrID).
+ request(M,P,token,Token,SID)
+
+step step_2 (M,C,P,Start,SignedTrID,PayerID,UpdateOrderStatus,Dummy_Success,Checkout,Paypalconnect,Token,SID,Success) :=
+ state_merchant(M,C,P,Start,SignedTrID,PayerID,UpdateOrderStatus,Dummy_Success,Checkout,Paypalconnect,Token,2,SID).
+ iknows(SignedTrID)
+=[exists Success]=>
+ state_merchant(M,C,P,Start,SignedTrID,PayerID,UpdateOrderStatus,Success,Checkout,Paypalconnect,Token,3,SID).
+ iknows(Success)
+
+step step_3 (P,M,C,Dummy_Paypalconnect,Confirm,Dummy_PayerID,Dummy_Token,Dummy_Set_55,SID,Paypalconnect,PayerID,Token) :=
+ state_paypal(P,M,C,Dummy_Paypalconnect,Confirm,Dummy_PayerID,Dummy_Token,0,Dummy_Set_55,SID).
+ iknows(Paypalconnect)
+=[exists PayerID,Token]=>
+ state_paypal(P,M,C,Paypalconnect,Confirm,PayerID,Token,0,Dummy_Set_55,SID).
+ iknows(pair(Token,PayerID)).
+ witness(P,M,token,tokenValue).
+ contains(M,Dummy_Set_55).
+ contains(P,Dummy_Set_55)
+
+
+section properties:
+
+property authentication_on_token (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,token,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,token,MGoal))
+     /\ ((request(A1Goal,A2Goal,token,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,token,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state authentication_on_token (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,token,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,token,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_token (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,token,MGoal,SID1).
+ request(A1Goal,A2Goal,token,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

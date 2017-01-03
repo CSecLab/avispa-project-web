@@ -1,0 +1,67 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileB41m36
+
+section signature:
+
+state_resp: agent * agent * public_key * nat * text * nat -> fact
+state_orig: agent * agent * public_key * nat * text * set(agent) * nat -> fact
+
+
+section types:
+
+set_48, set_46, set_37: set
+Dummy_Set_16, ASGoal, Set_16: set(agent)
+MGoal, start: message
+msg: protocol_id
+Dummy_M, dummy_nonce, M: text
+10, 6, 4, SID, Dummy_S, 3, S, 1, 0: nat
+ki, ka, Ka: public_key
+o, r, O, R, i: agent
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(start).
+ iknows(o).
+ iknows(r).
+ iknows(ki).
+ iknows(i).
+ state_orig(o,r,ka,0,dummy_nonce,set_37,3).
+ state_resp(r,o,ka,0,dummy_nonce,4).
+ state_orig(o,i,ka,0,dummy_nonce,set_46,6).
+ state_resp(r,i,ka,0,dummy_nonce,10)
+
+
+section rules:
+
+step step_0 (O,R,Ka,Dummy_M,Dummy_Set_16,SID,M) :=
+ state_orig(O,R,Ka,0,Dummy_M,Dummy_Set_16,SID).
+ iknows(start)
+=[exists M]=>
+ state_orig(O,R,Ka,1,M,Dummy_Set_16,SID).
+ iknows(crypt(Ka,M)).
+ secret(M,msg,Dummy_Set_16).
+ contains(O,Dummy_Set_16).
+ contains(R,Dummy_Set_16)
+
+step step_1 (R,O,Ka,Dummy_M,SID,M) :=
+ state_resp(R,O,Ka,0,Dummy_M,SID).
+ iknows(crypt(Ka,M))
+ =>
+ state_resp(R,O,Ka,0,M,SID)
+
+
+section properties:
+
+property secrecy_of_msg (MGoal,ASGoal) :=
+ [] ((secret(MGoal,msg,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+
+section attack_states:
+
+attack_state secrecy_of_msg (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,msg,ASGoal) &
+ not(contains(i,ASGoal))
+

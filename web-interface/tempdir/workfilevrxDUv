@@ -1,0 +1,172 @@
+%%% Protocol: A secure and effective smart card-based biometric authentication
+%%% scheme for wireless sensor networks using hash function and fuzzy extractor
+%%% Author: Ashok Kumar Das
+
+%%%%%%% Role specification for the user U_i %%%%%%%%
+
+role alice (Ui, GWN, SNj : agent,                                                         
+            H : hash_func,
+            SKuigwn : symmetric_key,
+            Snd, Rcv: channel(dy))
+played_by Ui
+def=     
+  local State  : nat,
+     IDi, IDsnj, K, PWi, Bi, T1, T2, T3: text,
+     Xs, EKi, Kj, Request, R : text,
+     Gen, Rep : hash_func
+  const alice_server_t1, server_bob_t2,
+        bob_alice_t3, sub1, sub2, sub3, sub4 : protocol_id
+init  State := 0
+transition
+1. State   = 0 /\ Rcv(start) =|>
+% Registration phase
+State' := 1    /\ K' := new()
+               /\ secret({PWi,Bi,K'},sub1,Ui)
+               /\ secret(EKi,sub2,{Ui,GWN})
+               /\ RPWi' := H(IDi.PWi.K')
+% Ui sends login message to GWN securely
+               /\ Snd({IDi.RPWi'.EKi}_SKuigwn)
+% Ui receives the smart card from GWN securely
+2. State = 1 /\ Rcv({H.Gen.Rep.H(xor(IDi,H(Xs)))}_SKuigwn) =|>             
+% Login phase
+State' := 2  /\ secret(Xs,sub3,GWN)
+% Ui sends the login message to the GWN
+             /\ Snd(IDi.Request)
+% Authentication and key agreement phase
+% Ui receives the message  from GWN
+3. State = 2   /\ Rcv(R')  =|> 
+   State' := 3 /\ T1' := new()
+% Ui sends the message  to GWN
+             /\ Snd({R'.T1'.IDsnj}_EKi)               
+% Ui has freshly generated the value T1 for GWN
+             /\ witness(Ui,GWN,alice_server_t1, T1')
+% Ui receives the message from sensor node SNj 
+2. State = 3  /\ Rcv(IDi.H(H(H(IDsnj.H(xor(IDi,H(Xs)))).
+                 IDi.IDsnj.T1'.T3').T3')) =|> 
+% Ui's acceptance of the value T3 generated for Ui by SNj
+State' := 4 /\ request(SNj, Ui, bob_alice_t3, T3')         
+end role
+
+
+%%%%%%% Role specification for the GWN %%%%%%%%
+
+role server (Ui, GWN, SNj : agent,                                                         
+            H : hash_func,
+            SKuigwn : symmetric_key,
+            Snd, Rcv: channel(dy))
+played_by GWN
+def=     
+  local State  : nat,
+     IDi, IDsnj, K, PWi, Bi, T1, T2, T3: text,
+     Xs, EKi, Kj, Request, R : text,
+     Gen, Rep : hash_func
+  const alice_server_t1, server_bob_t2,
+        bob_alice_t3, sub1, sub2, sub3, sub4 : protocol_id
+init  State := 0
+transition
+% Registration phase
+% GWN receives login message from UI securely
+1. State = 0 /\ Rcv({IDi.H(IDi.PWi.K').EKi}_SKuigwn) =|> 
+   State' := 1 /\ secret({PWi,Bi,K'},sub1,Ui)
+% GWN sends the smart card to Ui securely               
+              /\ Snd({H.Gen.Rep.H(xor(IDi,H(Xs)))}_SKuigwn)               
+% Login phase: receive the login request message from Ui
+2. State = 1 /\ Rcv(IDi.Request) =|>  
+State' := 2 /\ R' := new( )
+            /\ secret(EKi,sub2,{Ui,GWN})
+            /\ secret(Xs,sub3,GWN)
+            /\ secret(Kj,sub4,{GWN,SNj})
+% Authentication and key agreement phase
+% GWN sends the message to Ui
+            /\ Snd(R')
+% GWN receives the message from Ui
+3. State = 2 /\ Rcv({R'.T1'.IDsnj}_EKi) =|> 
+ State' := 3 /\ T2' := new()
+% GWN sends the message to SNj
+             /\ Snd(IDi.{IDi.IDsnj.T1'.T2'.
+             H(IDsnj.H(xor(IDi,H(Xs))))}_Kj)
+% GWN has freshly generated the value T2 for SNj
+            /\ witness(GWN,SNj,server_bob_t2, T2')
+% GWN's acceptance of the value T1 generated for GWN by Ui
+            /\ request(Ui, GWN, alice_server_t1, T1')
+end role
+
+%%%%%%% Role specification for SNj %%%%%%%%
+
+role bob (Ui, GWN, SNj : agent,                                                         
+          H : hash_func,
+          SKuigwn : symmetric_key,
+          Snd, Rcv: channel(dy))
+played_by SNj
+def=     
+  local State  : nat,
+     IDi, IDsnj, K, PWi, Bi, T1, T2, T3: text,
+     Xs, EKi, Kj, Request, R : text,
+     Gen, Rep : hash_func
+  const alice_server_t1, server_bob_t2,
+        bob_alice_t3, sub1, sub2, sub3, sub4 : protocol_id
+init  State := 0
+transition
+% Authentication and key agreement phase
+% Receive the message from the GWN
+1. State = 0 /\ Rcv(IDi.{IDi.IDsnj.T1'.T2'.
+             H(IDsnj.H(xor(IDi,H(Xs))))}_Kj) =|> 
+State' := 1 /\ T3' := new()
+            /\ secret({PWi,Bi,K},sub1,Ui)
+            /\ secret(EKi,sub2,{Ui,GWN})
+            /\ secret(Xs,sub3,GWN)
+            /\ secret(Kj,sub4,{GWN,SNj})
+% Send the message to Ui
+            /\ Snd(IDi.H(H(H(IDsnj.H(xor(IDi,H(Xs)))).
+                 IDi.IDsnj.T1'.T3').T3'))
+% SNj has freshly generated the value T3 for SNj
+            /\ witness(SNj,Ui,bob_alice_t3, T3')
+% SNj's acceptance of the value T2 generated for SNj by GWN
+            /\ request(GWN, SNj, server_bob_t2, T2') 
+end role
+
+
+%%%%%%% Role specification for the session %%%%%%%%
+
+role session(Ui,GWN,SNj: agent, 
+             % H is hash function                                                         
+             H : hash_func,
+             SKuigwn: symmetric_key)
+def=
+  local  US, UR, SS, SR, VS, VR: channel (dy)
+  composition
+           alice(Ui, GWN, SNj, H, SKuigwn, US, UR)
+        /\ server(Ui, GWN, SNj, H, SKuigwn, SS, SR)
+        /\ bob(Ui, GWN, SNj, H, SKuigwn, VS, VR)
+end role
+
+
+
+%%%%%%% Role specification for the goal and environment %%%%%%%%
+
+role environment()
+def=
+ const ui, gwn, snj : agent,
+        h, gen, rep : hash_func, 
+        skuigwn: symmetric_key, 
+        idi, idsnj, t1, t2, t3 : text,
+        alice_server_t1, server_bob_t2,
+        bob_alice_t3, sub1, sub2, sub3, sub4 : protocol_id
+intruder_knowledge ={idi,h,gen,rep,t3}
+  composition
+	session(ui, gwn, snj, h, skuigwn) 
+    /\	session(ui, gwn, snj, h, skuigwn) 
+    /\  session(ui, gwn, snj, h, skuigwn) 
+end role
+
+goal
+  secrecy_of sub1
+  secrecy_of subs2
+  secrecy_of subs3
+  secrecy_of subs4
+  authentication_on alice_server_t1
+  authentication_on server_bob_t2
+  authentication_on bob_alice_t3
+end goal
+environment()
+

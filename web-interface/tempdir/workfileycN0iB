@@ -1,0 +1,51 @@
+role subscriber_station(A,B:agent,Kb:public_key,H:hash_func, Snd, Rcv: channel(dy)) 
+played_by  A def=         
+  local State  : nat
+,Na, Nb : text
+  init  State := 0
+  transition
+   1. State   = 0 /\ Rcv(start) =|>
+      State' := 1 /\ Snd(A)
+   2. State   = 1 /\ Rcv(Nb') =|> 
+      State' := 2 /\ Na' := new() /\ Snd(H(Na'.Nb'.A)) /\ witness(A,B,na,Na') 	 
+   3. State   = 2 /\ Rcv({Na}_inv(Kb)) =|> 
+      State' := 3 /\ request(A,B,nb,Nb) 
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%
+role base_station (B,A : agent, Kb:public_key,H: hash_func, Snd, Rcv: channel(dy))
+played_by B def=       
+  local State  : nat,
+  Na, Nb : text
+  init  State := 0
+  transition
+   1. State   = 0 /\ Rcv(A') =|>  
+      State' := 1 /\ Nb' := new() /\ Snd(Nb') /\ witness(B,A,nb,Nb')
+   2. State   = 1 /\ Rcv(H(Na'.Nb.A)) =|>
+      State' := 2 /\ Snd({Na'}_inv(Kb)) /\ request(B,A,na,Na') 
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(A,B: agent,Kb:public_key,H: hash_func)
+def=
+  local SA, SB, RA, RB: channel (dy)
+  composition
+subscriber_station (A, B, Kb, H, SA, RA)
+/\  base_station (B, A,  Kb,H, SB, RB)
+end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+  def=
+  const a, b  : agent,    kb,ki:public_key,   hab,hai,hib: hash_func,  na, nb  : protocol_id
+  intruder_knowledge = {a, b,hai,hib,ki }
+  composition
+	session(a,b,kb,hab) /\
+	session(a,i,ki,hai) /\
+               session(b,i,ki,hib)
+ end role
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+goal
+authentication_on nb
+authentication_on na 
+end goal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5%%%%%
+environment()
+ 

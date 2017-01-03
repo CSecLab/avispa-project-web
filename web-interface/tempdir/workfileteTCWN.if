@@ -1,0 +1,100 @@
+%% IF specification of /home/avispa/web-interface-computation/./tempdir/workfileteTCWN
+
+section signature:
+
+state_keymanager: agent * agent * nat * message * message * message * message * message * message * nat -> fact
+state_keyowner: agent * agent * nat * message * message * message * message * message * message * nat -> fact
+
+
+section types:
+
+State, 3, 2, 10, 6, 1, 4, 0, SID, Dummy_State, SID2, SID1: nat
+ASGoal: set(agent)
+SEMP, SEND, KP, KEY, TCODE, ACODE, Dummy_ACODE, Dummy_TCODE, Dummy_KEY, Dummy_KP, dummy_msg, MGoal: message
+A, B, A2Goal, A1Goal, a, i, b: agent
+access_code, k1: protocol_id
+
+
+section inits:
+
+initial_state init1 := 
+ iknows(a).
+ iknows(b).
+ iknows(i).
+ state_keyowner(a,b,0,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,3).
+ state_keymanager(b,a,0,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,4).
+ state_keyowner(a,i,0,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,6).
+ state_keymanager(b,i,0,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,dummy_msg,10)
+
+
+section rules:
+
+step step_0 (A,B,Dummy_KP,KEY,TCODE,ACODE,SEND,SEMP,SID,KP) :=
+ state_keyowner(A,B,0,Dummy_KP,KEY,TCODE,ACODE,SEND,SEMP,SID).
+ iknows(stat)
+=[exists KP]=>
+ state_keyowner(A,B,1,KP,KEY,TCODE,ACODE,SEND,SEMP,SID).
+ iknows(Dummy_KP)
+
+step step_1 (A,B,KP,Dummy_KEY,TCODE,ACODE,SEND,SEMP,SID,KEY) :=
+ state_keyowner(A,B,1,KP,Dummy_KEY,TCODE,ACODE,SEND,SEMP,SID).
+ iknows(TCODE)
+=[exists KEY]=>
+ state_keyowner(A,B,2,KP,KEY,TCODE,ACODE,SEND,SEMP,SID).
+ iknows(Dummy_KEY)
+
+step step_2 (A,B,KP,KEY,TCODE,ACODE,SEND,SEMP,SID) :=
+ state_keyowner(A,B,2,KP,KEY,TCODE,ACODE,SEND,SEMP,SID).
+ iknows(ACODE)
+ =>
+ state_keyowner(A,B,3,KP,KEY,TCODE,ACODE,SEND,SEMP,SID).
+ witness(A,B,access_code,ACODE)
+
+step step_3 (B,A,KP,KEY,Dummy_TCODE,ACODE,SEND,SEMP,SID,TCODE) :=
+ state_keymanager(B,A,0,KP,KEY,Dummy_TCODE,ACODE,SEND,SEMP,SID).
+ iknows(KP)
+=[exists TCODE]=>
+ state_keymanager(B,A,1,KP,KEY,TCODE,ACODE,SEND,SEMP,SID).
+ iknows(Dummy_TCODE)
+
+step step_4 (B,A,KP,KEY,TCODE,Dummy_ACODE,SEND,SEMP,SID,ACODE) :=
+ state_keymanager(B,A,1,KP,KEY,TCODE,Dummy_ACODE,SEND,SEMP,SID).
+ iknows(KEY)
+=[exists ACODE]=>
+ state_keymanager(B,A,2,KP,KEY,TCODE,ACODE,SEND,SEMP,SID).
+ iknows(Dummy_ACODE)
+
+
+section properties:
+
+property secrecy_of_k1 (MGoal,ASGoal) :=
+ [] ((secret(MGoal,k1,ASGoal) /\ iknows(MGoal))
+     => contains(i,ASGoal))
+
+property authentication_on_access_code (A1Goal,A2Goal,MGoal,SID,SID1,SID2) :=
+ [] (((request(A1Goal,A2Goal,access_code,MGoal,SID)
+       /\ ~ equal(A2Goal,i))
+      => witness(A2Goal,A1Goal,access_code,MGoal))
+     /\ ((request(A1Goal,A2Goal,access_code,MGoal,SID1)
+           /\ request(A1Goal,A2Goal,access_code,MGoal,SID2)
+           /\ ~ equal(A2Goal,i))
+          => equal(SID1,SID2)))
+
+
+section attack_states:
+
+attack_state secrecy_of_k1 (MGoal,ASGoal) :=
+ iknows(MGoal).
+ secret(MGoal,k1,ASGoal) &
+ not(contains(i,ASGoal))
+
+attack_state authentication_on_access_code (A1Goal,A2Goal,MGoal,SID) :=
+ request(A1Goal,A2Goal,access_code,MGoal,SID) &
+ not(witness(A2Goal,A1Goal,access_code,MGoal)) &
+ not(equal(A2Goal,i))
+attack_state replay_protection_on_access_code (A2Goal,A1Goal,MGoal,SID1,SID2) :=
+ request(A1Goal,A2Goal,access_code,MGoal,SID1).
+ request(A1Goal,A2Goal,access_code,MGoal,SID2) &
+ not(equal(SID1,SID2)) &
+ not(equal(A2Goal,i))
+

@@ -1,0 +1,135 @@
+%%BIO-ID-PWA Scheme developed by Dr. SK H ISLAM
+%% IPC Unit, CSIS/BITS Pilani/Rajasthan/INDIA
+%% Date:= 2014/03/02
+
+role user(
+U, S : agent,
+      H, Mul , Add, Conc: hash_func,
+      Y :  symmetric_key,
+      Snd, Rcv : channel(dy))
+
+played_by U
+
+def=
+local State : nat, 
+IDu, IDs, ID, Fu, IMu, SIDu, Eu, Cu, PWu, X, Tu, Ts, R, Ruu, Ru, Rss, Rs, Ku, Ks, SK : text
+
+const user_server_tu, user_server_ru, server_user_ts, server_user_rs,
+pid: protocol_id
+
+
+init State:=0
+
+transition
+
+1. State = 0 / Rcv(start)=|>
+    
+State' := 1 / IDu':= H(Fu)
+                    /Eu':= H(PWu) 
+                    / Snd({IDu. Eu}_Y)
+                    / secret(PWu, pid, U)
+
+2.State =1 / Rcv({IMu.Add(H(ID, X, SIDu), H(PWu)).H(H(ID, X, SIDu), IDu) }_Y)=|>
+
+State' := 2 / Ru':= new()
+                    / Tu':= new()
+                    / Ruu':= Mul(Ru', H(ID, X, SIDu))
+                    / Cu' := H(IMu, Ruu', H(ID, X, SIDu),  Tu') 
+                    / Snd(IMu.Ruu'.Cu'.Tu')
+                    / witness(U, S, user_server_tu, Tu')
+                    / witness(U, S, user_server_ru, Ru')
+
+3. State=2      / Rcv(IMu. Mul(Rs', H(ID, X, SIDu)). H(IMu, Mul(Rs', H(ID, X, SIDu)), H(ID, X, SIDu),Ts').Ts')=|>
+     State' :=3  / Rss':= Mul(Rs', H(ID, X, SIDu))
+                         / Ku':= Mul(Mul(Ru, Mul(Rs', H(ID, X, SIDu))))
+                          / SK':= H(IMu, Ruu, Rss', Tu, Ts', Ku')
+                          / request(S, U, server_user_ts, Ts') 
+                          / request(S, U, server_user_rs, Rs')
+end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role server(
+      U, S : agent,
+      H, Mul , Add, Conc: hash_func,
+      Y :  symmetric_key,
+      Snd, Rcv : channel(dy))
+
+played_by S
+
+def=
+  local State : nat, 
+IDu, IDs, ID,Fu, IMu, SIDu, Eu, Cs, PWu, X, Tu, Ts, R, Ruu, Ru, Rss, Rs, Ku, Ks, SK : text
+
+
+const user_server_tu, user_server_ru, server_user_ts, server_user_rs,
+pid: protocol_id
+
+
+init State:=0
+
+transition
+
+1. State = 0   / Rcv({IDu. Eu}_Y) =|>
+    State' := 1 / secret(PWu, pid, U) 
+                        / ID' := Conc(IDu, IDs)
+                        / R' :=  new()
+                        / IMu' := ({Conc(ID, R')}_X)
+                        /Snd({IMu.Add(H(ID, X, SIDu), H(PWu)).H(H(ID, X, SIDu), ID) }_Y)
+
+2. State = 1  / Rcv(IMu. Mul(Ru', H(ID, X, SIDu)). H(IMu, Ruu', H(ID, X, SIDu),  Tu').Tu')=|>
+    State':= 2 / Rs' := new() 
+                       / Ts' := new()
+       / Rss' := Mul(Rs', H(ID, X, SIDu))
+       / Cs':= H(IMu, Rss', H(ID, X, SIDu),  Ts') 
+       / Snd(IMu.Rss'.Cs'.Ts') 
+       / Ks':= Mul(Mul(Rs', Mul(Ru', H(ID, X, SIDu))))
+                       / Ruu':= Mul(Ru', H(ID, X, SIDu))         
+                       / SK':= H(IMu, Ruu', Rss, Tu', Ts, Ks)
+                       / witness(S, U, server_user_ts, Ts')
+                       / witness(S, U, server_user_rs, Rs')
+                       / request(U, S, user_server_tu, Tu')
+                       / request(U, S, user_server_ru, Ru')
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(
+       U, S : agent,
+       H, Mul, Add, Conc : hash_func,
+       Y :  symmetric_key)
+def=
+local S1, S2, R1, R2: channel(dy)
+
+composition
+      user(U, S, H, Mul, Add, Conc, Y, S1, R1) / server(S, U, H, Mul, Add, Conc, Y, S1, R1)
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+const u, s: agent,
+      ids, id, idu, fu, imu, pwu, x, tu, ts,  r, ruu, ru, rss, rs: text,
+      h, mul, add, conc : hash_func,
+      y : symmetric_key,
+      user_server_tu, user_server_ru,  server_user_ts, server_user_rs,
+      pid: protocol_id
+
+intruder_knowledge = {u, s, h, mul, add, conc}
+
+composition
+   session(u, s, h, mul,add,  conc, y) / session(u, s, h, mul, add, conc, y)
+end role
+
+goal
+secrecy_of  pid
+authentication_on  user_server_tu
+authentication_on  user_server_ru
+authentication_on  server_user_ts
+authentication_on  server_user_rs
+end goal
+
+environment()
+
+      
+ 

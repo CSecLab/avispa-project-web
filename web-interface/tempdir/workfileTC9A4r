@@ -1,0 +1,111 @@
+%% PROTOCOL: Diffie-Hellman Key Exchange Protocol.
+%% PURPOSE: To establish a symmetric secret key between A and B.
+%% A -> B : 
+%% B -> A : 
+%% To simulate man-in-the-middle attack on this protocol.
+
+role initiator (A, B : agent,
+	   	H : hash_func,
+           	Snd, Rcv: channel(dy))
+played_by A
+def=
+         local State  : nat,
+         G, Q, XA, YA, XB, YB:  text
+         const alice_bob_xa,  bob_alice_xb, sub1 : protocol_id
+
+   init  State := 0
+
+  transition
+   1. State   = 0 /\ Rcv(start) =|>
+      State' := 1 /\ XA' := new()
+% Keep Xa secret to user A only
+                  /\ secret({XA'}, sub1, A)
+% Send the message  to user B
+                  /\ Snd(exp(G, XA').G.Q) 
+% User A has freshly generated the value Xa for user B
+                  /\ witness (A, B, alice_bob_xa, XA')
+% Receive the message  from user B 
+   2. State = 1   /\ Rcv(exp(G, XB').Q) =|> 
+% User A's acceptance of the value Xb generated for user A by user B
+      State' := 2 /\ request (B, A, bob_alice_xb, XB')
+ end role
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role responder (A,B  : agent,
+	   	H : hash_func,
+           	Snd, Rcv: channel(dy))
+played_by B
+def=
+         local State  : nat,
+         G, Q, XA, YA, XB, YB:  text
+         const alice_bob,  bob_alice, sub2 : protocol_id
+
+   init  State := 0
+
+  transition
+% Receive the message  from user A
+   1. State   = 0 /\ Rcv(exp(G, XA').Q) =|>  
+      State' := 1 /\ XB' := new()
+% Keep Xb secret to user B only
+                  /\ secret({XB'}, sub2, B)
+% Send the message  to user A 
+                  /\ Snd(exp(G, XB').Q)
+% User B has freshly generated the value Xb for user A
+                  /\ witness (B, A, bob_alice_xb, XB')
+% User B's acceptance of the value Xa generated for user B by user A
+                  /\ request (A, B, alice_bob_xa, XA')
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+role session(A,B: agent,
+             H: hash_func
+	)
+def=
+
+  local  SA, SB, RA, RB: channel (dy),
+         G, Q, XA, YA, XB, YB :  text
+         const alice_bob,  bob_alice, sub1, sub2 : protocol_id
+           
+  composition
+           initiator(A, B, H, SA, RA)
+       /\  responder(A, B, H, SB, RB)
+end role 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+role environment()
+def=
+
+  const a, b   : agent,
+        h   : hash_func,
+        g, q, xa, ya, xb, yb :  text,
+        alice_bob_xa, bob_alice_xb, sub1, sub2 : protocol_id
+
+  intruder_knowledge = {a, b, ya, yb, g, q}
+
+  composition
+	session(a, b, h) 
+     /\ session(a, i, h) 
+     /\ session(i, b, h)   
+end role
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+goal
+% Keep Xa secret to user A by the protocol id sub1
+  secrecy_of sub1
+% Keep Xb secret to user B by the protocol id sub2
+  secrecy_of sub2
+% User B authenticates user A based on Xa' 
+  authentication_on alice_bob
+% User A authenticates user B based on Xb' 
+  authentication_on bob_alice
+end goal
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+environment()
+
